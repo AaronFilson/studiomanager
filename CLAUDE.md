@@ -10,18 +10,23 @@ from one fixed path inside the repo, so use them, exactly as written, from the r
 |---|---|
 | Everything (API, generated client, web) | `bash scripts/check.sh` |
 | API build and tests | `bash scripts/api.sh` |
+| API with the Docker integration tests (runs in WSL) | `bash scripts/integration.sh test` |
 | Any Gradle task | `bash scripts/api.sh compileJava` |
 | pnpm | `bash scripts/js.sh -r run test`, `bash scripts/js.sh --filter @studiomanager/api-client run generate` |
 
-- Don't set `JAVA_HOME`, call `corepack` or call `gradlew` directly, and don't `cd` in a
-  compound command.
+- **The shell is only for `bash scripts/...` and `git`.** Each command is a single command,
+  run from the repo root, with no `cd`, no `&&` chains and no pipes into other tools.
+- **Read, search and list files with the built-in tools** (Read, Grep, Glob), never with `cat`,
+  `head`, `sed`, `find` or `ls`. Edit files with Edit or Write, never with `sed` or redirection.
+- Don't set `JAVA_HOME`, and don't call `corepack` or `gradlew` directly.
 - Don't read or write outside the repo, including temp and scratch folders. Write notes and
   research into the repo (for example `docs/planning/`).
 - Subagents follow the same rules. A research subagent uses only the web and file tools: no
   shell, no agents of its own.
 
-Integration tests need Docker, which is not available on this Windows machine. They are
-skipped locally and run in CI.
+Integration tests need Docker, which only runs in WSL on this machine. `scripts/api.sh` skips
+them; `scripts/integration.sh` runs the full build inside WSL and prints a per-class test count,
+so skipped tests are visible. CI runs them too.
 
 ## Where things are
 
