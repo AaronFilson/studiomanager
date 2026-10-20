@@ -11,8 +11,21 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudiosRouteRouteImport } from './routes/studios/route'
+import { Route as InvitesCodeRouteImport } from './routes/invites/$code'
 import { Route as StudiosIndexRouteImport } from './routes/studios/index'
-import { Route as StudiosStudioIdRouteImport } from './routes/studios/$studioId'
+import { Route as StudiosStudioIdRouteRouteImport } from './routes/studios/$studioId/route'
+import { Route as StudiosStudioIdIndexRouteImport } from './routes/studios/$studioId/index'
+import { Route as StudiosStudioIdCalendarRouteImport } from './routes/studios/$studioId/calendar'
+import { Route as StudiosStudioIdMembersRouteImport } from './routes/studios/$studioId/members'
+import { Route as StudiosStudioIdMoneyRouteImport } from './routes/studios/$studioId/money'
+import { Route as StudiosStudioIdRosterRouteImport } from './routes/studios/$studioId/roster'
+import { Route as StudiosStudioIdSettingsRouteImport } from './routes/studios/$studioId/settings'
+import { Route as StudiosStudioIdSuppliesRouteImport } from './routes/studios/$studioId/supplies'
+import { Route as StudiosStudioIdTodayRouteImport } from './routes/studios/$studioId/today'
+import { Route as StudiosStudioIdKilnsIndexRouteImport } from './routes/studios/$studioId/kilns/index'
+import { Route as StudiosStudioIdKilnsKilnIdRouteImport } from './routes/studios/$studioId/kilns/$kilnId'
+import { Route as StudiosStudioIdPiecesIndexRouteImport } from './routes/studios/$studioId/pieces/index'
+import { Route as StudiosStudioIdPiecesPieceIdRouteImport } from './routes/studios/$studioId/pieces/$pieceId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,46 +37,204 @@ const StudiosRouteRoute = StudiosRouteRouteImport.update({
   path: '/studios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvitesCodeRoute = InvitesCodeRouteImport.update({
+  id: '/invites/$code',
+  path: '/invites/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudiosIndexRoute = StudiosIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => StudiosRouteRoute,
 } as any)
-const StudiosStudioIdRoute = StudiosStudioIdRouteImport.update({
+const StudiosStudioIdRouteRoute = StudiosStudioIdRouteRouteImport.update({
   id: '/$studioId',
   path: '/$studioId',
   getParentRoute: () => StudiosRouteRoute,
 } as any)
+const StudiosStudioIdIndexRoute = StudiosStudioIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdCalendarRoute = StudiosStudioIdCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdMembersRoute = StudiosStudioIdMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdMoneyRoute = StudiosStudioIdMoneyRouteImport.update({
+  id: '/money',
+  path: '/money',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdRosterRoute = StudiosStudioIdRosterRouteImport.update({
+  id: '/roster',
+  path: '/roster',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdSettingsRoute = StudiosStudioIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdSuppliesRoute = StudiosStudioIdSuppliesRouteImport.update({
+  id: '/supplies',
+  path: '/supplies',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdTodayRoute = StudiosStudioIdTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdKilnsIndexRoute =
+  StudiosStudioIdKilnsIndexRouteImport.update({
+    id: '/kilns/',
+    path: '/kilns/',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
+const StudiosStudioIdKilnsKilnIdRoute =
+  StudiosStudioIdKilnsKilnIdRouteImport.update({
+    id: '/kilns/$kilnId',
+    path: '/kilns/$kilnId',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
+const StudiosStudioIdPiecesIndexRoute =
+  StudiosStudioIdPiecesIndexRouteImport.update({
+    id: '/pieces/',
+    path: '/pieces/',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
+const StudiosStudioIdPiecesPieceIdRoute =
+  StudiosStudioIdPiecesPieceIdRouteImport.update({
+    id: '/pieces/$pieceId',
+    path: '/pieces/$pieceId',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/studios': typeof StudiosRouteRouteWithChildren
-  '/studios/$studioId': typeof StudiosStudioIdRoute
+  '/studios/$studioId': typeof StudiosStudioIdRouteRouteWithChildren
+  '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
+  '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
+  '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
+  '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
+  '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
+  '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
+  '/studios/$studioId/': typeof StudiosStudioIdIndexRoute
+  '/studios/$studioId/kilns/$kilnId': typeof StudiosStudioIdKilnsKilnIdRoute
+  '/studios/$studioId/pieces/$pieceId': typeof StudiosStudioIdPiecesPieceIdRoute
+  '/studios/$studioId/kilns/': typeof StudiosStudioIdKilnsIndexRoute
+  '/studios/$studioId/pieces/': typeof StudiosStudioIdPiecesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/studios/$studioId': typeof StudiosStudioIdRoute
+  '/invites/$code': typeof InvitesCodeRoute
   '/studios': typeof StudiosIndexRoute
+  '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
+  '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
+  '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
+  '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
+  '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
+  '/studios/$studioId': typeof StudiosStudioIdIndexRoute
+  '/studios/$studioId/kilns/$kilnId': typeof StudiosStudioIdKilnsKilnIdRoute
+  '/studios/$studioId/pieces/$pieceId': typeof StudiosStudioIdPiecesPieceIdRoute
+  '/studios/$studioId/kilns': typeof StudiosStudioIdKilnsIndexRoute
+  '/studios/$studioId/pieces': typeof StudiosStudioIdPiecesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/studios': typeof StudiosRouteRouteWithChildren
-  '/studios/$studioId': typeof StudiosStudioIdRoute
+  '/studios/$studioId': typeof StudiosStudioIdRouteRouteWithChildren
+  '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
+  '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
+  '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
+  '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
+  '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
+  '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
+  '/studios/$studioId/': typeof StudiosStudioIdIndexRoute
+  '/studios/$studioId/kilns/$kilnId': typeof StudiosStudioIdKilnsKilnIdRoute
+  '/studios/$studioId/pieces/$pieceId': typeof StudiosStudioIdPiecesPieceIdRoute
+  '/studios/$studioId/kilns/': typeof StudiosStudioIdKilnsIndexRoute
+  '/studios/$studioId/pieces/': typeof StudiosStudioIdPiecesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/studios' | '/studios/$studioId' | '/studios/'
+  fullPaths:
+    | '/'
+    | '/studios'
+    | '/studios/$studioId'
+    | '/invites/$code'
+    | '/studios/'
+    | '/studios/$studioId/calendar'
+    | '/studios/$studioId/members'
+    | '/studios/$studioId/money'
+    | '/studios/$studioId/roster'
+    | '/studios/$studioId/settings'
+    | '/studios/$studioId/supplies'
+    | '/studios/$studioId/today'
+    | '/studios/$studioId/'
+    | '/studios/$studioId/kilns/$kilnId'
+    | '/studios/$studioId/pieces/$pieceId'
+    | '/studios/$studioId/kilns/'
+    | '/studios/$studioId/pieces/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/studios/$studioId' | '/studios'
-  id: '__root__' | '/' | '/studios' | '/studios/$studioId' | '/studios/'
+  to:
+    | '/'
+    | '/invites/$code'
+    | '/studios'
+    | '/studios/$studioId/calendar'
+    | '/studios/$studioId/members'
+    | '/studios/$studioId/money'
+    | '/studios/$studioId/roster'
+    | '/studios/$studioId/settings'
+    | '/studios/$studioId/supplies'
+    | '/studios/$studioId/today'
+    | '/studios/$studioId'
+    | '/studios/$studioId/kilns/$kilnId'
+    | '/studios/$studioId/pieces/$pieceId'
+    | '/studios/$studioId/kilns'
+    | '/studios/$studioId/pieces'
+  id:
+    | '__root__'
+    | '/'
+    | '/studios'
+    | '/studios/$studioId'
+    | '/invites/$code'
+    | '/studios/'
+    | '/studios/$studioId/calendar'
+    | '/studios/$studioId/members'
+    | '/studios/$studioId/money'
+    | '/studios/$studioId/roster'
+    | '/studios/$studioId/settings'
+    | '/studios/$studioId/supplies'
+    | '/studios/$studioId/today'
+    | '/studios/$studioId/'
+    | '/studios/$studioId/kilns/$kilnId'
+    | '/studios/$studioId/pieces/$pieceId'
+    | '/studios/$studioId/kilns/'
+    | '/studios/$studioId/pieces/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   StudiosRouteRoute: typeof StudiosRouteRouteWithChildren
+  InvitesCodeRoute: typeof InvitesCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudiosRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invites/$code': {
+      id: '/invites/$code'
+      path: '/invites/$code'
+      fullPath: '/invites/$code'
+      preLoaderRoute: typeof InvitesCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/studios/': {
       id: '/studios/'
       path: '/'
@@ -93,19 +271,136 @@ declare module '@tanstack/react-router' {
       id: '/studios/$studioId'
       path: '/$studioId'
       fullPath: '/studios/$studioId'
-      preLoaderRoute: typeof StudiosStudioIdRouteImport
+      preLoaderRoute: typeof StudiosStudioIdRouteRouteImport
       parentRoute: typeof StudiosRouteRoute
+    }
+    '/studios/$studioId/': {
+      id: '/studios/$studioId/'
+      path: '/'
+      fullPath: '/studios/$studioId/'
+      preLoaderRoute: typeof StudiosStudioIdIndexRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/calendar': {
+      id: '/studios/$studioId/calendar'
+      path: '/calendar'
+      fullPath: '/studios/$studioId/calendar'
+      preLoaderRoute: typeof StudiosStudioIdCalendarRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/members': {
+      id: '/studios/$studioId/members'
+      path: '/members'
+      fullPath: '/studios/$studioId/members'
+      preLoaderRoute: typeof StudiosStudioIdMembersRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/money': {
+      id: '/studios/$studioId/money'
+      path: '/money'
+      fullPath: '/studios/$studioId/money'
+      preLoaderRoute: typeof StudiosStudioIdMoneyRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/roster': {
+      id: '/studios/$studioId/roster'
+      path: '/roster'
+      fullPath: '/studios/$studioId/roster'
+      preLoaderRoute: typeof StudiosStudioIdRosterRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/settings': {
+      id: '/studios/$studioId/settings'
+      path: '/settings'
+      fullPath: '/studios/$studioId/settings'
+      preLoaderRoute: typeof StudiosStudioIdSettingsRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/supplies': {
+      id: '/studios/$studioId/supplies'
+      path: '/supplies'
+      fullPath: '/studios/$studioId/supplies'
+      preLoaderRoute: typeof StudiosStudioIdSuppliesRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/today': {
+      id: '/studios/$studioId/today'
+      path: '/today'
+      fullPath: '/studios/$studioId/today'
+      preLoaderRoute: typeof StudiosStudioIdTodayRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/kilns/': {
+      id: '/studios/$studioId/kilns/'
+      path: '/kilns'
+      fullPath: '/studios/$studioId/kilns/'
+      preLoaderRoute: typeof StudiosStudioIdKilnsIndexRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/kilns/$kilnId': {
+      id: '/studios/$studioId/kilns/$kilnId'
+      path: '/kilns/$kilnId'
+      fullPath: '/studios/$studioId/kilns/$kilnId'
+      preLoaderRoute: typeof StudiosStudioIdKilnsKilnIdRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/pieces/': {
+      id: '/studios/$studioId/pieces/'
+      path: '/pieces'
+      fullPath: '/studios/$studioId/pieces/'
+      preLoaderRoute: typeof StudiosStudioIdPiecesIndexRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/pieces/$pieceId': {
+      id: '/studios/$studioId/pieces/$pieceId'
+      path: '/pieces/$pieceId'
+      fullPath: '/studios/$studioId/pieces/$pieceId'
+      preLoaderRoute: typeof StudiosStudioIdPiecesPieceIdRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
     }
   }
 }
 
+interface StudiosStudioIdRouteRouteChildren {
+  StudiosStudioIdCalendarRoute: typeof StudiosStudioIdCalendarRoute
+  StudiosStudioIdMembersRoute: typeof StudiosStudioIdMembersRoute
+  StudiosStudioIdMoneyRoute: typeof StudiosStudioIdMoneyRoute
+  StudiosStudioIdRosterRoute: typeof StudiosStudioIdRosterRoute
+  StudiosStudioIdSettingsRoute: typeof StudiosStudioIdSettingsRoute
+  StudiosStudioIdSuppliesRoute: typeof StudiosStudioIdSuppliesRoute
+  StudiosStudioIdTodayRoute: typeof StudiosStudioIdTodayRoute
+  StudiosStudioIdIndexRoute: typeof StudiosStudioIdIndexRoute
+  StudiosStudioIdKilnsKilnIdRoute: typeof StudiosStudioIdKilnsKilnIdRoute
+  StudiosStudioIdPiecesPieceIdRoute: typeof StudiosStudioIdPiecesPieceIdRoute
+  StudiosStudioIdKilnsIndexRoute: typeof StudiosStudioIdKilnsIndexRoute
+  StudiosStudioIdPiecesIndexRoute: typeof StudiosStudioIdPiecesIndexRoute
+}
+
+const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
+  StudiosStudioIdCalendarRoute: StudiosStudioIdCalendarRoute,
+  StudiosStudioIdMembersRoute: StudiosStudioIdMembersRoute,
+  StudiosStudioIdMoneyRoute: StudiosStudioIdMoneyRoute,
+  StudiosStudioIdRosterRoute: StudiosStudioIdRosterRoute,
+  StudiosStudioIdSettingsRoute: StudiosStudioIdSettingsRoute,
+  StudiosStudioIdSuppliesRoute: StudiosStudioIdSuppliesRoute,
+  StudiosStudioIdTodayRoute: StudiosStudioIdTodayRoute,
+  StudiosStudioIdIndexRoute: StudiosStudioIdIndexRoute,
+  StudiosStudioIdKilnsKilnIdRoute: StudiosStudioIdKilnsKilnIdRoute,
+  StudiosStudioIdPiecesPieceIdRoute: StudiosStudioIdPiecesPieceIdRoute,
+  StudiosStudioIdKilnsIndexRoute: StudiosStudioIdKilnsIndexRoute,
+  StudiosStudioIdPiecesIndexRoute: StudiosStudioIdPiecesIndexRoute,
+}
+
+const StudiosStudioIdRouteRouteWithChildren =
+  StudiosStudioIdRouteRoute._addFileChildren(StudiosStudioIdRouteRouteChildren)
+
 interface StudiosRouteRouteChildren {
-  StudiosStudioIdRoute: typeof StudiosStudioIdRoute
+  StudiosStudioIdRouteRoute: typeof StudiosStudioIdRouteRouteWithChildren
   StudiosIndexRoute: typeof StudiosIndexRoute
 }
 
 const StudiosRouteRouteChildren: StudiosRouteRouteChildren = {
-  StudiosStudioIdRoute: StudiosStudioIdRoute,
+  StudiosStudioIdRouteRoute: StudiosStudioIdRouteRouteWithChildren,
   StudiosIndexRoute: StudiosIndexRoute,
 }
 
@@ -116,6 +411,7 @@ const StudiosRouteRouteWithChildren = StudiosRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   StudiosRouteRoute: StudiosRouteRouteWithChildren,
+  InvitesCodeRoute: InvitesCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

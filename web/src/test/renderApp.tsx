@@ -1,4 +1,4 @@
-import { configureApiClient, type Studio } from '@studiomanager/api-client';
+import { configureApiClient, type Piece, type Studio } from '@studiomanager/api-client';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -35,6 +35,30 @@ export function aStudio(overrides: Partial<Studio> = {}): Studio {
     myRole: 'OWNER',
     memberCount: 12,
     createdAt: '2026-10-19T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function aPiece(overrides: Partial<Piece> = {}): Piece {
+  return {
+    id: '7c1d4a52-90b3-4f0e-8a51-2e7f5c6d9b01',
+    number: 42,
+    makerAccountId: 'a1',
+    makerName: 'Mo Maker',
+    description: 'Lidded jar',
+    size: { dimensions: { length: '12', width: '10', height: '8', unit: 'INCH' } },
+    stage: 'RECEIVED',
+    fee: {
+      amount: { amount: '48.00', currency: 'USD' },
+      scheduleVersion: 1,
+      taxCategory: 'FIRING_SERVICE',
+      breakdown: '12 × 10 × 8 in → 960 in³ × 0.05 = 48.00',
+    },
+    receivedAt: '2026-10-19T15:00:00Z',
+    overdue: false,
+    nextStages: ['BISQUE_FIRED', 'GLAZED'],
+    version: 0,
+    timeline: [{ to: 'RECEIVED', actorAccountId: 'a1', actorName: 'Mo Maker', occurredAt: '2026-10-19T15:00:00Z' }],
     ...overrides,
   };
 }

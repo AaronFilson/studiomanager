@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createStudio, getMe, getStudio, type Options } from '../sdk.gen';
-import type { CreateStudioData, CreateStudioError, CreateStudioResponse, GetMeData, GetMeError, GetMeResponse, GetStudioData, GetStudioError, GetStudioResponse } from '../types.gen';
+import { acceptInvite, adjustHours, assignShift, cancelBooking, createBooking, createCertificationType, createInvite, createKiln, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, expireStoredValue, exportJournal, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listBalances, listBookings, listCertifications, listCertificationTypes, listDuties, listKilnFirings, listKilnMaintenance, listKilns, listMembers, listMyNotifications, listPayouts, listPieces, listPurchaseRequests, listResources, listShifts, listStockMovements, listStoredValues, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, type Options, quoteFee, recordKilnMaintenance, recordPayment, recordStockMovement, revokeCertification, saveFeeSchedule, savePiecePolicy, sellStoredValue, sellSupply, sendNotice, setDuties, setKilnAvailability, setTaxRate, transitionFiring, updateKiln, updateSupply, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnMaintenanceData, ListKilnMaintenanceError, ListKilnMaintenanceResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordKilnMaintenanceData, RecordKilnMaintenanceError, RecordKilnMaintenanceResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -95,3 +95,1265 @@ export const getStudioOptions = (options: Options<GetStudioData>) => queryOption
     },
     queryKey: getStudioQueryKey(options)
 });
+
+export const listMembersQueryKey = (options: Options<ListMembersData>) => createQueryKey('listMembers', options);
+
+/**
+ * Everyone in the studio (staff only)
+ */
+export const listMembersOptions = (options: Options<ListMembersData>) => queryOptions<ListMembersResponse, ListMembersError, ListMembersResponse, ReturnType<typeof listMembersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMembers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMembersQueryKey(options)
+});
+
+/**
+ * Invite someone into the studio (staff only)
+ *
+ * Returns a one-time code, valid for 14 days. Nobody can invite to a role above their own.
+ * The code is shown only here; the server keeps just its hash.
+ *
+ */
+export const createInviteMutation = (options?: Partial<Options<CreateInviteData>>): UseMutationOptions<CreateInviteResponse, CreateInviteError, Options<CreateInviteData>> => {
+    const mutationOptions: UseMutationOptions<CreateInviteResponse, CreateInviteError, Options<CreateInviteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Join a studio with an invite code
+ */
+export const acceptInviteMutation = (options?: Partial<Options<AcceptInviteData>>): UseMutationOptions<AcceptInviteResponse, AcceptInviteError, Options<AcceptInviteData>> => {
+    const mutationOptions: UseMutationOptions<AcceptInviteResponse, AcceptInviteError, Options<AcceptInviteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await acceptInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getFeeScheduleQueryKey = (options: Options<GetFeeScheduleData>) => createQueryKey('getFeeSchedule', options);
+
+/**
+ * The current firing-fee schedule
+ *
+ * Version 0 means the studio hasn't set fees, so pieces fire free.
+ */
+export const getFeeScheduleOptions = (options: Options<GetFeeScheduleData>) => queryOptions<GetFeeScheduleResponse, GetFeeScheduleError, GetFeeScheduleResponse, ReturnType<typeof getFeeScheduleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getFeeSchedule({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getFeeScheduleQueryKey(options)
+});
+
+/**
+ * Save the fees as a new version (staff only)
+ *
+ * Earlier versions are kept, and pieces keep the version they were priced with.
+ */
+export const saveFeeScheduleMutation = (options?: Partial<Options<SaveFeeScheduleData>>): UseMutationOptions<SaveFeeScheduleResponse, SaveFeeScheduleError, Options<SaveFeeScheduleData>> => {
+    const mutationOptions: UseMutationOptions<SaveFeeScheduleResponse, SaveFeeScheduleError, Options<SaveFeeScheduleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveFeeSchedule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Price a piece without taking it in
+ */
+export const quoteFeeMutation = (options?: Partial<Options<QuoteFeeData>>): UseMutationOptions<QuoteFeeResponse, QuoteFeeError, Options<QuoteFeeData>> => {
+    const mutationOptions: UseMutationOptions<QuoteFeeResponse, QuoteFeeError, Options<QuoteFeeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await quoteFee({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPiecePolicyQueryKey = (options: Options<GetPiecePolicyData>) => createQueryKey('getPiecePolicy', options);
+
+/**
+ * How long ready pieces are held
+ */
+export const getPiecePolicyOptions = (options: Options<GetPiecePolicyData>) => queryOptions<GetPiecePolicyResponse, GetPiecePolicyError, GetPiecePolicyResponse, ReturnType<typeof getPiecePolicyQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPiecePolicy({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPiecePolicyQueryKey(options)
+});
+
+/**
+ * Change how long ready pieces are held (staff only)
+ */
+export const savePiecePolicyMutation = (options?: Partial<Options<SavePiecePolicyData>>): UseMutationOptions<SavePiecePolicyResponse, SavePiecePolicyError, Options<SavePiecePolicyData>> => {
+    const mutationOptions: UseMutationOptions<SavePiecePolicyResponse, SavePiecePolicyError, Options<SavePiecePolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await savePiecePolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPiecesQueryKey = (options: Options<ListPiecesData>) => createQueryKey('listPieces', options);
+
+/**
+ * Pieces, newest first
+ *
+ * Staff see every piece. Members see only their own, whatever the filter says.
+ */
+export const listPiecesOptions = (options: Options<ListPiecesData>) => queryOptions<ListPiecesResponse, ListPiecesError, ListPiecesResponse, ReturnType<typeof listPiecesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPieces({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPiecesQueryKey(options)
+});
+
+/**
+ * Take in a piece
+ *
+ * Numbers the piece and prices it with the current fee schedule. The fee is a snapshot:
+ * later fee changes don't alter it. Members can drop off only their own pieces.
+ *
+ */
+export const intakePieceMutation = (options?: Partial<Options<IntakePieceData>>): UseMutationOptions<IntakePieceResponse, IntakePieceError, Options<IntakePieceData>> => {
+    const mutationOptions: UseMutationOptions<IntakePieceResponse, IntakePieceError, Options<IntakePieceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await intakePiece({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPieceQueryKey = (options: Options<GetPieceData>) => createQueryKey('getPiece', options);
+
+/**
+ * One piece and its timeline
+ */
+export const getPieceOptions = (options: Options<GetPieceData>) => queryOptions<GetPieceResponse, GetPieceError, GetPieceResponse, ReturnType<typeof getPieceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPiece({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPieceQueryKey(options)
+});
+
+/**
+ * Move a piece to its next stage (staff only)
+ *
+ * Reaching READY starts the hold period.
+ */
+export const movePieceMutation = (options?: Partial<Options<MovePieceData>>): UseMutationOptions<MovePieceResponse, MovePieceError, Options<MovePieceData>> => {
+    const mutationOptions: UseMutationOptions<MovePieceResponse, MovePieceError, Options<MovePieceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await movePiece({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listKilnsQueryKey = (options: Options<ListKilnsData>) => createQueryKey('listKilns', options);
+
+/**
+ * The studio's kilns, with availability and maintenance counters
+ */
+export const listKilnsOptions = (options: Options<ListKilnsData>) => queryOptions<ListKilnsResponse, ListKilnsError, ListKilnsResponse, ReturnType<typeof listKilnsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listKilns({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listKilnsQueryKey(options)
+});
+
+/**
+ * Add a kiln (staff only)
+ */
+export const createKilnMutation = (options?: Partial<Options<CreateKilnData>>): UseMutationOptions<CreateKilnResponse, CreateKilnError, Options<CreateKilnData>> => {
+    const mutationOptions: UseMutationOptions<CreateKilnResponse, CreateKilnError, Options<CreateKilnData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createKiln({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Change a kiln's settings (staff only)
+ */
+export const updateKilnMutation = (options?: Partial<Options<UpdateKilnData>>): UseMutationOptions<UpdateKilnResponse, UpdateKilnError, Options<UpdateKilnData>> => {
+    const mutationOptions: UseMutationOptions<UpdateKilnResponse, UpdateKilnError, Options<UpdateKilnData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateKiln({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Take a kiln out of service, or put it back (staff only)
+ */
+export const setKilnAvailabilityMutation = (options?: Partial<Options<SetKilnAvailabilityData>>): UseMutationOptions<SetKilnAvailabilityResponse, SetKilnAvailabilityError, Options<SetKilnAvailabilityData>> => {
+    const mutationOptions: UseMutationOptions<SetKilnAvailabilityResponse, SetKilnAvailabilityError, Options<SetKilnAvailabilityData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setKilnAvailability({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listKilnMaintenanceQueryKey = (options: Options<ListKilnMaintenanceData>) => createQueryKey('listKilnMaintenance', options);
+
+/**
+ * The kiln's maintenance log, newest first (staff only)
+ */
+export const listKilnMaintenanceOptions = (options: Options<ListKilnMaintenanceData>) => queryOptions<ListKilnMaintenanceResponse, ListKilnMaintenanceError, ListKilnMaintenanceResponse, ReturnType<typeof listKilnMaintenanceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listKilnMaintenance({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listKilnMaintenanceQueryKey(options)
+});
+
+/**
+ * Log maintenance, which restarts the firings-since-maintenance count (staff only)
+ */
+export const recordKilnMaintenanceMutation = (options?: Partial<Options<RecordKilnMaintenanceData>>): UseMutationOptions<RecordKilnMaintenanceResponse, RecordKilnMaintenanceError, Options<RecordKilnMaintenanceData>> => {
+    const mutationOptions: UseMutationOptions<RecordKilnMaintenanceResponse, RecordKilnMaintenanceError, Options<RecordKilnMaintenanceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recordKilnMaintenance({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getKilnQueueQueryKey = (options: Options<GetKilnQueueData>) => createQueryKey('getKilnQueue', options);
+
+/**
+ * Pieces waiting for a firing in this kiln, longest-waiting first (staff only)
+ *
+ * Each entry says whether the kiln's per-member cap lets it into the next load.
+ */
+export const getKilnQueueOptions = (options: Options<GetKilnQueueData>) => queryOptions<GetKilnQueueResponse, GetKilnQueueError, GetKilnQueueResponse, ReturnType<typeof getKilnQueueQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getKilnQueue({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getKilnQueueQueryKey(options)
+});
+
+export const listKilnFiringsQueryKey = (options: Options<ListKilnFiringsData>) => createQueryKey('listKilnFirings', options);
+
+/**
+ * The kiln's firing log, newest first (staff only)
+ */
+export const listKilnFiringsOptions = (options: Options<ListKilnFiringsData>) => queryOptions<ListKilnFiringsResponse, ListKilnFiringsError, ListKilnFiringsResponse, ReturnType<typeof listKilnFiringsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listKilnFirings({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listKilnFiringsQueryKey(options)
+});
+
+/**
+ * Start a load from queued pieces (staff only)
+ */
+export const loadKilnMutation = (options?: Partial<Options<LoadKilnData>>): UseMutationOptions<LoadKilnResponse, LoadKilnError, Options<LoadKilnData>> => {
+    const mutationOptions: UseMutationOptions<LoadKilnResponse, LoadKilnError, Options<LoadKilnData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await loadKiln({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getFiringQueryKey = (options: Options<GetFiringData>) => createQueryKey('getFiring', options);
+
+/**
+ * One firing and its pieces (staff only)
+ */
+export const getFiringOptions = (options: Options<GetFiringData>) => queryOptions<GetFiringResponse, GetFiringError, GetFiringResponse, ReturnType<typeof getFiringQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getFiring({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getFiringQueryKey(options)
+});
+
+/**
+ * Start, unload or cancel a firing (staff only)
+ *
+ * COMPLETE (unloading) moves every piece on (bisque → bisque fired; glaze → ready, which
+ * starts its hold), counts the firing against the kiln, and sends each maker one notice
+ * for the whole batch. CANCELLED returns the pieces to the queue.
+ *
+ */
+export const transitionFiringMutation = (options?: Partial<Options<TransitionFiringData>>): UseMutationOptions<TransitionFiringResponse, TransitionFiringError, Options<TransitionFiringData>> => {
+    const mutationOptions: UseMutationOptions<TransitionFiringResponse, TransitionFiringError, Options<TransitionFiringData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await transitionFiring({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listMyNotificationsQueryKey = (options: Options<ListMyNotificationsData>) => createQueryKey('listMyNotifications', options);
+
+/**
+ * The caller's notifications in this studio, newest first
+ */
+export const listMyNotificationsOptions = (options: Options<ListMyNotificationsData>) => queryOptions<ListMyNotificationsResponse, ListMyNotificationsError, ListMyNotificationsResponse, ReturnType<typeof listMyNotificationsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMyNotifications({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMyNotificationsQueryKey(options)
+});
+
+/**
+ * Mark one of the caller's notifications as read
+ */
+export const markNotificationReadMutation = (options?: Partial<Options<MarkNotificationReadData>>): UseMutationOptions<MarkNotificationReadResponse, MarkNotificationReadError, Options<MarkNotificationReadData>> => {
+    const mutationOptions: UseMutationOptions<MarkNotificationReadResponse, MarkNotificationReadError, Options<MarkNotificationReadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await markNotificationRead({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Send every member a notice, such as a closure (staff only)
+ */
+export const sendNoticeMutation = (options?: Partial<Options<SendNoticeData>>): UseMutationOptions<SendNoticeResponse, SendNoticeError, Options<SendNoticeData>> => {
+    const mutationOptions: UseMutationOptions<SendNoticeResponse, SendNoticeError, Options<SendNoticeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await sendNotice({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listDutiesQueryKey = (options: Options<ListDutiesData>) => createQueryKey('listDuties', options);
+
+/**
+ * Everyone's duties (staff only)
+ */
+export const listDutiesOptions = (options: Options<ListDutiesData>) => queryOptions<ListDutiesResponse, ListDutiesError, ListDutiesResponse, ReturnType<typeof listDutiesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listDuties({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listDutiesQueryKey(options)
+});
+
+/**
+ * Replace a member's duties (staff only)
+ */
+export const setDutiesMutation = (options?: Partial<Options<SetDutiesData>>): UseMutationOptions<SetDutiesResponse, SetDutiesError, Options<SetDutiesData>> => {
+    const mutationOptions: UseMutationOptions<SetDutiesResponse, SetDutiesError, Options<SetDutiesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setDuties({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listCertificationTypesQueryKey = (options: Options<ListCertificationTypesData>) => createQueryKey('listCertificationTypes', options);
+
+/**
+ * The certifications this studio gives
+ */
+export const listCertificationTypesOptions = (options: Options<ListCertificationTypesData>) => queryOptions<ListCertificationTypesResponse, ListCertificationTypesError, ListCertificationTypesResponse, ReturnType<typeof listCertificationTypesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listCertificationTypes({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listCertificationTypesQueryKey(options)
+});
+
+/**
+ * Add a kind of certification, such as "Kiln loading" (staff only)
+ */
+export const createCertificationTypeMutation = (options?: Partial<Options<CreateCertificationTypeData>>): UseMutationOptions<CreateCertificationTypeResponse, CreateCertificationTypeError, Options<CreateCertificationTypeData>> => {
+    const mutationOptions: UseMutationOptions<CreateCertificationTypeResponse, CreateCertificationTypeError, Options<CreateCertificationTypeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createCertificationType({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listCertificationsQueryKey = (options: Options<ListCertificationsData>) => createQueryKey('listCertifications', options);
+
+/**
+ * Certifications held
+ *
+ * Staff see everyone's; with `accountId`, one person's. Members may ask only for their own.
+ */
+export const listCertificationsOptions = (options: Options<ListCertificationsData>) => queryOptions<ListCertificationsResponse, ListCertificationsError, ListCertificationsResponse, ReturnType<typeof listCertificationsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listCertifications({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listCertificationsQueryKey(options)
+});
+
+/**
+ * Withdraw a certification (staff only)
+ */
+export const revokeCertificationMutation = (options?: Partial<Options<RevokeCertificationData>>): UseMutationOptions<RevokeCertificationResponse, RevokeCertificationError, Options<RevokeCertificationData>> => {
+    const mutationOptions: UseMutationOptions<RevokeCertificationResponse, RevokeCertificationError, Options<RevokeCertificationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeCertification({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Grant or renew a certification (staff only)
+ */
+export const grantCertificationMutation = (options?: Partial<Options<GrantCertificationData>>): UseMutationOptions<GrantCertificationResponse, GrantCertificationError, Options<GrantCertificationData>> => {
+    const mutationOptions: UseMutationOptions<GrantCertificationResponse, GrantCertificationError, Options<GrantCertificationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await grantCertification({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listResourcesQueryKey = (options: Options<ListResourcesData>) => createQueryKey('listResources', options);
+
+/**
+ * What can be booked
+ */
+export const listResourcesOptions = (options: Options<ListResourcesData>) => queryOptions<ListResourcesResponse, ListResourcesError, ListResourcesResponse, ReturnType<typeof listResourcesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listResources({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listResourcesQueryKey(options)
+});
+
+/**
+ * Add something bookable (staff only)
+ */
+export const createResourceMutation = (options?: Partial<Options<CreateResourceData>>): UseMutationOptions<CreateResourceResponse, CreateResourceError, Options<CreateResourceData>> => {
+    const mutationOptions: UseMutationOptions<CreateResourceResponse, CreateResourceError, Options<CreateResourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createResource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listBookingsQueryKey = (options: Options<ListBookingsData>) => createQueryKey('listBookings', options);
+
+/**
+ * The calendar between two times (up to 62 days)
+ *
+ * Members see other people's reservations only as "Reserved".
+ */
+export const listBookingsOptions = (options: Options<ListBookingsData>) => queryOptions<ListBookingsResponse, ListBookingsError, ListBookingsResponse, ReturnType<typeof listBookingsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listBookings({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listBookingsQueryKey(options)
+});
+
+/**
+ * Book a resource
+ *
+ * Members can reserve a place for themselves, if they hold the resource's required
+ * certification. Staff can book any kind for anyone. A reservation takes one place; other
+ * kinds block the whole resource.
+ *
+ */
+export const createBookingMutation = (options?: Partial<Options<CreateBookingData>>): UseMutationOptions<CreateBookingResponse, CreateBookingError, Options<CreateBookingData>> => {
+    const mutationOptions: UseMutationOptions<CreateBookingResponse, CreateBookingError, Options<CreateBookingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createBooking({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Cancel your reservation (staff can cancel anything)
+ */
+export const cancelBookingMutation = (options?: Partial<Options<CancelBookingData>>): UseMutationOptions<CancelBookingResponse, CancelBookingError, Options<CancelBookingData>> => {
+    const mutationOptions: UseMutationOptions<CancelBookingResponse, CancelBookingError, Options<CancelBookingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await cancelBooking({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listShiftsQueryKey = (options: Options<ListShiftsData>) => createQueryKey('listShifts', options);
+
+/**
+ * The roster between two times (up to 62 days)
+ */
+export const listShiftsOptions = (options: Options<ListShiftsData>) => queryOptions<ListShiftsResponse, ListShiftsError, ListShiftsResponse, ReturnType<typeof listShiftsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listShifts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listShiftsQueryKey(options)
+});
+
+/**
+ * Add a weekly shift for a number of weeks (staff only)
+ */
+export const createShiftsMutation = (options?: Partial<Options<CreateShiftsData>>): UseMutationOptions<CreateShiftsResponse, CreateShiftsError, Options<CreateShiftsData>> => {
+    const mutationOptions: UseMutationOptions<CreateShiftsResponse, CreateShiftsError, Options<CreateShiftsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createShifts({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Take an open shift, or (staff) assign or free one
+ */
+export const assignShiftMutation = (options?: Partial<Options<AssignShiftData>>): UseMutationOptions<AssignShiftResponse, AssignShiftError, Options<AssignShiftData>> => {
+    const mutationOptions: UseMutationOptions<AssignShiftResponse, AssignShiftError, Options<AssignShiftData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await assignShift({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Confirm a shift was worked, crediting its hours (staff only)
+ */
+export const markShiftWorkedMutation = (options?: Partial<Options<MarkShiftWorkedData>>): UseMutationOptions<MarkShiftWorkedResponse, MarkShiftWorkedError, Options<MarkShiftWorkedData>> => {
+    const mutationOptions: UseMutationOptions<MarkShiftWorkedResponse, MarkShiftWorkedError, Options<MarkShiftWorkedData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await markShiftWorked({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getHoursQueryKey = (options: Options<GetHoursData>) => createQueryKey('getHours', options);
+
+/**
+ * Someone's credited hours (members see only their own)
+ */
+export const getHoursOptions = (options: Options<GetHoursData>) => queryOptions<GetHoursResponse, GetHoursError, GetHoursResponse, ReturnType<typeof getHoursQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getHours({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getHoursQueryKey(options)
+});
+
+/**
+ * Credit or debit hours by hand, with a reason (staff only)
+ */
+export const adjustHoursMutation = (options?: Partial<Options<AdjustHoursData>>): UseMutationOptions<AdjustHoursResponse, AdjustHoursError, Options<AdjustHoursData>> => {
+    const mutationOptions: UseMutationOptions<AdjustHoursResponse, AdjustHoursError, Options<AdjustHoursData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await adjustHours({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getTodayQueryKey = (options: Options<GetTodayData>) => createQueryKey('getToday', options);
+
+/**
+ * What whoever runs the studio today needs to know (staff only)
+ */
+export const getTodayOptions = (options: Options<GetTodayData>) => queryOptions<GetTodayResponse, GetTodayError, GetTodayResponse, ReturnType<typeof getTodayQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getToday({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getTodayQueryKey(options)
+});
+
+export const listBalancesQueryKey = (options: Options<ListBalancesData>) => createQueryKey('listBalances', options);
+
+/**
+ * Members who owe something or are in credit, largest first (staff only)
+ */
+export const listBalancesOptions = (options: Options<ListBalancesData>) => queryOptions<ListBalancesResponse, ListBalancesError, ListBalancesResponse, ReturnType<typeof listBalancesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listBalances({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listBalancesQueryKey(options)
+});
+
+export const getStatementQueryKey = (options: Options<GetStatementData>) => createQueryKey('getStatement', options);
+
+/**
+ * What a member owes and has prepaid (members see their own)
+ */
+export const getStatementOptions = (options: Options<GetStatementData>) => queryOptions<GetStatementResponse, GetStatementError, GetStatementResponse, ReturnType<typeof getStatementQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getStatement({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getStatementQueryKey(options)
+});
+
+/**
+ * Record a member's payment against what they owe (staff only)
+ */
+export const recordPaymentMutation = (options?: Partial<Options<RecordPaymentData>>): UseMutationOptions<RecordPaymentResponse, RecordPaymentError, Options<RecordPaymentData>> => {
+    const mutationOptions: UseMutationOptions<RecordPaymentResponse, RecordPaymentError, Options<RecordPaymentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recordPayment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listStoredValuesQueryKey = (options: Options<ListStoredValuesData>) => createQueryKey('listStoredValues', options);
+
+/**
+ * Prepaid balances with something left (staff only)
+ */
+export const listStoredValuesOptions = (options: Options<ListStoredValuesData>) => queryOptions<ListStoredValuesResponse, ListStoredValuesError, ListStoredValuesResponse, ReturnType<typeof listStoredValuesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listStoredValues({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listStoredValuesQueryKey(options)
+});
+
+/**
+ * Sell a gift card, firing card, class pack, deposit or credit (staff only)
+ */
+export const sellStoredValueMutation = (options?: Partial<Options<SellStoredValueData>>): UseMutationOptions<SellStoredValueResponse, SellStoredValueError, Options<SellStoredValueData>> => {
+    const mutationOptions: UseMutationOptions<SellStoredValueResponse, SellStoredValueError, Options<SellStoredValueData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await sellStoredValue({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const findGiftCardQueryKey = (options: Options<FindGiftCardData>) => createQueryKey('findGiftCard', options);
+
+/**
+ * Look up a gift card by its code (staff only)
+ */
+export const findGiftCardOptions = (options: Options<FindGiftCardData>) => queryOptions<FindGiftCardResponse, FindGiftCardError, FindGiftCardResponse, ReturnType<typeof findGiftCardQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await findGiftCard({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: findGiftCardQueryKey(options)
+});
+
+/**
+ * Pay down a member's balance from a prepaid balance (staff only)
+ */
+export const useStoredValueMutation = (options?: Partial<Options<UseStoredValueData>>): UseMutationOptions<UseStoredValueResponse, UseStoredValueError, Options<UseStoredValueData>> => {
+    const mutationOptions: UseMutationOptions<UseStoredValueResponse, UseStoredValueError, Options<UseStoredValueData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await useStoredValue({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Write off what's left on a lapsed balance (staff only)
+ */
+export const expireStoredValueMutation = (options?: Partial<Options<ExpireStoredValueData>>): UseMutationOptions<ExpireStoredValueResponse, ExpireStoredValueError, Options<ExpireStoredValueData>> => {
+    const mutationOptions: UseMutationOptions<ExpireStoredValueResponse, ExpireStoredValueError, Options<ExpireStoredValueData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await expireStoredValue({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getStoredValueMovementsQueryKey = (options: Options<GetStoredValueMovementsData>) => createQueryKey('getStoredValueMovements', options);
+
+/**
+ * Prepaid balances rolled forward over a period, by kind (staff only)
+ */
+export const getStoredValueMovementsOptions = (options: Options<GetStoredValueMovementsData>) => queryOptions<GetStoredValueMovementsResponse, GetStoredValueMovementsError, GetStoredValueMovementsResponse, ReturnType<typeof getStoredValueMovementsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getStoredValueMovements({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getStoredValueMovementsQueryKey(options)
+});
+
+export const listPayoutsQueryKey = (options: Options<ListPayoutsData>) => createQueryKey('listPayouts', options);
+
+/**
+ * Imported payouts, newest first (staff only)
+ */
+export const listPayoutsOptions = (options: Options<ListPayoutsData>) => queryOptions<ListPayoutsResponse, ListPayoutsError, ListPayoutsResponse, ReturnType<typeof listPayoutsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPayouts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPayoutsQueryKey(options)
+});
+
+/**
+ * Import a processor payout (staff only)
+ *
+ * From any provider: Stripe, Square, Shopify, PayPal or other. Importing the same payout
+ * again returns the first import.
+ *
+ */
+export const importPayoutMutation = (options?: Partial<Options<ImportPayoutData>>): UseMutationOptions<ImportPayoutResponse, ImportPayoutError, Options<ImportPayoutData>> => {
+    const mutationOptions: UseMutationOptions<ImportPayoutResponse, ImportPayoutError, Options<ImportPayoutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await importPayout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getClearingQueryKey = (options: Options<GetClearingData>) => createQueryKey('getClearing', options);
+
+/**
+ * Money each processor has taken but not yet paid out (staff only)
+ */
+export const getClearingOptions = (options: Options<GetClearingData>) => queryOptions<GetClearingResponse, GetClearingError, GetClearingResponse, ReturnType<typeof getClearingQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getClearing({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getClearingQueryKey(options)
+});
+
+export const getLedgerSummaryQueryKey = (options: Options<GetLedgerSummaryData>) => createQueryKey('getLedgerSummary', options);
+
+/**
+ * Debits and credits per day and account (staff only)
+ */
+export const getLedgerSummaryOptions = (options: Options<GetLedgerSummaryData>) => queryOptions<GetLedgerSummaryResponse, GetLedgerSummaryError, GetLedgerSummaryResponse, ReturnType<typeof getLedgerSummaryQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getLedgerSummary({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getLedgerSummaryQueryKey(options)
+});
+
+export const exportJournalQueryKey = (options: Options<ExportJournalData>) => createQueryKey('exportJournal', options);
+
+/**
+ * The daily summary as a journal CSV for QuickBooks or Xero (staff only)
+ */
+export const exportJournalOptions = (options: Options<ExportJournalData>) => queryOptions<ExportJournalResponse, ExportJournalError, ExportJournalResponse, ReturnType<typeof exportJournalQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportJournal({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportJournalQueryKey(options)
+});
+
+export const listTaxRatesQueryKey = (options: Options<ListTaxRatesData>) => createQueryKey('listTaxRates', options);
+
+/**
+ * Sales tax rates by category and the date they start
+ */
+export const listTaxRatesOptions = (options: Options<ListTaxRatesData>) => queryOptions<ListTaxRatesResponse, ListTaxRatesError, ListTaxRatesResponse, ReturnType<typeof listTaxRatesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listTaxRates({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listTaxRatesQueryKey(options)
+});
+
+/**
+ * Set a category's rate from a date onwards (staff only)
+ */
+export const setTaxRateMutation = (options?: Partial<Options<SetTaxRateData>>): UseMutationOptions<SetTaxRateResponse, SetTaxRateError, Options<SetTaxRateData>> => {
+    const mutationOptions: UseMutationOptions<SetTaxRateResponse, SetTaxRateError, Options<SetTaxRateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setTaxRate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listSuppliesQueryKey = (options: Options<ListSuppliesData>) => createQueryKey('listSupplies', options);
+
+/**
+ * Clay and supplies, low stock first
+ */
+export const listSuppliesOptions = (options: Options<ListSuppliesData>) => queryOptions<ListSuppliesResponse, ListSuppliesError, ListSuppliesResponse, ReturnType<typeof listSuppliesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSupplies({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSuppliesQueryKey(options)
+});
+
+/**
+ * Add an item (staff only)
+ */
+export const createSupplyMutation = (options?: Partial<Options<CreateSupplyData>>): UseMutationOptions<CreateSupplyResponse, CreateSupplyError, Options<CreateSupplyData>> => {
+    const mutationOptions: UseMutationOptions<CreateSupplyResponse, CreateSupplyError, Options<CreateSupplyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createSupply({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Change an item (staff only)
+ */
+export const updateSupplyMutation = (options?: Partial<Options<UpdateSupplyData>>): UseMutationOptions<UpdateSupplyResponse, UpdateSupplyError, Options<UpdateSupplyData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSupplyResponse, UpdateSupplyError, Options<UpdateSupplyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSupply({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listStockMovementsQueryKey = (options: Options<ListStockMovementsData>) => createQueryKey('listStockMovements', options);
+
+/**
+ * The item's stock history, newest first (staff only)
+ */
+export const listStockMovementsOptions = (options: Options<ListStockMovementsData>) => queryOptions<ListStockMovementsResponse, ListStockMovementsError, ListStockMovementsResponse, ReturnType<typeof listStockMovementsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listStockMovements({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listStockMovementsQueryKey(options)
+});
+
+/**
+ * Record stock received, used, or counted (staff only)
+ *
+ * For a count, give what is on the shelf; the difference from the books is recorded.
+ */
+export const recordStockMovementMutation = (options?: Partial<Options<RecordStockMovementData>>): UseMutationOptions<RecordStockMovementResponse, RecordStockMovementError, Options<RecordStockMovementData>> => {
+    const mutationOptions: UseMutationOptions<RecordStockMovementResponse, RecordStockMovementError, Options<RecordStockMovementData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recordStockMovement({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sell an item to a member, on their balance (staff only)
+ */
+export const sellSupplyMutation = (options?: Partial<Options<SellSupplyData>>): UseMutationOptions<SellSupplyResponse, SellSupplyError, Options<SellSupplyData>> => {
+    const mutationOptions: UseMutationOptions<SellSupplyResponse, SellSupplyError, Options<SellSupplyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await sellSupply({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPurchaseRequestsQueryKey = (options: Options<ListPurchaseRequestsData>) => createQueryKey('listPurchaseRequests', options);
+
+/**
+ * Open purchase requests, oldest first (staff only)
+ */
+export const listPurchaseRequestsOptions = (options: Options<ListPurchaseRequestsData>) => queryOptions<ListPurchaseRequestsResponse, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ReturnType<typeof listPurchaseRequestsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPurchaseRequests({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPurchaseRequestsQueryKey(options)
+});
+
+/**
+ * Ask for more of an item (staff only)
+ */
+export const createPurchaseRequestMutation = (options?: Partial<Options<CreatePurchaseRequestData>>): UseMutationOptions<CreatePurchaseRequestResponse, CreatePurchaseRequestError, Options<CreatePurchaseRequestData>> => {
+    const mutationOptions: UseMutationOptions<CreatePurchaseRequestResponse, CreatePurchaseRequestError, Options<CreatePurchaseRequestData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPurchaseRequest({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Approve or reject (owner), or mark ordered or received (staff)
+ *
+ * Received puts the quantity into stock.
+ */
+export const decidePurchaseRequestMutation = (options?: Partial<Options<DecidePurchaseRequestData>>): UseMutationOptions<DecidePurchaseRequestResponse, DecidePurchaseRequestError, Options<DecidePurchaseRequestData>> => {
+    const mutationOptions: UseMutationOptions<DecidePurchaseRequestResponse, DecidePurchaseRequestError, Options<DecidePurchaseRequestData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await decidePurchaseRequest({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

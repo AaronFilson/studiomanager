@@ -90,6 +90,55 @@ class TenantIsolationTests {
         assertThat(jdbc.sql("select count(*) from studio").query(Long.class).single()).isZero();
     }
 
+    @Test
+    void piecesFeesAndInvitesAreIsolatedToo() throws Exception {
+        UUID alicesStudio = createStudio(alice, "Alice's Clay");
+        UUID bobsStudio = createStudio(bob, "Bob's Kiln");
+        for (UUID studio : List.of(alicesStudio, bobsStudio)) {
+            TestUser owner = studio.equals(alicesStudio) ? alice : bob;
+            assertThat(mvc.post().uri("/api/v1/studios/{id}/pieces", studio).with(owner.token())
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"size\": {}}")).hasStatus(HttpStatus.CREATED);
+            assertThat(mvc.put().uri("/api/v1/studios/{id}/fee-schedule", studio).with(owner.token())
+                    .contentType(MediaType.APPLICATION_JSON).content("""
+                            {"ruleType": "FLAT", "rate": "5", "rounding": "NONE", "minimum": "0"}
+                            """)).hasStatusOk();
+            assertThat(mvc.post().uri("/api/v1/studios/{id}/invites", studio).with(owner.token())
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"role\": \"MEMBER\"}"))
+                    .hasStatus(HttpStatus.CREATED);
+        }
+        TenantContext inAlicesStudio = TenantContext.forAccount(accountIdOf(alice)).inStudio(alicesStudio, StudioRole.OWNER);
+
+        for (String table : List.of("piece", "piece_event", "piece_counter", "fee_schedule", "studio_invite")) {
+            assertThat(inTenant(inAlicesStudio, () -> jdbc.sql("select distinct studio_id from " + table)
+                    .query(UUID.class).list()))
+                    .as(table)
+                    .containsExactly(alicesStudio);
+        }
+    }
+
+    @Test
+    void everyStudioOwnedTableHasRowLevelSecurityAndAPolicy() {
+        // A table with a studio_id but no RLS would silently leak across tenants; fail the build instead
+        List<String> unprotected = jdbc.sql("""
+                select c.relname
+                from pg_class c
+                join pg_namespace n on n.oid = c.relnamespace
+                join pg_attribute a on a.attrelid = c.oid and a.attname in ('studio_id') and not a.attisdropped
+                where n.nspname = 'public' and c.relkind = 'r'
+                  and (not c.relrowsecurity
+                       or not exists (select 1 from pg_policy p where p.polrelid = c.oid))
+                order by c.relname
+                """).query(String.class).list();
+        int protectedTables = jdbc.sql("""
+                select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+                """).query(Integer.class).single();
+
+        assertThat(unprotected).isEmpty();
+        // The guard itself works: the schema really has its protected tables
+        assertThat(protectedTables).isGreaterThanOrEqualTo(25);
+    }
+
     private <T> T inTenant(TenantContext context, Supplier<T> work) {
         return TenantContext.callAs(context, () -> transactions.execute(tx -> work.get()));
     }

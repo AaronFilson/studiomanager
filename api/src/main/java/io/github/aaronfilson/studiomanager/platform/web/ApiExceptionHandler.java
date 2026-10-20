@@ -1,8 +1,10 @@
 package io.github.aaronfilson.studiomanager.platform.web;
 
+import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,6 +27,17 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler
     ProblemDetail notFound(NotFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler
+    ProblemDetail conflict(ConflictException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler
+    ProblemDetail optimisticLock(OptimisticLockingFailureException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "Someone else changed this at the same time. Reload and try again.");
     }
 
 }

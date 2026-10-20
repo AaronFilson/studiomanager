@@ -75,6 +75,16 @@ public class StudioService {
         return StudioView.of(studio, role, memberships.countByStudioId(studioId));
     }
 
+    /** The studio the current request is bound to. */
+    @Transactional(readOnly = true)
+    public StudioView current() {
+        UUID studioId = TenantContext.require().studioId();
+        if (studioId == null) {
+            throw new IllegalStateException("The request is not bound to a studio");
+        }
+        return get(studioId);
+    }
+
     @Transactional(readOnly = true)
     public List<MembershipView> membershipsOf(UUID accountId) {
         return memberships.findMembershipsOf(accountId);
