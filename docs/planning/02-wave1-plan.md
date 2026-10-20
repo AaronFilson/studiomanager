@@ -177,6 +177,18 @@ Each feature answers a researched job *and* carries a distinct technical story.
 
 If Wave 1 must shrink, cut from the bottom: M5, then M4's native QBO posting (keep the export).
 
+### Status (2026-10-20)
+
+M1–M5 have first versions on the API and the web, with unit tests, integration tests against
+Postgres 18, and web tests. Still to do within Wave 1:
+- **M1:** photo upload (direct to Blob storage with SAS tokens) and the Expo mobile app.
+- **M2:** email and push delivery of notices through the outbox (the in-app inbox is done).
+- **M3:** linking kiln firings onto the calendar automatically, and swapping shifts.
+- **M4:** the live QuickBooks connection (OAuth, account mapping, daily posting). The CSV export
+  and the `JournalEntry` mapping are done. Payout import from provider APIs.
+- **M5:** "out of stock, use this instead" sent automatically. The substitute text shows on the
+  supplies list.
+
 ## Open questions
 
 1. **A pilot studio.** Ask the ten interview questions in the research report, and measure admin

@@ -6,10 +6,21 @@ A free studio manager that actually knows what a kiln is: piece tracking from gr
 firing fees, kiln loads, and supplies. See the [market survey](docs/planning/01-market-survey.md) and
 the [Wave 1 plan](docs/planning/02-wave1-plan.md).
 
-**Status:** milestone M0 (the skeleton). A signed-in user can create a studio and open its
-"hello studio" page, with tenant isolation enforced down to the database. Nothing is deployed yet;
+**Status:** Wave 1 (M1–M5) has first versions on the API and the web. Nothing is deployed yet;
 the [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty Azure subscription to a
-running environment.
+running environment. The milestones:
+
+- **M1:** studios, invites, the fee engine, and the piece tracker with a hold period.
+- **M2:** kilns, queues with per-member caps, the firing log, maintenance counted in firings, and
+  one "ready" notice per batch.
+- **M3:** duties, expiring certifications, the bookable calendar, rosters with credited hours,
+  and the "studio today" view.
+- **M4:** the double-entry ledger: balances, stored value, payouts from any provider, tax by date,
+  and the journal export.
+- **M5:** clay and supplies, with par levels, purchase requests and sales to members.
+
+Photo upload, the mobile app, live QuickBooks posting and card charging come next (see the
+[plan](docs/planning/02-wave1-plan.md)).
 
 ## Repository layout
 
@@ -26,8 +37,13 @@ running environment.
 
 ## Architecture in brief
 
-- **One deployable, many modules.** Module boundaries are verified by a test
+- **One deployable, many modules.** The modules are studio, account, access, firing, piece,
+  kiln, notify, schedule, ledger, supplies and today. Their boundaries are verified by a test
   ([ADR 2](docs/adr/0002-modular-monolith.md)).
+- **Money is double-entry,** and the database refuses unbalanced entries
+  ([ADR 9](docs/adr/0009-double-entry-ledger.md)).
+- **The two cross-tenant operations** (accepting an invite, the unclaimed sweep) are narrow
+  security-definer functions ([ADR 10](docs/adr/0010-security-definer-functions-for-cross-tenant-work.md)).
 - **Tenant isolation in two layers.** Application checks come first, and PostgreSQL row-level
   security sits underneath them. The tenant is bound per transaction from a Java 25
   `ScopedValue`, and the app refuses to start if its database login could bypass RLS
@@ -69,6 +85,7 @@ Signing in needs an Entra External ID tenant and the two app registrations. Step
 bash scripts/check.sh                  # everything: API build and tests, generated client, web
 bash scripts/api.sh                    # API: unit, architecture and Testcontainers integration tests
 bash scripts/js.sh -r run test         # API client and web (Vitest, Testing Library, MSW)
+bash scripts/integration.sh test       # API in WSL with Docker, when Docker isn't on Windows
 ```
 
 The scripts find a JDK 25 (`STUDIOMANAGER_JDK`, a `JAVA_HOME` that is already 25 or later, or
