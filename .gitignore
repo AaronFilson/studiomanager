@@ -18,7 +18,7 @@ out/
 bin/
 *.class
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 
 # Node / pnpm
 node_modules/
