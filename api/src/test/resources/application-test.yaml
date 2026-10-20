@@ -1,0 +1,8 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Never contacted: tests authenticate with Spring Security's jwt() request post-processor
+          issuer-uri: https://issuer.test/
+          audiences: studiomanager-api-test

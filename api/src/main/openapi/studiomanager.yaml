@@ -1,0 +1,264 @@
+openapi: 3.1.0
+info:
+  title: Studio Manager API
+  version: 0.1.0
+  description: |
+    The HTTP contract for Studio Manager. This file is the source of truth: the Spring
+    server interfaces (Gradle `openApiGenerate`) and the TypeScript client
+    (`packages/api-client`) are both generated from it, so a change here fails the
+    build on whichever side has not caught up.
+
+    Errors use RFC 9457 problem details (`application/problem+json`).
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: account
+    description: The signed-in person.
+  - name: studios
+    description: Studios (tenants) and membership in them.
+
+paths:
+  /api/v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: The signed-in account and the studios it belongs to
+      description: |
+        The first call after sign-in. Creates the account record on first use, keyed by
+        the token's issuer and subject.
+      responses:
+        "200":
+          description: The signed-in account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/studios:
+    post:
+      tags: [studios]
+      operationId: createStudio
+      summary: Create a studio, with the caller as its owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudioRequest"
+      responses:
+        "201":
+          description: The new studio.
+          headers:
+            Location:
+              description: URL of the new studio.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Studio"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/studios/{studioId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [studios]
+      operationId: getStudio
+      summary: A studio the caller belongs to
+      responses:
+        "200":
+          description: The studio.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Studio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: An access token from Microsoft Entra External ID for the Studio Manager API.
+
+  parameters:
+    StudioId:
+      name: studioId
+      in: path
+      required: true
+      description: The studio (tenant). Every studio-scoped route starts with it.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: The request was invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: No valid access token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The caller is not a member of the studio, or lacks the role required.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Me:
+      type: object
+      required: [account, memberships]
+      properties:
+        account:
+          $ref: "#/components/schemas/Account"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+
+    Account:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          description: From the token's `name` claim, when the identity provider sends one.
+        email:
+          type: string
+          description: From the token's `email` claim, when the identity provider sends one.
+
+    Membership:
+      type: object
+      required: [studio, role]
+      properties:
+        studio:
+          $ref: "#/components/schemas/StudioSummary"
+        role:
+          $ref: "#/components/schemas/StudioRole"
+
+    StudioSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    Studio:
+      type: object
+      required: [id, name, unitSystem, timeZone, country, currency, myRole, memberCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        unitSystem:
+          $ref: "#/components/schemas/UnitSystem"
+        timeZone:
+          type: string
+          description: IANA time zone ID, for example `America/Chicago`.
+          examples: [America/Chicago]
+        country:
+          $ref: "#/components/schemas/Country"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        myRole:
+          $ref: "#/components/schemas/StudioRole"
+        memberCount:
+          type: integer
+          format: int32
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateStudioRequest:
+      type: object
+      required: [name, unitSystem, timeZone, country]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        unitSystem:
+          $ref: "#/components/schemas/UnitSystem"
+        timeZone:
+          type: string
+          maxLength: 64
+          description: IANA time zone ID. Web clients send the browser's zone.
+          examples: [America/Chicago]
+        country:
+          $ref: "#/components/schemas/Country"
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    Country:
+      type: string
+      description: |
+        Where the studio operates, as an ISO 3166-1 alpha-2 code. Drives sales tax, the
+        default currency and which accounting integrations are offered.
+      pattern: "^[A-Z]{2}$"
+      examples: [US]
+
+    Currency:
+      type: string
+      description: |
+        The studio's currency, as an ISO 4217 code. On create it defaults to the country's
+        currency. All of the studio's money is kept in it.
+      pattern: "^[A-Z]{3}$"
+      examples: [USD]
+
+    StudioRole:
+      type: string
+      description: |
+        The base role in a studio. OWNER administers the studio's account (for a co-op or
+        nonprofit, whoever holds that responsibility), STAFF help run it, MEMBER makes pots.
+        Duties such as technician or monitor, and certifications on equipment, are granted
+        separately on top of a role.
+      enum: [OWNER, STAFF, MEMBER]
+
+    UnitSystem:
+      type: string
+      description: The studio's default display units. Measurements are always stored in SI.
+      enum: [US_CUSTOMARY, METRIC]
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string

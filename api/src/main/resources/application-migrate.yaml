@@ -1,0 +1,18 @@
+# Used with the azure profile by the migration job: run Flyway, then exit (StudioManagerApplication).
+# The job's identity is the server's Entra admin and owns the schema; the API's identity can't run DDL.
+spring:
+  main:
+    web-application-type: none
+  flyway:
+    enabled: true
+    user: ${STUDIOMANAGER_DB_USER}
+    password: ""
+    locations: classpath:db/migration, classpath:db/callback/azure
+    placeholders:
+      # The API identity's Postgres principal, granted app_rw after each migration
+      apiPrincipal: ${STUDIOMANAGER_DB_API_PRINCIPAL:}
+
+studiomanager:
+  tenancy:
+    # The migrator owns the tables, which is exactly what the guard rejects
+    rls-guard: false
