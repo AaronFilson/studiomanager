@@ -42,7 +42,8 @@ class TodayController implements TodayApi {
                 .shifts(t.shifts().stream().map(ScheduleDtos::toDto).toList())
                 .uncoveredShifts(t.uncoveredShifts().stream().map(ScheduleDtos::toDto).toList())
                 .lowStock(t.lowStock().stream().map(SupplyDtos::toDto).toList())
-                .openPurchaseRequests(t.openPurchaseRequests()));
+                .openPurchaseRequests(t.openPurchaseRequests())
+                .openProblems(t.openProblems().stream().map(MaintenanceDtos::toDto).toList()));
     }
 
 }

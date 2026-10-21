@@ -4246,7 +4246,8 @@ components:
     Today:
       type: object
       required: [date, kilns, openFirings, waitingForBisque, waitingForGlaze, readyForPickup, pastHold, unclaimed,
-                 maintenanceDue, outOfService, bookings, shifts, uncoveredShifts, lowStock, openPurchaseRequests]
+                 maintenanceDue, outOfService, bookings, shifts, uncoveredShifts, lowStock, openPurchaseRequests,
+                 openProblems]
       properties:
         date:
           type: string
@@ -4294,7 +4295,7 @@ components:
             $ref: "#/components/schemas/Shift"
         uncoveredShifts:
           type: array
-          description: Open shifts in the next seven days.
+          description: Shifts in the next seven days that are open or whose holder asked for cover.
           items:
             $ref: "#/components/schemas/Shift"
         lowStock:
@@ -4305,6 +4306,11 @@ components:
         openPurchaseRequests:
           type: integer
           format: int32
+        openProblems:
+          type: array
+          description: Problems members reported that nobody has resolved, newest first.
+          items:
+            $ref: "#/components/schemas/ProblemReport"
 
     SupplyCategory:
       type: string

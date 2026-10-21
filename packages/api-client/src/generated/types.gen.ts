@@ -870,7 +870,7 @@ export type Today = {
     bookings: Array<Booking>;
     shifts: Array<Shift>;
     /**
-     * Open shifts in the next seven days.
+     * Shifts in the next seven days that are open or whose holder asked for cover.
      */
     uncoveredShifts: Array<Shift>;
     /**
@@ -878,6 +878,10 @@ export type Today = {
      */
     lowStock: Array<SupplyItem>;
     openPurchaseRequests: number;
+    /**
+     * Problems members reported that nobody has resolved, newest first.
+     */
+    openProblems: Array<ProblemReport>;
 };
 
 export type SupplyCategory = 'CLAY' | 'GLAZE' | 'GLAZE_MATERIAL' | 'TOOL' | 'KILN_SUPPLY' | 'CLEANING' | 'OTHER';

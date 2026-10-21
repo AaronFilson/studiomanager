@@ -11,7 +11,9 @@ import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.PartUsedDto;
 import io.github.aaronfilson.studiomanager.contract.PiecePhotoDto;
+import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.ProblemReport;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 
@@ -53,6 +55,22 @@ public final class MaintenanceDtos {
                 .totalFirings(asset.totalFirings())
                 .version(asset.version())
                 .tasks(asset.tasks().stream().map(MaintenanceDtos::toDto).toList());
+    }
+
+    public static ProblemReportDto toDto(ProblemReport report) {
+        return new ProblemReportDto()
+                .id(report.id())
+                .assetId(report.assetId())
+                .assetName(report.assetName())
+                .description(report.description())
+                .reportedBy(report.reportedBy())
+                .reportedByName(report.reportedByName())
+                .reportedAt(report.reportedAt().atOffset(ZoneOffset.UTC))
+                .open(report.open())
+                .resolvedByName(report.resolvedByName())
+                .resolvedAt(report.resolvedAt() == null ? null : report.resolvedAt().atOffset(ZoneOffset.UTC))
+                .resolution(report.resolution())
+                .version(report.version());
     }
 
     static MaintenanceRecordDto toDto(Record record, List<RecordPhotoService.Photo> photos) {

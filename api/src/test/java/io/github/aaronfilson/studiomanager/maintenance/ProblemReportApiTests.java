@@ -68,6 +68,11 @@ class ProblemReportApiTests {
         assertThat(notices(maker)).isEmpty();
         assertThat(notices(other)).isEmpty();
 
+        // Whoever covers the studio sees it on Today
+        assertThat(mvc.get().uri(path("/today")).with(owner.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$.openProblems[*].description",
+                        d -> assertThat(d).asArray().containsExactly("Grinds when it speeds up"));
+
         // A member sees their own reports only
         assertThat(mvc.get().uri(path("/maintenance/problem-reports")).with(maker.token())).hasStatusOk().bodyJson()
                 .extractingPath("$.length()").isEqualTo(1);
@@ -87,6 +92,8 @@ class ProblemReportApiTests {
                 "{\"expectedVersion\": 1}")).hasStatus(HttpStatus.CONFLICT);
         assertThat(mvc.get().uri(path("/maintenance/problem-reports?open=true")).with(owner.token())).hasStatusOk()
                 .bodyJson().extractingPath("$.length()").isEqualTo(0);
+        assertThat(mvc.get().uri(path("/today")).with(owner.token())).hasStatusOk().bodyJson()
+                .extractingPath("$.openProblems.length()").isEqualTo(0);
 
         // Somewhere not on the list is fine; an unknown asset or an empty description isn't
         assertThat(post(other, path("/maintenance/problem-reports"), "{\"description\": \"Back door won't lock\"}"))

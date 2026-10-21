@@ -19,7 +19,6 @@ import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
 import io.github.aaronfilson.studiomanager.contract.ReportProblemRequestDto;
 import io.github.aaronfilson.studiomanager.contract.ReportableAssetDto;
 import io.github.aaronfilson.studiomanager.contract.ResolveProblemRequestDto;
-import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.ProblemReport;
 import io.github.aaronfilson.studiomanager.contract.CompleteMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceApi;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
@@ -202,13 +201,14 @@ class MaintenanceController implements MaintenanceApi {
     @PreAuthorize("@studioAuthz.isMember(#studioId)")
     public ResponseEntity<List<ProblemReportDto>> listProblemReports(UUID studioId, @Nullable Boolean open) {
         return ResponseEntity.ok(problems.reports(Boolean.TRUE.equals(open)).stream()
-                .map(MaintenanceController::toDto).toList());
+                .map(MaintenanceDtos::toDto).toList());
     }
 
     @Override
     @PreAuthorize("@studioAuthz.isMember(#studioId)")
     public ResponseEntity<ProblemReportDto> reportProblem(UUID studioId, ReportProblemRequestDto request) {
-        return ResponseEntity.status(201).body(toDto(problems.report(request.getAssetId(), request.getDescription())));
+        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(problems.report(request.getAssetId(),
+                request.getDescription())));
     }
 
     /** Members may call this; the service lets through only staff. */
@@ -216,23 +216,8 @@ class MaintenanceController implements MaintenanceApi {
     @PreAuthorize("@studioAuthz.isMember(#studioId)")
     public ResponseEntity<ProblemReportDto> resolveProblemReport(UUID studioId, UUID reportId,
             ResolveProblemRequestDto request) {
-        return ResponseEntity.ok(toDto(problems.resolve(reportId, request.getResolution(), request.getExpectedVersion())));
-    }
-
-    private static ProblemReportDto toDto(ProblemReport report) {
-        return new ProblemReportDto()
-                .id(report.id())
-                .assetId(report.assetId())
-                .assetName(report.assetName())
-                .description(report.description())
-                .reportedBy(report.reportedBy())
-                .reportedByName(report.reportedByName())
-                .reportedAt(report.reportedAt().atOffset(ZoneOffset.UTC))
-                .open(report.open())
-                .resolvedByName(report.resolvedByName())
-                .resolvedAt(report.resolvedAt() == null ? null : report.resolvedAt().atOffset(ZoneOffset.UTC))
-                .resolution(report.resolution())
-                .version(report.version());
+        return ResponseEntity.ok(MaintenanceDtos.toDto(problems.resolve(reportId, request.getResolution(),
+                request.getExpectedVersion())));
     }
 
     @Override
