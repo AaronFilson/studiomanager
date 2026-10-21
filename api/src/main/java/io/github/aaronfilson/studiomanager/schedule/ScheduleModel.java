@@ -40,8 +40,14 @@ public final class ScheduleModel {
         }
     }
 
+    /**
+     * @param assetId the maintained asset this is, if any; while it is down, only maintenance and
+     *     closures can be booked
+     * @param downReason why that asset is out of service; null when it's in service or there's none
+     */
     public record Resource(UUID id, String name, ResourceKind kind, int capacity,
-            @Nullable UUID requiredCertification, @Nullable String requiredCertificationName, long version) {
+            @Nullable UUID requiredCertification, @Nullable String requiredCertificationName, @Nullable UUID assetId,
+            @Nullable String downReason, long version) {
     }
 
     /**

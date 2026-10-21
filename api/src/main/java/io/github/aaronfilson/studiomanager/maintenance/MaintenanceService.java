@@ -108,6 +108,16 @@ public class MaintenanceService {
                 .orElseThrow(() -> new NotFoundException("No such asset."));
     }
 
+    /**
+     * Why each out-of-service asset is down, by asset id; kilns included, from the kiln. Assets in
+     * service aren't in the map. For the calendar, which won't book a down asset.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> downReasons() {
+        return assets(now()).stream().filter(a -> a.downReason() != null)
+                .collect(Collectors.toMap(Asset::id, Asset::downReason));
+    }
+
     /** Tasks due or due soon on any asset, most urgent first: what Today shows staff. */
     @Transactional(readOnly = true)
     public List<Task> dueTasks(Instant now) {

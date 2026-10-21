@@ -667,6 +667,16 @@ export type Resource = {
     capacity: number;
     requiredCertification?: string;
     requiredCertificationName?: string;
+    /**
+     * The maintained asset this is, if any.
+     */
+    assetId?: string;
+    /**
+     * Why that asset is out of service; absent when it's in service. While it is down, only
+     * MAINTENANCE and CLOSURE bookings can be made.
+     *
+     */
+    downReason?: string;
     version: number;
 };
 
@@ -675,6 +685,10 @@ export type CreateResourceRequest = {
     kind: ResourceKind;
     capacity: number;
     requiredCertification?: string;
+    /**
+     * A maintained asset (from the maintenance page) that this is, such as a kiln.
+     */
+    assetId?: string;
 };
 
 /**

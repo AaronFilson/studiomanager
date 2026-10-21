@@ -54,3 +54,7 @@ Updated as each item lands.
   source (L&L for electric kilns, OSHA for extinguishers, ANSI for eyewash, NRCA for roofs, and
   studio practice for the clay trap). Wheels, pug mills and the like get none: nothing is
   published for them. The history export covers every asset between two dates.
+- **7. Down assets block bookings:** done 2026-10-21 (V15). A calendar resource can be linked to
+  an asset, kilns included. While the asset is down, only maintenance or a closure can be booked.
+  Bookings made before it went down are left for staff to sort out; a pilot will show whether
+  they want those flagged or cancelled.

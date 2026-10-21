@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -54,32 +55,39 @@ public class ScheduleService {
     private final AccessService access;
     private final StudioMembers members;
     private final AccountDirectory accounts;
+    private final MaintenanceService maintenance;
 
-    ScheduleService(JdbcClient jdbc, AccessService access, StudioMembers members, AccountDirectory accounts) {
+    ScheduleService(JdbcClient jdbc, AccessService access, StudioMembers members, AccountDirectory accounts,
+            MaintenanceService maintenance) {
         this.jdbc = jdbc;
         this.access = access;
         this.members = members;
         this.accounts = accounts;
+        this.maintenance = maintenance;
     }
 
     // ---- Resources
 
     @Transactional(readOnly = true)
     public List<Resource> resources() {
+        Map<UUID, String> down = maintenance.downReasons();
         return jdbc.sql("""
-                select r.id, r.name, r.kind, r.capacity, r.required_certification, t.name as certification_name, r.version
+                select r.id, r.name, r.kind, r.capacity, r.required_certification, t.name as certification_name,
+                       r.asset_id, r.version
                 from resource r left join certification_type t on t.id = r.required_certification
                 order by r.name
                 """)
-                .query((rs, row) -> new Resource(rs.getObject("id", UUID.class), rs.getString("name"),
-                        ResourceKind.valueOf(rs.getString("kind")), rs.getInt("capacity"),
-                        rs.getObject("required_certification", UUID.class), rs.getString("certification_name"),
-                        rs.getLong("version")))
+                .query((rs, row) -> mapResource(rs, rs.getString("certification_name"), down))
                 .list();
     }
 
+    /**
+     * Adds something bookable. Linking it to a maintained asset means it can't be booked while the
+     * asset is out of service, except for its repair or a closure.
+     */
     @Transactional
-    public Resource createResource(String name, ResourceKind kind, int capacity, @Nullable UUID requiredCertification) {
+    public Resource createResource(String name, ResourceKind kind, int capacity, @Nullable UUID requiredCertification,
+            @Nullable UUID assetId) {
         TenantContext caller = requireStaff();
         String cleaned = validName(name);
         if (capacity < 1 || capacity > 200) {
@@ -88,11 +96,15 @@ public class ScheduleService {
         if (requiredCertification != null) {
             access.type(requiredCertification);
         }
+        if (assetId != null) {
+            // Not found for an asset of another studio or one no longer tracked
+            maintenance.asset(assetId, Instant.now());
+        }
         UUID id = Uuids.v7();
         try {
             jdbc.sql("""
-                    insert into resource (id, studio_id, name, kind, capacity, required_certification, version)
-                    values (:id, :studioId, :name, :kind, :capacity, :cert, 0)
+                    insert into resource (id, studio_id, name, kind, capacity, required_certification, asset_id, version)
+                    values (:id, :studioId, :name, :kind, :capacity, :cert, :assetId, 0)
                     """)
                     .param("id", id)
                     .param("studioId", caller.studioId())
@@ -100,6 +112,7 @@ public class ScheduleService {
                     .param("kind", kind.name())
                     .param("capacity", capacity)
                     .param("cert", requiredCertification)
+                    .param("assetId", assetId)
                     .update();
         } catch (DuplicateKeyException e) {
             throw new InvalidInputException("There's already something called '%s' on the calendar.".formatted(cleaned));
@@ -158,16 +171,19 @@ public class ScheduleService {
             throw new InvalidInputException("That person isn't a member of this studio.");
         }
         // Serializes bookings on this resource until the transaction ends
+        Map<UUID, String> down = maintenance.downReasons();
         Resource resource = jdbc.sql("""
-                select r.id, r.name, r.kind, r.capacity, r.required_certification, null as certification_name, r.version
+                select r.id, r.name, r.kind, r.capacity, r.required_certification, r.asset_id, r.version
                 from resource r where r.id = :id for update
                 """)
                 .param("id", resourceId)
-                .query((rs, row) -> new Resource(rs.getObject("id", UUID.class), rs.getString("name"),
-                        ResourceKind.valueOf(rs.getString("kind")), rs.getInt("capacity"),
-                        rs.getObject("required_certification", UUID.class), null, rs.getLong("version")))
+                .query((rs, row) -> mapResource(rs, null, down))
                 .optional()
                 .orElseThrow(() -> new NotFoundException("No such resource."));
+        if (resource.downReason() != null && kind != BookingKind.MAINTENANCE && kind != BookingKind.CLOSURE) {
+            throw new ConflictException("%s is out of service: %s. Only its maintenance or a closure can be booked now."
+                    .formatted(resource.name(), resource.downReason()));
+        }
         if (kind == BookingKind.RESERVATION && person != null && resource.requiredCertification() != null
                 && !access.isCertified(person, resource.requiredCertification(), startsAt)) {
             throw new InvalidInputException("%s needs a certification first: %s."
@@ -390,6 +406,15 @@ public class ScheduleService {
                 .query(ScheduleService::mapShift).list())
                 .stream().findFirst()
                 .orElseThrow(() -> new NotFoundException("No such shift."));
+    }
+
+    private static Resource mapResource(ResultSet rs, @Nullable String certificationName, Map<UUID, String> down)
+            throws SQLException {
+        UUID assetId = rs.getObject("asset_id", UUID.class);
+        return new Resource(rs.getObject("id", UUID.class), rs.getString("name"),
+                ResourceKind.valueOf(rs.getString("kind")), rs.getInt("capacity"),
+                rs.getObject("required_certification", UUID.class), certificationName, assetId,
+                assetId == null ? null : down.get(assetId), rs.getLong("version"));
     }
 
     private Resource resource(UUID id) {

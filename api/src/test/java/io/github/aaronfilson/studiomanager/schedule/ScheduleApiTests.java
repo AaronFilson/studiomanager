@@ -138,6 +138,52 @@ class ScheduleApiTests {
         assertThat(mvc.get().uri(path("/today")).with(maker.token())).hasStatus(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void aDownAssetCanOnlyBeBookedForItsRepairOrAClosure() throws Exception {
+        String roller = read(post(owner, path("/maintenance/assets"), """
+                {"kind": "SLAB_ROLLER", "name": "North Star"}
+                """), "$.id");
+        String resource = read(post(owner, path("/resources"), """
+                {"name": "Slab roller", "kind": "EQUIPMENT", "capacity": 1, "assetId": "%s"}
+                """.formatted(roller)), "$.id");
+        assertThat(reserve(maker, resource, tomorrow)).hasStatus(HttpStatus.CREATED);
+
+        assertThat(mvc.put().uri(path("/maintenance/assets/" + roller + "/availability")).with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"downReason\": \"Cable snapped\", \"expectedVersion\": 0}"))
+                .hasStatusOk();
+        assertThat(mvc.get().uri(path("/resources")).with(maker.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$[0].downReason", r -> assertThat(r).isEqualTo("Cable snapped"))
+                .hasPathSatisfying("$[0].assetId", a -> assertThat(a).isEqualTo(roller));
+        assertThat(reserve(monitor, resource, tomorrow.plus(1, ChronoUnit.DAYS))).hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().extractingPath("$.detail").asString().contains("out of service: Cable snapped");
+        assertThat(book(owner, resource, "CLASS", tomorrow.plus(2, ChronoUnit.DAYS))).hasStatus(HttpStatus.CONFLICT);
+        // Its repair can still go on the calendar
+        assertThat(book(owner, resource, "MAINTENANCE", tomorrow.plus(3, ChronoUnit.DAYS))).hasStatus(HttpStatus.CREATED);
+
+        // Back in service, bookable again
+        assertThat(mvc.put().uri(path("/maintenance/assets/" + roller + "/availability")).with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\": 1}")).hasStatusOk();
+        assertThat(reserve(monitor, resource, tomorrow.plus(1, ChronoUnit.DAYS))).hasStatus(HttpStatus.CREATED);
+
+        // A kiln's asset follows the kiln's own down state
+        String kiln = read(post(owner, path("/kilns"), "{\"name\": \"Skutt\", \"kind\": \"ELECTRIC\"}"), "$.id");
+        String assets = mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        String kilnAsset = JsonPath.<List<String>>read(assets, "$[?(@.kilnId == '%s')].id".formatted(kiln)).getFirst();
+        String kilnResource = read(post(owner, path("/resources"), """
+                {"name": "Kiln 1", "kind": "KILN", "capacity": 1, "assetId": "%s"}
+                """.formatted(kilnAsset)), "$.id");
+        assertThat(mvc.put().uri(path("/kilns/" + kiln + "/availability")).with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"downReason\": \"Relay\", \"expectedVersion\": 0}"))
+                .hasStatusOk();
+        assertThat(book(owner, kilnResource, "RENTAL", tomorrow)).hasStatus(HttpStatus.CONFLICT);
+
+        // An asset from nowhere is refused
+        assertThat(post(owner, path("/resources"), """
+                {"name": "Ghost", "kind": "EQUIPMENT", "capacity": 1, "assetId": "%s"}
+                """.formatted(UUID.randomUUID()))).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
     private MvcTestResult reserve(TestUser user, String resource, Instant start) {
         return book(user, resource, "RESERVATION", start);
     }

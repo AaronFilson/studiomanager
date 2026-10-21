@@ -3676,6 +3676,15 @@ components:
           format: uuid
         requiredCertificationName:
           type: string
+        assetId:
+          type: string
+          format: uuid
+          description: The maintained asset this is, if any.
+        downReason:
+          type: string
+          description: |
+            Why that asset is out of service; absent when it's in service. While it is down, only
+            MAINTENANCE and CLOSURE bookings can be made.
         version:
           type: integer
           format: int64
@@ -3698,6 +3707,10 @@ components:
         requiredCertification:
           type: string
           format: uuid
+        assetId:
+          type: string
+          format: uuid
+          description: A maintained asset (from the maintenance page) that this is, such as a kiln.
 
     BookingKind:
       type: string

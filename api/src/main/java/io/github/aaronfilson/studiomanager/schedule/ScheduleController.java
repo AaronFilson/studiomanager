@@ -49,7 +49,7 @@ class ScheduleController implements ScheduleApi {
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<ResourceDto> createResource(UUID studioId, CreateResourceRequestDto request) {
         Resource resource = schedule.createResource(request.getName(), ResourceKind.valueOf(request.getKind().name()),
-                request.getCapacity(), request.getRequiredCertification());
+                request.getCapacity(), request.getRequiredCertification(), request.getAssetId());
         return ResponseEntity.created(URI.create("/api/v1/studios/%s/resources/%s".formatted(studioId, resource.id())))
                 .body(toDto(resource));
     }
@@ -128,6 +128,8 @@ class ScheduleController implements ScheduleApi {
                 .capacity(resource.capacity())
                 .requiredCertification(resource.requiredCertification())
                 .requiredCertificationName(resource.requiredCertificationName())
+                .assetId(resource.assetId())
+                .downReason(resource.downReason())
                 .version(resource.version());
     }
 
