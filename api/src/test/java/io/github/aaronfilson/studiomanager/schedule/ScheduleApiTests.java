@@ -184,6 +184,52 @@ class ScheduleApiTests {
                 """.formatted(UUID.randomUUID()))).hasStatus(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void aFiringPutsItselfOnTheKilnsCalendar() throws Exception {
+        String kiln = read(post(owner, path("/kilns"), "{\"name\": \"Skutt\", \"kind\": \"ELECTRIC\"}"), "$.id");
+        String assets = mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        String kilnAsset = JsonPath.<List<String>>read(assets, "$[?(@.kilnId == '%s')].id".formatted(kiln)).getFirst();
+        assertThat(post(owner, path("/resources"), """
+                {"name": "Kiln 1", "kind": "KILN", "capacity": 1, "assetId": "%s"}
+                """.formatted(kilnAsset))).hasStatus(HttpStatus.CREATED);
+
+        // Two loads: one is unloaded, the other cancelled after it started
+        String unloaded = startFiring(kiln);
+        Instant from = Instant.now().minus(1, ChronoUnit.HOURS);
+        Instant to = Instant.now().plus(2, ChronoUnit.DAYS);
+        assertThat(firingBookings(from, to)).hasSize(1);
+        assertThat(read(mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
+                .with(maker.token()).exchange(), "$[0].title")).isEqualTo("Bisque firing");
+        assertThat(post(owner, path("/firings/" + unloaded + "/transitions"),
+                "{\"to\": \"COMPLETE\", \"expectedVersion\": 1}")).hasStatusOk();
+        // Trimmed from the expected day to when it was unloaded
+        String ends = read(mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
+                .with(owner.token()).exchange(), "$[0].endsAt");
+        assertThat(Instant.parse(ends)).isBefore(Instant.now().plus(5, ChronoUnit.MINUTES));
+
+        String cancelled = startFiring(kiln);
+        assertThat(firingBookings(from, to)).hasSize(2);
+        assertThat(post(owner, path("/firings/" + cancelled + "/transitions"),
+                "{\"to\": \"CANCELLED\", \"expectedVersion\": 1}")).hasStatusOk();
+        assertThat(firingBookings(from, to)).hasSize(1);
+    }
+
+    private String startFiring(String kiln) throws Exception {
+        String piece = read(post(maker, path("/pieces"), "{\"size\": {}}"), "$.id");
+        String firing = read(post(owner, path("/kilns/" + kiln + "/firings"),
+                "{\"kind\": \"BISQUE\", \"pieceIds\": [\"%s\"]}".formatted(piece)), "$.id");
+        assertThat(post(owner, path("/firings/" + firing + "/transitions"), "{\"to\": \"FIRING\", \"expectedVersion\": 0}"))
+                .hasStatusOk();
+        return firing;
+    }
+
+    private List<String> firingBookings(Instant from, Instant to) throws Exception {
+        String body = mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
+                .with(owner.token()).exchange().getResponse().getContentAsString();
+        return JsonPath.read(body, "$[?(@.kind == 'FIRING')].id");
+    }
+
     private MvcTestResult reserve(TestUser user, String resource, Instant start) {
         return book(user, resource, "RESERVATION", start);
     }

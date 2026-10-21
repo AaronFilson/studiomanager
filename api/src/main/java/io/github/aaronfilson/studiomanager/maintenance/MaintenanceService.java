@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -123,6 +124,13 @@ public class MaintenanceService {
     public Map<UUID, String> downReasons() {
         return assets(now()).stream().filter(a -> a.downReason() != null)
                 .collect(Collectors.toMap(Asset::id, Asset::downReason));
+    }
+
+    /** The asset that is this kiln. Every kiln has one, from when it was added. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> assetOfKiln(UUID kilnId) {
+        return jdbc.sql("select id from asset where kiln_id = :kilnId").param("kilnId", kilnId)
+                .query(UUID.class).optional();
     }
 
     /** Tasks due or due soon on any asset, most urgent first: what Today shows staff. */

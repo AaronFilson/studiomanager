@@ -140,7 +140,10 @@ public class FiringService {
             throw new InvalidInputException("Only a load that's still loading can be started.");
         }
         setStatus(firingId, FiringView.Status.FIRING, "started_at", expectedVersion, null);
-        return get(firingId);
+        FiringView started = get(firingId);
+        events.publishEvent(new FiringStarted(TenantContext.require().studioId(), firingId, started.kilnId(),
+                started.kilnName(), started.kind(), started.startedAt()));
+        return started;
     }
 
     /** Unloads a firing: moves its pieces on, counts the firing, and notifies makers once per batch. */
@@ -166,7 +169,10 @@ public class FiringService {
                         .map(p -> new FiringCompleted.FiredPiece(p.id(), p.number(), p.makerAccountId(),
                                 p.description(), p.holdUntil()))
                         .toList()));
-        return get(firingId);
+        FiringView completed = get(firingId);
+        events.publishEvent(new FiringEnded(TenantContext.require().studioId(), firingId, firing.kilnId(),
+                completed.finishedAt(), true));
+        return completed;
     }
 
     /** Abandons a load before or during firing; its pieces go back to the queue unchanged. */
@@ -178,7 +184,10 @@ public class FiringService {
         }
         setStatus(firingId, FiringView.Status.CANCELLED, "finished_at", expectedVersion, notes);
         jdbc.sql("update firing_piece set open = false where firing_id = :id").param("id", firingId).update();
-        return get(firingId);
+        FiringView cancelled = get(firingId);
+        events.publishEvent(new FiringEnded(TenantContext.require().studioId(), firingId, firing.kilnId(),
+                cancelled.finishedAt(), false));
+        return cancelled;
     }
 
     /** Every load in progress (loading or firing), across the studio's kilns. */
