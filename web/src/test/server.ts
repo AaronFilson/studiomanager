@@ -16,6 +16,8 @@ const background = [
   http.get(`${API}/api/v1/studios/:studioId/maintenance/problem-reports`, () => HttpResponse.json([])),
   http.get(`${API}/api/v1/studios/:studioId/maintenance/reportable-assets`, () => HttpResponse.json([])),
   http.get(`${API}/api/v1/me`, () => HttpResponse.json({ account: { id: 'a1' }, memberships: [] })),
+  // Staff pages load the member list for pickers, such as whose piece it is
+  http.get(`${API}/api/v1/studios/:studioId/members`, () => HttpResponse.json([])),
   http.get(`${API}/api/v1/studios/:studioId/members/:accountId/statement`, ({ params }) =>
     HttpResponse.json({ memberId: params.accountId, owed: '0', storedValues: [] }),
   ),
