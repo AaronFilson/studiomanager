@@ -26,6 +26,9 @@ variables {
   auth_audience                          = "44444444-4444-4444-4444-444444444444"
   cors_allowed_origins                   = ["https://a.azurestaticapps.net", "https://b.example"]
   blob_endpoint                          = "https://ststudiomgrtest.blob.core.windows.net/"
+  web_origin                             = "https://a.azurestaticapps.net"
+  mail_acs_endpoint                      = "https://acs-studiomanager-test.unitedstates.communication.azure.com"
+  mail_from                              = "DoNotReply@00000000-0000-0000-0000-000000000000.azurecomm.net"
   application_insights_connection_string = "InstrumentationKey=00000000-0000-0000-0000-000000000000"
   tags                                   = { app = "studiomanager" }
 }
@@ -48,6 +51,10 @@ run "api_runs_as_the_api_identity" {
         STUDIOMANAGER_DB_NAME              = "studiomanager"
         STUDIOMANAGER_AUTH_AUDIENCE        = "44444444-4444-4444-4444-444444444444"
         STUDIOMANAGER_CORS_ALLOWED_ORIGINS = "https://a.azurestaticapps.net,https://b.example"
+        STUDIOMANAGER_WEB_ORIGIN           = "https://a.azurestaticapps.net"
+        STUDIOMANAGER_MAIL_SENDER          = "acs"
+        STUDIOMANAGER_MAIL_ACS_ENDPOINT    = "https://acs-studiomanager-test.unitedstates.communication.azure.com"
+        STUDIOMANAGER_MAIL_FROM            = "DoNotReply@00000000-0000-0000-0000-000000000000.azurecomm.net"
       } : { for e in azurerm_container_app.api.template[0].container[0].env : e.name => e.value }[name] == expected
     ])
     error_message = "The app's environment doesn't match the API contract."

@@ -62,6 +62,26 @@ mock_provider "azurerm" {
       id = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.KeyVault/vaults/kv-mock"
     }
   }
+
+  mock_resource "azurerm_email_communication_service" {
+    defaults = {
+      id = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.Communication/emailServices/ecs-mock"
+    }
+  }
+
+  mock_resource "azurerm_email_communication_service_domain" {
+    defaults = {
+      id                 = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.Communication/emailServices/ecs-mock/domains/AzureManagedDomain"
+      from_sender_domain = "00000000-0000-0000-0000-000000000000.azurecomm.net"
+    }
+  }
+
+  mock_resource "azurerm_communication_service" {
+    defaults = {
+      id       = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.Communication/communicationServices/acs-mock"
+      hostname = "acs-mock.unitedstates.communication.azure.com"
+    }
+  }
 }
 
 variables {
@@ -102,6 +122,11 @@ run "wires_the_environment" {
   assert {
     condition     = length(module.key_vault.name) <= 24
     error_message = "Key Vault names are limited to 24 characters."
+  }
+
+  assert {
+    condition     = module.email.endpoint == "https://acs-mock.unitedstates.communication.azure.com" && module.email.sender_address == "DoNotReply@00000000-0000-0000-0000-000000000000.azurecomm.net"
+    error_message = "The API sends from the Azure-managed domain through the Communication Services endpoint."
   }
 
   assert {

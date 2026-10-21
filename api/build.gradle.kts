@@ -30,6 +30,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
+    // The event publication registry, kept in Postgres: the transactional outbox for email
+    implementation("org.springframework.modulith:spring-modulith-starter-jdbc")
+    // Email through Azure Communication Services, authenticated by the managed identity
+    implementation("com.azure:azure-communication-email:1.1.6")
+    implementation("com.azure:azure-identity:1.18.7")
     runtimeOnly("org.postgresql:postgresql")
     // Passwordless Postgres on Azure: the JDBC driver gets an Entra token from the managed identity
     runtimeOnly("com.azure:azure-identity-extensions:1.2.10")
@@ -43,6 +48,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+    testImplementation("org.awaitility:awaitility")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

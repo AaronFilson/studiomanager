@@ -66,3 +66,14 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
 | 5 | **Hardening**: branch protection, Dependabot and CodeQL, a Playwright smoke test, OpenTelemetry, a per-studio data export | Branch protection is a setting on your GitHub repo. |
 | 6 | **Pilot kit and outreach**: the guide, the interview questions, the diary, and a short list of US studios to approach | The [census](03-tools-in-use.md) already lists 42 US studios, a starting point. |
 | 7 | **First deploy** | Your call on when, once 1–6 are in hand. |
+
+## Status
+
+- **1. Email delivery: first version done (2026-10-20).** See [ADR 11](../adr/0011-transactional-outbox-for-email.md).
+  - Every inbox notice (batch "ready" and staff notices) is emailed through the Spring Modulith
+    outbox (V10), with scheduled retries.
+  - Locally, emails are written to the log. ACS and its email domain are in Terraform
+    (`infra/modules/email`).
+  - Left for the first deploy: the API identity's role on ACS, and a custom sender domain.
+  - Left for the pilot to decide: an email opt-out for studio notices.
+- **2. Bulk invite:** next.

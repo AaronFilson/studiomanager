@@ -17,7 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, TestEmailConfiguration.class })
 @EnabledIf(value = "io.github.aaronfilson.studiomanager.DockerAvailability#dockerAvailableOrCi",
         disabledReason = "Integration tests need Docker")
 public @interface IntegrationTest {

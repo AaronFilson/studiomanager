@@ -63,6 +63,21 @@ variable "blob_endpoint" {
   type        = string
 }
 
+variable "web_origin" {
+  description = "The web app's origin, for links in emails."
+  type        = string
+}
+
+variable "mail_acs_endpoint" {
+  description = "Communication Services endpoint the API sends email through."
+  type        = string
+}
+
+variable "mail_from" {
+  description = "Sender address on a domain linked to that Communication Services resource."
+  type        = string
+}
+
 variable "application_insights_connection_string" {
   type      = string
   sensitive = true

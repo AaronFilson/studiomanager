@@ -33,4 +33,17 @@ class AccountNames implements AccountDirectory {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, String> emails(Collection<UUID> accountIds) {
+        if (accountIds.isEmpty()) {
+            return Map.of();
+        }
+        return jdbc.sql("select id, email from account where id = any(:ids) and email is not null")
+                .param("ids", accountIds.toArray(UUID[]::new))
+                .query((rs, row) -> Map.entry(rs.getObject("id", UUID.class), rs.getString("email")))
+                .list().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
 }

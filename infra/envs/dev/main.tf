@@ -76,6 +76,16 @@ module "storage" {
   tags                 = local.tags
 }
 
+module "email" {
+  source = "../../modules/email"
+
+  communication_service_name = "acs-${local.name}-${local.suffix}"
+  email_service_name         = "ecs-${local.name}"
+  resource_group_name        = data.azurerm_resource_group.env.name
+  data_location              = var.communication_data_location
+  tags                       = local.tags
+}
+
 module "key_vault" {
   source = "../../modules/key_vault"
 
@@ -124,6 +134,9 @@ module "api" {
   auth_audience                          = var.entra_api_client_id
   cors_allowed_origins                   = [local.web_origin]
   blob_endpoint                          = module.storage.primary_blob_endpoint
+  web_origin                             = local.web_origin
+  mail_acs_endpoint                      = module.email.endpoint
+  mail_from                              = module.email.sender_address
   application_insights_connection_string = module.platform.application_insights_connection_string
   tags                                   = local.tags
 }
@@ -147,3 +160,9 @@ resource "azurerm_role_assignment" "api_key_vault" {
   principal_type                   = "ServicePrincipal"
   skip_service_principal_aad_check = true
 }
+
+# TODO(first deploy): the API identity needs a role on module.email.communication_service_id
+# to send. Which one is unconfirmed: Microsoft's built-in role list has no Communication
+# Services entry, and reports conflict on whether a custom role works. Find it with
+# `az role definition list --query "[?contains(roleName, 'Communication')]"`, assign it here,
+# and add its ID to assignable_role_ids in infra/bootstrap. See docs/adr/0011.
