@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager;
 
+import java.time.Duration;
+
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -21,11 +23,18 @@ public class TestcontainersConfiguration {
     private static final String AZURITE_KEY =
             "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 
+    /**
+     * A test with its own properties (TelemetryTests) gets its own context and so its own database.
+     * Starting one while the machine is busy has taken longer than Testcontainers' default minute.
+     */
+    private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(3);
+
     @Bean
     PostgreSQLContainer postgres() {
         return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"))
                 .withCopyFileToContainer(MountableFile.forHostPath("dev/postgres-init/00-app-role.sql"),
-                        "/docker-entrypoint-initdb.d/00-app-role.sql");
+                        "/docker-entrypoint-initdb.d/00-app-role.sql")
+                .withStartupTimeout(STARTUP_TIMEOUT);
     }
 
     @Bean
@@ -33,7 +42,7 @@ public class TestcontainersConfiguration {
         return new GenericContainer<>(DockerImageName.parse("mcr.microsoft.com/azure-storage/azurite:3.35.0"))
                 .withCommand("azurite-blob", "--blobHost", "0.0.0.0", "--skipApiVersionCheck", "--inMemoryPersistence")
                 .withExposedPorts(10000)
-                .waitingFor(Wait.forListeningPort());
+                .waitingFor(Wait.forListeningPort().withStartupTimeout(STARTUP_TIMEOUT));
     }
 
     /** Flyway as the container's superuser, which owns the schema; the application as studiomanager_app. */
