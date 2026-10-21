@@ -606,6 +606,10 @@ export type MaintenanceRecord = {
     doneByName?: string;
     doneAt: string;
     parts: Array<PartUsed>;
+    /**
+     * Finished photos, oldest first. Same shape as a piece's photos.
+     */
+    photos: Array<PiecePhoto>;
 };
 
 /**
@@ -1117,6 +1121,8 @@ export type InviteId = string;
 export type PieceId = string;
 
 export type PhotoId = string;
+
+export type RecordId = string;
 
 export type KilnId = string;
 
@@ -2533,6 +2539,97 @@ export type ListSuggestedMaintenanceTasksResponses = {
 };
 
 export type ListSuggestedMaintenanceTasksResponse = ListSuggestedMaintenanceTasksResponses[keyof ListSuggestedMaintenanceTasksResponses];
+
+export type StartRecordPhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        recordId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/records/{recordId}/photos';
+};
+
+export type StartRecordPhotoUploadErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type StartRecordPhotoUploadError = StartRecordPhotoUploadErrors[keyof StartRecordPhotoUploadErrors];
+
+export type StartRecordPhotoUploadResponses = {
+    /**
+     * Where to upload. The URLs expire after 15 minutes and can each be used once.
+     */
+    201: PhotoUpload;
+};
+
+export type StartRecordPhotoUploadResponse = StartRecordPhotoUploadResponses[keyof StartRecordPhotoUploadResponses];
+
+export type CompleteRecordPhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        recordId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/records/{recordId}/photos/{photoId}/complete';
+};
+
+export type CompleteRecordPhotoUploadErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CompleteRecordPhotoUploadError = CompleteRecordPhotoUploadErrors[keyof CompleteRecordPhotoUploadErrors];
+
+export type CompleteRecordPhotoUploadResponses = {
+    /**
+     * The photo now shows on the record.
+     */
+    204: void;
+};
+
+export type CompleteRecordPhotoUploadResponse = CompleteRecordPhotoUploadResponses[keyof CompleteRecordPhotoUploadResponses];
 
 export type ExportMaintenanceRecordsData = {
     body?: never;

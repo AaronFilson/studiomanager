@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.maintenance;
 
 import java.time.ZoneOffset;
+import java.util.List;
 
 import io.github.aaronfilson.studiomanager.contract.AssetDto;
 import io.github.aaronfilson.studiomanager.contract.AssetKindDto;
@@ -9,6 +10,7 @@ import io.github.aaronfilson.studiomanager.contract.DutyDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.PartUsedDto;
+import io.github.aaronfilson.studiomanager.contract.PiecePhotoDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
@@ -53,7 +55,7 @@ public final class MaintenanceDtos {
                 .tasks(asset.tasks().stream().map(MaintenanceDtos::toDto).toList());
     }
 
-    static MaintenanceRecordDto toDto(Record record) {
+    static MaintenanceRecordDto toDto(Record record, List<RecordPhotoService.Photo> photos) {
         return new MaintenanceRecordDto()
                 .id(record.id())
                 .assetId(record.assetId())
@@ -69,6 +71,10 @@ public final class MaintenanceDtos {
                 .parts(record.parts().stream()
                         .map(p -> new PartUsedDto().itemId(p.itemId()).itemName(p.itemName()).unit(p.unit())
                                 .quantity(p.quantity().toPlainString()))
+                        .toList())
+                .photos(photos.stream()
+                        .map(p -> new PiecePhotoDto().id(p.id()).url(p.url()).thumbnailUrl(p.thumbnailUrl())
+                                .uploadedByAccountId(p.uploadedBy()).uploadedAt(p.uploadedAt().atOffset(ZoneOffset.UTC)))
                         .toList());
     }
 

@@ -23,6 +23,7 @@ import { useId, useState } from 'react';
 
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
+import { RecordPhotos } from '../../../components/RecordPhotos';
 import { assetKindLabel, dutyLabel, formatDate, formatDateTime, formatMoney, scheduleText } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/maintenance')({
@@ -448,6 +449,7 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
                 Parts: {r.parts.map((p) => `${p.quantity} ${p.unit} ${p.itemName}`.replace(/\s+/g, ' ')).join('; ')}
               </div>
             )}
+            <RecordPhotos studioId={studioId} record={r} />
           </li>
         ))}
       </ol>

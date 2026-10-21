@@ -5,14 +5,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
-import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
+import io.github.aaronfilson.studiomanager.platform.storage.UploadedImages;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -31,12 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class PiecePhotoService {
 
     static final int MAX_PHOTOS = 6;
-    static final int MAX_PHOTO_BYTES = 8 * 1024 * 1024;
-    static final int MAX_THUMBNAIL_BYTES = 512 * 1024;
-    static final Duration UPLOAD_WINDOW = Duration.ofMinutes(15);
-
-    /** Every JPEG starts with a start-of-image marker followed by another marker. */
-    private static final byte[] JPEG_MAGIC = { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF };
+    static final int MAX_PHOTO_BYTES = UploadedImages.MAX_PHOTO_BYTES;
+    static final int MAX_THUMBNAIL_BYTES = UploadedImages.MAX_THUMBNAIL_BYTES;
+    static final Duration UPLOAD_WINDOW = UploadedImages.UPLOAD_WINDOW;
 
     private final JdbcClient jdbc;
     private final PieceService pieces;
@@ -103,8 +99,8 @@ public class PiecePhotoService {
         if (status.equals("READY")) {
             return pieces.get(pieceId);
         }
-        long size = check(PhotoBlobs.full(studioId, pieceId, photoId), MAX_PHOTO_BYTES, "photo");
-        check(PhotoBlobs.thumbnail(studioId, pieceId, photoId), MAX_THUMBNAIL_BYTES, "thumbnail");
+        long size = UploadedImages.check(blobs, PhotoBlobs.full(studioId, pieceId, photoId), MAX_PHOTO_BYTES, "photo");
+        UploadedImages.check(blobs, PhotoBlobs.thumbnail(studioId, pieceId, photoId), MAX_THUMBNAIL_BYTES, "thumbnail");
         int ready = jdbc.sql("select count(*) from piece_photo where piece_id = :pieceId and status = 'READY'")
                 .param("pieceId", pieceId)
                 .query(Integer.class).single();
@@ -142,19 +138,6 @@ public class PiecePhotoService {
     /** Where to upload a new photo's two images, and the limits they must meet. */
     public record PhotoUpload(UUID photoId, URI photoUploadUrl, URI thumbnailUploadUrl, Instant expiresAt,
             int maxPhotoBytes, int maxThumbnailBytes) {
-    }
-
-    private long check(String blob, int maxBytes, String what) {
-        BlobStore.BlobInfo info = blobs.info(blob)
-                .orElseThrow(() -> new InvalidInputException("The %s hasn't been uploaded yet.".formatted(what)));
-        if (info.size() > maxBytes) {
-            throw new InvalidInputException("The %s is larger than %d KB. Shrink it and try again."
-                    .formatted(what, maxBytes / 1024));
-        }
-        if (info.size() < JPEG_MAGIC.length || !Arrays.equals(blobs.head(blob, JPEG_MAGIC.length), JPEG_MAGIC)) {
-            throw new InvalidInputException("The %s isn't a JPEG image.".formatted(what));
-        }
-        return info.size();
     }
 
     /** Serializes photo changes on one piece, so two uploads at once can't both take the last place. */

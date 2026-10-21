@@ -7,12 +7,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.contract.AssetAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.AssetDto;
 import io.github.aaronfilson.studiomanager.contract.AssetKindDto;
+import io.github.aaronfilson.studiomanager.contract.PhotoUploadDto;
 import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
 import io.github.aaronfilson.studiomanager.contract.ReportProblemRequestDto;
 import io.github.aaronfilson.studiomanager.contract.ReportableAssetDto;
@@ -45,11 +47,14 @@ class MaintenanceController implements MaintenanceApi {
 
     private final MaintenanceService maintenance;
     private final ProblemReportService problems;
+    private final RecordPhotoService recordPhotos;
     private final StudioService studios;
 
-    MaintenanceController(MaintenanceService maintenance, ProblemReportService problems, StudioService studios) {
+    MaintenanceController(MaintenanceService maintenance, ProblemReportService problems,
+            RecordPhotoService recordPhotos, StudioService studios) {
         this.maintenance = maintenance;
         this.problems = problems;
+        this.recordPhotos = recordPhotos;
         this.studios = studios;
     }
 
@@ -128,13 +133,36 @@ class MaintenanceController implements MaintenanceApi {
         var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()),
                 request.getParts() == null ? List.of() : request.getParts().stream()
                         .map(p -> new PartUse(p.getItemId(), new BigDecimal(p.getQuantity()))).toList());
-        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record));
+        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record, List.of()));
     }
 
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<List<MaintenanceRecordDto>> listMaintenanceRecords(UUID studioId, UUID assetId) {
-        return ResponseEntity.ok(maintenance.records(assetId).stream().map(MaintenanceDtos::toDto).toList());
+        var records = maintenance.records(assetId);
+        Map<UUID, List<RecordPhotoService.Photo>> photos = recordPhotos.photosOf(assetId);
+        return ResponseEntity.ok(records.stream()
+                .map(r -> MaintenanceDtos.toDto(r, photos.getOrDefault(r.id(), List.of()))).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<PhotoUploadDto> startRecordPhotoUpload(UUID studioId, UUID recordId) {
+        RecordPhotoService.Upload upload = recordPhotos.startUpload(recordId);
+        return ResponseEntity.status(201).body(new PhotoUploadDto()
+                .photoId(upload.photoId())
+                .photoUploadUrl(upload.photoUploadUrl())
+                .thumbnailUploadUrl(upload.thumbnailUploadUrl())
+                .expiresAt(upload.expiresAt().atOffset(ZoneOffset.UTC))
+                .maxPhotoBytes(upload.maxPhotoBytes())
+                .maxThumbnailBytes(upload.maxThumbnailBytes()));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<Void> completeRecordPhotoUpload(UUID studioId, UUID recordId, UUID photoId) {
+        recordPhotos.complete(recordId, photoId);
+        return ResponseEntity.noContent().build();
     }
 
     @Override

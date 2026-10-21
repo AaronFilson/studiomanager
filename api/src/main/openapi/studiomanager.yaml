@@ -967,6 +967,58 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/maintenance/records/{recordId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RecordId"
+    post:
+      tags: [maintenance]
+      operationId: startRecordPhotoUpload
+      summary: Start adding a photo to a maintenance record (staff only)
+      description: |
+        Works like `startPhotoUpload` for pieces: upload both JPEGs to the signed URLs, then call
+        `completeRecordPhotoUpload`. Up to 4 a record. Records are evidence, so photos can't be
+        removed once added.
+      responses:
+        "201":
+          description: Where to upload. The URLs expire after 15 minutes and can each be used once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/maintenance/records/{recordId}/photos/{photoId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RecordId"
+      - $ref: "#/components/parameters/PhotoId"
+    post:
+      tags: [maintenance]
+      operationId: completeRecordPhotoUpload
+      summary: Finish adding a photo to a record, once both images are uploaded (staff only)
+      description: Checks both images like `completePhotoUpload`. Calling it again changes nothing.
+      responses:
+        "204":
+          description: The photo now shows on the record.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/maintenance/records/export:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -2558,6 +2610,13 @@ components:
       schema:
         type: string
         format: uuid
+    RecordId:
+      name: recordId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     KilnId:
       name: kilnId
       in: path
@@ -3623,7 +3682,7 @@ components:
 
     MaintenanceRecord:
       type: object
-      required: [id, assetId, checked, doneBy, doneAt, parts]
+      required: [id, assetId, checked, doneBy, doneAt, parts, photos]
       properties:
         id:
           type: string
@@ -3661,6 +3720,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PartUsed"
+        photos:
+          type: array
+          description: Finished photos, oldest first. Same shape as a piece's photos.
+          items:
+            $ref: "#/components/schemas/PiecePhoto"
 
     FiringKind:
       type: string

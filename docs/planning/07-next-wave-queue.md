@@ -63,3 +63,9 @@ Updated as each item lands.
   page, with an asset or "something else". The staff and technicians get a notice. Open reports
   show on the Maintenance page, where staff resolve them. A report is its own table, not a
   maintenance record: it isn't work done. Still not run on a device.
+- **9. Parts and photos on records:** done 2026-10-21 (V17, V18). A repair lists the parts it used
+  from supplies; each is a USED stock movement noted with the asset. Staff add up to 4 photos to
+  any record, uploaded straight to storage like piece photos. Photos can't be removed, because
+  records are evidence. The JPEG checks now live in `platform.storage.UploadedImages`, shared with
+  piece photos, and the client's upload helper serves both. Not yet: parts on task completions
+  (repairs are staff-only, and so is drawing stock), and photos from the phone.
