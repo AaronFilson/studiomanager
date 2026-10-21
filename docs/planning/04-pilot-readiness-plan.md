@@ -76,4 +76,10 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
     (`infra/modules/email`).
   - Left for the first deploy: the API identity's role on ACS, and a custom sender domain.
   - Left for the pilot to decide: an email opt-out for studio notices.
-- **2. Bulk invite:** next.
+- **2. Bulk invite: first version done (2026-10-20).**
+  - Staff paste a list (a spreadsheet column, or an email's To line) on the Members page. Each
+    new address gets its own emailed invite; members and addresses already invited are skipped
+    and reported.
+  - "Waiting to join" lists open invites, with resend (a new code and a fresh 14 days) and withdraw.
+  - The plain code is made when the email is sent, and never stored (V11, `InviteEmails`).
+- **3. Mobile app:** next.

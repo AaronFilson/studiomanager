@@ -2,14 +2,20 @@ import {
   createCertificationTypeMutation,
   createInviteMutation,
   type Duty,
+  emailInvitesMutation,
   getStudioOptions,
   grantCertificationMutation,
   listCertificationsOptions,
   listCertificationTypesOptions,
   listDutiesOptions,
   listMembersOptions,
+  listOpenInvitesOptions,
+  listOpenInvitesQueryKey,
   type Member,
+  resendInviteMutation,
+  revokeInviteMutation,
   setDutiesMutation,
+  type SkippedEmail,
   type StudioRole,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -33,7 +39,9 @@ function MembersPage() {
   return (
     <div className="stack">
       <h1>Members</h1>
+      <EmailInviteForm studioId={studioId} myRole={studio.myRole} />
       <InviteForm studioId={studioId} myRole={studio.myRole} />
+      <OpenInvites studioId={studioId} />
       {members.isPending && <p>Loading members…</p>}
       {members.isError && <ErrorMessage error={members.error} />}
       {members.isSuccess && (
@@ -153,16 +161,141 @@ function CertificationTypeForm({ studioId }: { studioId: string }) {
   );
 }
 
+function rolesFor(myRole: StudioRole): StudioRole[] {
+  return myRole === 'OWNER' ? ['MEMBER', 'STAFF', 'OWNER'] : ['MEMBER', 'STAFF'];
+}
+
+const skipReasons: Record<SkippedEmail['reason'], string> = {
+  ALREADY_MEMBER: 'already a member',
+  ALREADY_INVITED: 'already invited; resend it below',
+};
+
+function EmailInviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const [text, setText] = useState('');
+  const [role, setRole] = useState<StudioRole>('MEMBER');
+  const send = useMutation({
+    ...emailInvitesMutation(),
+    onSuccess: async () => {
+      setText('');
+      await queryClient.invalidateQueries({ queryKey: listOpenInvitesQueryKey({ path: { studioId } }) });
+    },
+  });
+
+  return (
+    <form
+      className="card stack"
+      aria-labelledby={`${id}-title`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        send.mutate({ path: { studioId }, body: { text, role } });
+      }}
+    >
+      <h2 id={`${id}-title`}>Invite by email</h2>
+      <div className="field">
+        <label htmlFor={`${id}-text`}>Email addresses</label>
+        <textarea
+          id={`${id}-text`}
+          required
+          rows={5}
+          maxLength={20000}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          aria-describedby={`${id}-hint`}
+        />
+        <p id={`${id}-hint`} className="badge">
+          Paste a column from a spreadsheet or a list from an email. Up to 200 at once; each gets their own link.
+        </p>
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-role`}>As</label>
+        <select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as StudioRole)}>
+          {rolesFor(myRole).map((r) => (
+            <option key={r} value={r}>
+              {roleLabel(r)}
+            </option>
+          ))}
+        </select>
+      </div>
+      {send.isError && <ErrorMessage error={send.error} />}
+      {send.data && (
+        <div className="stack" aria-live="polite">
+          <p>
+            Sending {send.data.invited.length} {send.data.invited.length === 1 ? 'invite' : 'invites'}.
+          </p>
+          {send.data.skipped.length > 0 && (
+            <ul>
+              {send.data.skipped.map((s) => (
+                <li key={s.email}>
+                  Skipped {s.email}: {skipReasons[s.reason]}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <div>
+        <button type="submit" className="primary" disabled={send.isPending}>
+          Send invites
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function OpenInvites({ studioId }: { studioId: string }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const invites = useQuery(listOpenInvitesOptions({ path: { studioId } }));
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: listOpenInvitesQueryKey({ path: { studioId } }) });
+  const resend = useMutation({ ...resendInviteMutation(), onSuccess });
+  const revoke = useMutation({ ...revokeInviteMutation(), onSuccess });
+
+  if (!invites.data?.length) return null;
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Waiting to join</h2>
+      <ul className="studio-list">
+        {invites.data.map((invite) => (
+          <li key={invite.id} className="row">
+            <span>
+              <strong>{invite.email ?? 'Invite link'}</strong>{' '}
+              <span className={invite.expired ? 'badge warning' : 'badge'}>
+                {roleLabel(invite.role)} · {invite.expired ? 'expired' : 'until'} {formatDate(invite.expiresAt)}
+                {invite.email && !invite.lastSentAt ? ' · sending' : ''}
+              </span>
+            </span>
+            {invite.email && (
+              <button type="button" onClick={() => resend.mutate({ path: { studioId, inviteId: invite.id } })}>
+                Resend
+              </button>
+            )}
+            <button type="button" onClick={() => revoke.mutate({ path: { studioId, inviteId: invite.id } })}>
+              Withdraw
+            </button>
+          </li>
+        ))}
+      </ul>
+      {(resend.error ?? revoke.error) && <ErrorMessage error={resend.error ?? revoke.error} />}
+    </section>
+  );
+}
+
 function InviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole }) {
   const id = useId();
+  const queryClient = useQueryClient();
   const [role, setRole] = useState<StudioRole>('MEMBER');
-  const invite = useMutation(createInviteMutation());
-  const roles: StudioRole[] = myRole === 'OWNER' ? ['MEMBER', 'STAFF', 'OWNER'] : ['MEMBER', 'STAFF'];
+  const invite = useMutation({
+    ...createInviteMutation(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: listOpenInvitesQueryKey({ path: { studioId } }) }),
+  });
+  const roles = rolesFor(myRole);
   const link = invite.data ? `${window.location.origin}/invites/${invite.data.code}` : undefined;
 
   return (
     <section className="card stack" aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>Invite someone</h2>
+      <h2 id={`${id}-title`}>Invite with a link</h2>
       <div className="field">
         <label htmlFor={`${id}-role`}>As</label>
         <select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as StudioRole)}>

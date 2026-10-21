@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvite, adjustHours, assignShift, cancelBooking, createBooking, createCertificationType, createInvite, createKiln, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, expireStoredValue, exportJournal, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listBalances, listBookings, listCertifications, listCertificationTypes, listDuties, listKilnFirings, listKilnMaintenance, listKilns, listMembers, listMyNotifications, listPayouts, listPieces, listPurchaseRequests, listResources, listShifts, listStockMovements, listStoredValues, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, type Options, quoteFee, recordKilnMaintenance, recordPayment, recordStockMovement, revokeCertification, saveFeeSchedule, savePiecePolicy, sellStoredValue, sellSupply, sendNotice, setDuties, setKilnAvailability, setTaxRate, transitionFiring, updateKiln, updateSupply, useStoredValue } from '../sdk.gen';
-import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnMaintenanceData, ListKilnMaintenanceError, ListKilnMaintenanceResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordKilnMaintenanceData, RecordKilnMaintenanceError, RecordKilnMaintenanceResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
+import { acceptInvite, adjustHours, assignShift, cancelBooking, createBooking, createCertificationType, createInvite, createKiln, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, emailInvites, expireStoredValue, exportJournal, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listBalances, listBookings, listCertifications, listCertificationTypes, listDuties, listKilnFirings, listKilnMaintenance, listKilns, listMembers, listMyNotifications, listOpenInvites, listPayouts, listPieces, listPurchaseRequests, listResources, listShifts, listStockMovements, listStoredValues, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, type Options, quoteFee, recordKilnMaintenance, recordPayment, recordStockMovement, resendInvite, revokeCertification, revokeInvite, saveFeeSchedule, savePiecePolicy, sellStoredValue, sellSupply, sendNotice, setDuties, setKilnAvailability, setTaxRate, transitionFiring, updateKiln, updateSupply, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnMaintenanceData, ListKilnMaintenanceError, ListKilnMaintenanceResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordKilnMaintenanceData, RecordKilnMaintenanceError, RecordKilnMaintenanceResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -114,6 +114,28 @@ export const listMembersOptions = (options: Options<ListMembersData>) => queryOp
     queryKey: listMembersQueryKey(options)
 });
 
+export const listOpenInvitesQueryKey = (options: Options<ListOpenInvitesData>) => createQueryKey('listOpenInvites', options);
+
+/**
+ * Invites not yet accepted, newest first (staff only)
+ *
+ * Both emailed invites and link invites. Expired ones are included, so staff can see who
+ * never joined and send again.
+ *
+ */
+export const listOpenInvitesOptions = (options: Options<ListOpenInvitesData>) => queryOptions<ListOpenInvitesResponse, ListOpenInvitesError, ListOpenInvitesResponse, ReturnType<typeof listOpenInvitesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listOpenInvites({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listOpenInvitesQueryKey(options)
+});
+
 /**
  * Invite someone into the studio (staff only)
  *
@@ -125,6 +147,66 @@ export const createInviteMutation = (options?: Partial<Options<CreateInviteData>
     const mutationOptions: UseMutationOptions<CreateInviteResponse, CreateInviteError, Options<CreateInviteData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Email an invite to each address in a pasted list (staff only)
+ *
+ * Takes text as pasted from a spreadsheet, a mailing list or an email's To line, and finds
+ * the addresses in it (`Jane Doe <jane@example.com>` works). Each new address gets its own
+ * invite, emailed after this request commits. Addresses that already belong to a member,
+ * or that already have an unexpired invite, are skipped and reported. At most 200
+ * addresses at once.
+ *
+ */
+export const emailInvitesMutation = (options?: Partial<Options<EmailInvitesData>>): UseMutationOptions<EmailInvitesResponse, EmailInvitesError, Options<EmailInvitesData>> => {
+    const mutationOptions: UseMutationOptions<EmailInvitesResponse, EmailInvitesError, Options<EmailInvitesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await emailInvites({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Withdraw an invite that hasn't been accepted (staff only)
+ */
+export const revokeInviteMutation = (options?: Partial<Options<RevokeInviteData>>): UseMutationOptions<RevokeInviteResponse, RevokeInviteError, Options<RevokeInviteData>> => {
+    const mutationOptions: UseMutationOptions<RevokeInviteResponse, RevokeInviteError, Options<RevokeInviteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Email an invite again, with a new code and a fresh 14 days (staff only)
+ *
+ * Only for emailed invites. The code in any earlier email stops working.
+ */
+export const resendInviteMutation = (options?: Partial<Options<ResendInviteData>>): UseMutationOptions<ResendInviteResponse, ResendInviteError, Options<ResendInviteData>> => {
+    const mutationOptions: UseMutationOptions<ResendInviteResponse, ResendInviteError, Options<ResendInviteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resendInvite({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

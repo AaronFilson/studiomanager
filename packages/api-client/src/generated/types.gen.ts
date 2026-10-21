@@ -106,6 +106,45 @@ export type Invite = {
     expiresAt: string;
 };
 
+export type OpenInvite = {
+    id: string;
+    /**
+     * Who it was emailed to. Absent for a link invite.
+     */
+    email?: string;
+    role: StudioRole;
+    createdAt: string;
+    expiresAt: string;
+    expired: boolean;
+    /**
+     * When the email last went out. Absent until it has, and for link invites.
+     */
+    lastSentAt?: string;
+};
+
+export type EmailInvitesRequest = {
+    /**
+     * Email addresses, separated by commas, semicolons, spaces or new lines.
+     */
+    text: string;
+    role: StudioRole;
+};
+
+export type EmailInvitesResult = {
+    invited: Array<OpenInvite>;
+    skipped: Array<SkippedEmail>;
+};
+
+export type SkippedEmail = {
+    email: string;
+    /**
+     * ALREADY_MEMBER: someone in the studio signs in with this address. ALREADY_INVITED: it
+     * has an unexpired invite; resend that one instead.
+     *
+     */
+    reason: 'ALREADY_MEMBER' | 'ALREADY_INVITED';
+};
+
 /**
  * A non-negative decimal, as a string so no precision is lost (for example `"0.05"`).
  */
@@ -832,6 +871,8 @@ export type Problem = {
  */
 export type StudioId = string;
 
+export type InviteId = string;
+
 export type PieceId = string;
 
 export type KilnId = string;
@@ -976,6 +1017,40 @@ export type ListMembersResponses = {
 
 export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
 
+export type ListOpenInvitesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invites';
+};
+
+export type ListOpenInvitesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListOpenInvitesError = ListOpenInvitesErrors[keyof ListOpenInvitesErrors];
+
+export type ListOpenInvitesResponses = {
+    /**
+     * The open invites.
+     */
+    200: Array<OpenInvite>;
+};
+
+export type ListOpenInvitesResponse = ListOpenInvitesResponses[keyof ListOpenInvitesResponses];
+
 export type CreateInviteData = {
     body: CreateInviteRequest;
     path: {
@@ -1013,6 +1088,126 @@ export type CreateInviteResponses = {
 };
 
 export type CreateInviteResponse = CreateInviteResponses[keyof CreateInviteResponses];
+
+export type EmailInvitesData = {
+    body: EmailInvitesRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invites/emails';
+};
+
+export type EmailInvitesErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type EmailInvitesError = EmailInvitesErrors[keyof EmailInvitesErrors];
+
+export type EmailInvitesResponses = {
+    /**
+     * What was sent and what was skipped.
+     */
+    200: EmailInvitesResult;
+};
+
+export type EmailInvitesResponse = EmailInvitesResponses[keyof EmailInvitesResponses];
+
+export type RevokeInviteData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        inviteId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invites/{inviteId}';
+};
+
+export type RevokeInviteErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type RevokeInviteError = RevokeInviteErrors[keyof RevokeInviteErrors];
+
+export type RevokeInviteResponses = {
+    /**
+     * Revoked. Its code no longer works.
+     */
+    204: void;
+};
+
+export type RevokeInviteResponse = RevokeInviteResponses[keyof RevokeInviteResponses];
+
+export type ResendInviteData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        inviteId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invites/{inviteId}/resend';
+};
+
+export type ResendInviteErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type ResendInviteError = ResendInviteErrors[keyof ResendInviteErrors];
+
+export type ResendInviteResponses = {
+    /**
+     * The invite, as it will be sent.
+     */
+    200: OpenInvite;
+};
+
+export type ResendInviteResponse = ResendInviteResponses[keyof ResendInviteResponses];
 
 export type AcceptInviteData = {
     body?: never;

@@ -46,8 +46,15 @@ and staff notices have to arrive by email. An email is a side effect outside the
   idempotency key.
 - The API scales to zero, so retries happen only while an instance is up. The first request
   after idle wakes it.
-- Bulk invites (P1 item 2) and later push notifications use the same path: a new event and a new
-  listener.
+- Later push notifications use the same path: a new event and a new listener.
+- **Emailed invites (P1 item 2) use it too, but keep the outbox free of secrets.**
+  - Event payloads sit in `event_publication` for 30 days, so `InviteEmailRequested` carries only
+    the invite's id.
+  - The listener makes the code when it sends. It stores the code's hash and emails the code in
+    one transaction, so a failed send rolls the hash back.
+  - It binds the studio before starting that transaction, because RLS reads the tenant when a
+    transaction begins. So it's a plain `@Async @TransactionalEventListener` instead of an
+    `@ApplicationModuleListener`, and the registry still tracks it.
 - **Open at first deploy:**
   - The API identity needs a role on the Communication Services resource to send. Microsoft's
     built-in role list has no Communication Services entry, and reports conflict on custom roles.

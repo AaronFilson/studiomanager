@@ -131,6 +131,26 @@ paths:
   /api/v1/studios/{studioId}/invites:
     parameters:
       - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [members]
+      operationId: listOpenInvites
+      summary: Invites not yet accepted, newest first (staff only)
+      description: |
+        Both emailed invites and link invites. Expired ones are included, so staff can see who
+        never joined and send again.
+      responses:
+        "200":
+          description: The open invites.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenInvite"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [members]
       operationId: createInvite
@@ -157,6 +177,82 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/invites/emails:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [members]
+      operationId: emailInvites
+      summary: Email an invite to each address in a pasted list (staff only)
+      description: |
+        Takes text as pasted from a spreadsheet, a mailing list or an email's To line, and finds
+        the addresses in it (`Jane Doe <jane@example.com>` works). Each new address gets its own
+        invite, emailed after this request commits. Addresses that already belong to a member,
+        or that already have an unexpired invite, are skipped and reported. At most 200
+        addresses at once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailInvitesRequest"
+      responses:
+        "200":
+          description: What was sent and what was skipped.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailInvitesResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/invites/{inviteId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/InviteId"
+    delete:
+      tags: [members]
+      operationId: revokeInvite
+      summary: Withdraw an invite that hasn't been accepted (staff only)
+      responses:
+        "204":
+          description: Revoked. Its code no longer works.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/invites/{inviteId}/resend:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/InviteId"
+    post:
+      tags: [members]
+      operationId: resendInvite
+      summary: Email an invite again, with a new code and a fresh 14 days (staff only)
+      description: Only for emailed invites. The code in any earlier email stops working.
+      responses:
+        "200":
+          description: The invite, as it will be sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenInvite"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /api/v1/invites/{code}/accept:
     parameters:
@@ -1886,6 +1982,13 @@ components:
       schema:
         type: string
         format: uuid
+    InviteId:
+      name: inviteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     PieceId:
       name: pieceId
       in: path
@@ -2157,6 +2260,69 @@ components:
         expiresAt:
           type: string
           format: date-time
+
+    OpenInvite:
+      type: object
+      required: [id, role, createdAt, expiresAt, expired]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          description: Who it was emailed to. Absent for a link invite.
+        role:
+          $ref: "#/components/schemas/StudioRole"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
+        lastSentAt:
+          type: string
+          format: date-time
+          description: When the email last went out. Absent until it has, and for link invites.
+
+    EmailInvitesRequest:
+      type: object
+      required: [text, role]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+          description: Email addresses, separated by commas, semicolons, spaces or new lines.
+        role:
+          $ref: "#/components/schemas/StudioRole"
+
+    EmailInvitesResult:
+      type: object
+      required: [invited, skipped]
+      properties:
+        invited:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenInvite"
+        skipped:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkippedEmail"
+
+    SkippedEmail:
+      type: object
+      required: [email, reason]
+      properties:
+        email:
+          type: string
+        reason:
+          type: string
+          description: |
+            ALREADY_MEMBER: someone in the studio signs in with this address. ALREADY_INVITED: it
+            has an unexpired invite; resend that one instead.
+          enum: [ALREADY_MEMBER, ALREADY_INVITED]
 
     Decimal:
       type: string
