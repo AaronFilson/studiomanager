@@ -34,6 +34,7 @@ import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Shift;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -56,14 +57,16 @@ public class ScheduleService {
     private final StudioMembers members;
     private final AccountDirectory accounts;
     private final MaintenanceService maintenance;
+    private final ApplicationEventPublisher events;
 
     ScheduleService(JdbcClient jdbc, AccessService access, StudioMembers members, AccountDirectory accounts,
-            MaintenanceService maintenance) {
+            MaintenanceService maintenance, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.access = access;
         this.members = members;
         this.accounts = accounts;
         this.maintenance = maintenance;
+        this.events = events;
     }
 
     // ---- Resources
@@ -290,8 +293,9 @@ public class ScheduleService {
     }
 
     /**
-     * Assigns a shift. Members can take an open shift for themselves if they have its duty; staff
-     * can assign anyone, or pass null to open it up again.
+     * Assigns a shift. Members can take an open shift, or one someone has offered, for themselves
+     * if they have its duty; staff can assign anyone, or pass null to open it up again. Taking an
+     * offered shift tells whoever had it that they're covered.
      */
     @Transactional
     public Shift assign(UUID shiftId, @Nullable UUID accountId, long expectedVersion) {
@@ -301,8 +305,9 @@ public class ScheduleService {
             throw new InvalidInputException("This shift has already been worked.");
         }
         if (!isStaff(caller)) {
-            if (accountId == null || !accountId.equals(caller.accountId()) || !shift.open()) {
-                throw new AccessDeniedException("Members can only take open shifts for themselves.");
+            boolean takeable = shift.open() || (shift.offered() && !caller.accountId().equals(shift.accountId()));
+            if (accountId == null || !accountId.equals(caller.accountId()) || !takeable) {
+                throw new AccessDeniedException("Members can only take open or offered shifts for themselves.");
             }
             if (shift.duty() != null && !access.dutiesOf(caller.accountId()).contains(shift.duty())) {
                 throw new AccessDeniedException("This shift is for members with the %s duty."
@@ -311,7 +316,10 @@ public class ScheduleService {
         } else if (accountId != null && members.roleOf(accountId).isEmpty()) {
             throw new InvalidInputException("That person isn't a member of this studio.");
         }
-        int updated = jdbc.sql("update shift set account_id = :account, version = version + 1 where id = :id and version = :version")
+        int updated = jdbc.sql("""
+                update shift set account_id = :account, offered_at = null, version = version + 1
+                where id = :id and version = :version
+                """)
                 .param("account", accountId)
                 .param("id", shiftId)
                 .param("version", expectedVersion)
@@ -319,7 +327,58 @@ public class ScheduleService {
         if (updated == 0) {
             throw new ConflictException("Someone else changed this shift at the same time. Reload and try again.");
         }
-        return shift(shiftId);
+        Shift assigned = shift(shiftId);
+        if (shift.offered() && accountId != null && !accountId.equals(shift.accountId())) {
+            events.publishEvent(new ShiftCovered(caller.studioId(), shiftId, shift.title(), shift.startsAt(),
+                    shift.accountId(), assigned.accountName()));
+        }
+        return assigned;
+    }
+
+    /**
+     * Asks for cover, or stops asking. Only whoever has the shift (or staff) can; they stay on it
+     * until someone takes it, so asking never leaves it uncovered. Everyone who could work it
+     * hears about the offer.
+     */
+    @Transactional
+    public Shift offer(UUID shiftId, boolean offered, long expectedVersion) {
+        TenantContext caller = TenantContext.require();
+        Shift shift = shift(shiftId);
+        if (shift.accountId() == null) {
+            throw new InvalidInputException("Nobody has this shift; it's already open for anyone to take.");
+        }
+        if (!isStaff(caller) && !caller.accountId().equals(shift.accountId())) {
+            throw new AccessDeniedException("Only whoever has this shift can ask for cover.");
+        }
+        if (shift.workedAt() != null || !shift.endsAt().isAfter(Instant.now())) {
+            throw new InvalidInputException("This shift is over.");
+        }
+        int updated = jdbc.sql("""
+                update shift set offered_at = :offeredAt, version = version + 1 where id = :id and version = :version
+                """)
+                .param("offeredAt", offered ? utc(now()) : null)
+                .param("id", shiftId)
+                .param("version", expectedVersion)
+                .update();
+        if (updated == 0) {
+            throw new ConflictException("Someone else changed this shift at the same time. Reload and try again.");
+        }
+        Shift result = shift(shiftId);
+        if (offered && !shift.offered()) {
+            events.publishEvent(new ShiftOffered(caller.studioId(), shiftId, shift.title(), shift.startsAt(),
+                    shift.endsAt(), result.accountName(), couldCover(shift)));
+        }
+        return result;
+    }
+
+    /** Members who could take this shift: those with its duty, or everyone if it has none. */
+    private List<UUID> couldCover(Shift shift) {
+        if (shift.duty() == null) {
+            return members.list().stream().map(m -> m.accountId()).filter(id -> !id.equals(shift.accountId())).toList();
+        }
+        return access.allDuties().entrySet().stream()
+                .filter(e -> e.getValue().contains(shift.duty()) && !e.getKey().equals(shift.accountId()))
+                .map(Map.Entry::getKey).sorted().toList();
     }
 
     /** Staff confirm a shift was worked, which credits its hours to the person who worked it. */
@@ -398,7 +457,7 @@ public class ScheduleService {
     // ---- Internals
 
     private static final String SELECT_SHIFT = """
-            select id, title, duty, starts_at, ends_at, account_id, worked_at, version from shift
+            select id, title, duty, starts_at, ends_at, account_id, worked_at, offered_at, version from shift
             """;
 
     private Shift shift(UUID id) {
@@ -443,16 +502,19 @@ public class ScheduleService {
                 .filter(java.util.Objects::nonNull).toList());
         return shifts.stream()
                 .map(s -> new Shift(s.id(), s.title(), s.duty(), s.startsAt(), s.endsAt(), s.accountId(),
-                        s.accountId() == null ? null : names.get(s.accountId()), s.workedAt(), s.version()))
+                        s.accountId() == null ? null : names.get(s.accountId()), s.workedAt(), s.offeredAt(),
+                        s.version()))
                 .toList();
     }
 
     private static Shift mapShift(ResultSet rs, int row) throws SQLException {
         String duty = rs.getString("duty");
         OffsetDateTime worked = rs.getObject("worked_at", OffsetDateTime.class);
+        OffsetDateTime offered = rs.getObject("offered_at", OffsetDateTime.class);
         return new Shift(rs.getObject("id", UUID.class), rs.getString("title"), duty == null ? null : Duty.valueOf(duty),
                 instant(rs, "starts_at"), instant(rs, "ends_at"), rs.getObject("account_id", UUID.class), null,
-                worked == null ? null : worked.toInstant(), rs.getLong("version"));
+                worked == null ? null : worked.toInstant(), offered == null ? null : offered.toInstant(),
+                rs.getLong("version"));
     }
 
     private static Booking mapBooking(ResultSet rs, int row) throws SQLException {

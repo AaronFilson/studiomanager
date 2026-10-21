@@ -240,6 +240,50 @@ class ScheduleApiTests {
                 """.formatted(resource, kind, start, start.plus(2, ChronoUnit.HOURS)));
     }
 
+    @Test
+    void aMonitorAsksForCoverAndAnotherTakesTheShift() throws Exception {
+        String monitorId = accountId(monitor);
+        String makerId = accountId(maker);
+        for (String id : List.of(monitorId, makerId)) {
+            assertThat(mvc.put().uri(path("/members/" + id + "/duties")).with(owner.token())
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"duties\": [\"MONITOR\"]}")).hasStatusOk();
+        }
+        String shift = read(post(owner, path("/shifts"), """
+                {"title": "Open studio monitor", "duty": "MONITOR", "firstStartsAt": "%s", "minutes": 180, "weeks": 1}
+                """.formatted(tomorrow)), "$[0].id");
+        assertThat(assign(monitor, shift, monitorId, 0)).hasStatusOk();
+
+        // Only the holder asks; the maker can't take a shift that isn't offered
+        assertThat(offer(maker, shift, true, 1)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(assign(maker, shift, makerId, 1)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(offer(monitor, shift, true, 1)).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$.offered", o -> assertThat(o).isEqualTo(true))
+                // Still theirs until someone takes it
+                .hasPathSatisfying("$.accountId", a -> assertThat(a).isEqualTo(monitorId));
+        assertThat(coverNotices(maker)).containsExactly("Nia needs cover: Open studio monitor");
+        assertThat(coverNotices(monitor)).isEmpty();
+
+        assertThat(assign(maker, shift, makerId, 2)).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$.accountId", a -> assertThat(a).isEqualTo(makerId))
+                .hasPathSatisfying("$.offered", o -> assertThat(o).isEqualTo(false));
+        assertThat(coverNotices(monitor)).containsExactly("Mo is covering your shift");
+        // Once taken, it isn't up for grabs any more
+        assertThat(assign(monitor, shift, monitorId, 3)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    private MvcTestResult offer(TestUser user, String shift, boolean offered, long version) {
+        return mvc.put().uri(path("/shifts/" + shift + "/offer")).with(user.token())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"offered\": %s, \"expectedVersion\": %d}".formatted(offered, version))
+                .exchange();
+    }
+
+    private List<String> coverNotices(TestUser user) throws Exception {
+        String body = mvc.get().uri(path("/notifications")).with(user.token()).exchange().getResponse()
+                .getContentAsString();
+        return JsonPath.read(body, "$[?(@.kind == 'SHIFT_COVER')].title");
+    }
+
     private MvcTestResult assign(TestUser user, String shift, String accountId, long version) {
         return mvc.put().uri(path("/shifts/" + shift + "/assignment")).with(user.token())
                 .contentType(MediaType.APPLICATION_JSON)

@@ -15,6 +15,7 @@ import io.github.aaronfilson.studiomanager.contract.CreateResourceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.CreateShiftsRequestDto;
 import io.github.aaronfilson.studiomanager.contract.HoursEntryDto;
 import io.github.aaronfilson.studiomanager.contract.HoursLedgerDto;
+import io.github.aaronfilson.studiomanager.contract.OfferShiftRequestDto;
 import io.github.aaronfilson.studiomanager.contract.ResourceDto;
 import io.github.aaronfilson.studiomanager.contract.ResourceKindDto;
 import io.github.aaronfilson.studiomanager.contract.ScheduleApi;
@@ -99,6 +100,14 @@ class ScheduleController implements ScheduleApi {
     @PreAuthorize("@studioAuthz.isMember(#studioId)")
     public ResponseEntity<ShiftDto> assignShift(UUID studioId, UUID shiftId, AssignShiftRequestDto request) {
         return ResponseEntity.ok(ScheduleDtos.toDto(schedule.assign(shiftId, request.getAccountId(),
+                request.getExpectedVersion())));
+    }
+
+    /** Members may call this; the service lets through only whoever has the shift, and staff. */
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<ShiftDto> offerShift(UUID studioId, UUID shiftId, OfferShiftRequestDto request) {
+        return ResponseEntity.ok(ScheduleDtos.toDto(schedule.offer(shiftId, request.getOffered(),
                 request.getExpectedVersion())));
     }
 

@@ -24,12 +24,15 @@ import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.schedule.ShiftCovered;
+import io.github.aaronfilson.studiomanager.schedule.ShiftOffered;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
 import io.github.aaronfilson.studiomanager.supplies.SupplyRanOut;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -171,6 +174,34 @@ public class NotificationService {
         List<UUID> everyone = members.list().stream().map(MemberView::accountId).toList();
         insert(everyone, NotificationView.Kind.STUDIO_NOTICE, clip(ranOut.itemName() + " is out", 120),
                 clip(ranOut.substitute(), 2000));
+    }
+
+    /** "Mona needs cover: Monitor, Tue 3 Nov 6:00 pm", to everyone who could take it. */
+    @EventListener
+    void onShiftOffered(ShiftOffered offer) {
+        String when = shiftTime(offer.startsAt(), offer.endsAt());
+        insert(offer.recipients(), NotificationView.Kind.SHIFT_COVER,
+                clip("%s needs cover: %s".formatted(offer.holderName() == null ? "Someone" : offer.holderName(),
+                        offer.title()), 120),
+                "%s, %s.\n\nTake it on the Roster page if you can.".formatted(offer.title(), when));
+    }
+
+    /** Tells whoever asked for cover that they have it. */
+    @EventListener
+    void onShiftCovered(ShiftCovered covered) {
+        String who = covered.coveredByName() == null ? "Someone" : covered.coveredByName();
+        insert(List.of(covered.previousHolder()), NotificationView.Kind.SHIFT_COVER,
+                clip("%s is covering your shift".formatted(who), 120),
+                "%s is covering %s on %s. It's off your roster.".formatted(who, covered.title(),
+                        shiftTime(covered.startsAt(), null)));
+    }
+
+    /** "Tue 3 Nov 2026, 6:00 pm–9:00 pm" in the studio's time zone. */
+    private String shiftTime(Instant start, @Nullable Instant end) {
+        var zone = studios.current().timeZone();
+        var day = DateTimeFormatter.ofPattern("EEE d MMM yyyy, h:mm a", Locale.ENGLISH).withZone(zone);
+        var time = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH).withZone(zone);
+        return end == null ? day.format(start) : day.format(start) + "–" + time.format(end);
     }
 
     /** Tells the staff and technicians what a member noticed, in the member's words. */

@@ -8,6 +8,7 @@ import {
   listMembersOptions,
   listShiftsOptions,
   markShiftWorkedMutation,
+  offerShiftMutation,
   type Shift,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -34,12 +35,13 @@ function RosterPage() {
   const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
   const me = useQuery(getMeOptions());
   const staff = isStaff(studio.myRole);
-  const { from, to } = useMemo(() => {
-    const start = new Date();
+  const { from, to, now } = useMemo(() => {
+    const opened = new Date();
+    const start = new Date(opened);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 28);
-    return { from: start.toISOString(), to: end.toISOString() };
+    return { from: start.toISOString(), to: end.toISOString(), now: opened.getTime() };
   }, []);
   const shifts = useQuery(listShiftsOptions({ path: { studioId }, query: { from, to } }));
   const myId = me.data?.account.id;
@@ -52,7 +54,7 @@ function RosterPage() {
       {shifts.isSuccess && shifts.data.length === 0 && <p>No shifts in the next four weeks.</p>}
       <ul className="studio-list">
         {shifts.data?.map((shift) => (
-          <ShiftRow key={shift.id} studioId={studioId} shift={shift} staff={staff} myId={myId} />
+          <ShiftRow key={shift.id} studioId={studioId} shift={shift} staff={staff} myId={myId} now={now} />
         ))}
       </ul>
       {staff && <ShiftForm studioId={studioId} />}
@@ -60,13 +62,29 @@ function RosterPage() {
   );
 }
 
-function ShiftRow({ studioId, shift, staff, myId }: { studioId: string; shift: Shift; staff: boolean; myId?: string }) {
+function ShiftRow({
+  studioId,
+  shift,
+  staff,
+  myId,
+  now,
+}: {
+  studioId: string;
+  shift: Shift;
+  staff: boolean;
+  myId?: string;
+  /** When the page opened, in milliseconds */
+  now: number;
+}) {
   const queryClient = useQueryClient();
   const members = useQuery({ ...listMembersOptions({ path: { studioId } }), enabled: staff });
   const onSuccess = () => queryClient.invalidateQueries();
   const assign = useMutation({ ...assignShiftMutation(), onSuccess });
   const worked = useMutation({ ...markShiftWorkedMutation(), onSuccess });
-  const error = assign.error ?? worked.error;
+  const offer = useMutation({ ...offerShiftMutation(), onSuccess });
+  const error = assign.error ?? worked.error ?? offer.error;
+  const mine = myId !== undefined && shift.accountId === myId;
+  const upcoming = !shift.workedAt && new Date(shift.endsAt).getTime() > now;
 
   return (
     <li>
@@ -75,6 +93,7 @@ function ShiftRow({ studioId, shift, staff, myId }: { studioId: string; shift: S
         {shift.duty && <span className="badge"> · {dutyLabel(shift.duty)}</span>}
         <div>
           {shift.accountName ?? (shift.open ? <span className="warning">Open</span> : 'Taken')}
+          {shift.offered && <span className="warning"> · needs cover</span>}
           {shift.workedAt && <span className="badge"> · worked, hours credited</span>}
         </div>
         {error && <ErrorMessage error={error} />}
@@ -86,6 +105,24 @@ function ShiftRow({ studioId, shift, staff, myId }: { studioId: string; shift: S
             onClick={() => assign.mutate({ path: { studioId, shiftId: shift.id }, body: { accountId: myId, expectedVersion: shift.version } })}
           >
             Take it
+          </button>
+        )}
+        {shift.offered && !mine && myId && upcoming && (
+          <button
+            type="button"
+            onClick={() => assign.mutate({ path: { studioId, shiftId: shift.id }, body: { accountId: myId, expectedVersion: shift.version } })}
+          >
+            Cover it
+          </button>
+        )}
+        {mine && upcoming && (
+          <button
+            type="button"
+            onClick={() =>
+              offer.mutate({ path: { studioId, shiftId: shift.id }, body: { offered: !shift.offered, expectedVersion: shift.version } })
+            }
+          >
+            {shift.offered ? 'I can do it after all' : 'Ask for cover'}
           </button>
         )}
         {staff && !shift.workedAt && (

@@ -659,7 +659,7 @@ export type FiringTransitionRequest = {
     expectedVersion: number;
 };
 
-export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED';
+export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED' | 'SHIFT_COVER';
 
 export type Notification = {
     id: string;
@@ -783,6 +783,14 @@ export type CreateBookingRequest = {
     accountId?: string;
 };
 
+export type OfferShiftRequest = {
+    /**
+     * True to ask for cover, false to stop asking.
+     */
+    offered: boolean;
+    expectedVersion: number;
+};
+
 export type Shift = {
     id: string;
     title: string;
@@ -792,6 +800,10 @@ export type Shift = {
     accountId?: string;
     accountName?: string;
     open: boolean;
+    /**
+     * Whoever has it is asking for cover; members who could work it can take it.
+     */
+    offered: boolean;
     minutes: number;
     workedAt?: string;
     version: number;
@@ -3905,6 +3917,53 @@ export type AssignShiftResponses = {
 };
 
 export type AssignShiftResponse = AssignShiftResponses[keyof AssignShiftResponses];
+
+export type OfferShiftData = {
+    body: OfferShiftRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        shiftId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/shifts/{shiftId}/offer';
+};
+
+export type OfferShiftErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type OfferShiftError = OfferShiftErrors[keyof OfferShiftErrors];
+
+export type OfferShiftResponses = {
+    /**
+     * The shift.
+     */
+    200: Shift;
+};
+
+export type OfferShiftResponse = OfferShiftResponses[keyof OfferShiftResponses];
 
 export type MarkShiftWorkedData = {
     body: VersionRequest;

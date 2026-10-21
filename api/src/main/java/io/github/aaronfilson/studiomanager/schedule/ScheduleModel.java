@@ -58,11 +58,17 @@ public final class ScheduleModel {
             Instant startsAt, Instant endsAt, @Nullable UUID accountId, @Nullable String accountName, boolean mine) {
     }
 
+    /** @param offeredAt when whoever has it asked for cover; they keep it until someone takes it */
     public record Shift(UUID id, String title, @Nullable Duty duty, Instant startsAt, Instant endsAt,
-            @Nullable UUID accountId, @Nullable String accountName, @Nullable Instant workedAt, long version) {
+            @Nullable UUID accountId, @Nullable String accountName, @Nullable Instant workedAt,
+            @Nullable Instant offeredAt, long version) {
 
         public boolean open() {
             return accountId == null;
+        }
+
+        public boolean offered() {
+            return offeredAt != null;
         }
 
         public int minutes() {

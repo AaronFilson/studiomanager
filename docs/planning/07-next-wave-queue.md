@@ -69,3 +69,22 @@ Updated as each item lands.
   records are evidence. The JPEG checks now live in `platform.storage.UploadedImages`, shared with
   piece photos, and the client's upload helper serves both. Not yet: parts on task completions
   (repairs are staff-only, and so is drawing stock), and photos from the phone.
+- **10. Playwright smoke test:** not started. It needs a way to sign in without Entra in a test
+  build. See "Left open" below.
+- **11. Wave 1 leftovers:** done 2026-10-21, on `wave1-leftovers`.
+  - *Use this instead:* when an item with a substitute runs out, every member gets a notice with
+    the studio's substitute text. It's sent once per stock-out.
+  - *Firings on the calendar (V19):* starting a firing books it on any calendar resource that is
+    that kiln: 24 hours at first, trimmed when it's unloaded, removed if it's cancelled.
+  - *Shift cover (V20):* whoever has a shift can ask for cover. They keep it until someone takes
+    it. Members with the duty get a notice, and the holder gets one when it's covered.
+
+## Left open
+
+- **Playwright.** The web app signs in with MSAL against Entra External ID, and a smoke test
+  can't. Two ways: a test-only build mode with a fake sign-in (compiled out of production by
+  Vite's mode), or a test user in a dev External ID tenant once it exists. The second tests the
+  real thing but needs the deploy. My recommendation is to wait for the first deploy.
+- **Pull requests.** `p1-hardening`, `wave2-maintenance-2` and `wave1-leftovers` are pushed and
+  stacked in that order. No PRs are open yet.
+- **Owner settings:** the branch ruleset and secret scanning ([runbook](../runbooks/branch-protection.md)).

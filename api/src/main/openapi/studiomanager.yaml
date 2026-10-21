@@ -1834,6 +1834,42 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/shifts/{shiftId}/offer:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ShiftId"
+    put:
+      tags: [schedule]
+      operationId: offerShift
+      summary: Ask for cover for your shift, or stop asking
+      description: |
+        Whoever has the shift (or staff) can. They keep it until someone takes it with
+        `assignShift`, so asking never leaves it uncovered. Members with the shift's duty, or
+        everyone if it has none, get a notice; whoever had it gets one when it's taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferShiftRequest"
+      responses:
+        "200":
+          description: The shift.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/shifts/{shiftId}/worked:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -3823,7 +3859,7 @@ components:
 
     NotificationKind:
       type: string
-      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED]
+      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED, SHIFT_COVER]
 
     Notification:
       type: object
@@ -4062,9 +4098,20 @@ components:
           format: uuid
           description: Who it is for. Defaults to the caller for reservations; only staff may name someone else.
 
+    OfferShiftRequest:
+      type: object
+      required: [offered, expectedVersion]
+      properties:
+        offered:
+          type: boolean
+          description: True to ask for cover, false to stop asking.
+        expectedVersion:
+          type: integer
+          format: int64
+
     Shift:
       type: object
-      required: [id, title, startsAt, endsAt, open, minutes, version]
+      required: [id, title, startsAt, endsAt, open, offered, minutes, version]
       properties:
         id:
           type: string
@@ -4086,6 +4133,9 @@ components:
           type: string
         open:
           type: boolean
+        offered:
+          type: boolean
+          description: Whoever has it is asking for cover; members who could work it can take it.
         minutes:
           type: integer
           format: int32
