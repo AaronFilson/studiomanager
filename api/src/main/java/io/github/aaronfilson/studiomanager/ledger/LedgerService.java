@@ -485,8 +485,9 @@ public class LedgerService {
         }
         for (Line line : lines) {
             jdbc.sql("""
-                    insert into journal_line (id, entry_id, studio_id, account, amount, member_id, stored_value, provider, tax_category)
-                    values (:id, :entry, :studioId, :account, :amount, :member, :sv, :provider, :tax)
+                    insert into journal_line (id, entry_id, studio_id, account, amount, member_id, stored_value, provider,
+                                              tax_category, payee_id)
+                    values (:id, :entry, :studioId, :account, :amount, :member, :sv, :provider, :tax, :payee)
                     """)
                     .param("id", Uuids.v7())
                     .param("entry", id)
@@ -497,12 +498,13 @@ public class LedgerService {
                     .param("sv", line.storedValue())
                     .param("provider", line.provider() == null ? null : line.provider().name())
                     .param("tax", line.taxCategory())
+                    .param("payee", line.payee())
                     .update();
         }
         return id;
     }
 
-    private BigDecimal taxOn(BigDecimal amount, String taxCategory, LocalDate day, Currency currency) {
+    BigDecimal taxOn(BigDecimal amount, String taxCategory, LocalDate day, Currency currency) {
         BigDecimal rate = jdbc.sql("""
                 select rate from tax_rate where tax_category = :category and effective_from <= :day
                 order by effective_from desc limit 1
@@ -562,11 +564,12 @@ public class LedgerService {
         }
     }
 
-    private Currency currency() {
+    Currency currency() {
         return studios.current().currency();
     }
 
-    private LocalDate today() {
+    /** Today in the studio's own time zone, which is what bookkeeping is reported by. */
+    LocalDate today() {
         return localDate(Instant.now());
     }
 

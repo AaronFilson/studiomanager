@@ -19,6 +19,7 @@ import { Route as StudiosStudioIdCalendarRouteImport } from './routes/studios/$s
 import { Route as StudiosStudioIdMaintenanceRouteImport } from './routes/studios/$studioId/maintenance'
 import { Route as StudiosStudioIdMembersRouteImport } from './routes/studios/$studioId/members'
 import { Route as StudiosStudioIdMoneyRouteImport } from './routes/studios/$studioId/money'
+import { Route as StudiosStudioIdPayablesRouteImport } from './routes/studios/$studioId/payables'
 import { Route as StudiosStudioIdRosterRouteImport } from './routes/studios/$studioId/roster'
 import { Route as StudiosStudioIdSettingsRouteImport } from './routes/studios/$studioId/settings'
 import { Route as StudiosStudioIdSuppliesRouteImport } from './routes/studios/$studioId/supplies'
@@ -79,6 +80,11 @@ const StudiosStudioIdMoneyRoute = StudiosStudioIdMoneyRouteImport.update({
   path: '/money',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
+const StudiosStudioIdPayablesRoute = StudiosStudioIdPayablesRouteImport.update({
+  id: '/payables',
+  path: '/payables',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
 const StudiosStudioIdRosterRoute = StudiosStudioIdRosterRouteImport.update({
   id: '/roster',
   path: '/roster',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
   '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
   '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
   '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
+    | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
     | '/studios/$studioId/supplies'
@@ -213,6 +223,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
+    | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
     | '/studios/$studioId/supplies'
@@ -233,6 +244,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
+    | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
     | '/studios/$studioId/supplies'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudiosStudioIdMoneyRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
+    '/studios/$studioId/payables': {
+      id: '/studios/$studioId/payables'
+      path: '/payables'
+      fullPath: '/studios/$studioId/payables'
+      preLoaderRoute: typeof StudiosStudioIdPayablesRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
     '/studios/$studioId/roster': {
       id: '/studios/$studioId/roster'
       path: '/roster'
@@ -386,6 +405,7 @@ interface StudiosStudioIdRouteRouteChildren {
   StudiosStudioIdMaintenanceRoute: typeof StudiosStudioIdMaintenanceRoute
   StudiosStudioIdMembersRoute: typeof StudiosStudioIdMembersRoute
   StudiosStudioIdMoneyRoute: typeof StudiosStudioIdMoneyRoute
+  StudiosStudioIdPayablesRoute: typeof StudiosStudioIdPayablesRoute
   StudiosStudioIdRosterRoute: typeof StudiosStudioIdRosterRoute
   StudiosStudioIdSettingsRoute: typeof StudiosStudioIdSettingsRoute
   StudiosStudioIdSuppliesRoute: typeof StudiosStudioIdSuppliesRoute
@@ -402,6 +422,7 @@ const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
   StudiosStudioIdMaintenanceRoute: StudiosStudioIdMaintenanceRoute,
   StudiosStudioIdMembersRoute: StudiosStudioIdMembersRoute,
   StudiosStudioIdMoneyRoute: StudiosStudioIdMoneyRoute,
+  StudiosStudioIdPayablesRoute: StudiosStudioIdPayablesRoute,
   StudiosStudioIdRosterRoute: StudiosStudioIdRosterRoute,
   StudiosStudioIdSettingsRoute: StudiosStudioIdSettingsRoute,
   StudiosStudioIdSuppliesRoute: StudiosStudioIdSuppliesRoute,

@@ -34,7 +34,14 @@ records parts from supplies and photos. Members can report problems from their p
 asset can't be booked. Wave 1's leftovers are done too: firings on the calendar, "use this
 instead" notices when a supply runs out, and asking for shift cover.
 
-The order of the work, and what's still open, is in the [work queue](docs/planning/07-next-wave-queue.md).
+The second Wave 2 feature is **payables**. A studio takes in artists' work on consignment and sells
+it. The artist's share becomes what the studio owes them, and the commission is revenue. Staff
+record instructors' shares of a class, record payments by cheque, bank transfer, PayPal or studio
+credit, and print a statement for any period. A 1099-NEC list counts only the payments a 1099-NEC
+covers.
+
+The order of the work, and what's still open, is in the [Wave 2 queue](docs/planning/08-wave2-queue.md)
+(after the [earlier queue](docs/planning/07-next-wave-queue.md)).
 
 ## Repository layout
 
