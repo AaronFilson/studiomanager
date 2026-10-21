@@ -12,7 +12,8 @@ public record NotificationView(UUID id, Kind kind, String title, String body, In
     public enum Kind {
         PIECES_READY,
         STUDIO_NOTICE,
-        MAINTENANCE_DUE
+        MAINTENANCE_DUE,
+        PROBLEM_REPORTED
     }
 
 }

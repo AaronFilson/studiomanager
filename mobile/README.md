@@ -15,6 +15,9 @@ What it does today:
   photo and thumbnail on the phone (`expo-image-manipulator`, which also drops the location) and
   uploaded straight to Blob Storage (see [ADR 12](../docs/adr/0012-direct-to-blob-photo-uploads.md)).
   The shelf shows each piece's first photo.
+- **Tasks:** maintenance that falls to the member, by name or through a duty such as monitor. Tick
+  the checklist, add a note, mark it done. "Report a problem" from here tells the staff and
+  technicians about anything that's wrong.
 - **Notices:** the member's inbox, with an unread count on the tab. Opening a notice marks it read.
 
 Not yet: push notifications. The camera needs a development build on a device or emulator; it

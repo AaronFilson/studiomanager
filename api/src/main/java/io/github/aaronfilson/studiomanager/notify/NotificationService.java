@@ -18,6 +18,7 @@ import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.kiln.FiringKind;
 import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
+import io.github.aaronfilson.studiomanager.maintenance.ProblemReported;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -158,6 +159,17 @@ public class NotificationService {
         }
         body.append("\nMark it done on the Maintenance page when it's finished.");
         insert(due.recipients(), NotificationView.Kind.MAINTENANCE_DUE, clip(title, 120), clip(body.toString(), 2000));
+    }
+
+    /** Tells the staff and technicians what a member noticed, in the member's words. */
+    @EventListener
+    void onProblemReported(ProblemReported report) {
+        String what = report.assetName() == null ? "a problem" : "a problem with " + report.assetName();
+        String title = "Reported: " + (report.assetName() == null ? "a problem" : report.assetName());
+        String body = "%s reported %s:\n\n%s\n\nSee it on the Maintenance page, and resolve it there once it's dealt with."
+                .formatted(report.reportedByName() == null ? "A member" : report.reportedByName(), what,
+                        report.description());
+        insert(report.recipients(), NotificationView.Kind.PROBLEM_REPORTED, clip(title, 120), clip(body, 2000));
     }
 
     private static String clip(String text, int max) {

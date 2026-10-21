@@ -503,6 +503,47 @@ export type SaveMaintenanceTaskRequest = {
     assignedTo?: string;
 };
 
+export type ReportableAsset = {
+    id: string;
+    kind: AssetKind;
+    name: string;
+    /**
+     * False while it's out of service, so a member knows it's already in hand.
+     */
+    available: boolean;
+};
+
+export type ProblemReport = {
+    id: string;
+    /**
+     * Absent for "somewhere else".
+     */
+    assetId?: string;
+    assetName?: string;
+    description: string;
+    reportedBy: string;
+    reportedByName?: string;
+    reportedAt: string;
+    open: boolean;
+    resolvedByName?: string;
+    resolvedAt?: string;
+    resolution?: string;
+    version: number;
+};
+
+export type ReportProblemRequest = {
+    /**
+     * Leave out for something not on the list.
+     */
+    assetId?: string;
+    description: string;
+};
+
+export type ResolveProblemRequest = {
+    resolution?: string;
+    expectedVersion: number;
+};
+
 export type SuggestedMaintenanceTask = {
     task: SaveMaintenanceTaskRequest;
     /**
@@ -597,7 +638,7 @@ export type FiringTransitionRequest = {
     expectedVersion: number;
 };
 
-export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE';
+export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED';
 
 export type Notification = {
     id: string;
@@ -1051,6 +1092,8 @@ export type StudioId = string;
 export type AssetId = string;
 
 export type TaskId = string;
+
+export type ReportId = string;
 
 export type InviteId = string;
 
@@ -2677,6 +2720,168 @@ export type ListMyMaintenanceTasksResponses = {
 };
 
 export type ListMyMaintenanceTasksResponse = ListMyMaintenanceTasksResponses[keyof ListMyMaintenanceTasksResponses];
+
+export type ListReportableAssetsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/reportable-assets';
+};
+
+export type ListReportableAssetsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListReportableAssetsError = ListReportableAssetsErrors[keyof ListReportableAssetsErrors];
+
+export type ListReportableAssetsResponses = {
+    /**
+     * Kilns first, then by name.
+     */
+    200: Array<ReportableAsset>;
+};
+
+export type ListReportableAssetsResponse = ListReportableAssetsResponses[keyof ListReportableAssetsResponses];
+
+export type ListProblemReportsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        /**
+         * Only reports not yet resolved.
+         */
+        open?: boolean;
+    };
+    url: '/api/v1/studios/{studioId}/maintenance/problem-reports';
+};
+
+export type ListProblemReportsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListProblemReportsError = ListProblemReportsErrors[keyof ListProblemReportsErrors];
+
+export type ListProblemReportsResponses = {
+    /**
+     * Up to 200 reports.
+     */
+    200: Array<ProblemReport>;
+};
+
+export type ListProblemReportsResponse = ListProblemReportsResponses[keyof ListProblemReportsResponses];
+
+export type ReportProblemData = {
+    body: ReportProblemRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/problem-reports';
+};
+
+export type ReportProblemErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ReportProblemError = ReportProblemErrors[keyof ReportProblemErrors];
+
+export type ReportProblemResponses = {
+    /**
+     * The report.
+     */
+    201: ProblemReport;
+};
+
+export type ReportProblemResponse = ReportProblemResponses[keyof ReportProblemResponses];
+
+export type ResolveProblemReportData = {
+    body: ResolveProblemRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        reportId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/problem-reports/{reportId}/resolution';
+};
+
+export type ResolveProblemReportErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type ResolveProblemReportError = ResolveProblemReportErrors[keyof ResolveProblemReportErrors];
+
+export type ResolveProblemReportResponses = {
+    /**
+     * The resolved report.
+     */
+    200: ProblemReport;
+};
+
+export type ResolveProblemReportResponse = ResolveProblemReportResponses[keyof ResolveProblemReportResponses];
 
 export type GetKilnQueueData = {
     body?: never;

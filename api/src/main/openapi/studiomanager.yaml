@@ -1090,6 +1090,116 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/studios/{studioId}/maintenance/reportable-assets:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: listReportableAssets
+      summary: Equipment and places a member can report a problem with
+      responses:
+        "200":
+          description: Kilns first, then by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReportableAsset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/maintenance/problem-reports:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: listProblemReports
+      summary: Problem reports, newest first
+      description: Staff see every report; members see their own.
+      parameters:
+        - name: open
+          in: query
+          required: false
+          description: Only reports not yet resolved.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Up to 200 reports.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProblemReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [maintenance]
+      operationId: reportProblem
+      summary: Report a problem with equipment or the building
+      description: Anyone in the studio can. The staff and technicians get a notice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportProblemRequest"
+      responses:
+        "201":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/problem-reports/{reportId}/resolution:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ReportId"
+    post:
+      tags: [maintenance]
+      operationId: resolveProblemReport
+      summary: Close a report, saying what was done (staff only)
+      description: Log any repair on the asset as well; resolving doesn't record work.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveProblemRequest"
+      responses:
+        "200":
+          description: The resolved report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/kilns/{kilnId}/queue:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -2420,6 +2530,13 @@ components:
       schema:
         type: string
         format: uuid
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     InviteId:
       name: inviteId
       in: path
@@ -3348,6 +3465,83 @@ components:
           type: string
           format: uuid
 
+    ReportableAsset:
+      type: object
+      required: [id, kind, name, available]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/AssetKind"
+        name:
+          type: string
+        available:
+          type: boolean
+          description: False while it's out of service, so a member knows it's already in hand.
+
+    ProblemReport:
+      type: object
+      required: [id, description, reportedBy, reportedAt, open, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+          description: Absent for "somewhere else".
+        assetName:
+          type: string
+        description:
+          type: string
+        reportedBy:
+          type: string
+          format: uuid
+        reportedByName:
+          type: string
+        reportedAt:
+          type: string
+          format: date-time
+        open:
+          type: boolean
+        resolvedByName:
+          type: string
+        resolvedAt:
+          type: string
+          format: date-time
+        resolution:
+          type: string
+        version:
+          type: integer
+          format: int64
+
+    ReportProblemRequest:
+      type: object
+      required: [description]
+      properties:
+        assetId:
+          type: string
+          format: uuid
+          description: Leave out for something not on the list.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          examples: ["Wheel 3 grinds when it speeds up"]
+
+    ResolveProblemRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        resolution:
+          type: string
+          maxLength: 1000
+          examples: ["Replaced the belt"]
+        expectedVersion:
+          type: integer
+          format: int64
+
     SuggestedMaintenanceTask:
       type: object
       required: [task, source]
@@ -3531,7 +3725,7 @@ components:
 
     NotificationKind:
       type: string
-      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE]
+      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED]
 
     Notification:
       type: object

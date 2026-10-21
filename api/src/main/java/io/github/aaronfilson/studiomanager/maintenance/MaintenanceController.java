@@ -5,12 +5,19 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.contract.AssetAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.AssetDto;
+import io.github.aaronfilson.studiomanager.contract.AssetKindDto;
+import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
+import io.github.aaronfilson.studiomanager.contract.ReportProblemRequestDto;
+import io.github.aaronfilson.studiomanager.contract.ReportableAssetDto;
+import io.github.aaronfilson.studiomanager.contract.ResolveProblemRequestDto;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.ProblemReport;
 import io.github.aaronfilson.studiomanager.contract.CompleteMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceApi;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
@@ -36,10 +43,12 @@ import org.springframework.web.bind.annotation.RestController;
 class MaintenanceController implements MaintenanceApi {
 
     private final MaintenanceService maintenance;
+    private final ProblemReportService problems;
     private final StudioService studios;
 
-    MaintenanceController(MaintenanceService maintenance, StudioService studios) {
+    MaintenanceController(MaintenanceService maintenance, ProblemReportService problems, StudioService studios) {
         this.maintenance = maintenance;
+        this.problems = problems;
         this.studios = studios;
     }
 
@@ -147,6 +156,52 @@ class MaintenanceController implements MaintenanceApi {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"maintenance-%s-to-%s.csv\"".formatted(from, to))
                 .body(maintenance.recordsCsv(from, to, studios.current().timeZone()));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<List<ReportableAssetDto>> listReportableAssets(UUID studioId) {
+        return ResponseEntity.ok(problems.reportable().stream()
+                .map(a -> new ReportableAssetDto().id(a.id()).kind(AssetKindDto.valueOf(a.kind().name())).name(a.name())
+                        .available(a.available()))
+                .toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<List<ProblemReportDto>> listProblemReports(UUID studioId, @Nullable Boolean open) {
+        return ResponseEntity.ok(problems.reports(Boolean.TRUE.equals(open)).stream()
+                .map(MaintenanceController::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<ProblemReportDto> reportProblem(UUID studioId, ReportProblemRequestDto request) {
+        return ResponseEntity.status(201).body(toDto(problems.report(request.getAssetId(), request.getDescription())));
+    }
+
+    /** Members may call this; the service lets through only staff. */
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<ProblemReportDto> resolveProblemReport(UUID studioId, UUID reportId,
+            ResolveProblemRequestDto request) {
+        return ResponseEntity.ok(toDto(problems.resolve(reportId, request.getResolution(), request.getExpectedVersion())));
+    }
+
+    private static ProblemReportDto toDto(ProblemReport report) {
+        return new ProblemReportDto()
+                .id(report.id())
+                .assetId(report.assetId())
+                .assetName(report.assetName())
+                .description(report.description())
+                .reportedBy(report.reportedBy())
+                .reportedByName(report.reportedByName())
+                .reportedAt(report.reportedAt().atOffset(ZoneOffset.UTC))
+                .open(report.open())
+                .resolvedByName(report.resolvedByName())
+                .resolvedAt(report.resolvedAt() == null ? null : report.resolvedAt().atOffset(ZoneOffset.UTC))
+                .resolution(report.resolution())
+                .version(report.version());
     }
 
     @Override

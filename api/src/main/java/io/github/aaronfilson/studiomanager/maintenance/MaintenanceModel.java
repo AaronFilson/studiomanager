@@ -56,6 +56,21 @@ public final class MaintenanceModel {
             UUID doneBy, @Nullable String doneByName, Instant doneAt) {
     }
 
+    /**
+     * Something a member noticed, such as "wheel 3 grinds". Open until staff resolve it.
+     *
+     * @param assetId null for "somewhere else", or when the asset is no longer tracked
+     */
+    public record ProblemReport(UUID id, @Nullable UUID assetId, @Nullable String assetName, String description,
+            UUID reportedBy, @Nullable String reportedByName, Instant reportedAt, @Nullable UUID resolvedBy,
+            @Nullable String resolvedByName, @Nullable Instant resolvedAt, @Nullable String resolution, long version) {
+
+        public boolean open() {
+            return resolvedAt == null;
+        }
+
+    }
+
     /** What staff set on a task. Validated by the service, which knows the asset. */
     public record TaskSettings(String title, List<String> checklist, @Nullable Integer everyDays,
             @Nullable Integer everyFirings, @Nullable Duty assignedDuty, @Nullable UUID assignedTo) {

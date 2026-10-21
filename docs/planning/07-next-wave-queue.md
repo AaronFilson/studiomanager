@@ -58,3 +58,8 @@ Updated as each item lands.
   an asset, kilns included. While the asset is down, only maintenance or a closure can be booked.
   Bookings made before it went down are left for staff to sort out; a pilot will show whether
   they want those flagged or cancelled.
+- **8. Mobile tasks and problem reports:** done 2026-10-21 (V16). The phone has a Tasks tab
+  (tick the checklist, mark done). Anyone can report a problem, on the phone or the studio's home
+  page, with an asset or "something else". The staff and technicians get a notice. Open reports
+  show on the Maintenance page, where staff resolve them. A report is its own table, not a
+  maintenance record: it isn't work done. Still not run on a device.

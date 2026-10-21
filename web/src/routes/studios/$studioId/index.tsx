@@ -14,6 +14,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
+import { ProblemReportForm } from '../../../components/ProblemReportForm';
 import { formatDateTime, formatMoney, isStaff, roleLabel, unitSystemLabel } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/')({
@@ -31,6 +32,7 @@ function StudioHome() {
       <h1>Hello, {studio.name}</h1>
       <Inbox studioId={studioId} />
       <MyTasks studioId={studioId} />
+      <ProblemReportForm studioId={studioId} />
       <MyBalance studioId={studioId} currency={studio.currency} />
       {isStaff(studio.myRole) && <NoticeForm studioId={studioId} />}
       <dl className="facts">

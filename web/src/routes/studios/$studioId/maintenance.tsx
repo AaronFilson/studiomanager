@@ -9,8 +9,10 @@ import {
   getStudioOptions,
   listAssetsOptions,
   listMaintenanceRecordsOptions,
+  listProblemReportsOptions,
   listSuggestedMaintenanceTasksOptions,
   recordRepairMutation,
+  resolveProblemReportMutation,
   setAssetAvailabilityMutation,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +21,7 @@ import { useId, useState } from 'react';
 
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
-import { assetKindLabel, dutyLabel, formatDate, formatMoney, scheduleText } from '../../../labels';
+import { assetKindLabel, dutyLabel, formatDate, formatDateTime, formatMoney, scheduleText } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/maintenance')({
   component: MaintenancePage,
@@ -51,6 +53,7 @@ function MaintenancePage() {
         Kilns appear here by themselves. Add anything else that needs regular care: the pug mill, clay trap, spray booth
         filters, fire extinguishers, the roof.
       </p>
+      <OpenProblems studioId={studioId} />
       {assets.isPending && <p>Loading…</p>}
       {assets.isError && <ErrorMessage error={assets.error} />}
       {assets.data?.map((asset) => <AssetCard key={asset.id} studioId={studioId} asset={asset} />)}
@@ -91,6 +94,53 @@ function AssetCard({ studioId, asset }: { studioId: string; asset: Asset }) {
         {asset.kind !== 'KILN' && <AssetActions studioId={studioId} asset={asset} />}
       </div>
       {showHistory && <History studioId={studioId} asset={asset} />}
+    </section>
+  );
+}
+
+/** What members have reported and nobody has dealt with yet, oldest worries first in view. */
+function OpenProblems({ studioId }: { studioId: string }) {
+  const queryClient = useQueryClient();
+  const reports = useQuery(listProblemReportsOptions({ path: { studioId }, query: { open: true } }));
+  const resolve = useMutation({ ...resolveProblemReportMutation(), onSuccess: () => queryClient.invalidateQueries() });
+
+  if (reports.isError) {
+    return <ErrorMessage error={reports.error} />;
+  }
+  if (!reports.data?.length) {
+    return null;
+  }
+  return (
+    <section className="card stack" aria-label="Reported problems">
+      <h2>Reported problems</h2>
+      <ul className="studio-list">
+        {reports.data.map((r) => (
+          <li key={r.id}>
+            <div>
+              <strong>{r.assetName ?? 'Something else'}</strong>: {r.description}
+              <div className="badge">
+                {r.reportedByName ?? 'A member'} · {formatDateTime(r.reportedAt)}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={resolve.isPending}
+              onClick={() => {
+                const resolution = window.prompt('What was done? (optional)');
+                if (resolution !== null) {
+                  resolve.mutate({
+                    path: { studioId, reportId: r.id },
+                    body: { expectedVersion: r.version, ...(resolution.trim() ? { resolution: resolution.trim() } : {}) },
+                  });
+                }
+              }}
+            >
+              Resolve
+            </button>
+          </li>
+        ))}
+      </ul>
+      {resolve.isError && <ErrorMessage error={resolve.error} />}
     </section>
   );
 }

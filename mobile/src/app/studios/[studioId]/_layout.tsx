@@ -21,8 +21,10 @@ export default function StudioLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Pieces' }} />
       <Tabs.Screen name="intake" options={{ title: 'Drop off' }} />
+      <Tabs.Screen name="tasks" options={{ title: 'Tasks' }} />
       <Tabs.Screen name="notices" options={{ title: 'Notices', tabBarBadge: unread > 0 ? unread : undefined }} />
       <Tabs.Screen name="pieces/[pieceId]" options={{ href: null, title: 'Piece' }} />
+      <Tabs.Screen name="report" options={{ href: null, title: 'Report a problem' }} />
     </Tabs>
   );
 }
