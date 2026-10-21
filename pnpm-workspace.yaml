@@ -1,0 +1,4 @@
+packages:
+  - web
+  - packages/*
+  # The Expo app (`mobile`) joins the workspace in M1 and reuses @studiomanager/api-client.

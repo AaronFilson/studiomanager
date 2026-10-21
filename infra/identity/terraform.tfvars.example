@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (git-ignored) and fill in from the External ID tenant's overview page.
+external_tenant_id        = "00000000-0000-0000-0000-000000000000"
+external_tenant_subdomain = "studiomanagerdev"
+environment               = "dev"
+
+# Add the Static Web App origin after the first envs/dev apply, then apply again.
+web_origins = [
+  "http://localhost:5173",
+  # "https://<swa-default-host-name>",
+]

@@ -1,0 +1,19 @@
+# Only for the Docker build's training run, which starts the application context without a
+# database to record a JVM AOT cache (faster cold starts when scaling from zero). See api/Dockerfile.
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        boot:
+          allow_jdbc_metadata_access: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://aot-training.invalid/
+          audiences: aot-training

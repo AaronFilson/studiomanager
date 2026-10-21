@@ -1,0 +1,3532 @@
+openapi: 3.1.0
+info:
+  title: Studio Manager API
+  version: 0.1.0
+  description: |
+    The HTTP contract for Studio Manager. This file is the source of truth: the Spring
+    server interfaces (Gradle `openApiGenerate`) and the TypeScript client
+    (`packages/api-client`) are both generated from it, so a change here fails the
+    build on whichever side has not caught up.
+
+    Errors use RFC 9457 problem details (`application/problem+json`).
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: account
+    description: The signed-in person.
+  - name: studios
+    description: Studios (tenants) and membership in them.
+  - name: members
+    description: The people in a studio, and invites.
+  - name: fees
+    description: Firing-fee schedules and quotes.
+  - name: pieces
+    description: Members' pieces from drop-off to pickup.
+  - name: kilns
+    description: Kilns, their queues, firings and maintenance.
+  - name: notifications
+    description: Members' inbox, and notices from staff.
+  - name: access
+    description: Duties (technician, monitor, work exchange…) and certifications on equipment.
+  - name: schedule
+    description: The studio calendar, the staffing roster, and credited hours.
+  - name: today
+    description: The handover view for whoever is running the studio today.
+  - name: supplies
+    description: Clay and supplies, stock on hand, reorder levels and purchase requests.
+  - name: ledger
+    description: |
+      The studio's books: what members owe, prepaid balances, payouts from every provider,
+      tax rates by date, and the daily summary that feeds QuickBooks or Xero.
+
+paths:
+  /api/v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: The signed-in account and the studios it belongs to
+      description: |
+        The first call after sign-in. Creates the account record on first use, keyed by
+        the token's issuer and subject.
+      responses:
+        "200":
+          description: The signed-in account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/studios:
+    post:
+      tags: [studios]
+      operationId: createStudio
+      summary: Create a studio, with the caller as its owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudioRequest"
+      responses:
+        "201":
+          description: The new studio.
+          headers:
+            Location:
+              description: URL of the new studio.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Studio"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/studios/{studioId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [studios]
+      operationId: getStudio
+      summary: A studio the caller belongs to
+      responses:
+        "200":
+          description: The studio.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Studio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/members:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [members]
+      operationId: listMembers
+      summary: Everyone in the studio (staff only)
+      responses:
+        "200":
+          description: Members, owners first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/invites:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [members]
+      operationId: createInvite
+      summary: Invite someone into the studio (staff only)
+      description: |
+        Returns a one-time code, valid for 14 days. Nobody can invite to a role above their own.
+        The code is shown only here; the server keeps just its hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequest"
+      responses:
+        "201":
+          description: The invite.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invite"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/invites/{code}/accept:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 10
+          maxLength: 64
+    post:
+      tags: [members]
+      operationId: acceptInvite
+      summary: Join a studio with an invite code
+      responses:
+        "200":
+          description: The studio joined, and the role in it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/fee-schedule:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [fees]
+      operationId: getFeeSchedule
+      summary: The current firing-fee schedule
+      description: Version 0 means the studio hasn't set fees, so pieces fire free.
+      responses:
+        "200":
+          description: The current version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeeSchedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [fees]
+      operationId: saveFeeSchedule
+      summary: Save the fees as a new version (staff only)
+      description: Earlier versions are kept, and pieces keep the version they were priced with.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveFeeScheduleRequest"
+      responses:
+        "200":
+          description: The new version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeeSchedule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/fee-quotes:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [fees]
+      operationId: quoteFee
+      summary: Price a piece without taking it in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PieceSize"
+      responses:
+        "200":
+          description: The price, with the working shown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeeQuote"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/piece-policy:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [pieces]
+      operationId: getPiecePolicy
+      summary: How long ready pieces are held
+      responses:
+        "200":
+          description: The policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PiecePolicy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [pieces]
+      operationId: savePiecePolicy
+      summary: Change how long ready pieces are held (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PiecePolicy"
+      responses:
+        "200":
+          description: The policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PiecePolicy"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/pieces:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [pieces]
+      operationId: listPieces
+      summary: Pieces, newest first
+      description: Staff see every piece. Members see only their own, whatever the filter says.
+      parameters:
+        - name: stage
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PieceStage"
+        - name: maker
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Up to 500 pieces.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Piece"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [pieces]
+      operationId: intakePiece
+      summary: Take in a piece
+      description: |
+        Numbers the piece and prices it with the current fee schedule. The fee is a snapshot:
+        later fee changes don't alter it. Members can drop off only their own pieces.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntakePieceRequest"
+      responses:
+        "201":
+          description: The new piece.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Piece"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/pieces/{pieceId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+    get:
+      tags: [pieces]
+      operationId: getPiece
+      summary: One piece and its timeline
+      responses:
+        "200":
+          description: The piece.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Piece"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/pieces/{pieceId}/moves:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+    post:
+      tags: [pieces]
+      operationId: movePiece
+      summary: Move a piece to its next stage (staff only)
+      description: Reaching READY starts the hold period.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovePieceRequest"
+      responses:
+        "200":
+          description: The piece after the move.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Piece"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/kilns:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [kilns]
+      operationId: listKilns
+      summary: The studio's kilns, with availability and maintenance counters
+      responses:
+        "200":
+          description: Kilns.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Kiln"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [kilns]
+      operationId: createKiln
+      summary: Add a kiln (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveKilnRequest"
+      responses:
+        "201":
+          description: The kiln.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kiln"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/kilns/{kilnId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    put:
+      tags: [kilns]
+      operationId: updateKiln
+      summary: Change a kiln's settings (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKilnRequest"
+      responses:
+        "200":
+          description: The kiln.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kiln"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/kilns/{kilnId}/availability:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    put:
+      tags: [kilns]
+      operationId: setKilnAvailability
+      summary: Take a kiln out of service, or put it back (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KilnAvailabilityRequest"
+      responses:
+        "200":
+          description: The kiln.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kiln"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/kilns/{kilnId}/maintenance:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    get:
+      tags: [kilns]
+      operationId: listKilnMaintenance
+      summary: The kiln's maintenance log, newest first (staff only)
+      responses:
+        "200":
+          description: Entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaintenanceEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [kilns]
+      operationId: recordKilnMaintenance
+      summary: Log maintenance, which restarts the firings-since-maintenance count (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordMaintenanceRequest"
+      responses:
+        "200":
+          description: The kiln afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kiln"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/kilns/{kilnId}/queue:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    get:
+      tags: [kilns]
+      operationId: getKilnQueue
+      summary: Pieces waiting for a firing in this kiln, longest-waiting first (staff only)
+      description: Each entry says whether the kiln's per-member cap lets it into the next load.
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/FiringKind"
+      responses:
+        "200":
+          description: The queue.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QueueEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/kilns/{kilnId}/firings:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    get:
+      tags: [kilns]
+      operationId: listKilnFirings
+      summary: The kiln's firing log, newest first (staff only)
+      responses:
+        "200":
+          description: Firings, without their pieces.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Firing"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [kilns]
+      operationId: loadKiln
+      summary: Start a load from queued pieces (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoadKilnRequest"
+      responses:
+        "201":
+          description: The new firing, loading.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Firing"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/firings/{firingId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/FiringId"
+    get:
+      tags: [kilns]
+      operationId: getFiring
+      summary: One firing and its pieces (staff only)
+      responses:
+        "200":
+          description: The firing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Firing"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/firings/{firingId}/transitions:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/FiringId"
+    post:
+      tags: [kilns]
+      operationId: transitionFiring
+      summary: Start, unload or cancel a firing (staff only)
+      description: |
+        COMPLETE (unloading) moves every piece on (bisque → bisque fired; glaze → ready, which
+        starts its hold), counts the firing against the kiln, and sends each maker one notice
+        for the whole batch. CANCELLED returns the pieces to the queue.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FiringTransitionRequest"
+      responses:
+        "200":
+          description: The firing afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Firing"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/notifications:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [notifications]
+      operationId: listMyNotifications
+      summary: The caller's notifications in this studio, newest first
+      responses:
+        "200":
+          description: Up to 100 notifications.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/notifications/{notificationId}/read:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [notifications]
+      operationId: markNotificationRead
+      summary: Mark one of the caller's notifications as read
+      responses:
+        "204":
+          description: Marked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/notices:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [notifications]
+      operationId: sendNotice
+      summary: Send every member a notice, such as a closure (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoticeRequest"
+      responses:
+        "200":
+          description: How many members it went to.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/duties:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [access]
+      operationId: listDuties
+      summary: Everyone's duties (staff only)
+      responses:
+        "200":
+          description: Members who have at least one duty.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemberDuties"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/members/{accountId}/duties:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AccountId"
+    put:
+      tags: [access]
+      operationId: setDuties
+      summary: Replace a member's duties (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDutiesRequest"
+      responses:
+        "200":
+          description: The member's duties afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberDuties"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/certification-types:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [access]
+      operationId: listCertificationTypes
+      summary: The certifications this studio gives
+      responses:
+        "200":
+          description: Types.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CertificationType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [access]
+      operationId: createCertificationType
+      summary: Add a kind of certification, such as "Kiln loading" (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCertificationTypeRequest"
+      responses:
+        "201":
+          description: The type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificationType"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/certifications:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [access]
+      operationId: listCertifications
+      summary: Certifications held
+      description: Staff see everyone's; with `accountId`, one person's. Members may ask only for their own.
+      parameters:
+        - name: accountId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Certifications.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Certification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/certifications/{typeId}/holders/{accountId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: typeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "#/components/parameters/AccountId"
+    put:
+      tags: [access]
+      operationId: grantCertification
+      summary: Grant or renew a certification (staff only)
+      responses:
+        "200":
+          description: The certification, with its expiry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Certification"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [access]
+      operationId: revokeCertification
+      summary: Withdraw a certification (staff only)
+      responses:
+        "204":
+          description: Withdrawn.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/resources:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [schedule]
+      operationId: listResources
+      summary: What can be booked
+      responses:
+        "200":
+          description: Resources.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Resource"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [schedule]
+      operationId: createResource
+      summary: Add something bookable (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+      responses:
+        "201":
+          description: The resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/bookings:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [schedule]
+      operationId: listBookings
+      summary: The calendar between two times (up to 62 days)
+      description: Members see other people's reservations only as "Reserved".
+      parameters:
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Bookings.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [schedule]
+      operationId: createBooking
+      summary: Book a resource
+      description: |
+        Members can reserve a place for themselves, if they hold the resource's required
+        certification. Staff can book any kind for anyone. A reservation takes one place; other
+        kinds block the whole resource.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: The booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/bookings/{bookingId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: bookingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [schedule]
+      operationId: cancelBooking
+      summary: Cancel your reservation (staff can cancel anything)
+      responses:
+        "204":
+          description: Cancelled.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/shifts:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [schedule]
+      operationId: listShifts
+      summary: The roster between two times (up to 62 days)
+      parameters:
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Shifts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [schedule]
+      operationId: createShifts
+      summary: Add a weekly shift for a number of weeks (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShiftsRequest"
+      responses:
+        "201":
+          description: The shifts created.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/shifts/{shiftId}/assignment:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ShiftId"
+    put:
+      tags: [schedule]
+      operationId: assignShift
+      summary: Take an open shift, or (staff) assign or free one
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignShiftRequest"
+      responses:
+        "200":
+          description: The shift.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/shifts/{shiftId}/worked:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ShiftId"
+    post:
+      tags: [schedule]
+      operationId: markShiftWorked
+      summary: Confirm a shift was worked, crediting its hours (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionRequest"
+      responses:
+        "200":
+          description: The shift.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/hours/{accountId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [schedule]
+      operationId: getHours
+      summary: Someone's credited hours (members see only their own)
+      responses:
+        "200":
+          description: The ledger.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HoursLedger"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [schedule]
+      operationId: adjustHours
+      summary: Credit or debit hours by hand, with a reason (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustHoursRequest"
+      responses:
+        "200":
+          description: The ledger afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HoursLedger"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/today:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [today]
+      operationId: getToday
+      summary: What whoever runs the studio today needs to know (staff only)
+      responses:
+        "200":
+          description: Kilns, queues, pieces needing attention, today's calendar and roster, and roster gaps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Today"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/balances:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: listBalances
+      summary: Members who owe something or are in credit, largest first (staff only)
+      responses:
+        "200":
+          description: Balances. Positive means the member owes the studio.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemberBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/members/{accountId}/statement:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [ledger]
+      operationId: getStatement
+      summary: What a member owes and has prepaid (members see their own)
+      responses:
+        "200":
+          description: The statement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Statement"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/payments:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [ledger]
+      operationId: recordPayment
+      summary: Record a member's payment against what they owe (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordPaymentRequest"
+      responses:
+        "200":
+          description: The member's balance afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberBalance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/stored-values:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: listStoredValues
+      summary: Prepaid balances with something left (staff only)
+      responses:
+        "200":
+          description: Balances.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoredValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [ledger]
+      operationId: sellStoredValue
+      summary: Sell a gift card, firing card, class pack, deposit or credit (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SellStoredValueRequest"
+      responses:
+        "201":
+          description: The new balance. Gift cards get a code to give the buyer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredValue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/gift-cards/{code}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 40
+    get:
+      tags: [ledger]
+      operationId: findGiftCard
+      summary: Look up a gift card by its code (staff only)
+      responses:
+        "200":
+          description: The gift card.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/stored-values/{storedValueId}/uses:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/StoredValueId"
+    post:
+      tags: [ledger]
+      operationId: useStoredValue
+      summary: Pay down a member's balance from a prepaid balance (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UseStoredValueRequest"
+      responses:
+        "200":
+          description: The prepaid balance afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredValue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/stored-values/{storedValueId}/expiry:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/StoredValueId"
+    post:
+      tags: [ledger]
+      operationId: expireStoredValue
+      summary: Write off what's left on a lapsed balance (staff only)
+      responses:
+        "200":
+          description: The balance afterwards (nothing left).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredValue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/stored-value-movements:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: getStoredValueMovements
+      summary: Prepaid balances rolled forward over a period, by kind (staff only)
+      parameters:
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
+      responses:
+        "200":
+          description: Opening, sold, used, expired and closing per kind.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoredValueMovement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/payouts:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: listPayouts
+      summary: Imported payouts, newest first (staff only)
+      responses:
+        "200":
+          description: Payouts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payout"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [ledger]
+      operationId: importPayout
+      summary: Import a processor payout (staff only)
+      description: |
+        From any provider: Stripe, Square, Shopify, PayPal or other. Importing the same payout
+        again returns the first import.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportPayoutRequest"
+      responses:
+        "200":
+          description: The payout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payout"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/clearing:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: getClearing
+      summary: Money each processor has taken but not yet paid out (staff only)
+      responses:
+        "200":
+          description: Per provider.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClearingBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/ledger/summary:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: getLedgerSummary
+      summary: Debits and credits per day and account (staff only)
+      parameters:
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SummaryLine"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/ledger/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: exportJournal
+      summary: The daily summary as a journal CSV for QuickBooks or Xero (staff only)
+      parameters:
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
+      responses:
+        "200":
+          description: One balanced journal per day.
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/tax-rates:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ledger]
+      operationId: listTaxRates
+      summary: Sales tax rates by category and the date they start
+      responses:
+        "200":
+          description: Rates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxRate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [ledger]
+      operationId: setTaxRate
+      summary: Set a category's rate from a date onwards (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetTaxRateRequest"
+      responses:
+        "200":
+          description: The rate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxRate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/supplies:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [supplies]
+      operationId: listSupplies
+      summary: Clay and supplies, low stock first
+      responses:
+        "200":
+          description: Items with stock on hand.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupplyItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [supplies]
+      operationId: createSupply
+      summary: Add an item (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveSupplyRequest"
+      responses:
+        "201":
+          description: The item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplyItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/supplies/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ItemId"
+    put:
+      tags: [supplies]
+      operationId: updateSupply
+      summary: Change an item (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSupplyRequest"
+      responses:
+        "200":
+          description: The item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplyItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/supplies/{itemId}/movements:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      tags: [supplies]
+      operationId: listStockMovements
+      summary: The item's stock history, newest first (staff only)
+      responses:
+        "200":
+          description: Movements.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StockMovement"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [supplies]
+      operationId: recordStockMovement
+      summary: Record stock received, used, or counted (staff only)
+      description: For a count, give what is on the shelf; the difference from the books is recorded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockMovementRequest"
+      responses:
+        "200":
+          description: The item afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplyItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/supplies/{itemId}/sales:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      tags: [supplies]
+      operationId: sellSupply
+      summary: Sell an item to a member, on their balance (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SellSupplyRequest"
+      responses:
+        "200":
+          description: The item afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplyItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/purchase-requests:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [supplies]
+      operationId: listPurchaseRequests
+      summary: Open purchase requests, oldest first (staff only)
+      responses:
+        "200":
+          description: Requested, approved and ordered.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchaseRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [supplies]
+      operationId: createPurchaseRequest
+      summary: Ask for more of an item (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseRequestRequest"
+      responses:
+        "201":
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/purchase-requests/{requestId}/status:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [supplies]
+      operationId: decidePurchaseRequest
+      summary: Approve or reject (owner), or mark ordered or received (staff)
+      description: Received puts the quantity into stock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecidePurchaseRequest"
+      responses:
+        "200":
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseRequest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: An access token from Microsoft Entra External ID for the Studio Manager API.
+
+  parameters:
+    StudioId:
+      name: studioId
+      in: path
+      required: true
+      description: The studio (tenant). Every studio-scoped route starts with it.
+      schema:
+        type: string
+        format: uuid
+    PieceId:
+      name: pieceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    KilnId:
+      name: kilnId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FiringId:
+      name: firingId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ShiftId:
+      name: shiftId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StoredValueId:
+      name: storedValueId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FromDate:
+      name: from
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+    ToDate:
+      name: to
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+    From:
+      name: from
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+
+  responses:
+    BadRequest:
+      description: The request was invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: No valid access token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The caller is not a member of the studio, or lacks the role required.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: No such thing, or not one the caller may see.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: Someone else changed it at the same time. Reload and try again.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Me:
+      type: object
+      required: [account, memberships]
+      properties:
+        account:
+          $ref: "#/components/schemas/Account"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+
+    Account:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          description: From the token's `name` claim, when the identity provider sends one.
+        email:
+          type: string
+          description: From the token's `email` claim, when the identity provider sends one.
+
+    Membership:
+      type: object
+      required: [studio, role]
+      properties:
+        studio:
+          $ref: "#/components/schemas/StudioSummary"
+        role:
+          $ref: "#/components/schemas/StudioRole"
+
+    StudioSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    Studio:
+      type: object
+      required: [id, name, unitSystem, timeZone, country, currency, myRole, memberCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        unitSystem:
+          $ref: "#/components/schemas/UnitSystem"
+        timeZone:
+          type: string
+          description: IANA time zone ID, for example `America/Chicago`.
+          examples: [America/Chicago]
+        country:
+          $ref: "#/components/schemas/Country"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        myRole:
+          $ref: "#/components/schemas/StudioRole"
+        memberCount:
+          type: integer
+          format: int32
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateStudioRequest:
+      type: object
+      required: [name, unitSystem, timeZone, country]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        unitSystem:
+          $ref: "#/components/schemas/UnitSystem"
+        timeZone:
+          type: string
+          maxLength: 64
+          description: IANA time zone ID. Web clients send the browser's zone.
+          examples: [America/Chicago]
+        country:
+          $ref: "#/components/schemas/Country"
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    Country:
+      type: string
+      description: |
+        Where the studio operates, as an ISO 3166-1 alpha-2 code. Drives sales tax, the
+        default currency and which accounting integrations are offered.
+      pattern: "^[A-Z]{2}$"
+      examples: [US]
+
+    Currency:
+      type: string
+      description: |
+        The studio's currency, as an ISO 4217 code. On create it defaults to the country's
+        currency. All of the studio's money is kept in it.
+      pattern: "^[A-Z]{3}$"
+      examples: [USD]
+
+    StudioRole:
+      type: string
+      description: |
+        The base role in a studio. OWNER administers the studio's account (for a co-op or
+        nonprofit, whoever holds that responsibility), STAFF help run it, MEMBER makes pots.
+        Duties such as technician or monitor, and certifications on equipment, are granted
+        separately on top of a role.
+      enum: [OWNER, STAFF, MEMBER]
+
+    UnitSystem:
+      type: string
+      description: The studio's default display units. Measurements are always stored in SI.
+      enum: [US_CUSTOMARY, METRIC]
+
+    Member:
+      type: object
+      required: [accountId, role, joinedAt]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        role:
+          $ref: "#/components/schemas/StudioRole"
+        joinedAt:
+          type: string
+          format: date-time
+
+    CreateInviteRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/StudioRole"
+
+    Invite:
+      type: object
+      required: [id, code, role, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Share this with the invitee. It is shown only once.
+        role:
+          $ref: "#/components/schemas/StudioRole"
+        expiresAt:
+          type: string
+          format: date-time
+
+    Decimal:
+      type: string
+      description: A non-negative decimal, as a string so no precision is lost (for example `"0.05"`).
+      pattern: "^\\d{1,9}(\\.\\d{1,4})?$"
+      examples: ["0.05"]
+
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          description: The amount at the currency's minor-unit scale, for example `"48.00"`.
+          examples: ["48.00"]
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    LengthUnit:
+      type: string
+      enum: [MILLIMETRE, CENTIMETRE, INCH]
+
+    WeightUnit:
+      type: string
+      enum: [GRAM, KILOGRAM, POUND, OUNCE]
+
+    Dimensions:
+      type: object
+      description: The piece's bounding box, in the unit it was measured in.
+      required: [length, width, height, unit]
+      properties:
+        length:
+          $ref: "#/components/schemas/Decimal"
+        width:
+          $ref: "#/components/schemas/Decimal"
+        height:
+          $ref: "#/components/schemas/Decimal"
+        unit:
+          $ref: "#/components/schemas/LengthUnit"
+
+    WeightMeasure:
+      type: object
+      required: [value, unit]
+      properties:
+        value:
+          $ref: "#/components/schemas/Decimal"
+        unit:
+          $ref: "#/components/schemas/WeightUnit"
+
+    PieceSize:
+      type: object
+      description: What was measured. A studio pricing by volume needs dimensions; by weight, the weight.
+      properties:
+        dimensions:
+          $ref: "#/components/schemas/Dimensions"
+        weight:
+          $ref: "#/components/schemas/WeightMeasure"
+
+    FeeRuleType:
+      type: string
+      description: PER_VOLUME prices the bounding box, PER_WEIGHT the weight, FLAT every piece the same.
+      enum: [PER_VOLUME, PER_WEIGHT, FLAT]
+
+    FeeUnit:
+      type: string
+      description: The unit the rate is per. Volume units for PER_VOLUME, weight units for PER_WEIGHT, none for FLAT.
+      enum: [CUBIC_INCH, CUBIC_CENTIMETRE, LITRE, POUND, KILOGRAM]
+
+    FeeRounding:
+      type: string
+      description: |
+        How each dimension (or the weight) is rounded up, in the rule's own unit, before pricing.
+        WHOLE_UNIT is "round each side up to the next whole inch".
+      enum: [NONE, HALF_UNIT, WHOLE_UNIT]
+
+    FeeSchedule:
+      type: object
+      required: [version, ruleType, rate, rounding, minimum, taxCategory]
+      properties:
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+        ruleType:
+          $ref: "#/components/schemas/FeeRuleType"
+        rate:
+          $ref: "#/components/schemas/Decimal"
+        unit:
+          $ref: "#/components/schemas/FeeUnit"
+        rounding:
+          $ref: "#/components/schemas/FeeRounding"
+        minimum:
+          $ref: "#/components/schemas/Decimal"
+        taxCategory:
+          type: string
+
+    SaveFeeScheduleRequest:
+      type: object
+      required: [ruleType, rate, rounding, minimum]
+      properties:
+        ruleType:
+          $ref: "#/components/schemas/FeeRuleType"
+        rate:
+          $ref: "#/components/schemas/Decimal"
+        unit:
+          $ref: "#/components/schemas/FeeUnit"
+        rounding:
+          $ref: "#/components/schemas/FeeRounding"
+        minimum:
+          $ref: "#/components/schemas/Decimal"
+        taxCategory:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: Defaults to FIRING_SERVICE.
+
+    FeeQuote:
+      type: object
+      required: [amount, scheduleVersion, taxCategory, breakdown]
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+        scheduleVersion:
+          type: integer
+          format: int32
+        taxCategory:
+          type: string
+        breakdown:
+          type: string
+          description: The working, for example `12 × 10 × 8 in → 960 in³ × 0.05 = 48.00`.
+
+    PiecePolicy:
+      type: object
+      required: [holdDays]
+      properties:
+        holdDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 365
+          description: How many days a ready piece is held before it becomes unclaimed.
+
+    PieceStage:
+      type: string
+      enum: [RECEIVED, BISQUE_FIRED, GLAZED, READY, PICKED_UP, UNCLAIMED, DISPOSED]
+
+    PieceFee:
+      type: object
+      description: The fee as priced at intake. Later fee changes don't alter it.
+      required: [amount, breakdown]
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+        scheduleVersion:
+          type: integer
+          format: int32
+          description: Absent when the studio had no fee schedule yet.
+        taxCategory:
+          type: string
+        breakdown:
+          type: string
+
+    PieceEvent:
+      type: object
+      required: [to, occurredAt]
+      properties:
+        from:
+          $ref: "#/components/schemas/PieceStage"
+        to:
+          $ref: "#/components/schemas/PieceStage"
+        note:
+          type: string
+        actorAccountId:
+          type: string
+          format: uuid
+          description: Absent when the system made the change, such as a hold running out.
+        actorName:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+
+    Piece:
+      type: object
+      required: [id, number, makerAccountId, size, stage, fee, receivedAt, overdue, nextStages, version, timeline]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          format: int32
+          description: The studio's own running number, for labels ("piece 42").
+        makerAccountId:
+          type: string
+          format: uuid
+        makerName:
+          type: string
+        description:
+          type: string
+        clayBody:
+          type: string
+        makerMark:
+          type: string
+        size:
+          $ref: "#/components/schemas/PieceSize"
+        stage:
+          $ref: "#/components/schemas/PieceStage"
+        fee:
+          $ref: "#/components/schemas/PieceFee"
+        receivedAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: string
+          format: date-time
+        holdUntil:
+          type: string
+          format: date-time
+          description: The end of the hold, at the end of the studio's local day.
+        overdue:
+          type: boolean
+          description: Ready and past its hold; it will shortly be marked unclaimed.
+        nextStages:
+          type: array
+          description: Where staff can move it next.
+          items:
+            $ref: "#/components/schemas/PieceStage"
+        version:
+          type: integer
+          format: int64
+          description: Send back as `expectedVersion` when moving the piece.
+        timeline:
+          type: array
+          description: Empty in lists; filled when fetching one piece.
+          items:
+            $ref: "#/components/schemas/PieceEvent"
+
+    IntakePieceRequest:
+      type: object
+      required: [size]
+      properties:
+        makerAccountId:
+          type: string
+          format: uuid
+          description: Whose piece it is. Defaults to the caller; only staff may name someone else.
+        description:
+          type: string
+          maxLength: 200
+        clayBody:
+          type: string
+          maxLength: 80
+        makerMark:
+          type: string
+          maxLength: 80
+          description: The maker's stamp or initials on the foot, which identifies the piece on the shelf.
+        size:
+          $ref: "#/components/schemas/PieceSize"
+
+    MovePieceRequest:
+      type: object
+      required: [to, expectedVersion]
+      properties:
+        to:
+          $ref: "#/components/schemas/PieceStage"
+        note:
+          type: string
+          maxLength: 500
+        expectedVersion:
+          type: integer
+          format: int64
+
+    KilnType:
+      type: string
+      enum: [ELECTRIC, GAS, WOOD, RAKU, OTHER]
+
+    Kiln:
+      type: object
+      required: [id, name, kind, firingsSinceMaintenance, totalFirings, maintenanceDue, available, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        site:
+          type: string
+          description: Which of the studio's sites it is at, for studios with more than one.
+        kind:
+          $ref: "#/components/schemas/KilnType"
+        maxPiecesPerMember:
+          type: integer
+          format: int32
+          description: The queue rule "at most N pieces per member in one load". Absent for no cap.
+        maintenanceEveryFirings:
+          type: integer
+          format: int32
+          description: How often it is serviced, counted in firings. Absent if not tracked.
+        firingsSinceMaintenance:
+          type: integer
+          format: int32
+        totalFirings:
+          type: integer
+          format: int32
+        maintenanceDue:
+          type: boolean
+        available:
+          type: boolean
+        downReason:
+          type: string
+        version:
+          type: integer
+          format: int64
+
+    SaveKilnRequest:
+      type: object
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        site:
+          type: string
+          maxLength: 60
+        kind:
+          $ref: "#/components/schemas/KilnType"
+        maxPiecesPerMember:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 500
+        maintenanceEveryFirings:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000
+
+    UpdateKilnRequest:
+      type: object
+      required: [kiln, expectedVersion]
+      properties:
+        kiln:
+          $ref: "#/components/schemas/SaveKilnRequest"
+        expectedVersion:
+          type: integer
+          format: int64
+
+    KilnAvailabilityRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        downReason:
+          type: string
+          maxLength: 200
+          description: Why it is out of service. Leave out to put the kiln back in service.
+        expectedVersion:
+          type: integer
+          format: int64
+
+    MaintenanceEntry:
+      type: object
+      required: [note, atFiring, performedBy, performedAt]
+      properties:
+        note:
+          type: string
+        cost:
+          $ref: "#/components/schemas/Decimal"
+        atFiring:
+          type: integer
+          format: int32
+          description: The kiln's total firings when the work was done.
+        performedBy:
+          type: string
+          format: uuid
+        performedByName:
+          type: string
+        performedAt:
+          type: string
+          format: date-time
+
+    RecordMaintenanceRequest:
+      type: object
+      required: [note]
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          examples: ["Replaced elements; resistance 11.2 Ω"]
+        cost:
+          $ref: "#/components/schemas/Decimal"
+
+    FiringKind:
+      type: string
+      description: BISQUE takes received greenware to bisque fired; GLAZE takes glazed work to ready.
+      enum: [BISQUE, GLAZE]
+
+    FiringStatus:
+      type: string
+      enum: [LOADING, FIRING, COMPLETE, CANCELLED]
+
+    QueueEntry:
+      type: object
+      required: [piece, waitingSince, fitsNextLoad]
+      properties:
+        piece:
+          $ref: "#/components/schemas/Piece"
+        waitingSince:
+          type: string
+          format: date-time
+        fitsNextLoad:
+          type: boolean
+          description: False when the maker already has the kiln's maximum earlier in the queue.
+
+    Firing:
+      type: object
+      required: [id, kilnId, kilnName, kind, status, createdAt, pieceCount, version, pieces]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kilnId:
+          type: string
+          format: uuid
+        kilnName:
+          type: string
+        kind:
+          $ref: "#/components/schemas/FiringKind"
+        cone:
+          type: string
+          examples: ["04"]
+        status:
+          $ref: "#/components/schemas/FiringStatus"
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        pieceCount:
+          type: integer
+          format: int32
+        version:
+          type: integer
+          format: int64
+        pieces:
+          type: array
+          description: Empty in the firing log; filled for one firing.
+          items:
+            $ref: "#/components/schemas/Piece"
+
+    LoadKilnRequest:
+      type: object
+      required: [kind, pieceIds]
+      properties:
+        kind:
+          $ref: "#/components/schemas/FiringKind"
+        cone:
+          type: string
+          maxLength: 10
+        pieceIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+
+    FiringTransitionRequest:
+      type: object
+      required: [to, expectedVersion]
+      properties:
+        to:
+          type: string
+          enum: [FIRING, COMPLETE, CANCELLED]
+        notes:
+          type: string
+          maxLength: 1000
+        expectedVersion:
+          type: integer
+          format: int64
+
+    NotificationKind:
+      type: string
+      enum: [PIECES_READY, STUDIO_NOTICE]
+
+    Notification:
+      type: object
+      required: [id, kind, title, body, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/NotificationKind"
+        title:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+
+    NoticeRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 2000
+
+    NoticeResult:
+      type: object
+      required: [sent]
+      properties:
+        sent:
+          type: integer
+          format: int32
+
+    Duty:
+      type: string
+      description: A job on top of a member's role.
+      enum: [TECHNICIAN, MONITOR, WORK_EXCHANGE, VOLUNTEER_OFFICER, INSTRUCTOR]
+
+    MemberDuties:
+      type: object
+      required: [accountId, duties]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        duties:
+          type: array
+          items:
+            $ref: "#/components/schemas/Duty"
+
+    SetDutiesRequest:
+      type: object
+      required: [duties]
+      properties:
+        duties:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/Duty"
+
+    CertificationType:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        validMonths:
+          type: integer
+          format: int32
+          description: How long a grant lasts. Absent means it doesn't expire.
+
+    CreateCertificationTypeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          examples: ["Wheel room orientation"]
+        validMonths:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 120
+
+    Certification:
+      type: object
+      required: [typeId, name, accountId, grantedAt, valid]
+      properties:
+        typeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        valid:
+          type: boolean
+
+    ResourceKind:
+      type: string
+      enum: [KILN, WHEEL_ROOM, GLAZE_ROOM, STUDIO, EQUIPMENT, OTHER]
+
+    Resource:
+      type: object
+      required: [id, name, kind, capacity, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ResourceKind"
+        capacity:
+          type: integer
+          format: int32
+          description: How many members can reserve it at once.
+        requiredCertification:
+          type: string
+          format: uuid
+        requiredCertificationName:
+          type: string
+        version:
+          type: integer
+          format: int64
+
+    CreateResourceRequest:
+      type: object
+      required: [name, kind, capacity]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        kind:
+          $ref: "#/components/schemas/ResourceKind"
+        capacity:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+        requiredCertification:
+          type: string
+          format: uuid
+
+    BookingKind:
+      type: string
+      description: RESERVATION takes one place; the others block the whole resource.
+      enum: [RESERVATION, FIRING, MAINTENANCE, CLASS, EVENT, RENTAL, CLOSURE]
+
+    Booking:
+      type: object
+      required: [id, resourceId, resourceName, kind, title, startsAt, endsAt, mine]
+      properties:
+        id:
+          type: string
+          format: uuid
+        resourceId:
+          type: string
+          format: uuid
+        resourceName:
+          type: string
+        kind:
+          $ref: "#/components/schemas/BookingKind"
+        title:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+        mine:
+          type: boolean
+
+    CreateBookingRequest:
+      type: object
+      required: [resourceId, kind, startsAt, endsAt]
+      properties:
+        resourceId:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/BookingKind"
+        title:
+          type: string
+          maxLength: 120
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        accountId:
+          type: string
+          format: uuid
+          description: Who it is for. Defaults to the caller for reservations; only staff may name someone else.
+
+    Shift:
+      type: object
+      required: [id, title, startsAt, endsAt, open, minutes, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        duty:
+          $ref: "#/components/schemas/Duty"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+        open:
+          type: boolean
+        minutes:
+          type: integer
+          format: int32
+        workedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    CreateShiftsRequest:
+      type: object
+      required: [title, firstStartsAt, minutes, weeks]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: ["Open studio monitor"]
+        duty:
+          $ref: "#/components/schemas/Duty"
+        firstStartsAt:
+          type: string
+          format: date-time
+        minutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 1440
+        weeks:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 26
+
+    AssignShiftRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Who takes it. Leave out to free the shift (staff only).
+        expectedVersion:
+          type: integer
+          format: int64
+
+    VersionRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
+
+    HoursEntry:
+      type: object
+      required: [id, minutes, creditedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        minutes:
+          type: integer
+          format: int32
+        note:
+          type: string
+        shiftId:
+          type: string
+          format: uuid
+        creditedAt:
+          type: string
+          format: date-time
+        creditedByName:
+          type: string
+
+    HoursLedger:
+      type: object
+      required: [accountId, totalMinutes, entries]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+        totalMinutes:
+          type: integer
+          format: int32
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/HoursEntry"
+
+    AdjustHoursRequest:
+      type: object
+      required: [minutes, note]
+      properties:
+        minutes:
+          type: integer
+          format: int32
+          minimum: -6000
+          maximum: 6000
+        note:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    Today:
+      type: object
+      required: [date, kilns, openFirings, waitingForBisque, waitingForGlaze, readyForPickup, pastHold, unclaimed,
+                 maintenanceDue, outOfService, bookings, shifts, uncoveredShifts, lowStock, openPurchaseRequests]
+      properties:
+        date:
+          type: string
+          format: date
+          description: Today, in the studio's time zone.
+        kilns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Kiln"
+        openFirings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Firing"
+        waitingForBisque:
+          type: integer
+          format: int32
+        waitingForGlaze:
+          type: integer
+          format: int32
+        readyForPickup:
+          type: integer
+          format: int32
+        pastHold:
+          type: integer
+          format: int32
+        unclaimed:
+          type: integer
+          format: int32
+        maintenanceDue:
+          type: array
+          items:
+            $ref: "#/components/schemas/Kiln"
+        outOfService:
+          type: array
+          items:
+            $ref: "#/components/schemas/Kiln"
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        shifts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Shift"
+        uncoveredShifts:
+          type: array
+          description: Open shifts in the next seven days.
+          items:
+            $ref: "#/components/schemas/Shift"
+        lowStock:
+          type: array
+          description: Items at or below their par level with nothing on order.
+          items:
+            $ref: "#/components/schemas/SupplyItem"
+        openPurchaseRequests:
+          type: integer
+          format: int32
+
+    SupplyCategory:
+      type: string
+      enum: [CLAY, GLAZE, GLAZE_MATERIAL, TOOL, KILN_SUPPLY, CLEANING, OTHER]
+
+    SupplyItem:
+      type: object
+      required: [id, name, category, unit, onHand, onOrder, low, needsOrdering, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        category:
+          $ref: "#/components/schemas/SupplyCategory"
+        unit:
+          type: string
+          examples: ["25 lb bag"]
+        supplier:
+          type: string
+        leadTimeDays:
+          type: integer
+          format: int32
+        parLevel:
+          $ref: "#/components/schemas/Decimal"
+        reorderQuantity:
+          $ref: "#/components/schemas/Decimal"
+        salePrice:
+          $ref: "#/components/schemas/Decimal"
+        taxCategory:
+          type: string
+        substitute:
+          type: string
+          description: What to tell members to use while this is out.
+        onHand:
+          $ref: "#/components/schemas/SignedDecimal"
+        onOrder:
+          $ref: "#/components/schemas/SignedDecimal"
+        low:
+          type: boolean
+        needsOrdering:
+          type: boolean
+          description: Low, with nothing approved or ordered.
+        version:
+          type: integer
+          format: int64
+
+    SaveSupplyRequest:
+      type: object
+      required: [name, category, unit]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        category:
+          $ref: "#/components/schemas/SupplyCategory"
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 30
+        supplier:
+          type: string
+          maxLength: 80
+        leadTimeDays:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 365
+        parLevel:
+          $ref: "#/components/schemas/Decimal"
+        reorderQuantity:
+          $ref: "#/components/schemas/Decimal"
+        salePrice:
+          $ref: "#/components/schemas/Decimal"
+        taxCategory:
+          type: string
+          maxLength: 40
+        substitute:
+          type: string
+          maxLength: 120
+
+    UpdateSupplyRequest:
+      type: object
+      required: [item, expectedVersion]
+      properties:
+        item:
+          $ref: "#/components/schemas/SaveSupplyRequest"
+        expectedVersion:
+          type: integer
+          format: int64
+
+    StockMovementKind:
+      type: string
+      enum: [RECEIVED, SOLD, USED, COUNTED]
+
+    StockMovement:
+      type: object
+      required: [id, kind, quantity, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/StockMovementKind"
+        quantity:
+          $ref: "#/components/schemas/SignedDecimal"
+        memberId:
+          type: string
+          format: uuid
+        memberName:
+          type: string
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    StockMovementRequest:
+      type: object
+      required: [kind, quantity]
+      properties:
+        kind:
+          type: string
+          enum: [RECEIVED, USED, COUNTED]
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+        note:
+          type: string
+          maxLength: 200
+
+    SellSupplyRequest:
+      type: object
+      required: [memberId, quantity]
+      properties:
+        memberId:
+          type: string
+          format: uuid
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+
+    PurchaseRequestStatus:
+      type: string
+      enum: [REQUESTED, APPROVED, REJECTED, ORDERED, RECEIVED]
+
+    PurchaseRequest:
+      type: object
+      required: [id, itemId, itemName, quantity, status, requestedBy, requestedAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+        itemName:
+          type: string
+        quantity:
+          $ref: "#/components/schemas/SignedDecimal"
+        note:
+          type: string
+        status:
+          $ref: "#/components/schemas/PurchaseRequestStatus"
+        requestedBy:
+          type: string
+          format: uuid
+        requestedByName:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+        decidedByName:
+          type: string
+        version:
+          type: integer
+          format: int64
+
+    CreatePurchaseRequestRequest:
+      type: object
+      required: [itemId]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+        note:
+          type: string
+          maxLength: 200
+
+    DecidePurchaseRequest:
+      type: object
+      required: [to, expectedVersion]
+      properties:
+        to:
+          type: string
+          enum: [APPROVED, REJECTED, ORDERED, RECEIVED]
+        expectedVersion:
+          type: integer
+          format: int64
+
+    SignedDecimal:
+      type: string
+      description: A decimal that may be negative, as a string.
+      pattern: "^-?\\d{1,12}(\\.\\d{1,4})?$"
+
+    Provider:
+      type: string
+      description: Where money came from or went. CASH is the till.
+      enum: [STRIPE, SQUARE, SHOPIFY, PAYPAL, CASH, OTHER]
+
+    PayoutProvider:
+      type: string
+      enum: [STRIPE, SQUARE, SHOPIFY, PAYPAL, OTHER]
+
+    StoredValueKind:
+      type: string
+      enum: [GIFT_CARD, FIRING_CARD, CLASS_PACK, DEPOSIT, CREDIT]
+
+    LedgerAccount:
+      type: string
+      enum: [BANK, PROCESSOR_CLEARING, MEMBER_RECEIVABLE, STORED_VALUE_LIABILITY, SALES_TAX_PAYABLE, REVENUE_FIRING,
+             REVENUE_CLASSES, REVENUE_MEMBERSHIPS, REVENUE_RETAIL, REVENUE_EVENTS, REVENUE_BREAKAGE, REVENUE_OTHER,
+             REFUNDS, PROCESSOR_FEES]
+
+    MemberBalance:
+      type: object
+      required: [memberId, owed]
+      properties:
+        memberId:
+          type: string
+          format: uuid
+        memberName:
+          type: string
+        owed:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    StoredValue:
+      type: object
+      required: [id, kind, remaining]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/StoredValueKind"
+        holder:
+          type: string
+          format: uuid
+        holderName:
+          type: string
+        code:
+          type: string
+          description: For gift cards, the code to redeem it.
+        label:
+          type: string
+        expiresOn:
+          type: string
+          format: date
+        remaining:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    Statement:
+      type: object
+      required: [memberId, owed, storedValues]
+      properties:
+        memberId:
+          type: string
+          format: uuid
+        owed:
+          $ref: "#/components/schemas/SignedDecimal"
+        storedValues:
+          type: array
+          items:
+            $ref: "#/components/schemas/StoredValue"
+
+    RecordPaymentRequest:
+      type: object
+      required: [memberId, amount, provider]
+      properties:
+        memberId:
+          type: string
+          format: uuid
+        amount:
+          $ref: "#/components/schemas/Decimal"
+        provider:
+          $ref: "#/components/schemas/Provider"
+        reference:
+          type: string
+          maxLength: 80
+
+    SellStoredValueRequest:
+      type: object
+      required: [kind, amount, provider]
+      properties:
+        kind:
+          $ref: "#/components/schemas/StoredValueKind"
+        holder:
+          type: string
+          format: uuid
+          description: Who it belongs to. Required except for gift cards.
+        label:
+          type: string
+          maxLength: 80
+          examples: ["10-firing card"]
+        amount:
+          $ref: "#/components/schemas/Decimal"
+        provider:
+          $ref: "#/components/schemas/Provider"
+        expiresOn:
+          type: string
+          format: date
+
+    UseStoredValueRequest:
+      type: object
+      required: [memberId, amount]
+      properties:
+        memberId:
+          type: string
+          format: uuid
+        amount:
+          $ref: "#/components/schemas/Decimal"
+
+    StoredValueMovement:
+      type: object
+      required: [kind, opening, sold, used, expired, closing]
+      properties:
+        kind:
+          $ref: "#/components/schemas/StoredValueKind"
+        opening:
+          $ref: "#/components/schemas/SignedDecimal"
+        sold:
+          $ref: "#/components/schemas/SignedDecimal"
+        used:
+          $ref: "#/components/schemas/SignedDecimal"
+        expired:
+          $ref: "#/components/schemas/SignedDecimal"
+        closing:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    Payout:
+      type: object
+      required: [id, provider, externalId, arrivalOn, gross, refunds, fees, adjustments, net, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/Provider"
+        externalId:
+          type: string
+        arrivalOn:
+          type: string
+          format: date
+        gross:
+          $ref: "#/components/schemas/SignedDecimal"
+        refunds:
+          $ref: "#/components/schemas/SignedDecimal"
+        fees:
+          $ref: "#/components/schemas/SignedDecimal"
+        adjustments:
+          $ref: "#/components/schemas/SignedDecimal"
+        net:
+          $ref: "#/components/schemas/SignedDecimal"
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    ImportPayoutRequest:
+      type: object
+      required: [provider, externalId, arrivalOn, gross, refunds, fees, adjustments, net]
+      properties:
+        provider:
+          $ref: "#/components/schemas/PayoutProvider"
+        externalId:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: The processor's own id for the payout, such as po_1Nz… from Stripe.
+        arrivalOn:
+          type: string
+          format: date
+        gross:
+          $ref: "#/components/schemas/SignedDecimal"
+        refunds:
+          $ref: "#/components/schemas/Decimal"
+        fees:
+          $ref: "#/components/schemas/Decimal"
+        adjustments:
+          $ref: "#/components/schemas/SignedDecimal"
+        net:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    ClearingBalance:
+      type: object
+      required: [provider, awaitingPayout]
+      properties:
+        provider:
+          $ref: "#/components/schemas/Provider"
+        awaitingPayout:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    SummaryLine:
+      type: object
+      required: [date, account, debits, credits]
+      properties:
+        date:
+          type: string
+          format: date
+        account:
+          $ref: "#/components/schemas/LedgerAccount"
+        taxCategory:
+          type: string
+        debits:
+          $ref: "#/components/schemas/SignedDecimal"
+        credits:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    TaxRate:
+      type: object
+      required: [id, taxCategory, rate, effectiveFrom]
+      properties:
+        id:
+          type: string
+          format: uuid
+        taxCategory:
+          type: string
+        rate:
+          type: string
+          description: A fraction, such as `"0.0825"` for 8.25%.
+        effectiveFrom:
+          type: string
+          format: date
+
+    SetTaxRateRequest:
+      type: object
+      required: [taxCategory, rate, effectiveFrom]
+      properties:
+        taxCategory:
+          type: string
+          minLength: 1
+          maxLength: 40
+          examples: [FIRING_SERVICE]
+        rate:
+          type: string
+          pattern: "^0(\\.\\d{1,6})?$"
+        effectiveFrom:
+          type: string
+          format: date
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string

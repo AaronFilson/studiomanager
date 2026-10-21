@@ -1,0 +1,242 @@
+name: Deploy dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# One deploy at a time, and never cancel one halfway through a migration.
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/aaronfilson/studiomanager-api
+  TERRAFORM_VERSION: 1.16.6
+
+jobs:
+  image:
+    name: Build and push API image
+    # Skipped (along with everything after it) until Azure is set up; see docs/runbooks/first-deploy.md.
+    if: vars.AZURE_CLIENT_ID_DEPLOY != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: ref
+        run: echo "image=${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: api
+          push: true
+          tags: |
+            ${{ steps.ref.outputs.image }}
+            ${{ env.IMAGE_NAME }}:main
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  infra:
+    name: Terraform apply
+    needs: image
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/envs/dev
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TFSTATE_STORAGE_ACCOUNT: ${{ vars.TFSTATE_STORAGE_ACCOUNT }}
+      API_IMAGE: ${{ needs.image.outputs.image }}
+    outputs:
+      resource_group: ${{ steps.out.outputs.resource_group }}
+      container_app: ${{ steps.out.outputs.container_app }}
+      migration_job: ${{ steps.out.outputs.migration_job }}
+      api_url: ${{ steps.out.outputs.api_url }}
+      static_web_app: ${{ steps.out.outputs.static_web_app }}
+      web_build_env: ${{ steps.out.outputs.web_build_env }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Container Apps pulls without credentials, so the package must be public. New GHCR
+      # packages start private; fail early with the fix rather than mid-apply.
+      - name: Image is publicly pullable
+        run: |
+          if ! docker manifest inspect "$API_IMAGE" > /dev/null; then
+            echo "::error::$API_IMAGE can't be pulled anonymously. Make the GHCR package public (one time: Packages > studiomanager-api > Package settings > Change visibility), then re-run failed jobs."
+            exit 1
+          fi
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - run: >-
+          terraform init -input=false -lockfile=readonly
+          -backend-config=backend.hcl
+          -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT"
+
+      # api_image only matters when the app and job are first created; later image changes
+      # are ignored by Terraform and rolled out below, after migrations.
+      - run: terraform apply -input=false -auto-approve -var-file=dev.tfvars -var "api_image=$API_IMAGE"
+
+      - id: out
+        run: |
+          terraform output -json > "$RUNNER_TEMP/outputs.json"
+          out() { jq -r --arg k "$1" '.[$k].value' "$RUNNER_TEMP/outputs.json"; }
+          {
+            echo "resource_group=$(out resource_group_name)"
+            echo "container_app=$(out api_container_app_name)"
+            echo "migration_job=$(out migration_job_name)"
+            echo "api_url=$(out api_url)"
+            echo "static_web_app=$(out static_web_app_name)"
+            echo "web_build_env=$(jq -c '.web_build_env.value' "$RUNNER_TEMP/outputs.json")"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### dev environment"
+            echo
+            echo "| Output | Value |"
+            echo "|---|---|"
+            echo "| API | $(out api_url) |"
+            echo "| Web | https://$(out static_web_app_hostname) |"
+            echo "| Postgres | \`$(out postgres_fqdn)\` |"
+            echo "| API identity (Postgres role) | \`$(out api_identity_name)\` |"
+            echo "| Migrator identity | \`$(out migrator_identity_name)\` |"
+            echo "| DB admin group | \`$(out db_admin_group_name)\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Migrate database and roll out API
+    needs: [image, infra]
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+    env:
+      IMAGE: ${{ needs.image.outputs.image }}
+      RESOURCE_GROUP: ${{ needs.infra.outputs.resource_group }}
+      CONTAINER_APP: ${{ needs.infra.outputs.container_app }}
+      MIGRATION_JOB: ${{ needs.infra.outputs.migration_job }}
+      API_URL: ${{ needs.infra.outputs.api_url }}
+    steps:
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The new image's migrations run, as the migrator identity, before any new API code serves traffic.
+      - name: Run database migrations
+        run: |
+          az containerapp job update --name "$MIGRATION_JOB" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" --output none
+          execution=$(az containerapp job start --name "$MIGRATION_JOB" --resource-group "$RESOURCE_GROUP" --query name --output tsv)
+          echo "Started migration job execution $execution"
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show --name "$MIGRATION_JOB" --resource-group "$RESOURCE_GROUP" \
+              --job-execution-name "$execution" --query properties.status --output tsv)
+            echo "Status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped|Degraded)
+                echo "::error::Migration $execution ended with status $status. See ContainerAppConsoleLogs_CL in Log Analytics, filtered to $MIGRATION_JOB."
+                exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Migration $execution did not finish within 10 minutes."
+          exit 1
+
+      - name: Roll out the API image
+        run: az containerapp update --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" --output none
+
+      # Wakes the app from zero; the retries cover JVM cold start.
+      - name: Smoke test
+        run: curl --fail --silent --show-error --max-time 30 --retry 12 --retry-delay 10 --retry-all-errors "$API_URL/actuator/health/readiness"
+
+  web:
+    name: Build and deploy web
+    # After the API: the web app must never ship ahead of the API it calls.
+    needs: [infra, release]
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RESOURCE_GROUP: ${{ needs.infra.outputs.resource_group }}
+      STATIC_WEB_APP: ${{ needs.infra.outputs.static_web_app }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # VITE_* values are compiled into the public bundle; none of them is a secret.
+      - name: Build
+        env:
+          VITE_ENTRA_CLIENT_ID: ${{ fromJSON(needs.infra.outputs.web_build_env).VITE_ENTRA_CLIENT_ID }}
+          VITE_ENTRA_AUTHORITY: ${{ fromJSON(needs.infra.outputs.web_build_env).VITE_ENTRA_AUTHORITY }}
+          VITE_API_SCOPES: ${{ fromJSON(needs.infra.outputs.web_build_env).VITE_API_SCOPES }}
+          VITE_API_BASE_URL: ${{ fromJSON(needs.infra.outputs.web_build_env).VITE_API_BASE_URL }}
+        run: pnpm --filter @studiomanager/web build
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Fetched under OIDC at deploy time, so no deployment token is stored in GitHub.
+      - name: Get the Static Web Apps deployment token
+        id: swa
+        run: |
+          token=$(az staticwebapp secrets list --name "$STATIC_WEB_APP" --resource-group "$RESOURCE_GROUP" --query properties.apiKey --output tsv)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa.outputs.token }}
+          action: upload
+          app_location: web/dist
+          skip_app_build: true
+          skip_api_build: true
