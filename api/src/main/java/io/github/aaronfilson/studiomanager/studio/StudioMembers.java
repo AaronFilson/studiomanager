@@ -57,10 +57,17 @@ public class StudioMembers {
         this.events = events;
     }
 
-    /** Everyone in the bound studio, ordered by role and then name. */
+    /**
+     * Everyone in the bound studio, ordered by role and then name.
+     *
+     * <p>Filtered by studio explicitly, not left to RLS: a second policy lets anyone read their own
+     * memberships in every studio (for "my studios"), so RLS alone would add the caller's rows from
+     * their other studios. The same goes for {@link #roleOf}.
+     */
     @Transactional(readOnly = true)
     public List<MemberView> list() {
-        List<Row> rows = jdbc.sql("select account_id, role, created_at from studio_membership")
+        List<Row> rows = jdbc.sql("select account_id, role, created_at from studio_membership where studio_id = :studioId")
+                .param("studioId", TenantContext.require().studioId())
                 .query(Row.class).list();
         Map<UUID, String> names = accounts.displayNames(rows.stream().map(Row::accountId).toList());
         return rows.stream()
@@ -75,8 +82,9 @@ public class StudioMembers {
     /** The role of {@code accountId} in the bound studio, if they belong to it. */
     @Transactional(readOnly = true)
     public Optional<StudioRole> roleOf(UUID accountId) {
-        return jdbc.sql("select role from studio_membership where account_id = :accountId")
+        return jdbc.sql("select role from studio_membership where account_id = :accountId and studio_id = :studioId")
                 .param("accountId", accountId)
+                .param("studioId", TenantContext.require().studioId())
                 .query(StudioRole.class).optional();
     }
 

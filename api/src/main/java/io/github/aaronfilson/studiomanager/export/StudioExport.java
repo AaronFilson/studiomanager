@@ -143,7 +143,11 @@ public class StudioExport {
     }
 
     private String members() {
-        List<Membership> rows = jdbc.sql("select account_id, role, created_at from studio_membership order by created_at")
+        // An explicit filter: RLS also lets the caller read their own memberships in other studios
+        List<Membership> rows = jdbc.sql("""
+                select account_id, role, created_at from studio_membership where studio_id = :studioId order by created_at
+                """)
+                .param("studioId", TenantContext.require().studioId())
                 .query(Membership.class).list();
         List<UUID> ids = rows.stream().map(Membership::accountId).toList();
         Map<UUID, String> names = accounts.displayNames(ids);
