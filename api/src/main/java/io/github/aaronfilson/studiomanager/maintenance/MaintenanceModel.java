@@ -51,9 +51,18 @@ public final class MaintenanceModel {
             @Nullable Integer firingsLeft, DueStatus status, long version) {
     }
 
+    /** @param parts spare parts taken from supplies for this work */
     public record Record(UUID id, UUID assetId, @Nullable UUID taskId, @Nullable String taskTitle,
             @Nullable String note, @Nullable BigDecimal cost, List<String> checked, @Nullable Integer atFiring,
-            UUID doneBy, @Nullable String doneByName, Instant doneAt) {
+            UUID doneBy, @Nullable String doneByName, Instant doneAt, List<PartUsed> parts) {
+    }
+
+    /** A spare part drawn from supplies; name and unit as the supply item has them now. */
+    public record PartUsed(UUID itemId, String itemName, String unit, BigDecimal quantity) {
+    }
+
+    /** A part to draw from supplies when logging work. */
+    public record PartUse(UUID itemId, BigDecimal quantity) {
     }
 
     /**

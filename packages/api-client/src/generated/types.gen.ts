@@ -569,6 +569,22 @@ export type CompleteMaintenanceTaskRequest = {
 export type RecordRepairRequest = {
     note: string;
     cost?: Decimal;
+    /**
+     * Spare parts taken from supplies; each is recorded as used, so stock goes down.
+     */
+    parts?: Array<PartUse>;
+};
+
+export type PartUse = {
+    itemId: string;
+    quantity: Decimal;
+};
+
+export type PartUsed = {
+    itemId: string;
+    itemName: string;
+    unit: string;
+    quantity: Decimal;
 };
 
 export type MaintenanceRecord = {
@@ -589,6 +605,7 @@ export type MaintenanceRecord = {
     doneBy: string;
     doneByName?: string;
     doneAt: string;
+    parts: Array<PartUsed>;
 };
 
 /**

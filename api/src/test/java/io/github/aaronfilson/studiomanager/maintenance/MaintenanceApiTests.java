@@ -198,6 +198,44 @@ class MaintenanceApiTests {
     }
 
     @Test
+    void aRepairTakesItsPartsOutOfSupplies() throws Exception {
+        read(post(owner, path("/kilns"), "{\"name\": \"Skutt 1027\", \"kind\": \"ELECTRIC\"}"), "$.id");
+        String kiln = read(mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange(), "$[0].id");
+        String element = read(post(owner, path("/supplies"), """
+                {"name": "Element, 1027 top", "category": "KILN_SUPPLY", "unit": "element", "parLevel": "1"}
+                """), "$.id");
+        assertThat(post(owner, path("/supplies/" + element + "/movements"), """
+                {"kind": "RECEIVED", "quantity": "2"}
+                """)).hasStatusOk();
+
+        assertThat(post(owner, path("/maintenance/assets/" + kiln + "/records"), """
+                {"note": "Top element open; replaced", "cost": "64.00",
+                 "parts": [{"itemId": "%s", "quantity": "1"}]}
+                """.formatted(element))).hasStatus(HttpStatus.CREATED).bodyJson()
+                .hasPathSatisfying("$.parts[0].itemName", n -> assertThat(n).isEqualTo("Element, 1027 top"))
+                .hasPathSatisfying("$.parts[0].quantity", q -> assertThat(q).isEqualTo("1"))
+                .hasPathSatisfying("$.parts[0].unit", u -> assertThat(u).isEqualTo("element"));
+
+        // Stock went down, and the movement says where it went
+        assertThat(mvc.get().uri(path("/supplies")).with(owner.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$[0].onHand", n -> assertThat(n).isEqualTo("1"));
+        assertThat(mvc.get().uri(path("/supplies/" + element + "/movements")).with(owner.token())).hasStatusOk()
+                .bodyJson().hasPathSatisfying("$[*].note", n -> assertThat(n).asArray().contains("Repair: Skutt 1027"));
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token())).hasStatusOk()
+                .bodyJson().hasPathSatisfying("$[0].parts[0].itemId", i -> assertThat(i).isEqualTo(element));
+
+        // The same part twice in one repair is refused, and so is a part from nowhere, with nothing recorded
+        assertThat(post(owner, path("/maintenance/assets/" + kiln + "/records"), """
+                {"note": "x", "parts": [{"itemId": "%1$s", "quantity": "1"}, {"itemId": "%1$s", "quantity": "1"}]}
+                """.formatted(element))).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(post(owner, path("/maintenance/assets/" + kiln + "/records"), """
+                {"note": "Ghost part", "parts": [{"itemId": "%s", "quantity": "1"}]}
+                """.formatted(UUID.randomUUID()))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token())).hasStatusOk()
+                .bodyJson().extractingPath("$.length()").isEqualTo(1);
+    }
+
+    @Test
     void exportsTheHistoryForAnInsurerAsCsv() throws Exception {
         String trap = read(post(owner, path("/maintenance/assets"), "{\"kind\": \"CLAY_TRAP\", \"name\": \"Sink trap\"}"),
                 "$.id");

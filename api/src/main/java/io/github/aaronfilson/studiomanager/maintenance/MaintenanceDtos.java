@@ -8,6 +8,7 @@ import io.github.aaronfilson.studiomanager.contract.DueStatusDto;
 import io.github.aaronfilson.studiomanager.contract.DutyDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
+import io.github.aaronfilson.studiomanager.contract.PartUsedDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
@@ -64,7 +65,11 @@ public final class MaintenanceDtos {
                 .atFiring(record.atFiring())
                 .doneBy(record.doneBy())
                 .doneByName(record.doneByName())
-                .doneAt(record.doneAt().atOffset(ZoneOffset.UTC));
+                .doneAt(record.doneAt().atOffset(ZoneOffset.UTC))
+                .parts(record.parts().stream()
+                        .map(p -> new PartUsedDto().itemId(p.itemId()).itemName(p.itemName()).unit(p.unit())
+                                .quantity(p.quantity().toPlainString()))
+                        .toList());
     }
 
 }

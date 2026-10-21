@@ -3590,10 +3590,40 @@ components:
           examples: ["Replaced the lid hinge pin"]
         cost:
           $ref: "#/components/schemas/Decimal"
+        parts:
+          type: array
+          maxItems: 20
+          description: Spare parts taken from supplies; each is recorded as used, so stock goes down.
+          items:
+            $ref: "#/components/schemas/PartUse"
+
+    PartUse:
+      type: object
+      required: [itemId, quantity]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+
+    PartUsed:
+      type: object
+      required: [itemId, itemName, unit, quantity]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        itemName:
+          type: string
+        unit:
+          type: string
+        quantity:
+          $ref: "#/components/schemas/Decimal"
 
     MaintenanceRecord:
       type: object
-      required: [id, assetId, checked, doneBy, doneAt]
+      required: [id, assetId, checked, doneBy, doneAt, parts]
       properties:
         id:
           type: string
@@ -3627,6 +3657,10 @@ components:
         doneAt:
           type: string
           format: date-time
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartUsed"
 
     FiringKind:
       type: string

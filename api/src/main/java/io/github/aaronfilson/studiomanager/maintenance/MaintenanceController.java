@@ -29,6 +29,7 @@ import io.github.aaronfilson.studiomanager.contract.SuggestedMaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateAssetRequestDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 
@@ -124,7 +125,9 @@ class MaintenanceController implements MaintenanceApi {
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<MaintenanceRecordDto> recordRepair(UUID studioId, UUID assetId, RecordRepairRequestDto request) {
-        var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()));
+        var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()),
+                request.getParts() == null ? List.of() : request.getParts().stream()
+                        .map(p -> new PartUse(p.getItemId(), new BigDecimal(p.getQuantity()))).toList());
         return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record));
     }
 

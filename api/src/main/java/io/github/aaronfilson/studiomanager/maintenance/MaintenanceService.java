@@ -29,6 +29,8 @@ import io.github.aaronfilson.studiomanager.kiln.KilnService;
 import io.github.aaronfilson.studiomanager.kiln.KilnView;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUsed;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
@@ -42,6 +44,9 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
+import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
+import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
+import io.github.aaronfilson.studiomanager.supplies.SupplyService;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -75,15 +80,17 @@ public class MaintenanceService {
     private final StudioMembers members;
     private final AccountDirectory accounts;
     private final ApplicationEventPublisher events;
+    private final SupplyService supplies;
 
     MaintenanceService(JdbcClient jdbc, KilnService kilns, AccessService access, StudioMembers members,
-            AccountDirectory accounts, ApplicationEventPublisher events) {
+            AccountDirectory accounts, ApplicationEventPublisher events, SupplyService supplies) {
         this.jdbc = jdbc;
         this.kilns = kilns;
         this.access = access;
         this.members = members;
         this.accounts = accounts;
         this.events = events;
+        this.supplies = supplies;
     }
 
     /** Everything maintained, kilns first and then by name, each with its tasks soonest due first. */
@@ -297,15 +304,36 @@ public class MaintenanceService {
         return task(taskId, now);
     }
 
-    /** Logs work done outside any task, such as a repair. No task's clock restarts. */
+    /**
+     * Logs work done outside any task, such as a repair. No task's clock restarts. Each part used
+     * is taken out of supplies' stock, so the history says which spare went in and the shelf count
+     * stays right.
+     */
     @Transactional
-    public Record recordRepair(UUID assetId, String note, @Nullable BigDecimal cost) {
+    public Record recordRepair(UUID assetId, String note, @Nullable BigDecimal cost, List<PartUse> parts) {
         if (note.isBlank()) {
             throw new InvalidInputException("Describe the work.");
+        }
+        if (parts.size() > 20 || parts.stream().map(PartUse::itemId).distinct().count() != parts.size()) {
+            throw new InvalidInputException("List each part once, up to 20 parts.");
         }
         AssetRow asset = assetRow(assetId);
         UUID id = insertRecord(assetId, null, note, cost, List.of(),
                 asset.kilnId() == null ? null : firingsOf(asset), now());
+        String movementNote = "Repair: " + nameOf(asset, kilnsById());
+        for (PartUse part : parts) {
+            supplies.recordMovement(part.itemId(), MovementKind.USED, part.quantity(),
+                    movementNote.length() > 200 ? movementNote.substring(0, 200) : movementNote);
+            jdbc.sql("""
+                    insert into maintenance_record_part (record_id, studio_id, item_id, quantity)
+                    values (:recordId, :studioId, :itemId, :quantity)
+                    """)
+                    .param("recordId", id)
+                    .param("studioId", TenantContext.require().studioId())
+                    .param("itemId", part.itemId())
+                    .param("quantity", part.quantity())
+                    .update();
+        }
         return records(assetId).stream().filter(r -> r.id().equals(id)).findFirst().orElseThrow();
     }
 
@@ -323,12 +351,14 @@ public class MaintenanceService {
                         rs.getObject("task_id", UUID.class), rs.getString("title"), rs.getString("note"),
                         rs.getBigDecimal("cost"), strings(rs.getArray("checked")),
                         rs.getObject("at_firing", Integer.class), rs.getObject("done_by", UUID.class), null,
-                        rs.getObject("done_at", OffsetDateTime.class).toInstant()))
+                        rs.getObject("done_at", OffsetDateTime.class).toInstant(), List.of()))
                 .list();
         Map<UUID, String> names = accounts.displayNames(rows.stream().map(Record::doneBy).toList());
+        Map<UUID, List<PartUsed>> parts = partsOf(assetId);
         return rows.stream()
                 .map(r -> new Record(r.id(), r.assetId(), r.taskId(), r.taskTitle(), r.note(), r.cost(), r.checked(),
-                        r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt()))
+                        r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt(),
+                        parts.getOrDefault(r.id(), List.of())))
                 .toList();
     }
 
@@ -450,6 +480,31 @@ public class MaintenanceService {
     }
 
     // --- Reading ---------------------------------------------------------------------------------
+
+    /** The parts used in each of the asset's records, named as supplies names them. */
+    private Map<UUID, List<PartUsed>> partsOf(UUID assetId) {
+        record Row(UUID recordId, UUID itemId, BigDecimal quantity) {
+        }
+        List<Row> rows = jdbc.sql("""
+                select p.record_id, p.item_id, p.quantity
+                from maintenance_record_part p join maintenance_record r on r.id = p.record_id
+                where r.asset_id = :assetId
+                """)
+                .param("assetId", assetId)
+                .query((rs, n) -> new Row(rs.getObject("record_id", UUID.class), rs.getObject("item_id", UUID.class),
+                        rs.getBigDecimal("quantity")))
+                .list();
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Item> items = supplies.items().stream().collect(Collectors.toMap(Item::id, Function.identity()));
+        return rows.stream().collect(Collectors.groupingBy(Row::recordId, Collectors.mapping(row -> {
+            Item item = items.get(row.itemId());
+            // An archived item drops out of the list; its part still counts
+            return new PartUsed(row.itemId(), item == null ? "A retired supply" : item.name(),
+                    item == null ? "" : item.unit(), row.quantity().stripTrailingZeros());
+        }, Collectors.toList())));
+    }
 
     private Task task(UUID taskId, Instant now) {
         AssetRow asset = assetRow(assetIdOf(taskId));
