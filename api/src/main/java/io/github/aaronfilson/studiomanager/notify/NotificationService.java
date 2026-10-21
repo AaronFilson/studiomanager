@@ -28,6 +28,7 @@ import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
+import io.github.aaronfilson.studiomanager.supplies.SupplyRanOut;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -159,6 +160,17 @@ public class NotificationService {
         }
         body.append("\nMark it done on the Maintenance page when it's finished.");
         insert(due.recipients(), NotificationView.Kind.MAINTENANCE_DUE, clip(title, 120), clip(body.toString(), 2000));
+    }
+
+    /**
+     * "B-Mix 5 is out": tells every member what to use instead, so nobody finds the empty shelf
+     * first. Sent as a studio notice, the same as one staff would write.
+     */
+    @EventListener
+    void onSupplyRanOut(SupplyRanOut ranOut) {
+        List<UUID> everyone = members.list().stream().map(MemberView::accountId).toList();
+        insert(everyone, NotificationView.Kind.STUDIO_NOTICE, clip(ranOut.itemName() + " is out", 120),
+                clip(ranOut.substitute(), 2000));
     }
 
     /** Tells the staff and technicians what a member noticed, in the member's words. */

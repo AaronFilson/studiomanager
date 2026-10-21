@@ -2,6 +2,7 @@ package io.github.aaronfilson.studiomanager.supplies;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.jayway.jsonpath.JsonPath;
@@ -94,6 +95,35 @@ class SupplyApiTests {
                 .hasPathSatisfying("$[0].quantity", q -> assertThat(q).isEqualTo("-1"))
                 .hasPathSatisfying("$[1].memberName", m -> assertThat(m).isEqualTo("Mo"));
         assertThat(move(owner, clay, "SOLD", "1")).hasStatus(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void runningOutTellsMembersWhatToUseInsteadOncePerStockOut() throws Exception {
+        String clay = read(post(owner, path("/supplies"), """
+                {"name": "Speckled buff", "category": "CLAY", "unit": "25 lb bag",
+                 "substitute": "Use B-Mix 5 while we wait"}
+                """), "$.id");
+        move(owner, clay, "RECEIVED", "2");
+        move(owner, clay, "USED", "1");
+        assertThat(outNotices()).isEmpty();
+
+        move(owner, clay, "USED", "1");
+        assertThat(outNotices()).containsExactly("Speckled buff is out");
+        // A count that finds the shelf still empty isn't news
+        move(owner, clay, "COUNTED", "0");
+        assertThat(outNotices()).hasSize(1);
+
+        // Back in, and out again: a new stock-out, so a new notice
+        move(owner, clay, "RECEIVED", "1");
+        move(owner, clay, "COUNTED", "0");
+        assertThat(outNotices()).hasSize(2);
+    }
+
+    /** The maker's notices about something being out, newest first. */
+    private List<String> outNotices() throws Exception {
+        String body = mvc.get().uri(path("/notifications")).with(maker.token()).exchange().getResponse()
+                .getContentAsString();
+        return JsonPath.read(body, "$[?(@.title =~ /.* is out/)].title");
     }
 
     private MvcTestResult move(TestUser user, String item, String kind, String quantity) {
