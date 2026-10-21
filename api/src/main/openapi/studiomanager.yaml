@@ -3467,7 +3467,7 @@ components:
 
     NotificationKind:
       type: string
-      enum: [PIECES_READY, STUDIO_NOTICE]
+      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE]
 
     Notification:
       type: object

@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
 
 import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.kiln.FiringKind;
+import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -133,6 +135,33 @@ public class NotificationService {
                             .append('.'));
             insert(List.of(maker), NotificationView.Kind.PIECES_READY, title, body.toString().strip());
         });
+    }
+
+    /** One notice to each person the task falls to, with what to do and by when. */
+    @EventListener
+    void onMaintenanceDue(MaintenanceDue due) {
+        var dateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH).withZone(studios.current().timeZone());
+        String title = (due.status() == DueStatus.DUE ? "Due: " : "Due soon: ") + due.taskTitle();
+        StringBuilder body = new StringBuilder(due.assetName()).append(": ").append(due.taskTitle()).append('\n');
+        if (due.dueAt() != null) {
+            body.append(due.status() == DueStatus.DUE && !due.dueAt().isAfter(Instant.now()) ? "It was due on " : "Due by ")
+                    .append(dateFormat.format(due.dueAt())).append(".\n");
+        }
+        if (due.firingsLeft() != null) {
+            int left = due.firingsLeft();
+            body.append(left <= 0 ? "It's due by firing count." : left == 1 ? "1 firing left." : left + " firings left.")
+                    .append('\n');
+        }
+        if (!due.checklist().isEmpty()) {
+            body.append('\n');
+            due.checklist().forEach(line -> body.append("- ").append(line).append('\n'));
+        }
+        body.append("\nMark it done on the Maintenance page when it's finished.");
+        insert(due.recipients(), NotificationView.Kind.MAINTENANCE_DUE, clip(title, 120), clip(body.toString(), 2000));
+    }
+
+    private static String clip(String text, int max) {
+        return text.length() <= max ? text : text.substring(0, max - 1) + "…";
     }
 
     private void insert(Collection<UUID> accountIds, NotificationView.Kind kind, String title, String body) {

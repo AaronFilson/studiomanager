@@ -589,7 +589,7 @@ export type FiringTransitionRequest = {
     expectedVersion: number;
 };
 
-export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE';
+export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE';
 
 export type Notification = {
     id: string;

@@ -45,3 +45,7 @@ Updated as each item lands.
   (an invite's code hash) are left out. "Download all data" is on Settings.
 - **4. OpenTelemetry:** done 2026-10-21, see [ADR 13](../adr/0013-opentelemetry-to-application-insights.md).
   On in the `azure` profile only. First exercised for real at the first deploy.
+- **5. Maintenance reminders:** done 2026-10-21 (V14). An hourly sweep sends one notice per task
+  per cycle (by email through the outbox) when it first shows as due soon or due. It goes to the
+  named assignee, else every holder of the duty, else the staff. Completing a task starts a new
+  cycle. A new SECURITY DEFINER function finds the studios (ADR 10); the rest runs under RLS.

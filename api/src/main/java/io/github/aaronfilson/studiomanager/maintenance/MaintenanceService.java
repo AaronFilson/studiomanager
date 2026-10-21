@@ -36,9 +36,11 @@ import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -68,14 +70,16 @@ public class MaintenanceService {
     private final AccessService access;
     private final StudioMembers members;
     private final AccountDirectory accounts;
+    private final ApplicationEventPublisher events;
 
     MaintenanceService(JdbcClient jdbc, KilnService kilns, AccessService access, StudioMembers members,
-            AccountDirectory accounts) {
+            AccountDirectory accounts, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.kilns = kilns;
         this.access = access;
         this.members = members;
         this.accounts = accounts;
+        this.events = events;
     }
 
     /** Everything maintained, kilns first and then by name, each with its tasks soonest due first. */
@@ -312,6 +316,56 @@ public class MaintenanceService {
                 .map(r -> new Record(r.id(), r.assetId(), r.taskId(), r.taskTitle(), r.note(), r.cost(), r.checked(),
                         r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt()))
                 .toList();
+    }
+
+    /**
+     * Reminds whoever a task is assigned to when it comes due or nearly so, once per cycle: a
+     * {@link MaintenanceDue} for each task in the bound studio not reminded about since it was
+     * last done. Run by {@link MaintenanceReminderSweep}. Returns how many tasks were reminded.
+     */
+    @Transactional
+    public int remindDue(Instant now) {
+        Map<UUID, Instant> unreminded = jdbc.sql("""
+                select id, last_done_at from maintenance_task
+                where not archived and reminded_for is distinct from last_done_at
+                """)
+                .query((rs, n) -> Map.entry(rs.getObject("id", UUID.class),
+                        rs.getObject("last_done_at", OffsetDateTime.class).toInstant()))
+                .list().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        List<Task> due = unreminded.isEmpty() ? List.of()
+                : dueTasks(now).stream().filter(t -> unreminded.containsKey(t.id())).toList();
+        if (due.isEmpty()) {
+            return 0;
+        }
+        UUID studioId = TenantContext.require().studioId();
+        Map<UUID, Set<Duty>> duties = access.allDuties();
+        List<UUID> staff = members.list().stream().filter(m -> m.role().includes(StudioRole.STAFF))
+                .map(MemberView::accountId).toList();
+        for (Task task : due) {
+            events.publishEvent(new MaintenanceDue(studioId, task.id(), task.assetName(), task.title(), task.status(),
+                    task.dueAt(), task.firingsLeft(), task.checklist(), recipients(task, duties, staff)));
+            // Only this cycle: if the task was done meanwhile, its new cycle still gets its reminder
+            jdbc.sql("update maintenance_task set reminded_for = last_done_at where id = :id and last_done_at = :cycle")
+                    .param("id", task.id())
+                    .param("cycle", utc(unreminded.get(task.id())))
+                    .update();
+        }
+        return due.size();
+    }
+
+    /** The named assignee; else everyone holding the duty; else, with nobody to do it, the staff. */
+    private static List<UUID> recipients(Task task, Map<UUID, Set<Duty>> duties, List<UUID> staff) {
+        if (task.assignedTo() != null) {
+            return List.of(task.assignedTo());
+        }
+        if (task.assignedDuty() != null) {
+            List<UUID> holders = duties.entrySet().stream().filter(e -> e.getValue().contains(task.assignedDuty()))
+                    .map(Map.Entry::getKey).sorted().toList();
+            if (!holders.isEmpty()) {
+                return holders;
+            }
+        }
+        return staff;
     }
 
     /** Every kiln is maintained, so a new one gets its asset in the same transaction. */
