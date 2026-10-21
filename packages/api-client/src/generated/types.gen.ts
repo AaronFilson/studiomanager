@@ -503,6 +503,55 @@ export type SaveMaintenanceTaskRequest = {
     assignedTo?: string;
 };
 
+export type ReportableAsset = {
+    id: string;
+    kind: AssetKind;
+    name: string;
+    /**
+     * False while it's out of service, so a member knows it's already in hand.
+     */
+    available: boolean;
+};
+
+export type ProblemReport = {
+    id: string;
+    /**
+     * Absent for "somewhere else".
+     */
+    assetId?: string;
+    assetName?: string;
+    description: string;
+    reportedBy: string;
+    reportedByName?: string;
+    reportedAt: string;
+    open: boolean;
+    resolvedByName?: string;
+    resolvedAt?: string;
+    resolution?: string;
+    version: number;
+};
+
+export type ReportProblemRequest = {
+    /**
+     * Leave out for something not on the list.
+     */
+    assetId?: string;
+    description: string;
+};
+
+export type ResolveProblemRequest = {
+    resolution?: string;
+    expectedVersion: number;
+};
+
+export type SuggestedMaintenanceTask = {
+    task: SaveMaintenanceTaskRequest;
+    /**
+     * Where the interval comes from, such as the kiln maker or a regulation.
+     */
+    source: string;
+};
+
 export type UpdateMaintenanceTaskRequest = {
     task: SaveMaintenanceTaskRequest;
     expectedVersion: number;
@@ -515,11 +564,31 @@ export type CompleteMaintenanceTaskRequest = {
      * The checklist lines that were done.
      */
     checked?: Array<string>;
+    /**
+     * Spare parts taken from supplies, such as a new element. Staff only, as for any stock movement.
+     */
+    parts?: Array<PartUse>;
 };
 
 export type RecordRepairRequest = {
     note: string;
     cost?: Decimal;
+    /**
+     * Spare parts taken from supplies; each is recorded as used, so stock goes down.
+     */
+    parts?: Array<PartUse>;
+};
+
+export type PartUse = {
+    itemId: string;
+    quantity: Decimal;
+};
+
+export type PartUsed = {
+    itemId: string;
+    itemName: string;
+    unit: string;
+    quantity: Decimal;
 };
 
 export type MaintenanceRecord = {
@@ -540,6 +609,11 @@ export type MaintenanceRecord = {
     doneBy: string;
     doneByName?: string;
     doneAt: string;
+    parts: Array<PartUsed>;
+    /**
+     * Finished photos, oldest first. Same shape as a piece's photos.
+     */
+    photos: Array<PiecePhoto>;
 };
 
 /**
@@ -589,7 +663,7 @@ export type FiringTransitionRequest = {
     expectedVersion: number;
 };
 
-export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE';
+export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED' | 'SHIFT_COVER';
 
 export type Notification = {
     id: string;
@@ -659,6 +733,16 @@ export type Resource = {
     capacity: number;
     requiredCertification?: string;
     requiredCertificationName?: string;
+    /**
+     * The maintained asset this is, if any.
+     */
+    assetId?: string;
+    /**
+     * Why that asset is out of service; absent when it's in service. While it is down, only
+     * MAINTENANCE and CLOSURE bookings can be made.
+     *
+     */
+    downReason?: string;
     version: number;
 };
 
@@ -667,6 +751,10 @@ export type CreateResourceRequest = {
     kind: ResourceKind;
     capacity: number;
     requiredCertification?: string;
+    /**
+     * A maintained asset (from the maintenance page) that this is, such as a kiln.
+     */
+    assetId?: string;
 };
 
 /**
@@ -699,6 +787,14 @@ export type CreateBookingRequest = {
     accountId?: string;
 };
 
+export type OfferShiftRequest = {
+    /**
+     * True to ask for cover, false to stop asking.
+     */
+    offered: boolean;
+    expectedVersion: number;
+};
+
 export type Shift = {
     id: string;
     title: string;
@@ -708,6 +804,10 @@ export type Shift = {
     accountId?: string;
     accountName?: string;
     open: boolean;
+    /**
+     * Whoever has it is asking for cover; members who could work it can take it.
+     */
+    offered: boolean;
     minutes: number;
     workedAt?: string;
     version: number;
@@ -774,7 +874,7 @@ export type Today = {
     bookings: Array<Booking>;
     shifts: Array<Shift>;
     /**
-     * Open shifts in the next seven days.
+     * Shifts in the next seven days that are open or whose holder asked for cover.
      */
     uncoveredShifts: Array<Shift>;
     /**
@@ -782,6 +882,10 @@ export type Today = {
      */
     lowStock: Array<SupplyItem>;
     openPurchaseRequests: number;
+    /**
+     * Problems members reported that nobody has resolved, newest first.
+     */
+    openProblems: Array<ProblemReport>;
 };
 
 export type SupplyCategory = 'CLAY' | 'GLAZE' | 'GLAZE_MATERIAL' | 'TOOL' | 'KILN_SUPPLY' | 'CLEANING' | 'OTHER';
@@ -1030,11 +1134,15 @@ export type AssetId = string;
 
 export type TaskId = string;
 
+export type ReportId = string;
+
 export type InviteId = string;
 
 export type PieceId = string;
 
 export type PhotoId = string;
+
+export type RecordId = string;
 
 export type KilnId = string;
 
@@ -1143,6 +1251,40 @@ export type GetStudioResponses = {
 };
 
 export type GetStudioResponse = GetStudioResponses[keyof GetStudioResponses];
+
+export type ExportStudioData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/export';
+};
+
+export type ExportStudioErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ExportStudioError = ExportStudioErrors[keyof ExportStudioErrors];
+
+export type ExportStudioResponses = {
+    /**
+     * The ZIP.
+     */
+    200: Blob | File;
+};
+
+export type ExportStudioResponse = ExportStudioResponses[keyof ExportStudioResponses];
 
 export type ListMembersData = {
     body?: never;
@@ -2379,6 +2521,177 @@ export type RecordRepairResponses = {
 
 export type RecordRepairResponse = RecordRepairResponses[keyof RecordRepairResponses];
 
+export type ListSuggestedMaintenanceTasksData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/suggested-tasks';
+};
+
+export type ListSuggestedMaintenanceTasksErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ListSuggestedMaintenanceTasksError = ListSuggestedMaintenanceTasksErrors[keyof ListSuggestedMaintenanceTasksErrors];
+
+export type ListSuggestedMaintenanceTasksResponses = {
+    /**
+     * Suggestions; empty for kinds with no published schedule.
+     */
+    200: Array<SuggestedMaintenanceTask>;
+};
+
+export type ListSuggestedMaintenanceTasksResponse = ListSuggestedMaintenanceTasksResponses[keyof ListSuggestedMaintenanceTasksResponses];
+
+export type StartRecordPhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        recordId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/records/{recordId}/photos';
+};
+
+export type StartRecordPhotoUploadErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type StartRecordPhotoUploadError = StartRecordPhotoUploadErrors[keyof StartRecordPhotoUploadErrors];
+
+export type StartRecordPhotoUploadResponses = {
+    /**
+     * Where to upload. The URLs expire after 15 minutes and can each be used once.
+     */
+    201: PhotoUpload;
+};
+
+export type StartRecordPhotoUploadResponse = StartRecordPhotoUploadResponses[keyof StartRecordPhotoUploadResponses];
+
+export type CompleteRecordPhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        recordId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/records/{recordId}/photos/{photoId}/complete';
+};
+
+export type CompleteRecordPhotoUploadErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CompleteRecordPhotoUploadError = CompleteRecordPhotoUploadErrors[keyof CompleteRecordPhotoUploadErrors];
+
+export type CompleteRecordPhotoUploadResponses = {
+    /**
+     * The photo now shows on the record.
+     */
+    204: void;
+};
+
+export type CompleteRecordPhotoUploadResponse = CompleteRecordPhotoUploadResponses[keyof CompleteRecordPhotoUploadResponses];
+
+export type ExportMaintenanceRecordsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/v1/studios/{studioId}/maintenance/records/export';
+};
+
+export type ExportMaintenanceRecordsErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ExportMaintenanceRecordsError = ExportMaintenanceRecordsErrors[keyof ExportMaintenanceRecordsErrors];
+
+export type ExportMaintenanceRecordsResponses = {
+    /**
+     * One row per record.
+     */
+    200: string;
+};
+
+export type ExportMaintenanceRecordsResponse = ExportMaintenanceRecordsResponses[keyof ExportMaintenanceRecordsResponses];
+
 export type ArchiveMaintenanceTaskData = {
     body?: never;
     path: {
@@ -2541,6 +2854,168 @@ export type ListMyMaintenanceTasksResponses = {
 };
 
 export type ListMyMaintenanceTasksResponse = ListMyMaintenanceTasksResponses[keyof ListMyMaintenanceTasksResponses];
+
+export type ListReportableAssetsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/reportable-assets';
+};
+
+export type ListReportableAssetsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListReportableAssetsError = ListReportableAssetsErrors[keyof ListReportableAssetsErrors];
+
+export type ListReportableAssetsResponses = {
+    /**
+     * Kilns first, then by name.
+     */
+    200: Array<ReportableAsset>;
+};
+
+export type ListReportableAssetsResponse = ListReportableAssetsResponses[keyof ListReportableAssetsResponses];
+
+export type ListProblemReportsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        /**
+         * Only reports not yet resolved.
+         */
+        open?: boolean;
+    };
+    url: '/api/v1/studios/{studioId}/maintenance/problem-reports';
+};
+
+export type ListProblemReportsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListProblemReportsError = ListProblemReportsErrors[keyof ListProblemReportsErrors];
+
+export type ListProblemReportsResponses = {
+    /**
+     * Up to 200 reports.
+     */
+    200: Array<ProblemReport>;
+};
+
+export type ListProblemReportsResponse = ListProblemReportsResponses[keyof ListProblemReportsResponses];
+
+export type ReportProblemData = {
+    body: ReportProblemRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/problem-reports';
+};
+
+export type ReportProblemErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ReportProblemError = ReportProblemErrors[keyof ReportProblemErrors];
+
+export type ReportProblemResponses = {
+    /**
+     * The report.
+     */
+    201: ProblemReport;
+};
+
+export type ReportProblemResponse = ReportProblemResponses[keyof ReportProblemResponses];
+
+export type ResolveProblemReportData = {
+    body: ResolveProblemRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        reportId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/problem-reports/{reportId}/resolution';
+};
+
+export type ResolveProblemReportErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type ResolveProblemReportError = ResolveProblemReportErrors[keyof ResolveProblemReportErrors];
+
+export type ResolveProblemReportResponses = {
+    /**
+     * The resolved report.
+     */
+    200: ProblemReport;
+};
+
+export type ResolveProblemReportResponse = ResolveProblemReportResponses[keyof ResolveProblemReportResponses];
 
 export type GetKilnQueueData = {
     body?: never;
@@ -3450,6 +3925,53 @@ export type AssignShiftResponses = {
 };
 
 export type AssignShiftResponse = AssignShiftResponses[keyof AssignShiftResponses];
+
+export type OfferShiftData = {
+    body: OfferShiftRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        shiftId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/shifts/{shiftId}/offer';
+};
+
+export type OfferShiftErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type OfferShiftError = OfferShiftErrors[keyof OfferShiftErrors];
+
+export type OfferShiftResponses = {
+    /**
+     * The shift.
+     */
+    200: Shift;
+};
+
+export type OfferShiftResponse = OfferShiftResponses[keyof OfferShiftResponses];
 
 export type MarkShiftWorkedData = {
     body: VersionRequest;

@@ -138,6 +138,101 @@ class ScheduleApiTests {
         assertThat(mvc.get().uri(path("/today")).with(maker.token())).hasStatus(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void aDownAssetCanOnlyBeBookedForItsRepairOrAClosure() throws Exception {
+        String roller = read(post(owner, path("/maintenance/assets"), """
+                {"kind": "SLAB_ROLLER", "name": "North Star"}
+                """), "$.id");
+        String resource = read(post(owner, path("/resources"), """
+                {"name": "Slab roller", "kind": "EQUIPMENT", "capacity": 1, "assetId": "%s"}
+                """.formatted(roller)), "$.id");
+        assertThat(reserve(maker, resource, tomorrow)).hasStatus(HttpStatus.CREATED);
+
+        assertThat(mvc.put().uri(path("/maintenance/assets/" + roller + "/availability")).with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"downReason\": \"Cable snapped\", \"expectedVersion\": 0}"))
+                .hasStatusOk();
+        assertThat(mvc.get().uri(path("/resources")).with(maker.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$[0].downReason", r -> assertThat(r).isEqualTo("Cable snapped"))
+                .hasPathSatisfying("$[0].assetId", a -> assertThat(a).isEqualTo(roller));
+        assertThat(reserve(monitor, resource, tomorrow.plus(1, ChronoUnit.DAYS))).hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().extractingPath("$.detail").asString().contains("out of service: Cable snapped");
+        assertThat(book(owner, resource, "CLASS", tomorrow.plus(2, ChronoUnit.DAYS))).hasStatus(HttpStatus.CONFLICT);
+        // Its repair can still go on the calendar
+        assertThat(book(owner, resource, "MAINTENANCE", tomorrow.plus(3, ChronoUnit.DAYS))).hasStatus(HttpStatus.CREATED);
+
+        // Back in service, bookable again
+        assertThat(mvc.put().uri(path("/maintenance/assets/" + roller + "/availability")).with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\": 1}")).hasStatusOk();
+        assertThat(reserve(monitor, resource, tomorrow.plus(1, ChronoUnit.DAYS))).hasStatus(HttpStatus.CREATED);
+
+        // A kiln's asset follows the kiln's own down state
+        String kiln = read(post(owner, path("/kilns"), "{\"name\": \"Skutt\", \"kind\": \"ELECTRIC\"}"), "$.id");
+        String assets = mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        String kilnAsset = JsonPath.<List<String>>read(assets, "$[?(@.kilnId == '%s')].id".formatted(kiln)).getFirst();
+        String kilnResource = read(post(owner, path("/resources"), """
+                {"name": "Kiln 1", "kind": "KILN", "capacity": 1, "assetId": "%s"}
+                """.formatted(kilnAsset)), "$.id");
+        assertThat(mvc.put().uri(path("/kilns/" + kiln + "/availability")).with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"downReason\": \"Relay\", \"expectedVersion\": 0}"))
+                .hasStatusOk();
+        assertThat(book(owner, kilnResource, "RENTAL", tomorrow)).hasStatus(HttpStatus.CONFLICT);
+
+        // An asset from nowhere is refused
+        assertThat(post(owner, path("/resources"), """
+                {"name": "Ghost", "kind": "EQUIPMENT", "capacity": 1, "assetId": "%s"}
+                """.formatted(UUID.randomUUID()))).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void aFiringPutsItselfOnTheKilnsCalendar() throws Exception {
+        String kiln = read(post(owner, path("/kilns"), "{\"name\": \"Skutt\", \"kind\": \"ELECTRIC\"}"), "$.id");
+        String assets = mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        String kilnAsset = JsonPath.<List<String>>read(assets, "$[?(@.kilnId == '%s')].id".formatted(kiln)).getFirst();
+        // Two calendar resources can be the same kiln, and both show its firings
+        for (String name : List.of("Kiln 1", "Kiln 1 (big shelf)")) {
+            assertThat(post(owner, path("/resources"), """
+                    {"name": "%s", "kind": "KILN", "capacity": 1, "assetId": "%s"}
+                    """.formatted(name, kilnAsset))).hasStatus(HttpStatus.CREATED);
+        }
+
+        // Two loads: one is unloaded, the other cancelled after it started
+        String unloaded = startFiring(kiln);
+        Instant from = Instant.now().minus(1, ChronoUnit.HOURS);
+        Instant to = Instant.now().plus(2, ChronoUnit.DAYS);
+        assertThat(firingBookings(from, to)).hasSize(2);
+        assertThat(read(mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
+                .with(maker.token()).exchange(), "$[0].title")).isEqualTo("Bisque firing");
+        assertThat(post(owner, path("/firings/" + unloaded + "/transitions"),
+                "{\"to\": \"COMPLETE\", \"expectedVersion\": 1}")).hasStatusOk();
+        // Trimmed from the expected day to when it was unloaded
+        String ends = read(mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
+                .with(owner.token()).exchange(), "$[0].endsAt");
+        assertThat(Instant.parse(ends)).isBefore(Instant.now().plus(5, ChronoUnit.MINUTES));
+
+        String cancelled = startFiring(kiln);
+        assertThat(firingBookings(from, to)).hasSize(4);
+        assertThat(post(owner, path("/firings/" + cancelled + "/transitions"),
+                "{\"to\": \"CANCELLED\", \"expectedVersion\": 1}")).hasStatusOk();
+        assertThat(firingBookings(from, to)).hasSize(2);
+    }
+
+    private String startFiring(String kiln) throws Exception {
+        String piece = read(post(maker, path("/pieces"), "{\"size\": {}}"), "$.id");
+        String firing = read(post(owner, path("/kilns/" + kiln + "/firings"),
+                "{\"kind\": \"BISQUE\", \"pieceIds\": [\"%s\"]}".formatted(piece)), "$.id");
+        assertThat(post(owner, path("/firings/" + firing + "/transitions"), "{\"to\": \"FIRING\", \"expectedVersion\": 0}"))
+                .hasStatusOk();
+        return firing;
+    }
+
+    private List<String> firingBookings(Instant from, Instant to) throws Exception {
+        String body = mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
+                .with(owner.token()).exchange().getResponse().getContentAsString();
+        return JsonPath.read(body, "$[?(@.kind == 'FIRING')].id");
+    }
+
     private MvcTestResult reserve(TestUser user, String resource, Instant start) {
         return book(user, resource, "RESERVATION", start);
     }
@@ -146,6 +241,50 @@ class ScheduleApiTests {
         return post(user, path("/bookings"), """
                 {"resourceId": "%s", "kind": "%s", "startsAt": "%s", "endsAt": "%s"}
                 """.formatted(resource, kind, start, start.plus(2, ChronoUnit.HOURS)));
+    }
+
+    @Test
+    void aMonitorAsksForCoverAndAnotherTakesTheShift() throws Exception {
+        String monitorId = accountId(monitor);
+        String makerId = accountId(maker);
+        for (String id : List.of(monitorId, makerId)) {
+            assertThat(mvc.put().uri(path("/members/" + id + "/duties")).with(owner.token())
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"duties\": [\"MONITOR\"]}")).hasStatusOk();
+        }
+        String shift = read(post(owner, path("/shifts"), """
+                {"title": "Open studio monitor", "duty": "MONITOR", "firstStartsAt": "%s", "minutes": 180, "weeks": 1}
+                """.formatted(tomorrow)), "$[0].id");
+        assertThat(assign(monitor, shift, monitorId, 0)).hasStatusOk();
+
+        // Only the holder asks; the maker can't take a shift that isn't offered
+        assertThat(offer(maker, shift, true, 1)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(assign(maker, shift, makerId, 1)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(offer(monitor, shift, true, 1)).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$.offered", o -> assertThat(o).isEqualTo(true))
+                // Still theirs until someone takes it
+                .hasPathSatisfying("$.accountId", a -> assertThat(a).isEqualTo(monitorId));
+        assertThat(coverNotices(maker)).containsExactly("Nia needs cover: Open studio monitor");
+        assertThat(coverNotices(monitor)).isEmpty();
+
+        assertThat(assign(maker, shift, makerId, 2)).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$.accountId", a -> assertThat(a).isEqualTo(makerId))
+                .hasPathSatisfying("$.offered", o -> assertThat(o).isEqualTo(false));
+        assertThat(coverNotices(monitor)).containsExactly("Mo is covering your shift");
+        // Once taken, it isn't up for grabs any more
+        assertThat(assign(monitor, shift, monitorId, 3)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    private MvcTestResult offer(TestUser user, String shift, boolean offered, long version) {
+        return mvc.put().uri(path("/shifts/" + shift + "/offer")).with(user.token())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"offered\": %s, \"expectedVersion\": %d}".formatted(offered, version))
+                .exchange();
+    }
+
+    private List<String> coverNotices(TestUser user) throws Exception {
+        String body = mvc.get().uri(path("/notifications")).with(user.token()).exchange().getResponse()
+                .getContentAsString();
+        return JsonPath.read(body, "$[?(@.kind == 'SHIFT_COVER')].title");
     }
 
     private MvcTestResult assign(TestUser user, String shift, String accountId, long version) {

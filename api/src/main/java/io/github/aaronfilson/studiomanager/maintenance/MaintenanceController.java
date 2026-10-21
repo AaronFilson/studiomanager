@@ -2,13 +2,24 @@ package io.github.aaronfilson.studiomanager.maintenance;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.contract.AssetAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.AssetDto;
+import io.github.aaronfilson.studiomanager.contract.AssetKindDto;
+import io.github.aaronfilson.studiomanager.contract.PartUseDto;
+import io.github.aaronfilson.studiomanager.contract.PhotoUploadDto;
+import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
+import io.github.aaronfilson.studiomanager.contract.ReportProblemRequestDto;
+import io.github.aaronfilson.studiomanager.contract.ReportableAssetDto;
+import io.github.aaronfilson.studiomanager.contract.ResolveProblemRequestDto;
 import io.github.aaronfilson.studiomanager.contract.CompleteMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceApi;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
@@ -16,12 +27,17 @@ import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.RecordRepairRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SaveAssetRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SaveMaintenanceTaskRequestDto;
+import io.github.aaronfilson.studiomanager.contract.SuggestedMaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateAssetRequestDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
+import io.github.aaronfilson.studiomanager.studio.StudioService;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,9 +46,16 @@ import org.springframework.web.bind.annotation.RestController;
 class MaintenanceController implements MaintenanceApi {
 
     private final MaintenanceService maintenance;
+    private final ProblemReportService problems;
+    private final RecordPhotoService recordPhotos;
+    private final StudioService studios;
 
-    MaintenanceController(MaintenanceService maintenance) {
+    MaintenanceController(MaintenanceService maintenance, ProblemReportService problems,
+            RecordPhotoService recordPhotos, StudioService studios) {
         this.maintenance = maintenance;
+        this.problems = problems;
+        this.recordPhotos = recordPhotos;
+        this.studios = studios;
     }
 
     @Override
@@ -101,20 +124,101 @@ class MaintenanceController implements MaintenanceApi {
     public ResponseEntity<MaintenanceTaskDto> completeMaintenanceTask(UUID studioId, UUID taskId,
             CompleteMaintenanceTaskRequestDto request) {
         return ResponseEntity.ok(MaintenanceDtos.toDto(maintenance.complete(taskId, request.getNote(),
-                decimal(request.getCost()), request.getChecked() == null ? List.of() : request.getChecked())));
+                decimal(request.getCost()), request.getChecked() == null ? List.of() : request.getChecked(),
+                parts(request.getParts()))));
     }
 
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<MaintenanceRecordDto> recordRepair(UUID studioId, UUID assetId, RecordRepairRequestDto request) {
-        var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()));
-        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record));
+        var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()),
+                parts(request.getParts()));
+        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record, List.of()));
     }
 
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<List<MaintenanceRecordDto>> listMaintenanceRecords(UUID studioId, UUID assetId) {
-        return ResponseEntity.ok(maintenance.records(assetId).stream().map(MaintenanceDtos::toDto).toList());
+        var records = maintenance.records(assetId);
+        Map<UUID, List<RecordPhotoService.Photo>> photos = recordPhotos.photosOf(assetId);
+        return ResponseEntity.ok(records.stream()
+                .map(r -> MaintenanceDtos.toDto(r, photos.getOrDefault(r.id(), List.of()))).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<PhotoUploadDto> startRecordPhotoUpload(UUID studioId, UUID recordId) {
+        RecordPhotoService.Upload upload = recordPhotos.startUpload(recordId);
+        return ResponseEntity.status(201).body(new PhotoUploadDto()
+                .photoId(upload.photoId())
+                .photoUploadUrl(upload.photoUploadUrl())
+                .thumbnailUploadUrl(upload.thumbnailUploadUrl())
+                .expiresAt(upload.expiresAt().atOffset(ZoneOffset.UTC))
+                .maxPhotoBytes(upload.maxPhotoBytes())
+                .maxThumbnailBytes(upload.maxThumbnailBytes()));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<Void> completeRecordPhotoUpload(UUID studioId, UUID recordId, UUID photoId) {
+        recordPhotos.complete(recordId, photoId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<List<SuggestedMaintenanceTaskDto>> listSuggestedMaintenanceTasks(UUID studioId, UUID assetId) {
+        return ResponseEntity.ok(maintenance.suggestions(assetId).stream()
+                .map(s -> new SuggestedMaintenanceTaskDto()
+                        .task(new SaveMaintenanceTaskRequestDto()
+                                .title(s.task().title())
+                                .checklist(s.task().checklist())
+                                .everyDays(s.task().everyDays())
+                                .everyFirings(s.task().everyFirings()))
+                        .source(s.source()))
+                .toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<String> exportMaintenanceRecords(LocalDate from, LocalDate to, UUID studioId) {
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"maintenance-%s-to-%s.csv\"".formatted(from, to))
+                .body(maintenance.recordsCsv(from, to, studios.current().timeZone()));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<List<ReportableAssetDto>> listReportableAssets(UUID studioId) {
+        return ResponseEntity.ok(problems.reportable().stream()
+                .map(a -> new ReportableAssetDto().id(a.id()).kind(AssetKindDto.valueOf(a.kind().name())).name(a.name())
+                        .available(a.available()))
+                .toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<List<ProblemReportDto>> listProblemReports(UUID studioId, @Nullable Boolean open) {
+        return ResponseEntity.ok(problems.reports(Boolean.TRUE.equals(open)).stream()
+                .map(MaintenanceDtos::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<ProblemReportDto> reportProblem(UUID studioId, ReportProblemRequestDto request) {
+        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(problems.report(request.getAssetId(),
+                request.getDescription())));
+    }
+
+    /** Members may call this; the service lets through only staff. */
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<ProblemReportDto> resolveProblemReport(UUID studioId, UUID reportId,
+            ResolveProblemRequestDto request) {
+        return ResponseEntity.ok(MaintenanceDtos.toDto(problems.resolve(reportId, request.getResolution(),
+                request.getExpectedVersion())));
     }
 
     @Override
@@ -128,6 +232,11 @@ class MaintenanceController implements MaintenanceApi {
                 request.getEveryDays(), request.getEveryFirings(),
                 request.getAssignedDuty() == null ? null : Duty.valueOf(request.getAssignedDuty().name()),
                 request.getAssignedTo());
+    }
+
+    private static List<PartUse> parts(@Nullable List<PartUseDto> parts) {
+        return parts == null ? List.of()
+                : parts.stream().map(p -> new PartUse(p.getItemId(), new BigDecimal(p.getQuantity()))).toList();
     }
 
     private static @Nullable BigDecimal decimal(@Nullable String value) {

@@ -40,6 +40,7 @@ public final class ScheduleDtos {
                 .accountId(shift.accountId())
                 .accountName(shift.accountName())
                 .open(shift.open())
+                .offered(shift.offered())
                 .minutes(shift.minutes())
                 .workedAt(shift.workedAt() == null ? null : shift.workedAt().atOffset(ZoneOffset.UTC))
                 .version(shift.version());

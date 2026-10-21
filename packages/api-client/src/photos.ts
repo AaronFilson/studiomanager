@@ -1,4 +1,11 @@
-import { completePhotoUpload, type Piece, startPhotoUpload } from './generated';
+import {
+  completePhotoUpload,
+  completeRecordPhotoUpload,
+  type Piece,
+  type PhotoUpload,
+  startPhotoUpload,
+  startRecordPhotoUpload,
+} from './generated';
 
 /** A photo ready to upload: both images already shrunk and encoded as JPEG. */
 export interface PhotoFiles {
@@ -14,16 +21,36 @@ export interface PhotoFiles {
  * go without a bearer token.
  */
 export async function uploadPiecePhoto(studioId: string, pieceId: string, files: PhotoFiles): Promise<Piece> {
-  const { data: upload } = await startPhotoUpload({ path: { studioId, pieceId }, throwOnError: true });
+  return uploadPhoto(
+    files,
+    async () => (await startPhotoUpload({ path: { studioId, pieceId }, throwOnError: true })).data,
+    async (photoId) =>
+      (await completePhotoUpload({ path: { studioId, pieceId, photoId }, throwOnError: true })).data,
+  );
+}
+
+/** Adds a photo to a maintenance record (staff only), the same way as to a piece. */
+export async function uploadRecordPhoto(studioId: string, recordId: string, files: PhotoFiles): Promise<void> {
+  await uploadPhoto(
+    files,
+    async () => (await startRecordPhotoUpload({ path: { studioId, recordId }, throwOnError: true })).data,
+    async (photoId) => {
+      await completeRecordPhotoUpload({ path: { studioId, recordId, photoId }, throwOnError: true });
+    },
+  );
+}
+
+async function uploadPhoto<T>(
+  files: PhotoFiles,
+  start: () => Promise<PhotoUpload>,
+  complete: (photoId: string) => Promise<T>,
+): Promise<T> {
+  const upload = await start();
   if (files.photo.size > upload.maxPhotoBytes || files.thumbnail.size > upload.maxThumbnailBytes) {
     throw new Error('This photo is too large to upload.');
   }
   await Promise.all([putImage(upload.photoUploadUrl, files.photo), putImage(upload.thumbnailUploadUrl, files.thumbnail)]);
-  const { data: piece } = await completePhotoUpload({
-    path: { studioId, pieceId, photoId: upload.photoId },
-    throwOnError: true,
-  });
-  return piece;
+  return complete(upload.photoId);
 }
 
 async function putImage(url: string, body: Blob): Promise<void> {

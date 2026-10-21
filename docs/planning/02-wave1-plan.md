@@ -183,11 +183,12 @@ M1–M5 have first versions on the API and the web, with unit tests, integration
 Postgres 18, and web tests. Still to do within Wave 1:
 - **M1:** photo upload (direct to Blob storage with SAS tokens) and the Expo mobile app.
 - **M2:** email and push delivery of notices through the outbox (the in-app inbox is done).
-- **M3:** linking kiln firings onto the calendar automatically, and swapping shifts.
+- **M3:** linking kiln firings onto the calendar automatically, and swapping shifts. _Both done
+  2026-10-21 ([07](07-next-wave-queue.md), item 11)._
 - **M4:** the live QuickBooks connection (OAuth, account mapping, daily posting). The CSV export
   and the `JournalEntry` mapping are done. Payout import from provider APIs.
 - **M5:** "out of stock, use this instead" sent automatically. The substitute text shows on the
-  supplies list.
+  supplies list. _Done 2026-10-21 ([07](07-next-wave-queue.md), item 11)._
 
 ## Open questions
 

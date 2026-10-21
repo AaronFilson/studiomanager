@@ -15,6 +15,7 @@ import io.github.aaronfilson.studiomanager.contract.CreateResourceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.CreateShiftsRequestDto;
 import io.github.aaronfilson.studiomanager.contract.HoursEntryDto;
 import io.github.aaronfilson.studiomanager.contract.HoursLedgerDto;
+import io.github.aaronfilson.studiomanager.contract.OfferShiftRequestDto;
 import io.github.aaronfilson.studiomanager.contract.ResourceDto;
 import io.github.aaronfilson.studiomanager.contract.ResourceKindDto;
 import io.github.aaronfilson.studiomanager.contract.ScheduleApi;
@@ -49,7 +50,7 @@ class ScheduleController implements ScheduleApi {
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<ResourceDto> createResource(UUID studioId, CreateResourceRequestDto request) {
         Resource resource = schedule.createResource(request.getName(), ResourceKind.valueOf(request.getKind().name()),
-                request.getCapacity(), request.getRequiredCertification());
+                request.getCapacity(), request.getRequiredCertification(), request.getAssetId());
         return ResponseEntity.created(URI.create("/api/v1/studios/%s/resources/%s".formatted(studioId, resource.id())))
                 .body(toDto(resource));
     }
@@ -102,6 +103,14 @@ class ScheduleController implements ScheduleApi {
                 request.getExpectedVersion())));
     }
 
+    /** Members may call this; the service lets through only whoever has the shift, and staff. */
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<ShiftDto> offerShift(UUID studioId, UUID shiftId, OfferShiftRequestDto request) {
+        return ResponseEntity.ok(ScheduleDtos.toDto(schedule.offer(shiftId, request.getOffered(),
+                request.getExpectedVersion())));
+    }
+
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<ShiftDto> markShiftWorked(UUID studioId, UUID shiftId, VersionRequestDto request) {
@@ -128,6 +137,8 @@ class ScheduleController implements ScheduleApi {
                 .capacity(resource.capacity())
                 .requiredCertification(resource.requiredCertification())
                 .requiredCertificationName(resource.requiredCertificationName())
+                .assetId(resource.assetId())
+                .downReason(resource.downReason())
                 .version(resource.version());
     }
 

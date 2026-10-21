@@ -5,19 +5,26 @@ import {
   createAssetMutation,
   createMaintenanceTaskMutation,
   type Duty,
+  exportMaintenanceRecords,
   getStudioOptions,
   listAssetsOptions,
   listMaintenanceRecordsOptions,
+  listProblemReportsOptions,
+  listSuggestedMaintenanceTasksOptions,
+  type PartUse,
   recordRepairMutation,
+  resolveProblemReportMutation,
   setAssetAvailabilityMutation,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
-import { ErrorMessage } from '../../../components/ErrorMessage';
+import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
-import { assetKindLabel, dutyLabel, formatDate, formatMoney } from '../../../labels';
+import { PartsPicker } from '../../../components/PartsPicker';
+import { RecordPhotos } from '../../../components/RecordPhotos';
+import { assetKindLabel, dutyLabel, formatDate, formatDateTime, formatMoney, scheduleText } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/maintenance')({
   component: MaintenancePage,
@@ -49,10 +56,12 @@ function MaintenancePage() {
         Kilns appear here by themselves. Add anything else that needs regular care: the pug mill, clay trap, spray booth
         filters, fire extinguishers, the roof.
       </p>
+      <OpenProblems studioId={studioId} />
       {assets.isPending && <p>Loading…</p>}
       {assets.isError && <ErrorMessage error={assets.error} />}
       {assets.data?.map((asset) => <AssetCard key={asset.id} studioId={studioId} asset={asset} />)}
       <AddAssetForm studioId={studioId} />
+      <HistoryExport studioId={studioId} />
     </div>
   );
 }
@@ -75,10 +84,11 @@ function AssetCard({ studioId, asset }: { studioId: string; asset: Asset }) {
       ) : (
         <ul className="studio-list">
           {asset.tasks.map((task) => (
-            <MaintenanceTaskRow key={task.id} studioId={studioId} task={task} />
+            <MaintenanceTaskRow key={task.id} studioId={studioId} task={task} drawsParts />
           ))}
         </ul>
       )}
+      <Suggestions studioId={studioId} asset={asset} />
       <AddTaskForm studioId={studioId} asset={asset} />
       <div className="row">
         <button type="button" onClick={() => setShowHistory((s) => !s)} aria-expanded={showHistory}>
@@ -87,6 +97,138 @@ function AssetCard({ studioId, asset }: { studioId: string; asset: Asset }) {
         {asset.kind !== 'KILN' && <AssetActions studioId={studioId} asset={asset} />}
       </div>
       {showHistory && <History studioId={studioId} asset={asset} />}
+    </section>
+  );
+}
+
+/** What members have reported and nobody has dealt with yet, oldest worries first in view. */
+function OpenProblems({ studioId }: { studioId: string }) {
+  const queryClient = useQueryClient();
+  const reports = useQuery(listProblemReportsOptions({ path: { studioId }, query: { open: true } }));
+  const resolve = useMutation({ ...resolveProblemReportMutation(), onSuccess: () => queryClient.invalidateQueries() });
+
+  if (reports.isError) {
+    return <ErrorMessage error={reports.error} />;
+  }
+  if (!reports.data?.length) {
+    return null;
+  }
+  return (
+    <section className="card stack" aria-label="Reported problems">
+      <h2>Reported problems</h2>
+      <ul className="studio-list">
+        {reports.data.map((r) => (
+          <li key={r.id}>
+            <div>
+              <strong>{r.assetName ?? 'Something else'}</strong>: {r.description}
+              <div className="badge">
+                {r.reportedByName ?? 'A member'} · {formatDateTime(r.reportedAt)}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={resolve.isPending}
+              onClick={() => {
+                const resolution = window.prompt('What was done? (optional)');
+                if (resolution !== null) {
+                  resolve.mutate({
+                    path: { studioId, reportId: r.id },
+                    body: { expectedVersion: r.version, ...(resolution.trim() ? { resolution: resolution.trim() } : {}) },
+                  });
+                }
+              }}
+            >
+              Resolve
+            </button>
+          </li>
+        ))}
+      </ul>
+      {resolve.isError && <ErrorMessage error={resolve.error} />}
+    </section>
+  );
+}
+
+/** Published schedules for this kind of asset (the kiln maker's, OSHA's…), each one click to add. */
+function Suggestions({ studioId, asset }: { studioId: string; asset: Asset }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const suggestions = useQuery(listSuggestedMaintenanceTasksOptions({ path: { studioId, assetId: asset.id } }));
+  const add = useMutation({ ...createMaintenanceTaskMutation(), onSuccess: () => queryClient.invalidateQueries() });
+
+  if (!suggestions.data?.length) {
+    return null;
+  }
+  return (
+    <div className="stack">
+      <h3 id={`${id}-title`}>Suggested tasks</h3>
+      <ul className="studio-list" aria-labelledby={`${id}-title`}>
+        {suggestions.data.map((s) => (
+          <li key={s.task.title} className="row">
+            <span>
+              <strong>{s.task.title}</strong> · {scheduleText(s.task)}
+              <span className="badge"> · {s.source}</span>
+            </span>
+            <button
+              type="button"
+              disabled={add.isPending}
+              aria-label={`Add ${s.task.title}`}
+              onClick={() => add.mutate({ path: { studioId, assetId: asset.id }, body: s.task })}
+            >
+              Add
+            </button>
+          </li>
+        ))}
+      </ul>
+      {add.isError && <ErrorMessage error={add.error} />}
+    </div>
+  );
+}
+
+/** Every asset's records between two dates, for an insurer, a landlord or an audit. */
+function HistoryExport({ studioId }: { studioId: string }) {
+  const id = useId();
+  const today = new Date().toISOString().slice(0, 10);
+  const [from, setFrom] = useState(`${today.slice(0, 4)}-01-01`);
+  const [to, setTo] = useState(today);
+  const [error, setError] = useState<string>();
+
+  async function download() {
+    setError(undefined);
+    try {
+      const { data } = await exportMaintenanceRecords({ path: { studioId }, query: { from, to }, parseAs: 'text', throwOnError: true });
+      const url = URL.createObjectURL(new Blob([data], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `maintenance-${from}-to-${to}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Maintenance history</h2>
+      <p className="badge">Everything done to every asset, as a spreadsheet: the record an insurer or landlord asks for.</p>
+      <div className="row">
+        <div className="field">
+          <label htmlFor={`${id}-from`}>From</label>
+          <input id={`${id}-from`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-to`}>To</label>
+          <input id={`${id}-to`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <button type="button" onClick={() => void download()}>
+          Download CSV
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
     </section>
   );
 }
@@ -202,11 +344,13 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
   const currency = studio.data?.currency ?? 'USD';
   const [note, setNote] = useState('');
   const [cost, setCost] = useState('');
+  const [parts, setParts] = useState<PartUse[]>([]);
   const repair = useMutation({
     ...recordRepairMutation(),
     onSuccess: async () => {
       setNote('');
       setCost('');
+      setParts([]);
       await queryClient.invalidateQueries();
     },
   });
@@ -226,12 +370,16 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
           type="button"
           disabled={!note.trim() || repair.isPending}
           onClick={() =>
-            repair.mutate({ path: { studioId, assetId: asset.id }, body: { note: note.trim(), ...(cost ? { cost } : {}) } })
+            repair.mutate({
+              path: { studioId, assetId: asset.id },
+              body: { note: note.trim(), ...(cost ? { cost } : {}), ...(parts.length ? { parts } : {}) },
+            })
           }
         >
           Log it
         </button>
       </div>
+      <PartsPicker studioId={studioId} parts={parts} onChange={setParts} />
       {repair.isError && <ErrorMessage error={repair.error} />}
       {records.isError && <ErrorMessage error={records.error} />}
       {records.isSuccess && records.data.length === 0 && <p>Nothing logged yet.</p>}
@@ -244,6 +392,12 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
             {r.cost && ` · ${formatMoney(r.cost, currency)}`}
             {r.note && <div>{r.note}</div>}
             {r.checked.length > 0 && <div className="badge">Ticked: {r.checked.join('; ')}</div>}
+            {r.parts.length > 0 && (
+              <div className="badge">
+                Parts: {r.parts.map((p) => `${p.quantity} ${p.unit} ${p.itemName}`.replace(/\s+/g, ' ')).join('; ')}
+              </div>
+            )}
+            <RecordPhotos studioId={studioId} record={r} />
           </li>
         ))}
       </ol>

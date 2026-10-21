@@ -33,8 +33,9 @@ function TodayPage() {
     ...t.lowStock.map((item) => `${item.name} is low (${item.onHand} left) and not on order`),
     ...(t.openPurchaseRequests > 0 ? [`${count(t.openPurchaseRequests, 'purchase request is', 'purchase requests are')} open`] : []),
     ...(t.uncoveredShifts.length > 0
-      ? [`${count(t.uncoveredShifts.length, 'shift', 'shifts')} in the next week ${t.uncoveredShifts.length === 1 ? 'has' : 'have'} nobody on ${t.uncoveredShifts.length === 1 ? 'it' : 'them'}`]
+      ? [`${count(t.uncoveredShifts.length, 'shift', 'shifts')} in the next week ${t.uncoveredShifts.length === 1 ? 'needs' : 'need'} cover`]
       : []),
+    ...t.openProblems.map((p) => `Reported by ${p.reportedByName ?? 'a member'}: ${p.assetName ?? 'something else'}: ${p.description}`),
   ];
 
   return (

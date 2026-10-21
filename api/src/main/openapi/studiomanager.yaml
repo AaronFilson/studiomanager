@@ -20,6 +20,8 @@ tags:
     description: Studios (tenants) and membership in them.
   - name: members
     description: The people in a studio, and invites.
+  - name: export
+    description: A studio's own copy of all its data.
   - name: fees
     description: Firing-fee schedules and quotes.
   - name: pieces
@@ -104,6 +106,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Studio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [export]
+      operationId: exportStudio
+      summary: Everything the studio holds, as a ZIP of CSV files (owner only)
+      description: |
+        One CSV per table, with a header row, plus `members.csv` with each member's name and
+        email address. Photos are listed but their images aren't included. The studio's data
+        is read in one transaction, so the files agree with each other.
+      responses:
+        "200":
+          description: The ZIP.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -913,6 +939,111 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/maintenance/assets/{assetId}/suggested-tasks:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AssetId"
+    get:
+      tags: [maintenance]
+      operationId: listSuggestedMaintenanceTasks
+      summary: Common tasks for this kind of asset, with their sources (staff only)
+      description: |
+        Starting points, such as a kiln maker's every-10-firings check or the monthly extinguisher
+        check, for staff to add as they are or change first. Tasks the asset already has (by
+        title) are left out.
+      responses:
+        "200":
+          description: Suggestions; empty for kinds with no published schedule.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SuggestedMaintenanceTask"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/records/{recordId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RecordId"
+    post:
+      tags: [maintenance]
+      operationId: startRecordPhotoUpload
+      summary: Start adding a photo to a maintenance record (staff only)
+      description: |
+        Works like `startPhotoUpload` for pieces: upload both JPEGs to the signed URLs, then call
+        `completeRecordPhotoUpload`. Up to 4 a record. Records are evidence, so photos can't be
+        removed once added.
+      responses:
+        "201":
+          description: Where to upload. The URLs expire after 15 minutes and can each be used once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/maintenance/records/{recordId}/photos/{photoId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RecordId"
+      - $ref: "#/components/parameters/PhotoId"
+    post:
+      tags: [maintenance]
+      operationId: completeRecordPhotoUpload
+      summary: Finish adding a photo to a record, once both images are uploaded (staff only)
+      description: Checks both images like `completePhotoUpload`. Calling it again changes nothing.
+      responses:
+        "204":
+          description: The photo now shows on the record.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/maintenance/records/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: exportMaintenanceRecords
+      summary: Every asset's maintenance history as CSV, for an insurer or landlord (staff only)
+      description: Records done on or between the two dates, in the studio's time zone, oldest first.
+      parameters:
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
+      responses:
+        "200":
+          description: One row per record.
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/studios/{studioId}/maintenance/tasks/{taskId}:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -1010,6 +1141,116 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/maintenance/reportable-assets:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: listReportableAssets
+      summary: Equipment and places a member can report a problem with
+      responses:
+        "200":
+          description: Kilns first, then by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReportableAsset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/maintenance/problem-reports:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: listProblemReports
+      summary: Problem reports, newest first
+      description: Staff see every report; members see their own.
+      parameters:
+        - name: open
+          in: query
+          required: false
+          description: Only reports not yet resolved.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Up to 200 reports.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProblemReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [maintenance]
+      operationId: reportProblem
+      summary: Report a problem with equipment or the building
+      description: Anyone in the studio can. The staff and technicians get a notice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportProblemRequest"
+      responses:
+        "201":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/problem-reports/{reportId}/resolution:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ReportId"
+    post:
+      tags: [maintenance]
+      operationId: resolveProblemReport
+      summary: Close a report, saying what was done (staff only)
+      description: Log any repair on the asset as well; resolving doesn't record work.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveProblemRequest"
+      responses:
+        "200":
+          description: The resolved report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /api/v1/studios/{studioId}/kilns/{kilnId}/queue:
     parameters:
@@ -1575,6 +1816,42 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/AssignShiftRequest"
+      responses:
+        "200":
+          description: The shift.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/shifts/{shiftId}/offer:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ShiftId"
+    put:
+      tags: [schedule]
+      operationId: offerShift
+      summary: Ask for cover for your shift, or stop asking
+      description: |
+        Whoever has the shift (or staff) can. They keep it until someone takes it with
+        `assignShift`, so asking never leaves it uncovered. Members with the shift's duty, or
+        everyone if it has none, get a notice; whoever had it gets one when it's taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferShiftRequest"
       responses:
         "200":
           description: The shift.
@@ -2341,6 +2618,13 @@ components:
       schema:
         type: string
         format: uuid
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     InviteId:
       name: inviteId
       in: path
@@ -2357,6 +2641,13 @@ components:
         format: uuid
     PhotoId:
       name: photoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RecordId:
+      name: recordId
       in: path
       required: true
       schema:
@@ -3269,6 +3560,94 @@ components:
           type: string
           format: uuid
 
+    ReportableAsset:
+      type: object
+      required: [id, kind, name, available]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/AssetKind"
+        name:
+          type: string
+        available:
+          type: boolean
+          description: False while it's out of service, so a member knows it's already in hand.
+
+    ProblemReport:
+      type: object
+      required: [id, description, reportedBy, reportedAt, open, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+          description: Absent for "somewhere else".
+        assetName:
+          type: string
+        description:
+          type: string
+        reportedBy:
+          type: string
+          format: uuid
+        reportedByName:
+          type: string
+        reportedAt:
+          type: string
+          format: date-time
+        open:
+          type: boolean
+        resolvedByName:
+          type: string
+        resolvedAt:
+          type: string
+          format: date-time
+        resolution:
+          type: string
+        version:
+          type: integer
+          format: int64
+
+    ReportProblemRequest:
+      type: object
+      required: [description]
+      properties:
+        assetId:
+          type: string
+          format: uuid
+          description: Leave out for something not on the list.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          examples: ["Wheel 3 grinds when it speeds up"]
+
+    ResolveProblemRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        resolution:
+          type: string
+          maxLength: 1000
+          examples: ["Replaced the belt"]
+        expectedVersion:
+          type: integer
+          format: int64
+
+    SuggestedMaintenanceTask:
+      type: object
+      required: [task, source]
+      properties:
+        task:
+          $ref: "#/components/schemas/SaveMaintenanceTaskRequest"
+        source:
+          type: string
+          description: Where the interval comes from, such as the kiln maker or a regulation.
+          examples: ["L&L Kiln Mfg maintenance schedule"]
+
     UpdateMaintenanceTaskRequest:
       type: object
       required: [task, expectedVersion]
@@ -3294,6 +3673,12 @@ components:
           maxItems: 30
           items:
             type: string
+        parts:
+          type: array
+          maxItems: 20
+          description: Spare parts taken from supplies, such as a new element. Staff only, as for any stock movement.
+          items:
+            $ref: "#/components/schemas/PartUse"
 
     RecordRepairRequest:
       type: object
@@ -3306,10 +3691,40 @@ components:
           examples: ["Replaced the lid hinge pin"]
         cost:
           $ref: "#/components/schemas/Decimal"
+        parts:
+          type: array
+          maxItems: 20
+          description: Spare parts taken from supplies; each is recorded as used, so stock goes down.
+          items:
+            $ref: "#/components/schemas/PartUse"
+
+    PartUse:
+      type: object
+      required: [itemId, quantity]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+
+    PartUsed:
+      type: object
+      required: [itemId, itemName, unit, quantity]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        itemName:
+          type: string
+        unit:
+          type: string
+        quantity:
+          $ref: "#/components/schemas/Decimal"
 
     MaintenanceRecord:
       type: object
-      required: [id, assetId, checked, doneBy, doneAt]
+      required: [id, assetId, checked, doneBy, doneAt, parts, photos]
       properties:
         id:
           type: string
@@ -3343,6 +3758,15 @@ components:
         doneAt:
           type: string
           format: date-time
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartUsed"
+        photos:
+          type: array
+          description: Finished photos, oldest first. Same shape as a piece's photos.
+          items:
+            $ref: "#/components/schemas/PiecePhoto"
 
     FiringKind:
       type: string
@@ -3441,7 +3865,7 @@ components:
 
     NotificationKind:
       type: string
-      enum: [PIECES_READY, STUDIO_NOTICE]
+      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED, SHIFT_COVER]
 
     Notification:
       type: object
@@ -3586,6 +4010,15 @@ components:
           format: uuid
         requiredCertificationName:
           type: string
+        assetId:
+          type: string
+          format: uuid
+          description: The maintained asset this is, if any.
+        downReason:
+          type: string
+          description: |
+            Why that asset is out of service; absent when it's in service. While it is down, only
+            MAINTENANCE and CLOSURE bookings can be made.
         version:
           type: integer
           format: int64
@@ -3608,6 +4041,10 @@ components:
         requiredCertification:
           type: string
           format: uuid
+        assetId:
+          type: string
+          format: uuid
+          description: A maintained asset (from the maintenance page) that this is, such as a kiln.
 
     BookingKind:
       type: string
@@ -3667,9 +4104,20 @@ components:
           format: uuid
           description: Who it is for. Defaults to the caller for reservations; only staff may name someone else.
 
+    OfferShiftRequest:
+      type: object
+      required: [offered, expectedVersion]
+      properties:
+        offered:
+          type: boolean
+          description: True to ask for cover, false to stop asking.
+        expectedVersion:
+          type: integer
+          format: int64
+
     Shift:
       type: object
-      required: [id, title, startsAt, endsAt, open, minutes, version]
+      required: [id, title, startsAt, endsAt, open, offered, minutes, version]
       properties:
         id:
           type: string
@@ -3691,6 +4139,9 @@ components:
           type: string
         open:
           type: boolean
+        offered:
+          type: boolean
+          description: Whoever has it is asking for cover; members who could work it can take it.
         minutes:
           type: integer
           format: int32
@@ -3801,7 +4252,8 @@ components:
     Today:
       type: object
       required: [date, kilns, openFirings, waitingForBisque, waitingForGlaze, readyForPickup, pastHold, unclaimed,
-                 maintenanceDue, outOfService, bookings, shifts, uncoveredShifts, lowStock, openPurchaseRequests]
+                 maintenanceDue, outOfService, bookings, shifts, uncoveredShifts, lowStock, openPurchaseRequests,
+                 openProblems]
       properties:
         date:
           type: string
@@ -3849,7 +4301,7 @@ components:
             $ref: "#/components/schemas/Shift"
         uncoveredShifts:
           type: array
-          description: Open shifts in the next seven days.
+          description: Shifts in the next seven days that are open or whose holder asked for cover.
           items:
             $ref: "#/components/schemas/Shift"
         lowStock:
@@ -3860,6 +4312,11 @@ components:
         openPurchaseRequests:
           type: integer
           format: int32
+        openProblems:
+          type: array
+          description: Problems members reported that nobody has resolved, newest first.
+          items:
+            $ref: "#/components/schemas/ProblemReport"
 
     SupplyCategory:
       type: string

@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -33,6 +34,7 @@ import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Shift;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,32 +56,41 @@ public class ScheduleService {
     private final AccessService access;
     private final StudioMembers members;
     private final AccountDirectory accounts;
+    private final MaintenanceService maintenance;
+    private final ApplicationEventPublisher events;
 
-    ScheduleService(JdbcClient jdbc, AccessService access, StudioMembers members, AccountDirectory accounts) {
+    ScheduleService(JdbcClient jdbc, AccessService access, StudioMembers members, AccountDirectory accounts,
+            MaintenanceService maintenance, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.access = access;
         this.members = members;
         this.accounts = accounts;
+        this.maintenance = maintenance;
+        this.events = events;
     }
 
     // ---- Resources
 
     @Transactional(readOnly = true)
     public List<Resource> resources() {
+        Map<UUID, String> down = maintenance.downReasons();
         return jdbc.sql("""
-                select r.id, r.name, r.kind, r.capacity, r.required_certification, t.name as certification_name, r.version
+                select r.id, r.name, r.kind, r.capacity, r.required_certification, t.name as certification_name,
+                       r.asset_id, r.version
                 from resource r left join certification_type t on t.id = r.required_certification
                 order by r.name
                 """)
-                .query((rs, row) -> new Resource(rs.getObject("id", UUID.class), rs.getString("name"),
-                        ResourceKind.valueOf(rs.getString("kind")), rs.getInt("capacity"),
-                        rs.getObject("required_certification", UUID.class), rs.getString("certification_name"),
-                        rs.getLong("version")))
+                .query((rs, row) -> mapResource(rs, rs.getString("certification_name"), down))
                 .list();
     }
 
+    /**
+     * Adds something bookable. Linking it to a maintained asset means it can't be booked while the
+     * asset is out of service, except for its repair or a closure.
+     */
     @Transactional
-    public Resource createResource(String name, ResourceKind kind, int capacity, @Nullable UUID requiredCertification) {
+    public Resource createResource(String name, ResourceKind kind, int capacity, @Nullable UUID requiredCertification,
+            @Nullable UUID assetId) {
         TenantContext caller = requireStaff();
         String cleaned = validName(name);
         if (capacity < 1 || capacity > 200) {
@@ -88,11 +99,15 @@ public class ScheduleService {
         if (requiredCertification != null) {
             access.type(requiredCertification);
         }
+        if (assetId != null) {
+            // Not found for an asset of another studio or one no longer tracked
+            maintenance.asset(assetId, Instant.now());
+        }
         UUID id = Uuids.v7();
         try {
             jdbc.sql("""
-                    insert into resource (id, studio_id, name, kind, capacity, required_certification, version)
-                    values (:id, :studioId, :name, :kind, :capacity, :cert, 0)
+                    insert into resource (id, studio_id, name, kind, capacity, required_certification, asset_id, version)
+                    values (:id, :studioId, :name, :kind, :capacity, :cert, :assetId, 0)
                     """)
                     .param("id", id)
                     .param("studioId", caller.studioId())
@@ -100,6 +115,7 @@ public class ScheduleService {
                     .param("kind", kind.name())
                     .param("capacity", capacity)
                     .param("cert", requiredCertification)
+                    .param("assetId", assetId)
                     .update();
         } catch (DuplicateKeyException e) {
             throw new InvalidInputException("There's already something called '%s' on the calendar.".formatted(cleaned));
@@ -158,16 +174,19 @@ public class ScheduleService {
             throw new InvalidInputException("That person isn't a member of this studio.");
         }
         // Serializes bookings on this resource until the transaction ends
+        Map<UUID, String> down = maintenance.downReasons();
         Resource resource = jdbc.sql("""
-                select r.id, r.name, r.kind, r.capacity, r.required_certification, null as certification_name, r.version
+                select r.id, r.name, r.kind, r.capacity, r.required_certification, r.asset_id, r.version
                 from resource r where r.id = :id for update
                 """)
                 .param("id", resourceId)
-                .query((rs, row) -> new Resource(rs.getObject("id", UUID.class), rs.getString("name"),
-                        ResourceKind.valueOf(rs.getString("kind")), rs.getInt("capacity"),
-                        rs.getObject("required_certification", UUID.class), null, rs.getLong("version")))
+                .query((rs, row) -> mapResource(rs, null, down))
                 .optional()
                 .orElseThrow(() -> new NotFoundException("No such resource."));
+        if (resource.downReason() != null && kind != BookingKind.MAINTENANCE && kind != BookingKind.CLOSURE) {
+            throw new ConflictException("%s is out of service: %s. Only its maintenance or a closure can be booked now."
+                    .formatted(resource.name(), resource.downReason()));
+        }
         if (kind == BookingKind.RESERVATION && person != null && resource.requiredCertification() != null
                 && !access.isCertified(person, resource.requiredCertification(), startsAt)) {
             throw new InvalidInputException("%s needs a certification first: %s."
@@ -274,8 +293,9 @@ public class ScheduleService {
     }
 
     /**
-     * Assigns a shift. Members can take an open shift for themselves if they have its duty; staff
-     * can assign anyone, or pass null to open it up again.
+     * Assigns a shift. Members can take an open shift, or one someone has offered, for themselves
+     * if they have its duty; staff can assign anyone, or pass null to open it up again. Taking an
+     * offered shift tells whoever had it that they're covered.
      */
     @Transactional
     public Shift assign(UUID shiftId, @Nullable UUID accountId, long expectedVersion) {
@@ -285,8 +305,9 @@ public class ScheduleService {
             throw new InvalidInputException("This shift has already been worked.");
         }
         if (!isStaff(caller)) {
-            if (accountId == null || !accountId.equals(caller.accountId()) || !shift.open()) {
-                throw new AccessDeniedException("Members can only take open shifts for themselves.");
+            boolean takeable = shift.open() || (shift.offered() && !caller.accountId().equals(shift.accountId()));
+            if (accountId == null || !accountId.equals(caller.accountId()) || !takeable) {
+                throw new AccessDeniedException("Members can only take open or offered shifts for themselves.");
             }
             if (shift.duty() != null && !access.dutiesOf(caller.accountId()).contains(shift.duty())) {
                 throw new AccessDeniedException("This shift is for members with the %s duty."
@@ -295,7 +316,10 @@ public class ScheduleService {
         } else if (accountId != null && members.roleOf(accountId).isEmpty()) {
             throw new InvalidInputException("That person isn't a member of this studio.");
         }
-        int updated = jdbc.sql("update shift set account_id = :account, version = version + 1 where id = :id and version = :version")
+        int updated = jdbc.sql("""
+                update shift set account_id = :account, offered_at = null, version = version + 1
+                where id = :id and version = :version
+                """)
                 .param("account", accountId)
                 .param("id", shiftId)
                 .param("version", expectedVersion)
@@ -303,7 +327,58 @@ public class ScheduleService {
         if (updated == 0) {
             throw new ConflictException("Someone else changed this shift at the same time. Reload and try again.");
         }
-        return shift(shiftId);
+        Shift assigned = shift(shiftId);
+        if (shift.offered() && accountId != null && !accountId.equals(shift.accountId())) {
+            events.publishEvent(new ShiftCovered(caller.studioId(), shiftId, shift.title(), shift.startsAt(),
+                    shift.accountId(), assigned.accountName()));
+        }
+        return assigned;
+    }
+
+    /**
+     * Asks for cover, or stops asking. Only whoever has the shift (or staff) can; they stay on it
+     * until someone takes it, so asking never leaves it uncovered. Everyone who could work it
+     * hears about the offer.
+     */
+    @Transactional
+    public Shift offer(UUID shiftId, boolean offered, long expectedVersion) {
+        TenantContext caller = TenantContext.require();
+        Shift shift = shift(shiftId);
+        if (shift.accountId() == null) {
+            throw new InvalidInputException("Nobody has this shift; it's already open for anyone to take.");
+        }
+        if (!isStaff(caller) && !caller.accountId().equals(shift.accountId())) {
+            throw new AccessDeniedException("Only whoever has this shift can ask for cover.");
+        }
+        if (shift.workedAt() != null || !shift.endsAt().isAfter(Instant.now())) {
+            throw new InvalidInputException("This shift is over.");
+        }
+        int updated = jdbc.sql("""
+                update shift set offered_at = :offeredAt, version = version + 1 where id = :id and version = :version
+                """)
+                .param("offeredAt", offered ? utc(now()) : null)
+                .param("id", shiftId)
+                .param("version", expectedVersion)
+                .update();
+        if (updated == 0) {
+            throw new ConflictException("Someone else changed this shift at the same time. Reload and try again.");
+        }
+        Shift result = shift(shiftId);
+        if (offered && !shift.offered()) {
+            events.publishEvent(new ShiftOffered(caller.studioId(), shiftId, shift.title(), shift.startsAt(),
+                    shift.endsAt(), result.accountName(), couldCover(shift)));
+        }
+        return result;
+    }
+
+    /** Members who could take this shift: those with its duty, or everyone if it has none. */
+    private List<UUID> couldCover(Shift shift) {
+        if (shift.duty() == null) {
+            return members.list().stream().map(m -> m.accountId()).filter(id -> !id.equals(shift.accountId())).toList();
+        }
+        return access.allDuties().entrySet().stream()
+                .filter(e -> e.getValue().contains(shift.duty()) && !e.getKey().equals(shift.accountId()))
+                .map(Map.Entry::getKey).sorted().toList();
     }
 
     /** Staff confirm a shift was worked, which credits its hours to the person who worked it. */
@@ -382,7 +457,7 @@ public class ScheduleService {
     // ---- Internals
 
     private static final String SELECT_SHIFT = """
-            select id, title, duty, starts_at, ends_at, account_id, worked_at, version from shift
+            select id, title, duty, starts_at, ends_at, account_id, worked_at, offered_at, version from shift
             """;
 
     private Shift shift(UUID id) {
@@ -390,6 +465,15 @@ public class ScheduleService {
                 .query(ScheduleService::mapShift).list())
                 .stream().findFirst()
                 .orElseThrow(() -> new NotFoundException("No such shift."));
+    }
+
+    private static Resource mapResource(ResultSet rs, @Nullable String certificationName, Map<UUID, String> down)
+            throws SQLException {
+        UUID assetId = rs.getObject("asset_id", UUID.class);
+        return new Resource(rs.getObject("id", UUID.class), rs.getString("name"),
+                ResourceKind.valueOf(rs.getString("kind")), rs.getInt("capacity"),
+                rs.getObject("required_certification", UUID.class), certificationName, assetId,
+                assetId == null ? null : down.get(assetId), rs.getLong("version"));
     }
 
     private Resource resource(UUID id) {
@@ -418,16 +502,19 @@ public class ScheduleService {
                 .filter(java.util.Objects::nonNull).toList());
         return shifts.stream()
                 .map(s -> new Shift(s.id(), s.title(), s.duty(), s.startsAt(), s.endsAt(), s.accountId(),
-                        s.accountId() == null ? null : names.get(s.accountId()), s.workedAt(), s.version()))
+                        s.accountId() == null ? null : names.get(s.accountId()), s.workedAt(), s.offeredAt(),
+                        s.version()))
                 .toList();
     }
 
     private static Shift mapShift(ResultSet rs, int row) throws SQLException {
         String duty = rs.getString("duty");
         OffsetDateTime worked = rs.getObject("worked_at", OffsetDateTime.class);
+        OffsetDateTime offered = rs.getObject("offered_at", OffsetDateTime.class);
         return new Shift(rs.getObject("id", UUID.class), rs.getString("title"), duty == null ? null : Duty.valueOf(duty),
                 instant(rs, "starts_at"), instant(rs, "ends_at"), rs.getObject("account_id", UUID.class), null,
-                worked == null ? null : worked.toInstant(), rs.getLong("version"));
+                worked == null ? null : worked.toInstant(), offered == null ? null : offered.toInstant(),
+                rs.getLong("version"));
     }
 
     private static Booking mapBooking(ResultSet rs, int row) throws SQLException {

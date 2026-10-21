@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, completeMaintenanceTask, completePhotoUpload, createAsset, createBooking, createCertificationType, createInvite, createKiln, createMaintenanceTask, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, deletePhoto, emailInvites, expireStoredValue, exportJournal, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listDuties, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayouts, listPieces, listPurchaseRequests, listResources, listShifts, listStockMovements, listStoredValues, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, type Options, quoteFee, recordPayment, recordRepair, recordStockMovement, resendInvite, revokeCertification, revokeInvite, saveFeeSchedule, savePiecePolicy, sellStoredValue, sellSupply, sendNotice, setAssetAvailability, setDuties, setKilnAvailability, setTaxRate, startPhotoUpload, transitionFiring, updateAsset, updateKiln, updateMaintenanceTask, updateSupply, useStoredValue } from '../sdk.gen';
-import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
+import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, createAsset, createBooking, createCertificationType, createInvite, createKiln, createMaintenanceTask, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, deletePhoto, emailInvites, expireStoredValue, exportJournal, exportMaintenanceRecords, exportStudio, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listDuties, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayouts, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, quoteFee, recordPayment, recordRepair, recordStockMovement, reportProblem, resendInvite, resolveProblemReport, revokeCertification, revokeInvite, saveFeeSchedule, savePiecePolicy, sellStoredValue, sellSupply, sendNotice, setAssetAvailability, setDuties, setKilnAvailability, setTaxRate, startPhotoUpload, startRecordPhotoUpload, transitionFiring, updateAsset, updateKiln, updateMaintenanceTask, updateSupply, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -94,6 +94,29 @@ export const getStudioOptions = (options: Options<GetStudioData>) => queryOption
         return data;
     },
     queryKey: getStudioQueryKey(options)
+});
+
+export const exportStudioQueryKey = (options: Options<ExportStudioData>) => createQueryKey('exportStudio', options);
+
+/**
+ * Everything the studio holds, as a ZIP of CSV files (owner only)
+ *
+ * One CSV per table, with a header row, plus `members.csv` with each member's name and
+ * email address. Photos are listed but their images aren't included. The studio's data
+ * is read in one transaction, so the files agree with each other.
+ *
+ */
+export const exportStudioOptions = (options: Options<ExportStudioData>) => queryOptions<ExportStudioResponse, ExportStudioError, ExportStudioResponse, ReturnType<typeof exportStudioQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportStudio({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportStudioQueryKey(options)
 });
 
 export const listMembersQueryKey = (options: Options<ListMembersData>) => createQueryKey('listMembers', options);
@@ -693,6 +716,90 @@ export const recordRepairMutation = (options?: Partial<Options<RecordRepairData>
     return mutationOptions;
 };
 
+export const listSuggestedMaintenanceTasksQueryKey = (options: Options<ListSuggestedMaintenanceTasksData>) => createQueryKey('listSuggestedMaintenanceTasks', options);
+
+/**
+ * Common tasks for this kind of asset, with their sources (staff only)
+ *
+ * Starting points, such as a kiln maker's every-10-firings check or the monthly extinguisher
+ * check, for staff to add as they are or change first. Tasks the asset already has (by
+ * title) are left out.
+ *
+ */
+export const listSuggestedMaintenanceTasksOptions = (options: Options<ListSuggestedMaintenanceTasksData>) => queryOptions<ListSuggestedMaintenanceTasksResponse, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ReturnType<typeof listSuggestedMaintenanceTasksQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSuggestedMaintenanceTasks({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSuggestedMaintenanceTasksQueryKey(options)
+});
+
+/**
+ * Start adding a photo to a maintenance record (staff only)
+ *
+ * Works like `startPhotoUpload` for pieces: upload both JPEGs to the signed URLs, then call
+ * `completeRecordPhotoUpload`. Up to 4 a record. Records are evidence, so photos can't be
+ * removed once added.
+ *
+ */
+export const startRecordPhotoUploadMutation = (options?: Partial<Options<StartRecordPhotoUploadData>>): UseMutationOptions<StartRecordPhotoUploadResponse, StartRecordPhotoUploadError, Options<StartRecordPhotoUploadData>> => {
+    const mutationOptions: UseMutationOptions<StartRecordPhotoUploadResponse, StartRecordPhotoUploadError, Options<StartRecordPhotoUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startRecordPhotoUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Finish adding a photo to a record, once both images are uploaded (staff only)
+ *
+ * Checks both images like `completePhotoUpload`. Calling it again changes nothing.
+ */
+export const completeRecordPhotoUploadMutation = (options?: Partial<Options<CompleteRecordPhotoUploadData>>): UseMutationOptions<CompleteRecordPhotoUploadResponse, CompleteRecordPhotoUploadError, Options<CompleteRecordPhotoUploadData>> => {
+    const mutationOptions: UseMutationOptions<CompleteRecordPhotoUploadResponse, CompleteRecordPhotoUploadError, Options<CompleteRecordPhotoUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await completeRecordPhotoUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const exportMaintenanceRecordsQueryKey = (options: Options<ExportMaintenanceRecordsData>) => createQueryKey('exportMaintenanceRecords', options);
+
+/**
+ * Every asset's maintenance history as CSV, for an insurer or landlord (staff only)
+ *
+ * Records done on or between the two dates, in the studio's time zone, oldest first.
+ */
+export const exportMaintenanceRecordsOptions = (options: Options<ExportMaintenanceRecordsData>) => queryOptions<ExportMaintenanceRecordsResponse, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ReturnType<typeof exportMaintenanceRecordsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportMaintenanceRecords({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportMaintenanceRecordsQueryKey(options)
+});
+
 /**
  * Stop a recurring task (staff only)
  *
@@ -765,6 +872,82 @@ export const listMyMaintenanceTasksOptions = (options: Options<ListMyMaintenance
     },
     queryKey: listMyMaintenanceTasksQueryKey(options)
 });
+
+export const listReportableAssetsQueryKey = (options: Options<ListReportableAssetsData>) => createQueryKey('listReportableAssets', options);
+
+/**
+ * Equipment and places a member can report a problem with
+ */
+export const listReportableAssetsOptions = (options: Options<ListReportableAssetsData>) => queryOptions<ListReportableAssetsResponse, ListReportableAssetsError, ListReportableAssetsResponse, ReturnType<typeof listReportableAssetsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listReportableAssets({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listReportableAssetsQueryKey(options)
+});
+
+export const listProblemReportsQueryKey = (options: Options<ListProblemReportsData>) => createQueryKey('listProblemReports', options);
+
+/**
+ * Problem reports, newest first
+ *
+ * Staff see every report; members see their own.
+ */
+export const listProblemReportsOptions = (options: Options<ListProblemReportsData>) => queryOptions<ListProblemReportsResponse, ListProblemReportsError, ListProblemReportsResponse, ReturnType<typeof listProblemReportsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProblemReports({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProblemReportsQueryKey(options)
+});
+
+/**
+ * Report a problem with equipment or the building
+ *
+ * Anyone in the studio can. The staff and technicians get a notice.
+ */
+export const reportProblemMutation = (options?: Partial<Options<ReportProblemData>>): UseMutationOptions<ReportProblemResponse, ReportProblemError, Options<ReportProblemData>> => {
+    const mutationOptions: UseMutationOptions<ReportProblemResponse, ReportProblemError, Options<ReportProblemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reportProblem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Close a report, saying what was done (staff only)
+ *
+ * Log any repair on the asset as well; resolving doesn't record work.
+ */
+export const resolveProblemReportMutation = (options?: Partial<Options<ResolveProblemReportData>>): UseMutationOptions<ResolveProblemReportResponse, ResolveProblemReportError, Options<ResolveProblemReportData>> => {
+    const mutationOptions: UseMutationOptions<ResolveProblemReportResponse, ResolveProblemReportError, Options<ResolveProblemReportData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resolveProblemReport({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const getKilnQueueQueryKey = (options: Options<GetKilnQueueData>) => createQueryKey('getKilnQueue', options);
 
@@ -1173,6 +1356,28 @@ export const assignShiftMutation = (options?: Partial<Options<AssignShiftData>>)
     const mutationOptions: UseMutationOptions<AssignShiftResponse, AssignShiftError, Options<AssignShiftData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await assignShift({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Ask for cover for your shift, or stop asking
+ *
+ * Whoever has the shift (or staff) can. They keep it until someone takes it with
+ * `assignShift`, so asking never leaves it uncovered. Members with the shift's duty, or
+ * everyone if it has none, get a notice; whoever had it gets one when it's taken.
+ *
+ */
+export const offerShiftMutation = (options?: Partial<Options<OfferShiftData>>): UseMutationOptions<OfferShiftResponse, OfferShiftError, Options<OfferShiftData>> => {
+    const mutationOptions: UseMutationOptions<OfferShiftResponse, OfferShiftError, Options<OfferShiftData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await offerShift({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

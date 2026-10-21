@@ -2,8 +2,10 @@ import type {
   Asset,
   CompleteMaintenanceTaskRequest,
   MaintenanceTask,
+  RecordRepairRequest,
   SaveAssetRequest,
   SaveMaintenanceTaskRequest,
+  SupplyItem,
 } from '@studiomanager/api-client';
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -64,6 +66,77 @@ describe('maintenance', () => {
     await user.click(within(kiln).getByRole('button', { name: 'Done' }));
 
     await expect.poll(() => completed).toEqual({ checked: ['Read each element'], note: 'All within 5%' });
+  });
+
+  it('offers the kiln maker’s schedule and adds a suggested task as it is', async () => {
+    let task: SaveMaintenanceTaskRequest | undefined;
+    const wiring: SaveMaintenanceTaskRequest = {
+      title: 'Wiring and terminal check',
+      checklist: ['Check the wiring and terminals are tight'],
+      everyDays: 365,
+      everyFirings: 30,
+    };
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets`, () => HttpResponse.json([kilnAsset])),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/suggested-tasks`, () =>
+        HttpResponse.json([{ task: wiring, source: 'L&L Kiln Mfg maintenance schedule (electric kilns)' }]),
+      ),
+      http.post(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/tasks`, async ({ request }) => {
+        task = (await request.json()) as SaveMaintenanceTaskRequest;
+        return HttpResponse.json({ ...elements, id: 't3' }, { status: 201 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/maintenance`);
+    const kiln = await screen.findByRole('region', { name: 'Skutt 1027' });
+    const suggested = await within(kiln).findByRole('list', { name: 'Suggested tasks' });
+    expect(within(suggested).getByText(/L&L Kiln Mfg/)).toBeInTheDocument();
+    await user.click(within(suggested).getByRole('button', { name: 'Add Wiring and terminal check' }));
+
+    await expect.poll(() => task).toEqual(wiring);
+  });
+
+  it('logs a repair with the spare part it used', async () => {
+    let logged: RecordRepairRequest | undefined;
+    const element: SupplyItem = {
+      id: 's1',
+      name: 'Element, 1027 top',
+      category: 'KILN_SUPPLY',
+      unit: 'element',
+      onHand: '2',
+      onOrder: '0',
+      low: false,
+      needsOrdering: false,
+      version: 0,
+    };
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets`, () => HttpResponse.json([kilnAsset])),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/records`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([element])),
+      http.post(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/records`, async ({ request }) => {
+        logged = (await request.json()) as RecordRepairRequest;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/maintenance`);
+    const kiln = await screen.findByRole('region', { name: 'Skutt 1027' });
+    await user.click(within(kiln).getByRole('button', { name: 'History and repairs' }));
+    await user.type(await within(kiln).findByLabelText('Repair or other work'), 'Top element replaced');
+    await user.selectOptions(
+      await within(kiln).findByLabelText('Part from supplies (optional)'),
+      'Element, 1027 top (2 element on hand)',
+    );
+    await user.click(within(kiln).getByRole('button', { name: 'Add part' }));
+    expect(within(kiln).getByRole('list', { name: 'Parts used' })).toHaveTextContent('1 × Element, 1027 top');
+    await user.click(within(kiln).getByRole('button', { name: 'Log it' }));
+
+    await expect.poll(() => logged).toEqual({
+      note: 'Top element replaced',
+      parts: [{ itemId: 's1', quantity: '1' }],
+    });
   });
 
   it('adds a clay trap and gives it a weekly task for the monitors', async () => {

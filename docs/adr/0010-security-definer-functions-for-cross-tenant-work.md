@@ -31,7 +31,13 @@ one thing:
   from before that time and returns their ids, so the sweep can delete their blobs. It touches
   no finished photo.
 
-All three functions pin `search_path` to `pg_catalog, pg_temp` and schema-qualify every table, so a
+- `app.take_abandoned_record_photo_uploads(before)` (added in V18) does the same for photos on
+  maintenance records.
+- `app.studios_with_maintenance_to_remind()` (added in V14) returns the ids of studios with a
+  maintenance task not yet reminded about in its current cycle, each with an owner's account id.
+  It reads only ids. The reminder sweep then works inside each studio as that owner, under RLS.
+
+All of these functions pin `search_path` to `pg_catalog, pg_temp` and schema-qualify every table, so a
 planted object can't hijack them. All are `REVOKE`d from `PUBLIC` and granted only to `app_rw`.
 
 ## Consequences

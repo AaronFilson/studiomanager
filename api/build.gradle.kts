@@ -37,6 +37,9 @@ dependencies {
     implementation("com.azure:azure-identity:1.18.7")
     // Piece photos: the API signs upload and read URLs; the bytes go straight to Blob Storage
     implementation("com.azure:azure-storage-blob:12.35.2")
+    // OpenTelemetry traces, metrics and logs to Application Insights. Off unless the azure profile
+    // turns it on; the connection string comes from APPLICATIONINSIGHTS_CONNECTION_STRING
+    implementation("com.azure.spring:spring-cloud-azure-starter-monitor:7.4.0")
     runtimeOnly("org.postgresql:postgresql")
     // Passwordless Postgres on Azure: the JDBC driver gets an Entra token from the managed identity
     runtimeOnly("com.azure:azure-identity-extensions:1.2.10")
@@ -59,6 +62,10 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:${property("springModulithVersion")}")
+        // The OpenTelemetry starter under spring-cloud-azure-starter-monitor 7.4.0 is 2.24.0, built on
+        // SDK 1.58. Spring Boot's BOM would raise the SDK to 1.62, whose component loader the starter
+        // can't use (the context fails to start; TelemetryTests). This keeps the SDK in step with it.
+        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.24.0")
     }
 }
 

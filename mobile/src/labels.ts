@@ -1,4 +1,11 @@
-import type { LengthUnit, PieceStage, StudioRole, UnitSystem, WeightUnit } from '@studiomanager/api-client';
+import type {
+  LengthUnit,
+  MaintenanceTask,
+  PieceStage,
+  StudioRole,
+  UnitSystem,
+  WeightUnit,
+} from '@studiomanager/api-client';
 
 // The same wording as the web app (web/src/labels.ts), so members see one vocabulary
 const stageLabels: Record<PieceStage, string> = {
@@ -34,4 +41,22 @@ export function formatDate(iso: string): string {
 
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+}
+
+/** "is due", "is due soon (2 firings left)", "next due: by 4 Nov 2026" */
+export function dueText(task: Pick<MaintenanceTask, 'status' | 'dueAt' | 'firingsLeft'>): string {
+  const firings =
+    task.firingsLeft !== undefined && task.firingsLeft > 0
+      ? `${String(task.firingsLeft)} ${task.firingsLeft === 1 ? 'firing' : 'firings'} left`
+      : null;
+  const date = task.dueAt ? `by ${formatDate(task.dueAt)}` : null;
+  const when = [firings, date].filter(Boolean).join(', ');
+  switch (task.status) {
+    case 'DUE':
+      return 'is due';
+    case 'DUE_SOON':
+      return when ? `is due soon (${when})` : 'is due soon';
+    case 'OK':
+      return when ? `next due: ${when}` : '';
+  }
 }

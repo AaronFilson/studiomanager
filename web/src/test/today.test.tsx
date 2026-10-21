@@ -61,6 +61,7 @@ describe('studio today', () => {
           startsAt: '2026-10-20T18:00:00Z',
           endsAt: '2026-10-20T21:00:00Z',
           open: true,
+          offered: false,
           minutes: 180,
           version: 0,
         },
@@ -72,6 +73,7 @@ describe('studio today', () => {
           startsAt: '2026-10-20T18:00:00Z',
           endsAt: '2026-10-20T21:00:00Z',
           open: true,
+          offered: false,
           minutes: 180,
           version: 0,
         },
@@ -90,6 +92,19 @@ describe('studio today', () => {
         },
       ],
       openPurchaseRequests: 0,
+      openProblems: [
+        {
+          id: 'p1',
+          assetId: 'a1',
+          assetName: 'Wheel 3',
+          description: 'Grinds when it speeds up',
+          reportedBy: 'm1',
+          reportedByName: 'Mo',
+          reportedAt: '2026-10-20T15:00:00Z',
+          open: true,
+          version: 0,
+        },
+      ],
     };
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(aStudio())),
@@ -99,7 +114,8 @@ describe('studio today', () => {
     renderApp(`/studios/${aStudio().id}/today`);
 
     expect(await screen.findByText('2 ready pieces are past their hold')).toBeInTheDocument();
-    expect(screen.getByText('1 shift in the next week has nobody on it')).toBeInTheDocument();
+    expect(screen.getByText('1 shift in the next week needs cover')).toBeInTheDocument();
+    expect(screen.getByText('Reported by Mo: Wheel 3: Grinds when it speeds up')).toBeInTheDocument();
     expect(screen.getByText('firing glaze, 23 pieces')).toBeInTheDocument();
     expect(screen.getByText('B-Mix 5 is low (3 left) and not on order')).toBeInTheDocument();
     expect(screen.getByText('nobody yet')).toBeInTheDocument();

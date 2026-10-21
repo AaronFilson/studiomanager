@@ -319,8 +319,16 @@ public class SupplyService {
 
     // ---- Internals
 
+    /**
+     * Records a movement. If it takes an item with a substitute from in stock to out, members are
+     * told what to use instead ({@link SupplyRanOut}); once per stock-out, because it fires on the
+     * change, not on every movement while the shelf is empty.
+     */
     private UUID insertMovement(TenantContext caller, UUID itemId, MovementKind kind, BigDecimal quantity,
             @Nullable UUID memberId, @Nullable String note) {
+        // One movement per item at a time, so two at once can't both see the last bag on the shelf
+        jdbc.sql("select id from supply_item where id = :id for update").param("id", itemId).query(UUID.class).single();
+        BigDecimal before = onHand(itemId);
         UUID id = Uuids.v7();
         jdbc.sql("""
                 insert into stock_movement (id, studio_id, item_id, kind, quantity, member_id, note, created_by, created_at)
@@ -336,7 +344,18 @@ public class SupplyService {
                 .param("by", caller.accountId())
                 .param("now", utc(now()))
                 .update();
+        if (before.signum() > 0 && before.add(quantity).signum() <= 0) {
+            Item item = item(itemId);
+            if (item.substitute() != null) {
+                events.publishEvent(new SupplyRanOut(caller.studioId(), itemId, item.name(), item.substitute()));
+            }
+        }
         return id;
+    }
+
+    private BigDecimal onHand(UUID itemId) {
+        return jdbc.sql("select coalesce(sum(quantity), 0) from stock_movement where item_id = :id")
+                .param("id", itemId).query(BigDecimal.class).single();
     }
 
     private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, ItemSettings s) {

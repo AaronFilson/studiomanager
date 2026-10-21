@@ -22,12 +22,19 @@ Since then, from the [pilot-readiness plan](docs/planning/04-pilot-readiness-pla
 
 - notices emailed through a transactional outbox;
 - bulk invites by email;
-- the Expo mobile app.
+- the Expo mobile app;
+- piece photos, uploaded straight to Blob Storage;
+- the [pilot kit](docs/pilot/README.md);
+- a per-studio data export, CodeQL, Dependabot, and OpenTelemetry to Application Insights.
 
 The first Wave 2 feature is also in: [maintenance](docs/planning/06-wave2-maintenance-plan.md) of
-kilns, other equipment and the building, with recurring tasks counted in days or firings.
+kilns, other equipment and the building. It has recurring tasks counted in days or firings, and
+reminder emails once per cycle. It suggests tasks from the kiln maker's and safety schedules, and
+records parts from supplies and photos. Members can report problems from their phone, and a down
+asset can't be booked. Wave 1's leftovers are done too: firings on the calendar, "use this
+instead" notices when a supply runs out, and asking for shift cover.
 
-Photo upload, hardening, the pilot kit and the first deploy come next.
+The order of the work, and what's still open, is in the [work queue](docs/planning/07-next-wave-queue.md).
 
 ## Repository layout
 

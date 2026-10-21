@@ -9,6 +9,13 @@ spring:
     # A separate job runs migrations with a more privileged identity (application-migrate.yaml)
     enabled: false
 
+# Traces, metrics and logs to Application Insights. The connection string comes from the
+# APPLICATIONINSIGHTS_CONNECTION_STRING secret (infra/modules/api); the cloud role name is
+# spring.application.name.
+otel:
+  sdk:
+    disabled: false
+
 logging:
   structured:
     format:

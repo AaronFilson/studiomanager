@@ -16,16 +16,23 @@ import java.util.stream.Collectors;
 
 import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.kiln.FiringKind;
+import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
+import io.github.aaronfilson.studiomanager.maintenance.ProblemReported;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.schedule.ShiftCovered;
+import io.github.aaronfilson.studiomanager.schedule.ShiftOffered;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
+import io.github.aaronfilson.studiomanager.supplies.SupplyRanOut;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -133,6 +140,83 @@ public class NotificationService {
                             .append('.'));
             insert(List.of(maker), NotificationView.Kind.PIECES_READY, title, body.toString().strip());
         });
+    }
+
+    /** One notice to each person the task falls to, with what to do and by when. */
+    @EventListener
+    void onMaintenanceDue(MaintenanceDue due) {
+        var dateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH).withZone(studios.current().timeZone());
+        String title = (due.status() == DueStatus.DUE ? "Due: " : "Due soon: ") + due.taskTitle();
+        StringBuilder body = new StringBuilder(due.assetName()).append(": ").append(due.taskTitle()).append('\n');
+        if (due.dueAt() != null) {
+            body.append(due.status() == DueStatus.DUE && !due.dueAt().isAfter(Instant.now()) ? "It was due on " : "Due by ")
+                    .append(dateFormat.format(due.dueAt())).append(".\n");
+        }
+        if (due.firingsLeft() != null) {
+            int left = due.firingsLeft();
+            body.append(left <= 0 ? "It's due by firing count." : left == 1 ? "1 firing left." : left + " firings left.")
+                    .append('\n');
+        }
+        if (!due.checklist().isEmpty()) {
+            body.append('\n');
+            due.checklist().forEach(line -> body.append("- ").append(line).append('\n'));
+        }
+        body.append("\nMark it done on the Maintenance page when it's finished.");
+        insert(due.recipients(), NotificationView.Kind.MAINTENANCE_DUE, clip(title, 120), clip(body.toString(), 2000));
+    }
+
+    /**
+     * "B-Mix 5 is out": tells every member what to use instead, so nobody finds the empty shelf
+     * first. Sent as a studio notice, the same as one staff would write.
+     */
+    @EventListener
+    void onSupplyRanOut(SupplyRanOut ranOut) {
+        List<UUID> everyone = members.list().stream().map(MemberView::accountId).toList();
+        insert(everyone, NotificationView.Kind.STUDIO_NOTICE, clip(ranOut.itemName() + " is out", 120),
+                clip(ranOut.substitute(), 2000));
+    }
+
+    /** "Mona needs cover: Monitor, Tue 3 Nov 6:00 pm", to everyone who could take it. */
+    @EventListener
+    void onShiftOffered(ShiftOffered offer) {
+        String when = shiftTime(offer.startsAt(), offer.endsAt());
+        insert(offer.recipients(), NotificationView.Kind.SHIFT_COVER,
+                clip("%s needs cover: %s".formatted(offer.holderName() == null ? "Someone" : offer.holderName(),
+                        offer.title()), 120),
+                "%s, %s.\n\nTake it on the Roster page if you can.".formatted(offer.title(), when));
+    }
+
+    /** Tells whoever asked for cover that they have it. */
+    @EventListener
+    void onShiftCovered(ShiftCovered covered) {
+        String who = covered.coveredByName() == null ? "Someone" : covered.coveredByName();
+        insert(List.of(covered.previousHolder()), NotificationView.Kind.SHIFT_COVER,
+                clip("%s is covering your shift".formatted(who), 120),
+                "%s is covering %s on %s. It's off your roster.".formatted(who, covered.title(),
+                        shiftTime(covered.startsAt(), null)));
+    }
+
+    /** "Tue 3 Nov 2026, 6:00 pm–9:00 pm" in the studio's time zone. */
+    private String shiftTime(Instant start, @Nullable Instant end) {
+        var zone = studios.current().timeZone();
+        var day = DateTimeFormatter.ofPattern("EEE d MMM yyyy, h:mm a", Locale.ENGLISH).withZone(zone);
+        var time = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH).withZone(zone);
+        return end == null ? day.format(start) : day.format(start) + "–" + time.format(end);
+    }
+
+    /** Tells the staff and technicians what a member noticed, in the member's words. */
+    @EventListener
+    void onProblemReported(ProblemReported report) {
+        String what = report.assetName() == null ? "a problem" : "a problem with " + report.assetName();
+        String title = "Reported: " + (report.assetName() == null ? "a problem" : report.assetName());
+        String body = "%s reported %s:\n\n%s\n\nSee it on the Maintenance page, and resolve it there once it's dealt with."
+                .formatted(report.reportedByName() == null ? "A member" : report.reportedByName(), what,
+                        report.description());
+        insert(report.recipients(), NotificationView.Kind.PROBLEM_REPORTED, clip(title, 120), clip(body, 2000));
+    }
+
+    private static String clip(String text, int max) {
+        return text.length() <= max ? text : text.substring(0, max - 1) + "…";
     }
 
     private void insert(Collection<UUID> accountIds, NotificationView.Kind kind, String title, String body) {

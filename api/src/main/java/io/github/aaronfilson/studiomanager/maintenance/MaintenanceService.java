@@ -5,7 +5,9 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -13,7 +15,9 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -26,19 +30,27 @@ import io.github.aaronfilson.studiomanager.kiln.KilnService;
 import io.github.aaronfilson.studiomanager.kiln.KilnView;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUsed;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
+import io.github.aaronfilson.studiomanager.platform.Csv;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
+import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
+import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
+import io.github.aaronfilson.studiomanager.supplies.SupplyService;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -68,14 +80,18 @@ public class MaintenanceService {
     private final AccessService access;
     private final StudioMembers members;
     private final AccountDirectory accounts;
+    private final ApplicationEventPublisher events;
+    private final SupplyService supplies;
 
     MaintenanceService(JdbcClient jdbc, KilnService kilns, AccessService access, StudioMembers members,
-            AccountDirectory accounts) {
+            AccountDirectory accounts, ApplicationEventPublisher events, SupplyService supplies) {
         this.jdbc = jdbc;
         this.kilns = kilns;
         this.access = access;
         this.members = members;
         this.accounts = accounts;
+        this.events = events;
+        this.supplies = supplies;
     }
 
     /** Everything maintained, kilns first and then by name, each with its tasks soonest due first. */
@@ -98,6 +114,23 @@ public class MaintenanceService {
     public Asset asset(UUID assetId, Instant now) {
         return assets(now).stream().filter(a -> a.id().equals(assetId)).findFirst()
                 .orElseThrow(() -> new NotFoundException("No such asset."));
+    }
+
+    /**
+     * Why each out-of-service asset is down, by asset id; kilns included, from the kiln. Assets in
+     * service aren't in the map. For the calendar, which won't book a down asset.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> downReasons() {
+        return assets(now()).stream().filter(a -> a.downReason() != null)
+                .collect(Collectors.toMap(Asset::id, Asset::downReason));
+    }
+
+    /** The asset that is this kiln. Every kiln has one, from when it was added. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> assetOfKiln(UUID kilnId) {
+        return jdbc.sql("select id from asset where kiln_id = :kilnId").param("kilnId", kilnId)
+                .query(UUID.class).optional();
     }
 
     /** Tasks due or due soon on any asset, most urgent first: what Today shows staff. */
@@ -253,10 +286,12 @@ public class MaintenanceService {
 
     /**
      * Records a task as done and restarts its clock, and only its clock. Staff can complete any
-     * task; anyone else only one assigned to them, by name or through a duty they hold.
+     * task; anyone else only one assigned to them, by name or through a duty they hold. Parts
+     * used are drawn from supplies, which only staff can do.
      */
     @Transactional
-    public Task complete(UUID taskId, @Nullable String note, @Nullable BigDecimal cost, List<String> checked) {
+    public Task complete(UUID taskId, @Nullable String note, @Nullable BigDecimal cost, List<String> checked,
+            List<PartUse> parts) {
         Instant now = now();
         Task task = task(taskId, now);
         requireMayComplete(task);
@@ -265,9 +300,11 @@ public class MaintenanceService {
         if (!lines.containsAll(ticked)) {
             throw new InvalidInputException("Only lines from the task's checklist can be ticked.");
         }
+        requireValidParts(parts);
         AssetRow asset = assetRow(task.assetId());
         Integer firings = asset.kilnId() == null ? null : firingsOf(asset);
-        insertRecord(asset.id(), taskId, note, cost, ticked, firings, now);
+        UUID recordId = insertRecord(asset.id(), taskId, note, cost, ticked, firings, now);
+        drawParts(recordId, parts, task.title() + ": " + nameOf(asset, kilnsById()));
         jdbc.sql("""
                 update maintenance_task set last_done_at = :now, last_done_firings = :firings, version = version + 1
                 where id = :id
@@ -279,16 +316,45 @@ public class MaintenanceService {
         return task(taskId, now);
     }
 
-    /** Logs work done outside any task, such as a repair. No task's clock restarts. */
+    /**
+     * Logs work done outside any task, such as a repair. No task's clock restarts. Each part used
+     * is taken out of supplies' stock, so the history says which spare went in and the shelf count
+     * stays right.
+     */
     @Transactional
-    public Record recordRepair(UUID assetId, String note, @Nullable BigDecimal cost) {
+    public Record recordRepair(UUID assetId, String note, @Nullable BigDecimal cost, List<PartUse> parts) {
         if (note.isBlank()) {
             throw new InvalidInputException("Describe the work.");
         }
+        requireValidParts(parts);
         AssetRow asset = assetRow(assetId);
         UUID id = insertRecord(assetId, null, note, cost, List.of(),
                 asset.kilnId() == null ? null : firingsOf(asset), now());
+        drawParts(id, parts, "Repair: " + nameOf(asset, kilnsById()));
         return records(assetId).stream().filter(r -> r.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private static void requireValidParts(List<PartUse> parts) {
+        if (parts.size() > 20 || parts.stream().map(PartUse::itemId).distinct().count() != parts.size()) {
+            throw new InvalidInputException("List each part once, up to 20 parts.");
+        }
+    }
+
+    /** Takes each part out of stock, noted with what it was for, and links it to the record. */
+    private void drawParts(UUID recordId, List<PartUse> parts, String what) {
+        String movementNote = what.length() > 200 ? what.substring(0, 200) : what;
+        for (PartUse part : parts) {
+            supplies.recordMovement(part.itemId(), MovementKind.USED, part.quantity(), movementNote);
+            jdbc.sql("""
+                    insert into maintenance_record_part (record_id, studio_id, item_id, quantity)
+                    values (:recordId, :studioId, :itemId, :quantity)
+                    """)
+                    .param("recordId", recordId)
+                    .param("studioId", TenantContext.require().studioId())
+                    .param("itemId", part.itemId())
+                    .param("quantity", part.quantity())
+                    .update();
+        }
     }
 
     /** The asset's history, newest first. */
@@ -305,13 +371,128 @@ public class MaintenanceService {
                         rs.getObject("task_id", UUID.class), rs.getString("title"), rs.getString("note"),
                         rs.getBigDecimal("cost"), strings(rs.getArray("checked")),
                         rs.getObject("at_firing", Integer.class), rs.getObject("done_by", UUID.class), null,
-                        rs.getObject("done_at", OffsetDateTime.class).toInstant()))
+                        rs.getObject("done_at", OffsetDateTime.class).toInstant(), List.of()))
                 .list();
         Map<UUID, String> names = accounts.displayNames(rows.stream().map(Record::doneBy).toList());
+        Map<UUID, List<PartUsed>> parts = partsOf(assetId);
         return rows.stream()
                 .map(r -> new Record(r.id(), r.assetId(), r.taskId(), r.taskTitle(), r.note(), r.cost(), r.checked(),
-                        r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt()))
+                        r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt(),
+                        parts.getOrDefault(r.id(), List.of())))
                 .toList();
+    }
+
+    /** Published tasks for this kind of asset that it doesn't have yet (matched by title). */
+    @Transactional(readOnly = true)
+    public List<StarterTasks.Suggestion> suggestions(UUID assetId) {
+        AssetRow asset = assetRow(assetId);
+        Set<String> existing = jdbc.sql("select lower(title) from maintenance_task where asset_id = :id and not archived")
+                .param("id", assetId).query(String.class).set();
+        KilnView kiln = asset.kilnId() == null ? null : kilns.get(asset.kilnId());
+        return StarterTasks.forKind(asset.kind(), kiln == null ? null : kiln.kind()).stream()
+                .filter(s -> !existing.contains(s.task().title().toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
+    /**
+     * Every record done on or between two dates in the studio's time zone, oldest first, as CSV:
+     * the history an insurer or landlord asks for.
+     */
+    @Transactional(readOnly = true)
+    public String recordsCsv(LocalDate from, LocalDate to, ZoneId zone) {
+        if (to.isBefore(from) || from.plusYears(10).isBefore(to)) {
+            throw new InvalidInputException("Choose a range of up to ten years, with 'from' on or before 'to'.");
+        }
+        Map<UUID, String> assetNames = assets(now()).stream().collect(Collectors.toMap(Asset::id, Asset::name));
+        record Row(UUID assetId, @Nullable String archivedName, @Nullable String taskTitle, @Nullable String note,
+                @Nullable BigDecimal cost, List<String> checked, @Nullable Integer atFiring, UUID doneBy,
+                Instant doneAt) {
+        }
+        List<Row> rows = jdbc.sql("""
+                select r.asset_id, a.name, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
+                from maintenance_record r
+                join asset a on a.id = r.asset_id
+                left join maintenance_task t on t.id = r.task_id
+                where r.done_at >= :from and r.done_at < :to
+                order by r.done_at, r.id
+                """)
+                .param("from", utc(from.atStartOfDay(zone).toInstant()))
+                .param("to", utc(to.plusDays(1).atStartOfDay(zone).toInstant()))
+                .query((rs, n) -> new Row(rs.getObject("asset_id", UUID.class), rs.getString("name"),
+                        rs.getString("title"), rs.getString("note"), rs.getBigDecimal("cost"),
+                        strings(rs.getArray("checked")), rs.getObject("at_firing", Integer.class),
+                        rs.getObject("done_by", UUID.class), rs.getObject("done_at", OffsetDateTime.class).toInstant()))
+                .list();
+        Map<UUID, String> names = accounts.displayNames(rows.stream().map(Row::doneBy).toList());
+        Csv csv = new Csv().row(List.of("Date", "Asset", "Task", "Note", "Cost", "Checked", "At firing", "Done by"));
+        for (Row row : rows) {
+            // Archived assets keep their records; a kiln's name lives on the kiln
+            String asset = assetNames.getOrDefault(row.assetId(), row.archivedName() == null ? "Kiln" : row.archivedName());
+            csv.row(Arrays.asList(row.doneAt().atZone(zone).toLocalDate().toString(), asset,
+                    row.taskTitle() == null ? "Repair or other work" : row.taskTitle(), row.note(), row.cost(),
+                    String.join("; ", row.checked()), row.atFiring(), names.get(row.doneBy())));
+        }
+        return csv.toString();
+    }
+
+    /**
+     * Reminds whoever a task is assigned to when it comes due or nearly so, once per cycle: a
+     * {@link MaintenanceDue} for each task in the bound studio not reminded about since it was
+     * last done. Run by {@link MaintenanceReminderSweep}. Returns how many tasks were reminded.
+     */
+    @Transactional
+    public int remindDue(Instant now) {
+        Map<UUID, Instant> unreminded = jdbc.sql("""
+                select id, last_done_at from maintenance_task
+                where not archived and reminded_for is distinct from last_done_at
+                """)
+                .query((rs, n) -> Map.entry(rs.getObject("id", UUID.class),
+                        rs.getObject("last_done_at", OffsetDateTime.class).toInstant()))
+                .list().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        List<Task> due = unreminded.isEmpty() ? List.of()
+                : dueTasks(now).stream().filter(t -> unreminded.containsKey(t.id())).toList();
+        if (due.isEmpty()) {
+            return 0;
+        }
+        UUID studioId = TenantContext.require().studioId();
+        Map<UUID, Set<Duty>> duties = access.allDuties();
+        List<UUID> staff = members.list().stream().filter(m -> m.role().includes(StudioRole.STAFF))
+                .map(MemberView::accountId).toList();
+        int reminded = 0;
+        for (Task task : due) {
+            // Claim the cycle first. Two API replicas can sweep at once; the row lock makes the second
+            // wait, then find the cycle already claimed. Only this cycle: if the task was done
+            // meanwhile, its new cycle still gets its own reminder.
+            int claimed = jdbc.sql("""
+                    update maintenance_task set reminded_for = last_done_at
+                    where id = :id and last_done_at = :cycle and reminded_for is distinct from last_done_at
+                    """)
+                    .param("id", task.id())
+                    .param("cycle", utc(unreminded.get(task.id())))
+                    .update();
+            if (claimed == 1) {
+                events.publishEvent(new MaintenanceDue(studioId, task.id(), task.assetName(), task.title(),
+                        task.status(), task.dueAt(), task.firingsLeft(), task.checklist(),
+                        recipients(task, duties, staff)));
+                reminded++;
+            }
+        }
+        return reminded;
+    }
+
+    /** The named assignee; else everyone holding the duty; else, with nobody to do it, the staff. */
+    private static List<UUID> recipients(Task task, Map<UUID, Set<Duty>> duties, List<UUID> staff) {
+        if (task.assignedTo() != null) {
+            return List.of(task.assignedTo());
+        }
+        if (task.assignedDuty() != null) {
+            List<UUID> holders = duties.entrySet().stream().filter(e -> e.getValue().contains(task.assignedDuty()))
+                    .map(Map.Entry::getKey).sorted().toList();
+            if (!holders.isEmpty()) {
+                return holders;
+            }
+        }
+        return staff;
     }
 
     /** Every kiln is maintained, so a new one gets its asset in the same transaction. */
@@ -329,6 +510,31 @@ public class MaintenanceService {
     }
 
     // --- Reading ---------------------------------------------------------------------------------
+
+    /** The parts used in each of the asset's records, named as supplies names them. */
+    private Map<UUID, List<PartUsed>> partsOf(UUID assetId) {
+        record Row(UUID recordId, UUID itemId, BigDecimal quantity) {
+        }
+        List<Row> rows = jdbc.sql("""
+                select p.record_id, p.item_id, p.quantity
+                from maintenance_record_part p join maintenance_record r on r.id = p.record_id
+                where r.asset_id = :assetId
+                """)
+                .param("assetId", assetId)
+                .query((rs, n) -> new Row(rs.getObject("record_id", UUID.class), rs.getObject("item_id", UUID.class),
+                        rs.getBigDecimal("quantity")))
+                .list();
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Item> items = supplies.items().stream().collect(Collectors.toMap(Item::id, Function.identity()));
+        return rows.stream().collect(Collectors.groupingBy(Row::recordId, Collectors.mapping(row -> {
+            Item item = items.get(row.itemId());
+            // An archived item drops out of the list; its part still counts
+            return new PartUsed(row.itemId(), item == null ? "A retired supply" : item.name(),
+                    item == null ? "" : item.unit(), row.quantity().stripTrailingZeros());
+        }, Collectors.toList())));
+    }
 
     private Task task(UUID taskId, Instant now) {
         AssetRow asset = assetRow(assetIdOf(taskId));

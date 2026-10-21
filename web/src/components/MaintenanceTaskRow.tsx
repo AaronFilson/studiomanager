@@ -1,22 +1,27 @@
-import { completeMaintenanceTaskMutation, type MaintenanceTask } from '@studiomanager/api-client';
+import { completeMaintenanceTaskMutation, type MaintenanceTask, type PartUse } from '@studiomanager/api-client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
 import { dueText, dutyLabel, formatDate, scheduleText } from '../labels';
 import { ErrorMessage } from './ErrorMessage';
+import { PartsPicker } from './PartsPicker';
 
 /**
  * One recurring task: what it is, how often, who does it and when it's due, with a form to mark
  * it done. Staff see it on the Maintenance page; whoever it's assigned to sees it on their home page.
+ *
+ * @param drawsParts offer spare parts from supplies when marking it done; only staff can draw stock
  */
 export function MaintenanceTaskRow({
   studioId,
   task,
   showAsset = false,
+  drawsParts = false,
 }: {
   studioId: string;
   task: MaintenanceTask;
   showAsset?: boolean;
+  drawsParts?: boolean;
 }) {
   const id = useId();
   const queryClient = useQueryClient();
@@ -24,6 +29,7 @@ export function MaintenanceTaskRow({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [note, setNote] = useState('');
   const [cost, setCost] = useState('');
+  const [parts, setParts] = useState<PartUse[]>([]);
   const complete = useMutation({
     ...completeMaintenanceTaskMutation(),
     onSuccess: async () => {
@@ -31,6 +37,7 @@ export function MaintenanceTaskRow({
       setChecked(new Set());
       setNote('');
       setCost('');
+      setParts([]);
       await queryClient.invalidateQueries();
     },
   });
@@ -80,6 +87,7 @@ export function MaintenanceTaskRow({
                 checked: [...checked],
                 ...(note.trim() ? { note: note.trim() } : {}),
                 ...(cost ? { cost } : {}),
+                ...(parts.length ? { parts } : {}),
               },
             });
           }}
@@ -105,6 +113,7 @@ export function MaintenanceTaskRow({
               <input id={`${id}-cost`} inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value.trim())} />
             </div>
           </div>
+          {drawsParts && <PartsPicker studioId={studioId} parts={parts} onChange={setParts} />}
           {complete.isError && <ErrorMessage error={complete.error} />}
           <div className="row">
             <button type="submit" className="primary" disabled={complete.isPending}>

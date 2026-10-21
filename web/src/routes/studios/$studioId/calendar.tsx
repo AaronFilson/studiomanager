@@ -4,6 +4,7 @@ import {
   createBookingMutation,
   createResourceMutation,
   getStudioOptions,
+  listAssetsOptions,
   listBookingsOptions,
   listCertificationTypesOptions,
   listResourcesOptions,
@@ -131,6 +132,7 @@ function BookingForm({ studioId, staff }: { studioId: string; staff: boolean }) 
             {resources.data?.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
+                {r.downReason && ' (out of service)'}
               </option>
             ))}
           </select>
@@ -150,6 +152,12 @@ function BookingForm({ studioId, staff }: { studioId: string; staff: boolean }) 
       </div>
       {resource?.requiredCertificationName && (
         <p className="badge">Needs the “{resource.requiredCertificationName}” certification.</p>
+      )}
+      {resource?.downReason && (
+        <p className="warning">
+          {resource.name} is out of service: {resource.downReason}.{' '}
+          {staff ? 'Only maintenance or a closure can be booked until it’s back.' : 'It can’t be reserved until it’s back.'}
+        </p>
       )}
       <div className="row">
         <div className="field">
@@ -192,10 +200,12 @@ function ResourceForm({ studioId }: { studioId: string }) {
   const id = useId();
   const queryClient = useQueryClient();
   const types = useQuery(listCertificationTypesOptions({ path: { studioId } }));
+  const assets = useQuery(listAssetsOptions({ path: { studioId } }));
   const [name, setName] = useState('');
   const [kind, setKind] = useState<ResourceKind>('WHEEL_ROOM');
   const [capacity, setCapacity] = useState('1');
   const [certification, setCertification] = useState('');
+  const [assetId, setAssetId] = useState('');
   const create = useMutation({
     ...createResourceMutation(),
     onSuccess: async () => {
@@ -217,6 +227,7 @@ function ResourceForm({ studioId }: { studioId: string }) {
             kind,
             capacity: Number(capacity),
             ...(certification ? { requiredCertification: certification } : {}),
+            ...(assetId ? { assetId } : {}),
           },
         });
       }}
@@ -252,6 +263,18 @@ function ResourceForm({ studioId }: { studioId: string }) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-asset`}>On the maintenance list as</label>
+        <select id={`${id}-asset`} value={assetId} onChange={(e) => setAssetId(e.target.value)}>
+          <option value="">Not on it</option>
+          {assets.data?.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+        <span className="badge">While it’s out of service there, it can’t be booked here, except for its repair.</span>
       </div>
       {create.isError && <ErrorMessage error={create.error} />}
       <div>

@@ -3,9 +3,13 @@ package io.github.aaronfilson.studiomanager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import com.jayway.jsonpath.JsonPath;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -114,6 +118,31 @@ class TenantIsolationTests {
                     .as(table)
                     .containsExactly(alicesStudio);
         }
+    }
+
+    @Test
+    void someoneInTwoStudiosIsListedOnceInEach() throws Exception {
+        // RLS lets anyone read their own memberships everywhere (for "my studios"), so member
+        // lists must filter by studio themselves, or Alice's other membership shows up too
+        UUID first = createStudio(alice, "Alice's Clay");
+        createStudio(alice, "Alice's Second Clay");
+
+        assertThat(mvc.get().uri("/api/v1/studios/{id}/members", first).with(alice.token()))
+                .hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(1);
+
+        byte[] export = mvc.get().uri("/api/v1/studios/{id}/export", first).with(alice.token()).exchange()
+                .getResponse().getContentAsByteArray();
+        String members = null;
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(export))) {
+            for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                if (entry.getName().equals("members.csv")) {
+                    members = new String(zip.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+        }
+        // A header and one member
+        assertThat(members).isNotNull();
+        assertThat(members.lines()).hasSize(2);
     }
 
     @Test

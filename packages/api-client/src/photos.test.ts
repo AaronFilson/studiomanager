@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { configureApiClient } from './index';
-import { uploadPiecePhoto } from './photos';
+import { uploadPiecePhoto, uploadRecordPhoto } from './photos';
 
 const studioId = '0b7f3f0e-6f1c-4c7a-9d55-1d2f2b8b4a10';
 const pieceId = '5c1d2f2b-8b4a-4c7a-9d55-0b7f3f0e6f1c';
@@ -68,6 +68,19 @@ describe('uploadPiecePhoto', () => {
       uploadPiecePhoto(studioId, pieceId, { photo: new Blob(['full']), thumbnail: new Blob(['thumb']) }),
     ).rejects.toThrow("The photo didn't upload (status 403). Try again.");
     expect(calls.some((c) => c.url.endsWith('/complete'))).toBe(false);
+  });
+
+  it('adds a photo to a maintenance record the same way', async () => {
+    configureApiClient({ baseUrl: 'https://api.test', getAccessToken: () => Promise.resolve('t') });
+    const calls = routeFetch();
+    const recordId = '1d2f2b8b-4a10-4c7a-9d55-0b7f3f0e6f1c';
+
+    await uploadRecordPhoto(studioId, recordId, { photo: new Blob(['full']), thumbnail: new Blob(['thumb']) });
+
+    expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(2);
+    expect(calls.at(-1)?.url).toBe(
+      `https://api.test/api/v1/studios/${studioId}/maintenance/records/${recordId}/photos/${photoId}/complete`,
+    );
   });
 
   it('refuses images over the limits the API sent', async () => {

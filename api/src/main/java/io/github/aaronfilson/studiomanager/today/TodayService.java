@@ -12,6 +12,7 @@ import io.github.aaronfilson.studiomanager.kiln.KilnService;
 import io.github.aaronfilson.studiomanager.kiln.KilnView;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
+import io.github.aaronfilson.studiomanager.maintenance.ProblemReportService;
 import io.github.aaronfilson.studiomanager.piece.PieceService;
 import io.github.aaronfilson.studiomanager.piece.PieceStage;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
@@ -45,9 +46,11 @@ public class TodayService {
     private final ScheduleService schedule;
     private final SupplyService supplies;
     private final MaintenanceService maintenance;
+    private final ProblemReportService problems;
 
     TodayService(StudioService studios, KilnService kilns, FiringService firings, PieceService pieces,
-            ScheduleService schedule, SupplyService supplies, MaintenanceService maintenance) {
+            ScheduleService schedule, SupplyService supplies, MaintenanceService maintenance,
+            ProblemReportService problems) {
         this.studios = studios;
         this.kilns = kilns;
         this.firings = firings;
@@ -55,6 +58,7 @@ public class TodayService {
         this.schedule = schedule;
         this.supplies = supplies;
         this.maintenance = maintenance;
+        this.problems = problems;
     }
 
     @Transactional(readOnly = true)
@@ -78,20 +82,23 @@ public class TodayService {
                 allKilns.stream().filter(k -> !k.available()).toList(),
                 schedule.bookings(dayStart, dayEnd),
                 schedule.shifts(dayStart, dayEnd),
-                upcoming.stream().filter(Shift::open).toList(),
+                upcoming.stream().filter(s -> s.open() || s.offered()).toList(),
                 supplies.needingOrder(),
-                supplies.openRequests().size());
+                supplies.openRequests().size(),
+                problems.reports(true));
     }
 
     /**
      * @param maintenanceDue tasks due or due soon on any asset, most urgent first
-     * @param uncoveredShifts open shifts in the next seven days, so gaps are seen before they happen
+     * @param uncoveredShifts shifts in the next seven days that are open or whose holder asked for
+     *     cover, so gaps are seen before they happen
      * @param lowStock items at or below par with nothing on order
+     * @param openProblems problems members reported that nobody has resolved, newest first
      */
     public record Today(LocalDate date, List<KilnView> kilns, List<FiringView> openFirings, int waitingForBisque,
             int waitingForGlaze, int readyForPickup, int pastHold, int unclaimed, List<MaintenanceModel.Task> maintenanceDue,
             List<KilnView> outOfService, List<Booking> bookings, List<Shift> shifts, List<Shift> uncoveredShifts,
-            List<SupplyModel.Item> lowStock, int openPurchaseRequests) {
+            List<SupplyModel.Item> lowStock, int openPurchaseRequests, List<MaintenanceModel.ProblemReport> openProblems) {
     }
 
 }
