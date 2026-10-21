@@ -40,6 +40,12 @@ spring:
           # The API app registration's client ID
           audiences: ${STUDIOMANAGER_AUTH_AUDIENCE}
 
+# OpenTelemetry (spring-cloud-azure-starter-monitor) sends to Application Insights. Off locally
+# and in tests, where there is nowhere to send it; application-azure.yaml turns it on.
+otel:
+  sdk:
+    disabled: true
+
 management:
   endpoints:
     web:

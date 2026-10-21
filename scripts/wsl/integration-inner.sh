@@ -52,6 +52,10 @@ if compgen -G "build/test-results/test/*.xml" > /dev/null; then
                 | grep -E '^(<testcase name=|.*<failure message=|\s*Caused by|\s*at io\.github\.aaronfilson)' \
                 | grep -v -E 'Tests\.java|<testcase name="[^"]*" classname="[^"]*" time="[^"]*"/>' \
                 | cut -c1-300 | head -n 25
+            # The root cause's own frames, where a library threw
+            sed -E 's/&#10;/\n/g; s/&#9;//g; s/&quot;/"/g' "$report" \
+                | awk '/^Caused by/ { n = NR } { line[NR] = $0 } END { for (i = n; i < n + 15 && i <= NR; i++) print line[i] }' \
+                | cut -c1-300
         done
     fi
 fi

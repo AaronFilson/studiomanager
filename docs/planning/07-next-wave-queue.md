@@ -43,3 +43,5 @@ Updated as each item lands.
   per studio table (found from the catalog, so new tables are included), `members.csv` with names
   and addresses, and a README. Text cells are guarded against spreadsheet formulas; binary columns
   (an invite's code hash) are left out. "Download all data" is on Settings.
+- **4. OpenTelemetry:** done 2026-10-21, see [ADR 13](../adr/0013-opentelemetry-to-application-insights.md).
+  On in the `azure` profile only. First exercised for real at the first deploy.

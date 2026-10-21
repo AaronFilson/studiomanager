@@ -11,6 +11,9 @@ updates:
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 7 }
     groups:
+      # The Azure Monitor starter and the OpenTelemetry BOM must move together (ADR 13)
+      opentelemetry:
+        patterns: ["com.azure.spring:spring-cloud-azure-starter-monitor", "io.opentelemetry*"]
       gradle-minor-and-patch:
         update-types: [minor, patch]
 
