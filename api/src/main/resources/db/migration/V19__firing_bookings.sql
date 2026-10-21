@@ -3,7 +3,10 @@
 -- trimmed to when it was unloaded, or removed if the load was cancelled. The booking points at
 -- its firing so it can be found again.
 
-ALTER TABLE booking ADD COLUMN firing_id uuid UNIQUE REFERENCES firing (id) ON DELETE CASCADE;
+ALTER TABLE booking ADD COLUMN firing_id uuid REFERENCES firing (id) ON DELETE CASCADE;
+
+-- One booking per firing on each resource; more than one resource can be the same kiln
+ALTER TABLE booking ADD CONSTRAINT booking_firing_resource_key UNIQUE (firing_id, resource_id);
 
 ALTER TABLE booking ADD CONSTRAINT booking_firing_kind CHECK (firing_id IS NULL OR kind = 'FIRING');
 

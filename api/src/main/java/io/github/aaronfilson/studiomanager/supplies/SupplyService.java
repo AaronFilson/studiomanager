@@ -326,6 +326,8 @@ public class SupplyService {
      */
     private UUID insertMovement(TenantContext caller, UUID itemId, MovementKind kind, BigDecimal quantity,
             @Nullable UUID memberId, @Nullable String note) {
+        // One movement per item at a time, so two at once can't both see the last bag on the shelf
+        jdbc.sql("select id from supply_item where id = :id for update").param("id", itemId).query(UUID.class).single();
         BigDecimal before = onHand(itemId);
         UUID id = Uuids.v7();
         jdbc.sql("""

@@ -458,16 +458,26 @@ public class MaintenanceService {
         Map<UUID, Set<Duty>> duties = access.allDuties();
         List<UUID> staff = members.list().stream().filter(m -> m.role().includes(StudioRole.STAFF))
                 .map(MemberView::accountId).toList();
+        int reminded = 0;
         for (Task task : due) {
-            events.publishEvent(new MaintenanceDue(studioId, task.id(), task.assetName(), task.title(), task.status(),
-                    task.dueAt(), task.firingsLeft(), task.checklist(), recipients(task, duties, staff)));
-            // Only this cycle: if the task was done meanwhile, its new cycle still gets its reminder
-            jdbc.sql("update maintenance_task set reminded_for = last_done_at where id = :id and last_done_at = :cycle")
+            // Claim the cycle first. Two API replicas can sweep at once; the row lock makes the second
+            // wait, then find the cycle already claimed. Only this cycle: if the task was done
+            // meanwhile, its new cycle still gets its own reminder.
+            int claimed = jdbc.sql("""
+                    update maintenance_task set reminded_for = last_done_at
+                    where id = :id and last_done_at = :cycle and reminded_for is distinct from last_done_at
+                    """)
                     .param("id", task.id())
                     .param("cycle", utc(unreminded.get(task.id())))
                     .update();
+            if (claimed == 1) {
+                events.publishEvent(new MaintenanceDue(studioId, task.id(), task.assetName(), task.title(),
+                        task.status(), task.dueAt(), task.firingsLeft(), task.checklist(),
+                        recipients(task, duties, staff)));
+                reminded++;
+            }
         }
-        return due.size();
+        return reminded;
     }
 
     /** The named assignee; else everyone holding the duty; else, with nobody to do it, the staff. */

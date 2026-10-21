@@ -190,15 +190,18 @@ class ScheduleApiTests {
         String assets = mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange().getResponse()
                 .getContentAsString();
         String kilnAsset = JsonPath.<List<String>>read(assets, "$[?(@.kilnId == '%s')].id".formatted(kiln)).getFirst();
-        assertThat(post(owner, path("/resources"), """
-                {"name": "Kiln 1", "kind": "KILN", "capacity": 1, "assetId": "%s"}
-                """.formatted(kilnAsset))).hasStatus(HttpStatus.CREATED);
+        // Two calendar resources can be the same kiln, and both show its firings
+        for (String name : List.of("Kiln 1", "Kiln 1 (big shelf)")) {
+            assertThat(post(owner, path("/resources"), """
+                    {"name": "%s", "kind": "KILN", "capacity": 1, "assetId": "%s"}
+                    """.formatted(name, kilnAsset))).hasStatus(HttpStatus.CREATED);
+        }
 
         // Two loads: one is unloaded, the other cancelled after it started
         String unloaded = startFiring(kiln);
         Instant from = Instant.now().minus(1, ChronoUnit.HOURS);
         Instant to = Instant.now().plus(2, ChronoUnit.DAYS);
-        assertThat(firingBookings(from, to)).hasSize(1);
+        assertThat(firingBookings(from, to)).hasSize(2);
         assertThat(read(mvc.get().uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
                 .with(maker.token()).exchange(), "$[0].title")).isEqualTo("Bisque firing");
         assertThat(post(owner, path("/firings/" + unloaded + "/transitions"),
@@ -209,10 +212,10 @@ class ScheduleApiTests {
         assertThat(Instant.parse(ends)).isBefore(Instant.now().plus(5, ChronoUnit.MINUTES));
 
         String cancelled = startFiring(kiln);
-        assertThat(firingBookings(from, to)).hasSize(2);
+        assertThat(firingBookings(from, to)).hasSize(4);
         assertThat(post(owner, path("/firings/" + cancelled + "/transitions"),
                 "{\"to\": \"CANCELLED\", \"expectedVersion\": 1}")).hasStatusOk();
-        assertThat(firingBookings(from, to)).hasSize(1);
+        assertThat(firingBookings(from, to)).hasSize(2);
     }
 
     private String startFiring(String kiln) throws Exception {
