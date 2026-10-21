@@ -15,9 +15,7 @@ describe('studio today', () => {
           id: 'k1',
           name: 'Skutt',
           kind: 'ELECTRIC',
-          firingsSinceMaintenance: 0,
           totalFirings: 4,
-          maintenanceDue: false,
           available: true,
           version: 1,
         },
@@ -40,7 +38,20 @@ describe('studio today', () => {
       readyForPickup: 9,
       pastHold: 2,
       unclaimed: 0,
-      maintenanceDue: [],
+      maintenanceDue: [
+        {
+          id: 't1',
+          assetId: 'a1',
+          assetName: 'Skutt',
+          title: 'Check element resistance',
+          checklist: [],
+          everyFirings: 10,
+          lastDoneAt: '2026-09-01T12:00:00Z',
+          firingsLeft: 1,
+          status: 'DUE_SOON',
+          version: 0,
+        },
+      ],
       outOfService: [],
       bookings: [],
       shifts: [
@@ -92,5 +103,6 @@ describe('studio today', () => {
     expect(screen.getByText('firing glaze, 23 pieces')).toBeInTheDocument();
     expect(screen.getByText('B-Mix 5 is low (3 left) and not on order')).toBeInTheDocument();
     expect(screen.getByText('nobody yet')).toBeInTheDocument();
+    expect(screen.getByText('Skutt: Check element resistance is due soon (1 firing left)')).toBeInTheDocument();
   });
 });

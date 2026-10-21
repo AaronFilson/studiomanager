@@ -1,5 +1,7 @@
 import type {
+  AssetKind,
   Duty,
+  MaintenanceTask,
   FeeRounding,
   FeeRuleType,
   FeeUnit,
@@ -74,6 +76,52 @@ const dutyLabels: Record<Duty, string> = {
 export const dutyLabel = (duty: Duty): string => dutyLabels[duty];
 
 export const isStaff = (role: StudioRole): boolean => role === 'OWNER' || role === 'STAFF';
+
+const assetKindLabels: Record<AssetKind, string> = {
+  KILN: 'Kiln',
+  WHEEL: 'Wheel',
+  PUG_MILL: 'Pug mill',
+  SLAB_ROLLER: 'Slab roller',
+  EXTRUDER: 'Extruder',
+  CLAY_TRAP: 'Clay trap',
+  SPRAY_BOOTH: 'Spray booth',
+  VENTILATION: 'Ventilation',
+  BUILDING: 'Building',
+  SAFETY: 'Safety equipment',
+  OTHER: 'Other',
+};
+
+export const assetKindLabel = (kind: AssetKind): string => assetKindLabels[kind];
+
+/** "every 30 days or 10 firings, whichever comes first" */
+export function scheduleText(task: Pick<MaintenanceTask, 'everyDays' | 'everyFirings'>): string {
+  const days = task.everyDays ? `${String(task.everyDays)} ${task.everyDays === 1 ? 'day' : 'days'}` : null;
+  const firings = task.everyFirings
+    ? task.everyFirings === 1
+      ? 'firing'
+      : `${String(task.everyFirings)} firings`
+    : null;
+  if (days && firings) return `every ${days} or ${firings}, whichever comes first`;
+  return `every ${days ?? firings ?? ''}`;
+}
+
+/** "is due", "is due soon (2 firings left)", "next due 4 Nov 2026" */
+export function dueText(task: Pick<MaintenanceTask, 'status' | 'dueAt' | 'firingsLeft'>): string {
+  const firings =
+    task.firingsLeft !== undefined && task.firingsLeft > 0
+      ? `${String(task.firingsLeft)} ${task.firingsLeft === 1 ? 'firing' : 'firings'} left`
+      : null;
+  const date = task.dueAt ? `by ${formatDate(task.dueAt)}` : null;
+  const when = [firings, date].filter(Boolean).join(', ');
+  switch (task.status) {
+    case 'DUE':
+      return 'is due';
+    case 'DUE_SOON':
+      return when ? `is due soon (${when})` : 'is due soon';
+    case 'OK':
+      return when ? `next due: ${when}` : '';
+  }
+}
 
 export function formatMoney(amount: string, currency: string): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount));

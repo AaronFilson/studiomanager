@@ -341,12 +341,9 @@ export type Kiln = {
      */
     maxPiecesPerMember?: number;
     /**
-     * How often it is serviced, counted in firings. Absent if not tracked.
+     * Firings so far. Maintenance tasks counted in firings read this.
      */
-    maintenanceEveryFirings?: number;
-    firingsSinceMaintenance: number;
     totalFirings: number;
-    maintenanceDue: boolean;
     available: boolean;
     downReason?: string;
     version: number;
@@ -357,7 +354,6 @@ export type SaveKilnRequest = {
     site?: string;
     kind: KilnType;
     maxPiecesPerMember?: number;
-    maintenanceEveryFirings?: number;
 };
 
 export type UpdateKilnRequest = {
@@ -373,21 +369,142 @@ export type KilnAvailabilityRequest = {
     expectedVersion: number;
 };
 
-export type MaintenanceEntry = {
-    note: string;
-    cost?: Decimal;
+export type AssetKind = 'KILN' | 'WHEEL' | 'PUG_MILL' | 'SLAB_ROLLER' | 'EXTRUDER' | 'CLAY_TRAP' | 'SPRAY_BOOTH' | 'VENTILATION' | 'BUILDING' | 'SAFETY' | 'OTHER';
+
+export type Asset = {
+    id: string;
+    kind: AssetKind;
     /**
-     * The kiln's total firings when the work was done.
+     * For a kiln, the kiln's name.
      */
-    atFiring: number;
-    performedBy: string;
-    performedByName?: string;
-    performedAt: string;
+    name: string;
+    /**
+     * Present for a kiln.
+     */
+    kilnId?: string;
+    location?: string;
+    notes?: string;
+    available: boolean;
+    /**
+     * Why it is out of service. For a kiln, the kiln's own reason.
+     */
+    downReason?: string;
+    /**
+     * For a kiln, its firings so far.
+     */
+    totalFirings?: number;
+    version: number;
+    /**
+     * Its recurring tasks, soonest due first.
+     */
+    tasks: Array<MaintenanceTask>;
 };
 
-export type RecordMaintenanceRequest = {
+export type SaveAssetRequest = {
+    kind: AssetKind;
+    name: string;
+    location?: string;
+    notes?: string;
+};
+
+export type UpdateAssetRequest = {
+    name?: string;
+    location?: string;
+    notes?: string;
+    expectedVersion: number;
+};
+
+export type AssetAvailabilityRequest = {
+    /**
+     * Why it is out of service. Absent puts it back in service.
+     */
+    downReason?: string;
+    expectedVersion: number;
+};
+
+/**
+ * DUE once the interval has passed. DUE_SOON within a tenth of the interval (at least a day
+ * or one firing, at most 14 days). OK otherwise.
+ *
+ */
+export type DueStatus = 'OK' | 'DUE_SOON' | 'DUE';
+
+export type MaintenanceTask = {
+    id: string;
+    assetId: string;
+    assetName: string;
+    title: string;
+    checklist: Array<string>;
+    everyDays?: number;
+    everyFirings?: number;
+    assignedDuty?: Duty;
+    assignedTo?: string;
+    assignedToName?: string;
+    /**
+     * When it was last done, or set up if it hasn't been yet.
+     */
+    lastDoneAt: string;
+    /**
+     * When the days interval runs out. Absent without one.
+     */
+    dueAt?: string;
+    /**
+     * Firings until the firings interval runs out; zero or less once due. Absent without one.
+     */
+    firingsLeft?: number;
+    status: DueStatus;
+    version: number;
+};
+
+/**
+ * Needs everyDays, everyFirings or both. Assign it to a duty or a member, not both.
+ */
+export type SaveMaintenanceTaskRequest = {
+    title: string;
+    checklist?: Array<string>;
+    everyDays?: number;
+    everyFirings?: number;
+    assignedDuty?: Duty;
+    assignedTo?: string;
+};
+
+export type UpdateMaintenanceTaskRequest = {
+    task: SaveMaintenanceTaskRequest;
+    expectedVersion: number;
+};
+
+export type CompleteMaintenanceTaskRequest = {
+    note?: string;
+    cost?: Decimal;
+    /**
+     * The checklist lines that were done.
+     */
+    checked?: Array<string>;
+};
+
+export type RecordRepairRequest = {
     note: string;
     cost?: Decimal;
+};
+
+export type MaintenanceRecord = {
+    id: string;
+    assetId: string;
+    /**
+     * Absent for work outside any task.
+     */
+    taskId?: string;
+    taskTitle?: string;
+    note?: string;
+    cost?: Decimal;
+    checked: Array<string>;
+    /**
+     * For a kiln, its total firings when the work was done.
+     */
+    atFiring?: number;
+    doneBy: string;
+    doneByName?: string;
+    doneAt: string;
 };
 
 /**
@@ -614,7 +731,10 @@ export type Today = {
     readyForPickup: number;
     pastHold: number;
     unclaimed: number;
-    maintenanceDue: Array<Kiln>;
+    /**
+     * Maintenance tasks due or due soon, on any asset, soonest first.
+     */
+    maintenanceDue: Array<MaintenanceTask>;
     outOfService: Array<Kiln>;
     bookings: Array<Booking>;
     shifts: Array<Shift>;
@@ -870,6 +990,10 @@ export type Problem = {
  * The studio (tenant). Every studio-scoped route starts with it.
  */
 export type StudioId = string;
+
+export type AssetId = string;
+
+export type TaskId = string;
 
 export type InviteId = string;
 
@@ -1753,20 +1877,92 @@ export type SetKilnAvailabilityResponses = {
 
 export type SetKilnAvailabilityResponse = SetKilnAvailabilityResponses[keyof SetKilnAvailabilityResponses];
 
-export type ListKilnMaintenanceData = {
+export type ListAssetsData = {
     body?: never;
     path: {
         /**
          * The studio (tenant). Every studio-scoped route starts with it.
          */
         studioId: string;
-        kilnId: string;
     };
     query?: never;
-    url: '/api/v1/studios/{studioId}/kilns/{kilnId}/maintenance';
+    url: '/api/v1/studios/{studioId}/maintenance/assets';
 };
 
-export type ListKilnMaintenanceErrors = {
+export type ListAssetsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListAssetsError = ListAssetsErrors[keyof ListAssetsErrors];
+
+export type ListAssetsResponses = {
+    /**
+     * Assets, kilns first, then by name.
+     */
+    200: Array<Asset>;
+};
+
+export type ListAssetsResponse = ListAssetsResponses[keyof ListAssetsResponses];
+
+export type CreateAssetData = {
+    body: SaveAssetRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets';
+};
+
+export type CreateAssetErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type CreateAssetError = CreateAssetErrors[keyof CreateAssetErrors];
+
+export type CreateAssetResponses = {
+    /**
+     * The asset.
+     */
+    201: Asset;
+};
+
+export type CreateAssetResponse = CreateAssetResponses[keyof CreateAssetResponses];
+
+export type ArchiveAssetData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}';
+};
+
+export type ArchiveAssetErrors = {
     /**
      * No valid access token.
      */
@@ -1779,33 +1975,131 @@ export type ListKilnMaintenanceErrors = {
      * No such thing, or not one the caller may see.
      */
     404: Problem;
-};
-
-export type ListKilnMaintenanceError = ListKilnMaintenanceErrors[keyof ListKilnMaintenanceErrors];
-
-export type ListKilnMaintenanceResponses = {
     /**
-     * Entries.
+     * Someone else changed it at the same time. Reload and try again.
      */
-    200: Array<MaintenanceEntry>;
+    409: Problem;
 };
 
-export type ListKilnMaintenanceResponse = ListKilnMaintenanceResponses[keyof ListKilnMaintenanceResponses];
+export type ArchiveAssetError = ArchiveAssetErrors[keyof ArchiveAssetErrors];
 
-export type RecordKilnMaintenanceData = {
-    body: RecordMaintenanceRequest;
+export type ArchiveAssetResponses = {
+    /**
+     * Archived.
+     */
+    204: void;
+};
+
+export type ArchiveAssetResponse = ArchiveAssetResponses[keyof ArchiveAssetResponses];
+
+export type UpdateAssetData = {
+    body: UpdateAssetRequest;
     path: {
         /**
          * The studio (tenant). Every studio-scoped route starts with it.
          */
         studioId: string;
-        kilnId: string;
+        assetId: string;
     };
     query?: never;
-    url: '/api/v1/studios/{studioId}/kilns/{kilnId}/maintenance';
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}';
 };
 
-export type RecordKilnMaintenanceErrors = {
+export type UpdateAssetErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type UpdateAssetError = UpdateAssetErrors[keyof UpdateAssetErrors];
+
+export type UpdateAssetResponses = {
+    /**
+     * The asset.
+     */
+    200: Asset;
+};
+
+export type UpdateAssetResponse = UpdateAssetResponses[keyof UpdateAssetResponses];
+
+export type SetAssetAvailabilityData = {
+    body: AssetAvailabilityRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/availability';
+};
+
+export type SetAssetAvailabilityErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type SetAssetAvailabilityError = SetAssetAvailabilityErrors[keyof SetAssetAvailabilityErrors];
+
+export type SetAssetAvailabilityResponses = {
+    /**
+     * The asset.
+     */
+    200: Asset;
+};
+
+export type SetAssetAvailabilityResponse = SetAssetAvailabilityResponses[keyof SetAssetAvailabilityResponses];
+
+export type CreateMaintenanceTaskData = {
+    body: SaveMaintenanceTaskRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/tasks';
+};
+
+export type CreateMaintenanceTaskErrors = {
     /**
      * The request was invalid.
      */
@@ -1824,16 +2118,261 @@ export type RecordKilnMaintenanceErrors = {
     404: Problem;
 };
 
-export type RecordKilnMaintenanceError = RecordKilnMaintenanceErrors[keyof RecordKilnMaintenanceErrors];
+export type CreateMaintenanceTaskError = CreateMaintenanceTaskErrors[keyof CreateMaintenanceTaskErrors];
 
-export type RecordKilnMaintenanceResponses = {
+export type CreateMaintenanceTaskResponses = {
     /**
-     * The kiln afterwards.
+     * The task.
      */
-    200: Kiln;
+    201: MaintenanceTask;
 };
 
-export type RecordKilnMaintenanceResponse = RecordKilnMaintenanceResponses[keyof RecordKilnMaintenanceResponses];
+export type CreateMaintenanceTaskResponse = CreateMaintenanceTaskResponses[keyof CreateMaintenanceTaskResponses];
+
+export type ListMaintenanceRecordsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/records';
+};
+
+export type ListMaintenanceRecordsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ListMaintenanceRecordsError = ListMaintenanceRecordsErrors[keyof ListMaintenanceRecordsErrors];
+
+export type ListMaintenanceRecordsResponses = {
+    /**
+     * Up to 500 records.
+     */
+    200: Array<MaintenanceRecord>;
+};
+
+export type ListMaintenanceRecordsResponse = ListMaintenanceRecordsResponses[keyof ListMaintenanceRecordsResponses];
+
+export type RecordRepairData = {
+    body: RecordRepairRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/records';
+};
+
+export type RecordRepairErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type RecordRepairError = RecordRepairErrors[keyof RecordRepairErrors];
+
+export type RecordRepairResponses = {
+    /**
+     * The record.
+     */
+    201: MaintenanceRecord;
+};
+
+export type RecordRepairResponse = RecordRepairResponses[keyof RecordRepairResponses];
+
+export type ArchiveMaintenanceTaskData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}';
+};
+
+export type ArchiveMaintenanceTaskErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ArchiveMaintenanceTaskError = ArchiveMaintenanceTaskErrors[keyof ArchiveMaintenanceTaskErrors];
+
+export type ArchiveMaintenanceTaskResponses = {
+    /**
+     * Archived.
+     */
+    204: void;
+};
+
+export type ArchiveMaintenanceTaskResponse = ArchiveMaintenanceTaskResponses[keyof ArchiveMaintenanceTaskResponses];
+
+export type UpdateMaintenanceTaskData = {
+    body: UpdateMaintenanceTaskRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}';
+};
+
+export type UpdateMaintenanceTaskErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type UpdateMaintenanceTaskError = UpdateMaintenanceTaskErrors[keyof UpdateMaintenanceTaskErrors];
+
+export type UpdateMaintenanceTaskResponses = {
+    /**
+     * The task.
+     */
+    200: MaintenanceTask;
+};
+
+export type UpdateMaintenanceTaskResponse = UpdateMaintenanceTaskResponses[keyof UpdateMaintenanceTaskResponses];
+
+export type CompleteMaintenanceTaskData = {
+    body: CompleteMaintenanceTaskRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}/completions';
+};
+
+export type CompleteMaintenanceTaskErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type CompleteMaintenanceTaskError = CompleteMaintenanceTaskErrors[keyof CompleteMaintenanceTaskErrors];
+
+export type CompleteMaintenanceTaskResponses = {
+    /**
+     * The task, with its clock restarted.
+     */
+    200: MaintenanceTask;
+};
+
+export type CompleteMaintenanceTaskResponse = CompleteMaintenanceTaskResponses[keyof CompleteMaintenanceTaskResponses];
+
+export type ListMyMaintenanceTasksData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/my-tasks';
+};
+
+export type ListMyMaintenanceTasksErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListMyMaintenanceTasksError = ListMyMaintenanceTasksErrors[keyof ListMyMaintenanceTasksErrors];
+
+export type ListMyMaintenanceTasksResponses = {
+    /**
+     * The caller's tasks.
+     */
+    200: Array<MaintenanceTask>;
+};
+
+export type ListMyMaintenanceTasksResponse = ListMyMaintenanceTasksResponses[keyof ListMyMaintenanceTasksResponses];
 
 export type GetKilnQueueData = {
     body?: never;

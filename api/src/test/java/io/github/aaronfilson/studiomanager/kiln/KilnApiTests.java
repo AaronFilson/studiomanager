@@ -16,7 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-/** M2 through the API: kiln queues with caps, loads, unloading, batch notices and maintenance. */
+/** M2 through the API: kiln queues with caps, loads, unloading, batch notices and firing counts. */
 @IntegrationTest
 class KilnApiTests {
 
@@ -71,7 +71,7 @@ class KilnApiTests {
     @Test
     void unloadingMovesPiecesOnAndSendsEachMakerOneNoticeForTheBatch() throws Exception {
         String kiln = kiln("""
-                {"name": "Big gas", "kind": "GAS", "maintenanceEveryFirings": 2}
+                {"name": "Big gas", "kind": "GAS"}
                 """);
         String jar = piece(maker, "Jar");
         String bowl = piece(maker, "Bowl");
@@ -102,18 +102,9 @@ class KilnApiTests {
         assertThat(mvc.get().uri(path("/notifications")).with(other.token()))
                 .hasStatusOk().bodyJson().extractingPath("$[0].title").isEqualTo("Your piece is ready to collect");
 
-        // Two firings against "every 2 firings" means maintenance is due; logging it resets the count
-        MvcTestResult kilnState = mvc.get().uri(path("/kilns")).with(owner.token()).exchange();
-        assertThat(kilnState).bodyJson()
-                .hasPathSatisfying("$[0].totalFirings", n -> assertThat(n).isEqualTo(2))
-                .hasPathSatisfying("$[0].maintenanceDue", d -> assertThat(d).isEqualTo(true));
-        assertThat(post(owner, path("/kilns/" + kiln + "/maintenance"), """
-                {"note": "Replaced thermocouple", "cost": "45.00"}
-                """)).hasStatusOk().bodyJson()
-                .hasPathSatisfying("$.maintenanceDue", d -> assertThat(d).isEqualTo(false))
-                .hasPathSatisfying("$.firingsSinceMaintenance", n -> assertThat(n).isEqualTo(0));
-        assertThat(mvc.get().uri(path("/kilns/" + kiln + "/maintenance")).with(owner.token()))
-                .hasStatusOk().bodyJson().extractingPath("$[0].atFiring").isEqualTo(2);
+        // Each completed firing is counted; maintenance tasks read the count (MaintenanceApiTests)
+        assertThat(mvc.get().uri(path("/kilns")).with(owner.token())).bodyJson()
+                .extractingPath("$[0].totalFirings").isEqualTo(2);
     }
 
     @Test

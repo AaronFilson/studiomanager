@@ -12,10 +12,7 @@ const kiln: Kiln = {
   name: 'Skutt 1027',
   kind: 'ELECTRIC',
   maxPiecesPerMember: 1,
-  maintenanceEveryFirings: 50,
-  firingsSinceMaintenance: 50,
   totalFirings: 120,
-  maintenanceDue: true,
   available: true,
   version: 3,
 };
@@ -32,7 +29,6 @@ describe('kilns', () => {
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
       http.get(`${API}/api/v1/studios/:studioId/kilns`, () => HttpResponse.json([kiln])),
       http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, () => HttpResponse.json([])),
-      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/maintenance`, () => HttpResponse.json([])),
       http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/queue`, () => HttpResponse.json(queue)),
       http.post(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, async ({ request }) => {
         loaded = (await request.json()) as LoadKilnRequest;
@@ -53,7 +49,7 @@ describe('kilns', () => {
 
     const { user } = renderApp(`/studios/${studio.id}/kilns/k1`);
     expect(await screen.findByRole('heading', { name: 'Skutt 1027' })).toBeInTheDocument();
-    expect(screen.getByText('· maintenance due')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Maintenance tasks and history for this kiln' })).toBeInTheDocument();
 
     await user.click(await screen.findByRole('button', { name: 'Fill from the queue' }));
     await user.type(screen.getByLabelText('Cone'), '04');

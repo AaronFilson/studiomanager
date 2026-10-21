@@ -39,7 +39,6 @@ function KilnsPage() {
               <span className="badge">
                 {kilnTypeLabels[kiln.kind]} · {kiln.totalFirings} firings
                 {!kiln.available && <span className="warning"> · out of service</span>}
-                {kiln.maintenanceDue && <span className="warning"> · maintenance due</span>}
               </span>
             </li>
           ))}
@@ -57,14 +56,12 @@ function AddKilnForm({ studioId }: { studioId: string }) {
   const [site, setSite] = useState('');
   const [kind, setKind] = useState<KilnType>('ELECTRIC');
   const [cap, setCap] = useState('');
-  const [every, setEvery] = useState('');
   const create = useMutation({
     ...createKilnMutation(),
     onSuccess: async () => {
       setName('');
       setSite('');
       setCap('');
-      setEvery('');
       await queryClient.invalidateQueries({ queryKey: listKilnsQueryKey({ path: { studioId } }) });
     },
   });
@@ -78,7 +75,6 @@ function AddKilnForm({ studioId }: { studioId: string }) {
         kind,
         ...(site.trim() ? { site: site.trim() } : {}),
         ...(cap ? { maxPiecesPerMember: Number(cap) } : {}),
-        ...(every ? { maintenanceEveryFirings: Number(every) } : {}),
       },
     });
   }
@@ -111,11 +107,8 @@ function AddKilnForm({ studioId }: { studioId: string }) {
           <label htmlFor={`${id}-cap`}>Most pieces per member in one load</label>
           <input id={`${id}-cap`} type="number" min={1} max={500} value={cap} onChange={(e) => setCap(e.target.value)} />
         </div>
-        <div className="field">
-          <label htmlFor={`${id}-every`}>Service every … firings</label>
-          <input id={`${id}-every`} type="number" min={1} max={10000} value={every} onChange={(e) => setEvery(e.target.value)} />
-        </div>
       </div>
+      <p className="badge">Set up its servicing, such as elements and thermocouple, on the Maintenance page.</p>
       {create.isError && <ErrorMessage error={create.error} />}
       <div>
         <button type="submit" className="primary" disabled={create.isPending}>

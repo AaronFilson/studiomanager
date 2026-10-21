@@ -90,4 +90,8 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
   - CI typechecks, lints, tests it and bundles it with Metro. It hasn't been run on a device yet:
     that needs a development build on an emulator or phone.
   - Waiting on item 4: camera intake and photos. Waiting on a decision: push notifications.
-- **4. Piece photos:** next.
+- **4. Piece photos:** next in P1.
+
+**Wave 2 started early (2026-10-20)** with maintenance of equipment and the building, the top
+candidate from the [maintenance research](05-maintenance-research.md). See
+[06](06-wave2-maintenance-plan.md). The nine questions in 05 belong in the pilot kit (item 6).

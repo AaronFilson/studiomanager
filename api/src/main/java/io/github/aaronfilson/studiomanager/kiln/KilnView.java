@@ -5,19 +5,14 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A kiln and its counters.
+ * A kiln and its firing count. Its maintenance lives in the maintenance module, which reads
+ * {@code totalFirings} for tasks counted in firings.
  *
  * @param maxPiecesPerMember the queue rule "at most N pieces per member in one load"; null for no cap
- * @param maintenanceEveryFirings how often the studio services it, counted in firings; null if untracked
  * @param downReason why it is out of service; null when it is available
  */
 public record KilnView(UUID id, String name, @Nullable String site, KilnType kind,
-        @Nullable Integer maxPiecesPerMember, @Nullable Integer maintenanceEveryFirings, int firingsSinceMaintenance,
-        int totalFirings, @Nullable String downReason, long version) {
-
-    public boolean maintenanceDue() {
-        return maintenanceEveryFirings != null && firingsSinceMaintenance >= maintenanceEveryFirings;
-    }
+        @Nullable Integer maxPiecesPerMember, int totalFirings, @Nullable String downReason, long version) {
 
     public boolean available() {
         return downReason == null;

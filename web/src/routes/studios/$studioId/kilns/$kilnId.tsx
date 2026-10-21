@@ -6,10 +6,8 @@ import {
   getKilnQueueOptions,
   type Kiln,
   listKilnFiringsOptions,
-  listKilnMaintenanceOptions,
   listKilnsOptions,
   loadKilnMutation,
-  recordKilnMaintenanceMutation,
   setKilnAvailabilityMutation,
   transitionFiringMutation,
 } from '@studiomanager/api-client';
@@ -52,15 +50,6 @@ function KilnPage() {
       <dl className="facts">
         <dt>Firings</dt>
         <dd>{kiln.totalFirings}</dd>
-        {kiln.maintenanceEveryFirings && (
-          <>
-            <dt>Since service</dt>
-            <dd>
-              {kiln.firingsSinceMaintenance} of {kiln.maintenanceEveryFirings}
-              {kiln.maintenanceDue && <strong className="warning"> · maintenance due</strong>}
-            </dd>
-          </>
-        )}
         {kiln.maxPiecesPerMember && (
           <>
             <dt>Per member</dt>
@@ -72,7 +61,11 @@ function KilnPage() {
       </dl>
       {open ? <OpenFiring studioId={studioId} firingId={open.id} /> : <LoadForm studioId={studioId} kiln={kiln} />}
       <Availability studioId={studioId} kiln={kiln} />
-      <Maintenance studioId={studioId} kilnId={kilnId} />
+      <p>
+        <Link to="/studios/$studioId/maintenance" params={{ studioId }} hash={kiln.id}>
+          Maintenance tasks and history for this kiln
+        </Link>
+      </p>
       <section className="stack" aria-label="Firing log">
         <h2>Firing log</h2>
         {firings.isSuccess && firings.data.length === 0 && <p>No firings yet.</p>}
@@ -286,56 +279,6 @@ function Availability({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
         </button>
       )}
       {save.isError && <ErrorMessage error={save.error} />}
-    </section>
-  );
-}
-
-function Maintenance({ studioId, kilnId }: { studioId: string; kilnId: string }) {
-  const id = useId();
-  const queryClient = useQueryClient();
-  const log = useQuery(listKilnMaintenanceOptions({ path: { studioId, kilnId } }));
-  const [note, setNote] = useState('');
-  const [cost, setCost] = useState('');
-  const record = useMutation({
-    ...recordKilnMaintenanceMutation(),
-    onSuccess: async () => {
-      setNote('');
-      setCost('');
-      await queryClient.invalidateQueries();
-    },
-  });
-
-  return (
-    <section className="card stack" aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`}>Maintenance</h2>
-      <div className="row">
-        <div className="field">
-          <label htmlFor={`${id}-note`}>Work done</label>
-          <input id={`${id}-note`} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor={`${id}-cost`}>Cost (optional)</label>
-          <input id={`${id}-cost`} inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value.trim())} />
-        </div>
-        <button
-          type="button"
-          disabled={!note.trim() || record.isPending}
-          onClick={() =>
-            record.mutate({ path: { studioId, kilnId }, body: { note: note.trim(), ...(cost ? { cost } : {}) } })
-          }
-        >
-          Log maintenance
-        </button>
-      </div>
-      {record.isError && <ErrorMessage error={record.error} />}
-      <ol className="timeline">
-        {log.data?.map((entry, index) => (
-          <li key={index}>
-            {entry.note} · after firing {entry.atFiring} · {formatDate(entry.performedAt)}
-            {entry.performedByName && ` · ${entry.performedByName}`}
-          </li>
-        ))}
-      </ol>
     </section>
   );
 }

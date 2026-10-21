@@ -1,0 +1,137 @@
+package io.github.aaronfilson.studiomanager.maintenance;
+
+import java.math.BigDecimal;
+import java.net.URI;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import io.github.aaronfilson.studiomanager.access.Duty;
+import io.github.aaronfilson.studiomanager.contract.AssetAvailabilityRequestDto;
+import io.github.aaronfilson.studiomanager.contract.AssetDto;
+import io.github.aaronfilson.studiomanager.contract.CompleteMaintenanceTaskRequestDto;
+import io.github.aaronfilson.studiomanager.contract.MaintenanceApi;
+import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
+import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
+import io.github.aaronfilson.studiomanager.contract.RecordRepairRequestDto;
+import io.github.aaronfilson.studiomanager.contract.SaveAssetRequestDto;
+import io.github.aaronfilson.studiomanager.contract.SaveMaintenanceTaskRequestDto;
+import io.github.aaronfilson.studiomanager.contract.UpdateAssetRequestDto;
+import io.github.aaronfilson.studiomanager.contract.UpdateMaintenanceTaskRequestDto;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
+
+import org.jspecify.annotations.Nullable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+class MaintenanceController implements MaintenanceApi {
+
+    private final MaintenanceService maintenance;
+
+    MaintenanceController(MaintenanceService maintenance) {
+        this.maintenance = maintenance;
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<List<AssetDto>> listAssets(UUID studioId) {
+        return ResponseEntity.ok(maintenance.assets(Instant.now()).stream().map(MaintenanceDtos::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<AssetDto> createAsset(UUID studioId, SaveAssetRequestDto request) {
+        var asset = maintenance.createAsset(AssetKind.valueOf(request.getKind().name()), request.getName(),
+                request.getLocation(), request.getNotes());
+        return ResponseEntity.created(URI.create("/api/v1/studios/%s/maintenance/assets/%s".formatted(studioId, asset.id())))
+                .body(MaintenanceDtos.toDto(asset));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<AssetDto> updateAsset(UUID studioId, UUID assetId, UpdateAssetRequestDto request) {
+        return ResponseEntity.ok(MaintenanceDtos.toDto(maintenance.updateAsset(assetId, request.getName(),
+                request.getLocation(), request.getNotes(), request.getExpectedVersion())));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<Void> archiveAsset(UUID studioId, UUID assetId) {
+        maintenance.archiveAsset(assetId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<AssetDto> setAssetAvailability(UUID studioId, UUID assetId, AssetAvailabilityRequestDto request) {
+        return ResponseEntity.ok(MaintenanceDtos.toDto(
+                maintenance.setDown(assetId, request.getDownReason(), request.getExpectedVersion())));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<MaintenanceTaskDto> createMaintenanceTask(UUID studioId, UUID assetId,
+            SaveMaintenanceTaskRequestDto request) {
+        var task = maintenance.createTask(assetId, settings(request));
+        return ResponseEntity.created(URI.create("/api/v1/studios/%s/maintenance/tasks/%s".formatted(studioId, task.id())))
+                .body(MaintenanceDtos.toDto(task));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<MaintenanceTaskDto> updateMaintenanceTask(UUID studioId, UUID taskId,
+            UpdateMaintenanceTaskRequestDto request) {
+        return ResponseEntity.ok(MaintenanceDtos.toDto(
+                maintenance.updateTask(taskId, settings(request.getTask()), request.getExpectedVersion())));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<Void> archiveMaintenanceTask(UUID studioId, UUID taskId) {
+        maintenance.archiveTask(taskId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Members may call this; the service lets through only staff and the task's assignee. */
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<MaintenanceTaskDto> completeMaintenanceTask(UUID studioId, UUID taskId,
+            CompleteMaintenanceTaskRequestDto request) {
+        return ResponseEntity.ok(MaintenanceDtos.toDto(maintenance.complete(taskId, request.getNote(),
+                decimal(request.getCost()), request.getChecked() == null ? List.of() : request.getChecked())));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<MaintenanceRecordDto> recordRepair(UUID studioId, UUID assetId, RecordRepairRequestDto request) {
+        var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()));
+        return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record));
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<List<MaintenanceRecordDto>> listMaintenanceRecords(UUID studioId, UUID assetId) {
+        return ResponseEntity.ok(maintenance.records(assetId).stream().map(MaintenanceDtos::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<List<MaintenanceTaskDto>> listMyMaintenanceTasks(UUID studioId) {
+        return ResponseEntity.ok(maintenance.myTasks(Instant.now()).stream().map(MaintenanceDtos::toDto).toList());
+    }
+
+    private static TaskSettings settings(SaveMaintenanceTaskRequestDto request) {
+        return new TaskSettings(request.getTitle(), request.getChecklist() == null ? List.of() : request.getChecklist(),
+                request.getEveryDays(), request.getEveryFirings(),
+                request.getAssignedDuty() == null ? null : Duty.valueOf(request.getAssignedDuty().name()),
+                request.getAssignedTo());
+    }
+
+    private static @Nullable BigDecimal decimal(@Nullable String value) {
+        return value == null ? null : new BigDecimal(value);
+    }
+
+}

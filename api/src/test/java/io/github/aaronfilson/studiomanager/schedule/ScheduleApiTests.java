@@ -124,7 +124,7 @@ class ScheduleApiTests {
 
     @Test
     void todayShowsWhatTheCoverNeedsToKnow() throws Exception {
-        post(owner, path("/kilns"), "{\"name\": \"Skutt\", \"kind\": \"ELECTRIC\", \"maintenanceEveryFirings\": 1}");
+        post(owner, path("/kilns"), "{\"name\": \"Skutt\", \"kind\": \"ELECTRIC\"}");
         post(maker, path("/pieces"), "{\"size\": {}}");
         post(owner, path("/shifts"), """
                 {"title": "Monitor", "firstStartsAt": "%s", "minutes": 60, "weeks": 1}
