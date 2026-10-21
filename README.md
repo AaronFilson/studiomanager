@@ -22,12 +22,14 @@ Since then, from the [pilot-readiness plan](docs/planning/04-pilot-readiness-pla
 
 - notices emailed through a transactional outbox;
 - bulk invites by email;
-- the Expo mobile app.
+- the Expo mobile app;
+- piece photos, uploaded straight to Blob Storage;
+- the [pilot kit](docs/pilot/README.md).
 
 The first Wave 2 feature is also in: [maintenance](docs/planning/06-wave2-maintenance-plan.md) of
 kilns, other equipment and the building, with recurring tasks counted in days or firings.
 
-Photo upload, hardening, the pilot kit and the first deploy come next.
+What comes next, in order, is in the [work queue](docs/planning/07-next-wave-queue.md).
 
 ## Repository layout
 
