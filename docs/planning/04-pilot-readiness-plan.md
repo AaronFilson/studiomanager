@@ -100,7 +100,13 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
     user-delegation key from the API's managed identity; the storage account, container, CORS
     and role were already in Terraform.
   - Not yet run on a device or against real Azure storage.
-- **5. Hardening:** next in P1.
+- **5. Hardening: mostly done (2026-10-21), on `p1-hardening`.** See [07](07-next-wave-queue.md).
+  - Done: Dependabot, CodeQL, the per-studio export, OpenTelemetry (ADR 13), and a restore drill
+    for the Postgres backups.
+  - The owner applies the branch ruleset ([runbook](../runbooks/branch-protection.md)).
+  - Waiting for the first deploy: the Playwright smoke test, which needs a real test sign-in.
+- **6. Pilot kit: written (2026-10-21).** See [docs/pilot](../pilot/README.md). The contact
+  details are TBD.
 
 **Wave 2 started early (2026-10-20)** with maintenance of equipment and the building, the top
 candidate from the [maintenance research](05-maintenance-research.md). See
