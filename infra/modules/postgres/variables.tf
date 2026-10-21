@@ -33,8 +33,14 @@ variable "storage_mb" {
 }
 
 variable "backup_retention_days" {
-  type    = number
-  default = 7
+  description = "Point-in-time restore window. Backup storage up to the server's storage size is included in its price."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.backup_retention_days >= 7 && var.backup_retention_days <= 35
+    error_message = "Flexible Server keeps backups for 7 to 35 days."
+  }
 }
 
 variable "database_name" {

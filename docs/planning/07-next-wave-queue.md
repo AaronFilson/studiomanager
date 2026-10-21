@@ -88,3 +88,6 @@ Updated as each item lands.
 - **Pull requests.** `p1-hardening`, `wave2-maintenance-2` and `wave1-leftovers` are pushed and
   stacked in that order. No PRs are open yet.
 - **Owner settings:** the branch ruleset and secret scanning ([runbook](../runbooks/branch-protection.md)).
+- **Backups:** 7-day point-in-time restore is on. A restore has never been tried: run the
+  [restore drill](../runbooks/restore-drill.md) after the first deploy, before a pilot studio
+  puts real data in.
