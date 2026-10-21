@@ -66,6 +66,35 @@ describe('maintenance', () => {
     await expect.poll(() => completed).toEqual({ checked: ['Read each element'], note: 'All within 5%' });
   });
 
+  it('offers the kiln maker’s schedule and adds a suggested task as it is', async () => {
+    let task: SaveMaintenanceTaskRequest | undefined;
+    const wiring: SaveMaintenanceTaskRequest = {
+      title: 'Wiring and terminal check',
+      checklist: ['Check the wiring and terminals are tight'],
+      everyDays: 365,
+      everyFirings: 30,
+    };
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets`, () => HttpResponse.json([kilnAsset])),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/suggested-tasks`, () =>
+        HttpResponse.json([{ task: wiring, source: 'L&L Kiln Mfg maintenance schedule (electric kilns)' }]),
+      ),
+      http.post(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/tasks`, async ({ request }) => {
+        task = (await request.json()) as SaveMaintenanceTaskRequest;
+        return HttpResponse.json({ ...elements, id: 't3' }, { status: 201 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/maintenance`);
+    const kiln = await screen.findByRole('region', { name: 'Skutt 1027' });
+    const suggested = await within(kiln).findByRole('list', { name: 'Suggested tasks' });
+    expect(within(suggested).getByText(/L&L Kiln Mfg/)).toBeInTheDocument();
+    await user.click(within(suggested).getByRole('button', { name: 'Add Wiring and terminal check' }));
+
+    await expect.poll(() => task).toEqual(wiring);
+  });
+
   it('adds a clay trap and gives it a weekly task for the monitors', async () => {
     let asset: SaveAssetRequest | undefined;
     let task: SaveMaintenanceTaskRequest | undefined;

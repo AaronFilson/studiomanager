@@ -5,9 +5,11 @@ import {
   createAssetMutation,
   createMaintenanceTaskMutation,
   type Duty,
+  exportMaintenanceRecords,
   getStudioOptions,
   listAssetsOptions,
   listMaintenanceRecordsOptions,
+  listSuggestedMaintenanceTasksOptions,
   recordRepairMutation,
   setAssetAvailabilityMutation,
 } from '@studiomanager/api-client';
@@ -15,9 +17,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
-import { ErrorMessage } from '../../../components/ErrorMessage';
+import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
-import { assetKindLabel, dutyLabel, formatDate, formatMoney } from '../../../labels';
+import { assetKindLabel, dutyLabel, formatDate, formatMoney, scheduleText } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/maintenance')({
   component: MaintenancePage,
@@ -53,6 +55,7 @@ function MaintenancePage() {
       {assets.isError && <ErrorMessage error={assets.error} />}
       {assets.data?.map((asset) => <AssetCard key={asset.id} studioId={studioId} asset={asset} />)}
       <AddAssetForm studioId={studioId} />
+      <HistoryExport studioId={studioId} />
     </div>
   );
 }
@@ -79,6 +82,7 @@ function AssetCard({ studioId, asset }: { studioId: string; asset: Asset }) {
           ))}
         </ul>
       )}
+      <Suggestions studioId={studioId} asset={asset} />
       <AddTaskForm studioId={studioId} asset={asset} />
       <div className="row">
         <button type="button" onClick={() => setShowHistory((s) => !s)} aria-expanded={showHistory}>
@@ -87,6 +91,91 @@ function AssetCard({ studioId, asset }: { studioId: string; asset: Asset }) {
         {asset.kind !== 'KILN' && <AssetActions studioId={studioId} asset={asset} />}
       </div>
       {showHistory && <History studioId={studioId} asset={asset} />}
+    </section>
+  );
+}
+
+/** Published schedules for this kind of asset (the kiln maker's, OSHA's…), each one click to add. */
+function Suggestions({ studioId, asset }: { studioId: string; asset: Asset }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const suggestions = useQuery(listSuggestedMaintenanceTasksOptions({ path: { studioId, assetId: asset.id } }));
+  const add = useMutation({ ...createMaintenanceTaskMutation(), onSuccess: () => queryClient.invalidateQueries() });
+
+  if (!suggestions.data?.length) {
+    return null;
+  }
+  return (
+    <div className="stack">
+      <h3 id={`${id}-title`}>Suggested tasks</h3>
+      <ul className="studio-list" aria-labelledby={`${id}-title`}>
+        {suggestions.data.map((s) => (
+          <li key={s.task.title} className="row">
+            <span>
+              <strong>{s.task.title}</strong> · {scheduleText(s.task)}
+              <span className="badge"> · {s.source}</span>
+            </span>
+            <button
+              type="button"
+              disabled={add.isPending}
+              aria-label={`Add ${s.task.title}`}
+              onClick={() => add.mutate({ path: { studioId, assetId: asset.id }, body: s.task })}
+            >
+              Add
+            </button>
+          </li>
+        ))}
+      </ul>
+      {add.isError && <ErrorMessage error={add.error} />}
+    </div>
+  );
+}
+
+/** Every asset's records between two dates, for an insurer, a landlord or an audit. */
+function HistoryExport({ studioId }: { studioId: string }) {
+  const id = useId();
+  const today = new Date().toISOString().slice(0, 10);
+  const [from, setFrom] = useState(`${today.slice(0, 4)}-01-01`);
+  const [to, setTo] = useState(today);
+  const [error, setError] = useState<string>();
+
+  async function download() {
+    setError(undefined);
+    try {
+      const { data } = await exportMaintenanceRecords({ path: { studioId }, query: { from, to }, parseAs: 'text', throwOnError: true });
+      const url = URL.createObjectURL(new Blob([data], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `maintenance-${from}-to-${to}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Maintenance history</h2>
+      <p className="badge">Everything done to every asset, as a spreadsheet: the record an insurer or landlord asks for.</p>
+      <div className="row">
+        <div className="field">
+          <label htmlFor={`${id}-from`}>From</label>
+          <input id={`${id}-from`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-to`}>To</label>
+          <input id={`${id}-to`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <button type="button" onClick={() => void download()}>
+          Download CSV
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

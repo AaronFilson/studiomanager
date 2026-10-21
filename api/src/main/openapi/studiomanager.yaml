@@ -939,6 +939,59 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/maintenance/assets/{assetId}/suggested-tasks:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AssetId"
+    get:
+      tags: [maintenance]
+      operationId: listSuggestedMaintenanceTasks
+      summary: Common tasks for this kind of asset, with their sources (staff only)
+      description: |
+        Starting points, such as a kiln maker's every-10-firings check or the monthly extinguisher
+        check, for staff to add as they are or change first. Tasks the asset already has (by
+        title) are left out.
+      responses:
+        "200":
+          description: Suggestions; empty for kinds with no published schedule.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SuggestedMaintenanceTask"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/records/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: exportMaintenanceRecords
+      summary: Every asset's maintenance history as CSV, for an insurer or landlord (staff only)
+      description: Records done on or between the two dates, in the studio's time zone, oldest first.
+      parameters:
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
+      responses:
+        "200":
+          description: One row per record.
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/studios/{studioId}/maintenance/tasks/{taskId}:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -3294,6 +3347,17 @@ components:
         assignedTo:
           type: string
           format: uuid
+
+    SuggestedMaintenanceTask:
+      type: object
+      required: [task, source]
+      properties:
+        task:
+          $ref: "#/components/schemas/SaveMaintenanceTaskRequest"
+        source:
+          type: string
+          description: Where the interval comes from, such as the kiln maker or a regulation.
+          examples: ["L&L Kiln Mfg maintenance schedule"]
 
     UpdateMaintenanceTaskRequest:
       type: object

@@ -2,10 +2,14 @@ package io.github.aaronfilson.studiomanager.maintenance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.jayway.jsonpath.JsonPath;
+import net.minidev.json.JSONObject;
 import io.github.aaronfilson.studiomanager.IntegrationTest;
 import io.github.aaronfilson.studiomanager.TestUser;
 import org.junit.jupiter.api.BeforeEach;
@@ -153,6 +157,77 @@ class MaintenanceApiTests {
         // Kilns are added on the kilns page
         assertThat(post(owner, path("/maintenance/assets"), "{\"kind\": \"KILN\", \"name\": \"Gas\"}"))
                 .hasStatus(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void suggestsPublishedTasksOnlyWhereThereIsASchedule() throws Exception {
+        read(post(owner, path("/kilns"), "{\"name\": \"L&L e23\", \"kind\": \"ELECTRIC\"}"), "$.id");
+        read(post(owner, path("/kilns"), "{\"name\": \"Gas car kiln\", \"kind\": \"GAS\"}"), "$.id");
+        String assets = mvc.get().uri(path("/maintenance/assets")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        String electric = JsonPath.<List<String>>read(assets, "$[?(@.name == 'L&L e23')].id").getFirst();
+        String gas = JsonPath.<List<String>>read(assets, "$[?(@.name == 'Gas car kiln')].id").getFirst();
+        String safety = read(post(owner, path("/maintenance/assets"), "{\"kind\": \"SAFETY\", \"name\": \"Extinguisher\"}"),
+                "$.id");
+        String wheel = read(post(owner, path("/maintenance/assets"), "{\"kind\": \"WHEEL\", \"name\": \"Brent 1\"}"),
+                "$.id");
+
+        MvcTestResult suggested = mvc.get().uri(path("/maintenance/assets/" + electric + "/suggested-tasks"))
+                .with(owner.token()).exchange();
+        assertThat(suggested).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$[*].task.title", t -> assertThat(t).asArray().containsExactly(
+                        "Clean and inspect before firing", "Check elements and the circuit", "Wiring and terminal check"))
+                .hasPathSatisfying("$[2].task.everyDays", d -> assertThat(d).isEqualTo(365))
+                .hasPathSatisfying("$[2].task.everyFirings", f -> assertThat(f).isEqualTo(30))
+                .hasPathSatisfying("$[0].source", s -> assertThat(s).asString().contains("L&L"));
+        // Adding one as it is takes it off the list
+        Map<String, Object> elements = JsonPath.read(suggested.getResponse().getContentAsString(), "$[1].task");
+        assertThat(post(owner, path("/maintenance/assets/" + electric + "/tasks"), new JSONObject(elements).toJSONString()))
+                .hasStatus(HttpStatus.CREATED);
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + electric + "/suggested-tasks")).with(owner.token()))
+                .hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(2);
+
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + gas + "/suggested-tasks")).with(owner.token()))
+                .hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(0);
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + wheel + "/suggested-tasks")).with(owner.token()))
+                .hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(0);
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + safety + "/suggested-tasks")).with(owner.token()))
+                .hasStatusOk().bodyJson().hasPathSatisfying("$[0].source", s -> assertThat(s).asString().contains("OSHA"));
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + safety + "/suggested-tasks")).with(monitor.token()))
+                .hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void exportsTheHistoryForAnInsurerAsCsv() throws Exception {
+        String trap = read(post(owner, path("/maintenance/assets"), "{\"kind\": \"CLAY_TRAP\", \"name\": \"Sink trap\"}"),
+                "$.id");
+        String empty = read(post(owner, path("/maintenance/assets/" + trap + "/tasks"), """
+                {"title": "Empty the trap", "everyDays": 7, "checklist": ["Scoop", "Wipe"]}
+                """), "$.id");
+        assertThat(post(owner, path("/maintenance/tasks/" + empty + "/completions"), """
+                {"note": "=1+1 half full", "checked": ["Scoop", "Wipe"]}
+                """)).hasStatusOk();
+        assertThat(post(owner, path("/maintenance/assets/" + trap + "/records"), """
+                {"note": "New baffle, fitted", "cost": "12.50"}
+                """)).hasStatus(HttpStatus.CREATED);
+        LocalDate today = LocalDate.now(ZoneId.of("America/Chicago"));
+
+        MvcTestResult csv = mvc.get().uri(path("/maintenance/records/export?from={from}&to={to}"), today.minusDays(1),
+                today.plusDays(1)).with(owner.token()).exchange();
+        assertThat(csv).hasStatusOk().hasContentType("text/csv;charset=UTF-8");
+        assertThat(csv.getResponse().getContentAsString().lines().toList()).containsExactly(
+                "Date,Asset,Task,Note,Cost,Checked,At firing,Done by",
+                today + ",Sink trap,Empty the trap,'=1+1 half full,,Scoop; Wipe,,Olive",
+                today + ",Sink trap,Repair or other work,\"New baffle, fitted\",12.50,,,Olive");
+
+        // Nothing outside the range, a backwards range is refused, and members can't export
+        assertThat(mvc.get().uri(path("/maintenance/records/export?from={from}&to={to}"), today.plusDays(2),
+                today.plusDays(3)).with(owner.token()).exchange().getResponse().getContentAsString().lines())
+                .hasSize(1);
+        assertThat(mvc.get().uri(path("/maintenance/records/export?from={from}&to={to}"), today, today.minusDays(1))
+                .with(owner.token())).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(mvc.get().uri(path("/maintenance/records/export?from={from}&to={to}"), today, today)
+                .with(monitor.token())).hasStatus(HttpStatus.FORBIDDEN);
     }
 
     /** One field of a task, as the asset list reports it now. */

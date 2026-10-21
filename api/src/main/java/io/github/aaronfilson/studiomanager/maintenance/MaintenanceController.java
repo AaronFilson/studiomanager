@@ -2,7 +2,9 @@ package io.github.aaronfilson.studiomanager.maintenance;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,12 +18,16 @@ import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.RecordRepairRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SaveAssetRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SaveMaintenanceTaskRequestDto;
+import io.github.aaronfilson.studiomanager.contract.SuggestedMaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateAssetRequestDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
+import io.github.aaronfilson.studiomanager.studio.StudioService;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,9 +36,11 @@ import org.springframework.web.bind.annotation.RestController;
 class MaintenanceController implements MaintenanceApi {
 
     private final MaintenanceService maintenance;
+    private final StudioService studios;
 
-    MaintenanceController(MaintenanceService maintenance) {
+    MaintenanceController(MaintenanceService maintenance, StudioService studios) {
         this.maintenance = maintenance;
+        this.studios = studios;
     }
 
     @Override
@@ -115,6 +123,30 @@ class MaintenanceController implements MaintenanceApi {
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<List<MaintenanceRecordDto>> listMaintenanceRecords(UUID studioId, UUID assetId) {
         return ResponseEntity.ok(maintenance.records(assetId).stream().map(MaintenanceDtos::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<List<SuggestedMaintenanceTaskDto>> listSuggestedMaintenanceTasks(UUID studioId, UUID assetId) {
+        return ResponseEntity.ok(maintenance.suggestions(assetId).stream()
+                .map(s -> new SuggestedMaintenanceTaskDto()
+                        .task(new SaveMaintenanceTaskRequestDto()
+                                .title(s.task().title())
+                                .checklist(s.task().checklist())
+                                .everyDays(s.task().everyDays())
+                                .everyFirings(s.task().everyFirings()))
+                        .source(s.source()))
+                .toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<String> exportMaintenanceRecords(LocalDate from, LocalDate to, UUID studioId) {
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"maintenance-%s-to-%s.csv\"".formatted(from, to))
+                .body(maintenance.recordsCsv(from, to, studios.current().timeZone()));
     }
 
     @Override

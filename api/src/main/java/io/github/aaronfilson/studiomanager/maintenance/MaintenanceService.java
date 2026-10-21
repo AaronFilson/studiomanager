@@ -5,7 +5,9 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -13,6 +15,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +33,7 @@ import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
+import io.github.aaronfilson.studiomanager.platform.Csv;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -316,6 +320,59 @@ public class MaintenanceService {
                 .map(r -> new Record(r.id(), r.assetId(), r.taskId(), r.taskTitle(), r.note(), r.cost(), r.checked(),
                         r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt()))
                 .toList();
+    }
+
+    /** Published tasks for this kind of asset that it doesn't have yet (matched by title). */
+    @Transactional(readOnly = true)
+    public List<StarterTasks.Suggestion> suggestions(UUID assetId) {
+        AssetRow asset = assetRow(assetId);
+        Set<String> existing = jdbc.sql("select lower(title) from maintenance_task where asset_id = :id and not archived")
+                .param("id", assetId).query(String.class).set();
+        KilnView kiln = asset.kilnId() == null ? null : kilns.get(asset.kilnId());
+        return StarterTasks.forKind(asset.kind(), kiln == null ? null : kiln.kind()).stream()
+                .filter(s -> !existing.contains(s.task().title().toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
+    /**
+     * Every record done on or between two dates in the studio's time zone, oldest first, as CSV:
+     * the history an insurer or landlord asks for.
+     */
+    @Transactional(readOnly = true)
+    public String recordsCsv(LocalDate from, LocalDate to, ZoneId zone) {
+        if (to.isBefore(from) || from.plusYears(10).isBefore(to)) {
+            throw new InvalidInputException("Choose a range of up to ten years, with 'from' on or before 'to'.");
+        }
+        Map<UUID, String> assetNames = assets(now()).stream().collect(Collectors.toMap(Asset::id, Asset::name));
+        record Row(UUID assetId, @Nullable String archivedName, @Nullable String taskTitle, @Nullable String note,
+                @Nullable BigDecimal cost, List<String> checked, @Nullable Integer atFiring, UUID doneBy,
+                Instant doneAt) {
+        }
+        List<Row> rows = jdbc.sql("""
+                select r.asset_id, a.name, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
+                from maintenance_record r
+                join asset a on a.id = r.asset_id
+                left join maintenance_task t on t.id = r.task_id
+                where r.done_at >= :from and r.done_at < :to
+                order by r.done_at, r.id
+                """)
+                .param("from", utc(from.atStartOfDay(zone).toInstant()))
+                .param("to", utc(to.plusDays(1).atStartOfDay(zone).toInstant()))
+                .query((rs, n) -> new Row(rs.getObject("asset_id", UUID.class), rs.getString("name"),
+                        rs.getString("title"), rs.getString("note"), rs.getBigDecimal("cost"),
+                        strings(rs.getArray("checked")), rs.getObject("at_firing", Integer.class),
+                        rs.getObject("done_by", UUID.class), rs.getObject("done_at", OffsetDateTime.class).toInstant()))
+                .list();
+        Map<UUID, String> names = accounts.displayNames(rows.stream().map(Row::doneBy).toList());
+        Csv csv = new Csv().row(List.of("Date", "Asset", "Task", "Note", "Cost", "Checked", "At firing", "Done by"));
+        for (Row row : rows) {
+            // Archived assets keep their records; a kiln's name lives on the kiln
+            String asset = assetNames.getOrDefault(row.assetId(), row.archivedName() == null ? "Kiln" : row.archivedName());
+            csv.row(Arrays.asList(row.doneAt().atZone(zone).toLocalDate().toString(), asset,
+                    row.taskTitle() == null ? "Repair or other work" : row.taskTitle(), row.note(), row.cost(),
+                    String.join("; ", row.checked()), row.atFiring(), names.get(row.doneBy())));
+        }
+        return csv.toString();
     }
 
     /**

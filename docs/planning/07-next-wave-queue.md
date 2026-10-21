@@ -49,3 +49,8 @@ Updated as each item lands.
   per cycle (by email through the outbox) when it first shows as due soon or due. It goes to the
   named assignee, else every holder of the duty, else the staff. Completing a task starts a new
   cycle. A new SECURITY DEFINER function finds the studios (ADR 10); the rest runs under RLS.
+- **6. Suggested tasks and history CSV:** done 2026-10-21. Suggestions are offered, not created:
+  each asset lists the published tasks for its kind that it doesn't have yet, each with its
+  source (L&L for electric kilns, OSHA for extinguishers, ANSI for eyewash, NRCA for roofs, and
+  studio practice for the clay trap). Wheels, pug mills and the like get none: nothing is
+  published for them. The history export covers every asset between two dates.

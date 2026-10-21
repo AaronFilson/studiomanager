@@ -503,6 +503,14 @@ export type SaveMaintenanceTaskRequest = {
     assignedTo?: string;
 };
 
+export type SuggestedMaintenanceTask = {
+    task: SaveMaintenanceTaskRequest;
+    /**
+     * Where the interval comes from, such as the kiln maker or a regulation.
+     */
+    source: string;
+};
+
 export type UpdateMaintenanceTaskRequest = {
     task: SaveMaintenanceTaskRequest;
     expectedVersion: number;
@@ -2412,6 +2420,86 @@ export type RecordRepairResponses = {
 };
 
 export type RecordRepairResponse = RecordRepairResponses[keyof RecordRepairResponses];
+
+export type ListSuggestedMaintenanceTasksData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/suggested-tasks';
+};
+
+export type ListSuggestedMaintenanceTasksErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ListSuggestedMaintenanceTasksError = ListSuggestedMaintenanceTasksErrors[keyof ListSuggestedMaintenanceTasksErrors];
+
+export type ListSuggestedMaintenanceTasksResponses = {
+    /**
+     * Suggestions; empty for kinds with no published schedule.
+     */
+    200: Array<SuggestedMaintenanceTask>;
+};
+
+export type ListSuggestedMaintenanceTasksResponse = ListSuggestedMaintenanceTasksResponses[keyof ListSuggestedMaintenanceTasksResponses];
+
+export type ExportMaintenanceRecordsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/v1/studios/{studioId}/maintenance/records/export';
+};
+
+export type ExportMaintenanceRecordsErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ExportMaintenanceRecordsError = ExportMaintenanceRecordsErrors[keyof ExportMaintenanceRecordsErrors];
+
+export type ExportMaintenanceRecordsResponses = {
+    /**
+     * One row per record.
+     */
+    200: string;
+};
+
+export type ExportMaintenanceRecordsResponse = ExportMaintenanceRecordsResponses[keyof ExportMaintenanceRecordsResponses];
 
 export type ArchiveMaintenanceTaskData = {
     body?: never;
