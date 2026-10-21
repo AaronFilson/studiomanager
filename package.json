@@ -1,7 +1,7 @@
 {
   "name": "studiomanager",
   "private": true,
-  "description": "Studio Manager monorepo: JavaScript workspace (web, shared packages). The API lives in /api (Gradle).",
+  "description": "Studio Manager monorepo: JavaScript workspace (web, mobile, shared packages). The API lives in /api (Gradle).",
   "license": "MIT",
   "packageManager": "pnpm@12.14.0",
   "engines": {
@@ -13,6 +13,7 @@
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test",
     "build": "pnpm -r run build",
-    "dev": "pnpm --filter @studiomanager/web run dev"
+    "dev": "pnpm --filter @studiomanager/web run dev",
+    "mobile": "pnpm --filter @studiomanager/mobile run start"
   }
 }

@@ -1,4 +1,10 @@
 packages:
   - web
+  - mobile
   - packages/*
-  # The Expo app (`mobile`) joins the workspace in M1 and reuses @studiomanager/api-client.
+
+# Dependency install scripts run only when listed true here. Both of these come in through the
+# Expo toolchain and ship prebuilt binaries per platform; their scripts only build from source.
+allowBuilds:
+  '@parcel/watcher': false
+  unrs-resolver: false

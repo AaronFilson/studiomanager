@@ -49,7 +49,7 @@ jobs:
           retention-days: 7
 
   web:
-    name: Web and API client
+    name: Web, mobile and API client
     runs-on: ubuntu-latest
     permissions:
       contents: read

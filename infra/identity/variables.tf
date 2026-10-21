@@ -14,6 +14,12 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "mobile_redirect_uri" {
+  description = "Where sign-in returns to the mobile app: its URL scheme (app.config.ts) plus /auth."
+  type        = string
+  default     = "studiomanager://auth"
+}
+
 variable "web_origins" {
   description = "Origins the SPA is served from, without a trailing slash; each is registered as the redirect URI `<origin>/`. Add the Static Web App origin (https://<default-host-name>) after the first envs/<env> apply."
   type        = list(string)

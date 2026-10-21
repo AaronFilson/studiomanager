@@ -82,4 +82,12 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
     and reported.
   - "Waiting to join" lists open invites, with resend (a new code and a fresh 14 days) and withdraw.
   - The plain code is made when the email is sent, and never stored (V11, `InviteEmails`).
-- **3. Mobile app:** next.
+- **3. Mobile app: first version done (2026-10-20).** See [mobile/README.md](../../mobile/README.md).
+  - Expo SDK 58 (React Native 0.88) with Expo Router, in the pnpm workspace, on the shared API client.
+  - Covers sign-in (Entra External ID, PKCE, refresh token in the keychain), my pieces, the
+    shelf for staff with stage moves, drop-off, and notices.
+  - A new Entra registration for the app is in `infra/identity`.
+  - CI typechecks, lints, tests it and bundles it with Metro. It hasn't been run on a device yet:
+    that needs a development build on an emulator or phone.
+  - Waiting on item 4: camera intake and photos. Waiting on a decision: push notifications.
+- **4. Piece photos:** next.
