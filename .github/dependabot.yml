@@ -1,0 +1,51 @@
+# Weekly update PRs, grouped so a week's minor and patch bumps arrive as one PR per ecosystem.
+# Majors come one by one: they are the ones that need reading.
+#
+# The cooldown holds back versions younger than a week, as pnpm's minimum release age already
+# does for installs: most malicious releases are caught and pulled within days.
+version: 2
+
+updates:
+  - package-ecosystem: gradle
+    directory: /api
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    groups:
+      gradle-minor-and-patch:
+        update-types: [minor, patch]
+
+  # pnpm workspace: web, mobile and the API client share one lockfile at the root
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Expo pins React Native and its native modules to each SDK; move them with `expo install`
+      # when upgrading the SDK, not one by one
+      - dependency-name: react-native
+      - dependency-name: "expo*"
+      - dependency-name: "@expo/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /api
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+
+  - package-ecosystem: terraform
+    directories: [/infra/bootstrap, /infra/identity, /infra/envs/dev]
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7 }
+    groups:
+      terraform-providers:
+        patterns: ["*"]
