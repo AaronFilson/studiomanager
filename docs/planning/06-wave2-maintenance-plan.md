@@ -42,7 +42,8 @@ hardening, pilot kit, first deploy) are still to do; this runs alongside them._
 ## Next slices
 
 - A daily reminder email to the assignee, once per due cycle, through the outbox.
-- Photos on records (after P1 item 4), and spare parts used, drawn from supplies.
+- Photos on records (P1 item 4 is done, so `BlobStore` and its upload flow are there to reuse),
+  and spare parts used, drawn from supplies.
 - History as CSV, and starter tasks when an asset is added (L&L's 1/10/30 firings, a weekly trap
   check, a monthly extinguisher check).
 - A down asset blocking calendar bookings, and "my tasks" in the mobile app.

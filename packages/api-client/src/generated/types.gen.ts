@@ -268,6 +268,37 @@ export type PieceEvent = {
     occurredAt: string;
 };
 
+export type PiecePhoto = {
+    id: string;
+    /**
+     * The photo, readable for at least an hour without a bearer token. The URL stays the
+     * same within each hour, so it caches.
+     *
+     */
+    url: string;
+    /**
+     * A small version for lists, readable like `url`.
+     */
+    thumbnailUrl: string;
+    uploadedByAccountId: string;
+    uploadedAt: string;
+};
+
+export type PhotoUpload = {
+    photoId: string;
+    /**
+     * `PUT` the photo here, as a JPEG.
+     */
+    photoUploadUrl: string;
+    /**
+     * `PUT` the thumbnail here, as a JPEG.
+     */
+    thumbnailUploadUrl: string;
+    expiresAt: string;
+    maxPhotoBytes: number;
+    maxThumbnailBytes: number;
+};
+
 export type Piece = {
     id: string;
     /**
@@ -300,6 +331,10 @@ export type Piece = {
      * Send back as `expectedVersion` when moving the piece.
      */
     version: number;
+    /**
+     * Oldest first. Lists carry only the first photo; fetching one piece gives them all.
+     */
+    photos: Array<PiecePhoto>;
     /**
      * Empty in lists; filled when fetching one piece.
      */
@@ -998,6 +1033,8 @@ export type TaskId = string;
 export type InviteId = string;
 
 export type PieceId = string;
+
+export type PhotoId = string;
 
 export type KilnId = string;
 
@@ -1710,6 +1747,137 @@ export type MovePieceResponses = {
 };
 
 export type MovePieceResponse = MovePieceResponses[keyof MovePieceResponses];
+
+export type StartPhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        pieceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos';
+};
+
+export type StartPhotoUploadErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type StartPhotoUploadError = StartPhotoUploadErrors[keyof StartPhotoUploadErrors];
+
+export type StartPhotoUploadResponses = {
+    /**
+     * Where to upload. The URLs expire after 15 minutes and can each be used once.
+     */
+    201: PhotoUpload;
+};
+
+export type StartPhotoUploadResponse = StartPhotoUploadResponses[keyof StartPhotoUploadResponses];
+
+export type CompletePhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        pieceId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}/complete';
+};
+
+export type CompletePhotoUploadErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CompletePhotoUploadError = CompletePhotoUploadErrors[keyof CompletePhotoUploadErrors];
+
+export type CompletePhotoUploadResponses = {
+    /**
+     * The piece, with the new photo.
+     */
+    200: Piece;
+};
+
+export type CompletePhotoUploadResponse = CompletePhotoUploadResponses[keyof CompletePhotoUploadResponses];
+
+export type DeletePhotoData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        pieceId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}';
+};
+
+export type DeletePhotoErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type DeletePhotoError = DeletePhotoErrors[keyof DeletePhotoErrors];
+
+export type DeletePhotoResponses = {
+    /**
+     * Removed.
+     */
+    204: void;
+};
+
+export type DeletePhotoResponse = DeletePhotoResponses[keyof DeletePhotoResponses];
 
 export type ListKilnsData = {
     body?: never;

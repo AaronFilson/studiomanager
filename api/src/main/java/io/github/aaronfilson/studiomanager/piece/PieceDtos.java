@@ -7,6 +7,7 @@ import io.github.aaronfilson.studiomanager.contract.MoneyDto;
 import io.github.aaronfilson.studiomanager.contract.PieceDto;
 import io.github.aaronfilson.studiomanager.contract.PieceEventDto;
 import io.github.aaronfilson.studiomanager.contract.PieceFeeDto;
+import io.github.aaronfilson.studiomanager.contract.PiecePhotoDto;
 import io.github.aaronfilson.studiomanager.contract.PieceStageDto;
 import io.github.aaronfilson.studiomanager.firing.PieceSizes;
 
@@ -40,6 +41,14 @@ public final class PieceDtos {
                 .overdue(piece.overdue(now))
                 .nextStages(piece.stage().next().stream().map(stage -> PieceStageDto.valueOf(stage.name())).toList())
                 .version(piece.version())
+                .photos(piece.photos().stream()
+                        .map(photo -> new PiecePhotoDto()
+                                .id(photo.id())
+                                .url(photo.url())
+                                .thumbnailUrl(photo.thumbnailUrl())
+                                .uploadedByAccountId(photo.uploadedBy())
+                                .uploadedAt(photo.uploadedAt().atOffset(ZoneOffset.UTC)))
+                        .toList())
                 .timeline(piece.timeline().stream()
                         .map(event -> new PieceEventDto()
                                 .from(event.from() == null ? null : PieceStageDto.valueOf(event.from().name()))

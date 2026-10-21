@@ -1,4 +1,4 @@
-# Local development database: `docker compose up -d`, then run the API with no extra settings.
+# Local development database and photo storage: `docker compose up -d`, then run the API with no extra settings.
 # The init script creates the application's login (studiomanager_app, a member of app_rw);
 # Flyway migrates as the owner (studiomanager). See api/src/main/resources/application.yaml.
 services:
@@ -20,5 +20,15 @@ services:
       timeout: 3s
       retries: 10
 
+  # Blob Storage for piece photos. The API creates the container and allows browser uploads on startup.
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck --location /data
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite-data:/data
+
 volumes:
   postgres-data:
+  azurite-data:

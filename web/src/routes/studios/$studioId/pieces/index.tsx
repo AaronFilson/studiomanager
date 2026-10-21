@@ -78,7 +78,15 @@ function PieceTable({ pieces, studioId, showMaker }: { pieces: Piece[]; studioId
               </Link>
             </td>
             {showMaker && <td>{piece.makerName ?? 'Unnamed member'}</td>}
-            <td>{piece.description ?? piece.makerMark ?? '—'}</td>
+            <td>
+              <div className="piece-cell">
+                {piece.photos[0] && (
+                  // Decorative: the description next to it says which piece it is
+                  <img className="thumb" src={piece.photos[0].thumbnailUrl} alt="" width={48} height={48} loading="lazy" />
+                )}
+                {piece.description ?? piece.makerMark ?? '—'}
+              </div>
+            </td>
             <td>
               {stageLabel(piece.stage)}
               {piece.overdue && <span className="badge warning"> past hold</span>}

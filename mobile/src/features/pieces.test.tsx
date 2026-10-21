@@ -1,11 +1,36 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { pickPhoto } from '../photos';
 import { aPiece, renderWithQueries, stubApi } from '../test/api';
 import { IntakeForm } from './IntakeForm';
 import { PieceDetail } from './PieceDetail';
 import { PieceList } from './PieceList';
 
+// No camera in tests: stand in for taking and shrinking a photo
+jest.mock('../photos', () => ({
+  pickPhoto: jest.fn(() =>
+    Promise.resolve({ photo: new Blob(['full']), thumbnail: new Blob(['thumb']), previewUri: 'file:///thumb.jpg' }),
+  ),
+}));
+
 const studioId = 's1';
+
+const photo = {
+  id: 'ph1',
+  url: 'http://blob.test/full.jpg?sig=r',
+  thumbnailUrl: 'http://blob.test/thumb.jpg?sig=r',
+  uploadedByAccountId: 'a1',
+  uploadedAt: '2026-10-20T15:00:00Z',
+};
+
+const upload = {
+  photoId: 'ph1',
+  photoUploadUrl: 'http://blob.test/full.jpg?sig=w',
+  thumbnailUploadUrl: 'http://blob.test/thumb.jpg?sig=w',
+  expiresAt: '2026-10-20T15:15:00Z',
+  maxPhotoBytes: 8388608,
+  maxThumbnailBytes: 524288,
+};
 
 describe('pieces', () => {
   it("lists a member's pieces with their stage and pickup date, and opens one", async () => {
@@ -88,6 +113,74 @@ describe('pieces', () => {
       description: 'Teapot',
       size: { dimensions: { length: '8', width: '6', height: '7.5', unit: 'INCH' } },
     });
+  });
+
+  it('adds a photo taken at drop-off once the piece is in, uploading straight to storage', async () => {
+    const calls = stubApi({
+      'POST /api/v1/studios/:studioId/pieces': aPiece({ id: 'p9', number: 57 }),
+      'POST /api/v1/studios/:studioId/pieces/:pieceId/photos': upload,
+      'PUT /full.jpg': null,
+      'PUT /thumb.jpg': null,
+      'POST /api/v1/studios/:studioId/pieces/:pieceId/photos/:photoId/complete': aPiece({ photos: [photo] }),
+    });
+
+    await renderWithQueries(<IntakeForm studioId={studioId} unitSystem="METRIC" staff={false} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Take a photo' }));
+    expect(await screen.findByLabelText('The photo to add')).toBeOnTheScreen();
+    expect(pickPhoto).toHaveBeenCalledWith('camera');
+    await fireEvent.press(screen.getByRole('button', { name: 'Take in piece' }));
+
+    expect(await screen.findByText('Write 57 on its label.')).toBeOnTheScreen();
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(
+      expect.arrayContaining([
+        'POST /api/v1/studios/s1/pieces/p9/photos',
+        'PUT /full.jpg',
+        'PUT /thumb.jpg',
+        'POST /api/v1/studios/s1/pieces/p9/photos/ph1/complete',
+      ]),
+    );
+  });
+
+  it("keeps the piece when its photo doesn't upload, and says so", async () => {
+    stubApi({
+      'POST /api/v1/studios/:studioId/pieces': aPiece({ id: 'p9', number: 57 }),
+      'POST /api/v1/studios/:studioId/pieces/:pieceId/photos': () => {
+        throw new Error('offline');
+      },
+    });
+
+    await renderWithQueries(<IntakeForm studioId={studioId} unitSystem="METRIC" staff={false} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Take a photo' }));
+    await screen.findByLabelText('The photo to add');
+    await fireEvent.press(screen.getByRole('button', { name: 'Take in piece' }));
+
+    expect(await screen.findByText('Write 57 on its label.')).toBeOnTheScreen();
+    expect(screen.getByText(/its photo didn't upload/)).toBeOnTheScreen();
+  });
+
+  it("shows a piece's photos, with a thumbnail on the shelf, and removes one", async () => {
+    const calls = stubApi({
+      'GET /api/v1/studios/:studioId/pieces/:pieceId': aPiece({ photos: [photo] }),
+      'DELETE /api/v1/studios/:studioId/pieces/:pieceId/photos/:photoId': null,
+    });
+
+    await renderWithQueries(<PieceDetail studioId={studioId} pieceId="p1" staff={false} />);
+    expect(await screen.findByLabelText('Photo 1 of piece 42')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove photo 1' }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual(
+        expect.objectContaining({ method: 'DELETE', path: '/api/v1/studios/s1/pieces/p1/photos/ph1' }),
+      ),
+    );
+  });
+
+  it('shows the first photo as a thumbnail on the shelf', async () => {
+    stubApi({ 'GET /api/v1/studios/:studioId/pieces': [aPiece({ photos: [photo] })] });
+
+    await renderWithQueries(<PieceList studioId={studioId} staff onOpen={jest.fn()} />);
+
+    expect(await screen.findByTestId('thumbnail')).toHaveProp('source', { uri: photo.thumbnailUrl });
   });
 
   it('holds back a half-entered size', async () => {

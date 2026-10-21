@@ -511,6 +511,89 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/pieces/{pieceId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+    post:
+      tags: [pieces]
+      operationId: startPhotoUpload
+      summary: Start adding a photo to a piece
+      description: |
+        Returns two signed URLs, one for the photo and one for its thumbnail. Upload each as a
+        JPEG straight to storage with `PUT`, the headers `x-ms-blob-type: BlockBlob` and
+        `Content-Type: image/jpeg`, and no bearer token. Then call `completePhotoUpload`.
+        Shrink the image first (a 1600-pixel long edge for the photo and 320 for the thumbnail
+        suit a shelf), which also drops the location the camera stored in it.
+
+        Anyone who can see the piece can add photos, up to 6 a piece.
+      responses:
+        "201":
+          description: Where to upload. The URLs expire after 15 minutes and can each be used once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+      - $ref: "#/components/parameters/PhotoId"
+    post:
+      tags: [pieces]
+      operationId: completePhotoUpload
+      summary: Finish adding a photo, once both images are uploaded
+      description: |
+        Checks that both images arrived, are JPEGs and are within the size limits, then shows
+        the photo on the piece. Calling it again for a finished photo changes nothing. An upload
+        that is never finished is removed after a day.
+      responses:
+        "200":
+          description: The piece, with the new photo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Piece"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+      - $ref: "#/components/parameters/PhotoId"
+    delete:
+      tags: [pieces]
+      operationId: deletePhoto
+      summary: Remove a photo from a piece
+      description: Anyone who can see the piece can remove its photos.
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/kilns:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -2272,6 +2355,13 @@ components:
       schema:
         type: string
         format: uuid
+    PhotoId:
+      name: photoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     KilnId:
       name: kilnId
       in: path
@@ -2781,9 +2871,58 @@ components:
           type: string
           format: date-time
 
+    PiecePhoto:
+      type: object
+      required: [id, url, thumbnailUrl, uploadedByAccountId, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          description: |
+            The photo, readable for at least an hour without a bearer token. The URL stays the
+            same within each hour, so it caches.
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: A small version for lists, readable like `url`.
+        uploadedByAccountId:
+          type: string
+          format: uuid
+        uploadedAt:
+          type: string
+          format: date-time
+
+    PhotoUpload:
+      type: object
+      required: [photoId, photoUploadUrl, thumbnailUploadUrl, expiresAt, maxPhotoBytes, maxThumbnailBytes]
+      properties:
+        photoId:
+          type: string
+          format: uuid
+        photoUploadUrl:
+          type: string
+          format: uri
+          description: "`PUT` the photo here, as a JPEG."
+        thumbnailUploadUrl:
+          type: string
+          format: uri
+          description: "`PUT` the thumbnail here, as a JPEG."
+        expiresAt:
+          type: string
+          format: date-time
+        maxPhotoBytes:
+          type: integer
+          format: int32
+        maxThumbnailBytes:
+          type: integer
+          format: int32
+
     Piece:
       type: object
-      required: [id, number, makerAccountId, size, stage, fee, receivedAt, overdue, nextStages, version, timeline]
+      required: [id, number, makerAccountId, size, stage, fee, receivedAt, overdue, nextStages, version, photos, timeline]
       properties:
         id:
           type: string
@@ -2831,6 +2970,11 @@ components:
           type: integer
           format: int64
           description: Send back as `expectedVersion` when moving the piece.
+        photos:
+          type: array
+          description: Oldest first. Lists carry only the first photo; fetching one piece gives them all.
+          items:
+            $ref: "#/components/schemas/PiecePhoto"
         timeline:
           type: array
           description: Empty in lists; filled when fetching one piece.

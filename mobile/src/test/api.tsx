@@ -35,7 +35,7 @@ export function stubApi(routes: Record<string, Handler | object | null>): Call[]
       method: request.method,
       path: url.pathname,
       query: url.search,
-      body: text ? (JSON.parse(text) as unknown) : undefined,
+      body: text ? parse(text) : undefined,
     };
     calls.push(call);
     const match = matchers.find((m) => m.method === call.method && m.regex.test(call.path));
@@ -48,6 +48,15 @@ export function stubApi(routes: Record<string, Handler | object | null>): Call[]
   }) as typeof fetch;
   configureApiClient({ baseUrl: API, getAccessToken: () => Promise.resolve('test-token') });
   return calls;
+}
+
+/** JSON for API calls; uploaded images stay as their text. */
+function parse(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
 }
 
 export async function renderWithQueries(ui: ReactElement) {
@@ -72,6 +81,7 @@ export function aPiece(overrides: Partial<Piece> = {}): Piece {
     overdue: false,
     nextStages: ['BISQUE_FIRED'],
     version: 3,
+    photos: [],
     timeline: [{ to: 'RECEIVED', actorName: 'Mo Maker', occurredAt: '2026-10-19T15:00:00Z' }],
     ...overrides,
   };

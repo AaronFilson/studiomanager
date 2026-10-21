@@ -89,8 +89,18 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
   - A new Entra registration for the app is in `infra/identity`.
   - CI typechecks, lints, tests it and bundles it with Metro. It hasn't been run on a device yet:
     that needs a development build on an emulator or phone.
-  - Waiting on item 4: camera intake and photos. Waiting on a decision: push notifications.
-- **4. Piece photos:** next in P1.
+  - Camera intake and photos came with item 4. Waiting on a decision: push notifications.
+- **4. Piece photos: first version done (2026-10-20).** See [ADR 12](../adr/0012-direct-to-blob-photo-uploads.md).
+  - Up to 6 photos a piece. The web and the phone shrink each image to a JPEG photo and
+    thumbnail, then upload both straight to Blob Storage with create-only SAS URLs. The API checks
+    them before they show (V13).
+  - The shelf shows each piece's first photo as a thumbnail; the piece page shows them all.
+  - The phone can photograph a piece at drop-off; the photo is added once the piece is in.
+  - Azurite runs in `compose.yaml` and in the integration tests. Azure signs with a
+    user-delegation key from the API's managed identity; the storage account, container, CORS
+    and role were already in Terraform.
+  - Not yet run on a device or against real Azure storage.
+- **5. Hardening:** next in P1.
 
 **Wave 2 started early (2026-10-20)** with maintenance of equipment and the building, the top
 candidate from the [maintenance research](05-maintenance-research.md). See

@@ -1,7 +1,7 @@
 import { listPiecesOptions, type Piece, type PieceStage } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { formatDate, stageLabel } from '../labels';
 import { Badge, Body, Button, Card, ErrorText, Loading } from '../ui';
@@ -55,17 +55,25 @@ function PieceRow({ piece, staff, onOpen }: { piece: Piece; staff: boolean; onOp
       onPress={() => onOpen(piece.id)}
     >
       <Card>
-        <Body>
-          Piece {piece.number}
-          {piece.description ? `: ${piece.description}` : ''}
-        </Body>
-        {staff && piece.makerName && <Body muted>{piece.makerName}</Body>}
-        <View style={styles.badges}>
-          <Badge>{stageLabel(piece.stage)}</Badge>
-          {piece.overdue && <Badge warning>Past its pickup date</Badge>}
-          {piece.stage === 'READY' && piece.holdUntil && !piece.overdue && (
-            <Badge>Collect by {formatDate(piece.holdUntil)}</Badge>
+        <View style={styles.row}>
+          {piece.photos[0] && (
+            // Decorative: the row's label already says which piece it is
+            <Image source={{ uri: piece.photos[0].thumbnailUrl }} style={styles.thumb} accessible={false} testID="thumbnail" />
           )}
+          <View style={styles.text}>
+            <Body>
+              Piece {piece.number}
+              {piece.description ? `: ${piece.description}` : ''}
+            </Body>
+            {staff && piece.makerName && <Body muted>{piece.makerName}</Body>}
+            <View style={styles.badges}>
+              <Badge>{stageLabel(piece.stage)}</Badge>
+              {piece.overdue && <Badge warning>Past its pickup date</Badge>}
+              {piece.stage === 'READY' && piece.holdUntil && !piece.overdue && (
+                <Badge>Collect by {formatDate(piece.holdUntil)}</Badge>
+              )}
+            </View>
+          </View>
         </View>
       </Card>
     </Pressable>
@@ -77,4 +85,7 @@ const styles = StyleSheet.create({
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   items: { gap: 8, paddingBottom: 24 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  text: { flex: 1, gap: 6 },
+  thumb: { width: 56, height: 56, borderRadius: 8 },
 });

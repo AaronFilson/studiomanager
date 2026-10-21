@@ -9,10 +9,16 @@ What it does today:
   Only the refresh token is stored, in the device keychain or keystore (`expo-secure-store`).
 - **Pieces:** members see their own pieces, their stage and when to collect them. Staff see the
   whole shelf, filter it by stage, and move a piece to its next stage.
-- **Drop off:** take in a piece, measured in the studio's units. Staff can name the maker.
+- **Drop off:** take in a piece, measured in the studio's units. Staff can name the maker. A
+  photo taken with the camera here is added once the piece is in.
+- **Photos:** take or choose photos of a piece, up to 6, and remove them. Each is shrunk to a JPEG
+  photo and thumbnail on the phone (`expo-image-manipulator`, which also drops the location) and
+  uploaded straight to Blob Storage (see [ADR 12](../docs/adr/0012-direct-to-blob-photo-uploads.md)).
+  The shelf shows each piece's first photo.
 - **Notices:** the member's inbox, with an unread count on the tab. Opening a notice marks it read.
 
-Not yet: photos and camera intake (P1 item 4, piece photos), and push notifications.
+Not yet: push notifications. The camera needs a development build on a device or emulator; it
+hasn't been tried on one yet.
 
 ## Settings
 

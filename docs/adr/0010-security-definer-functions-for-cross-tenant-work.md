@@ -27,14 +27,17 @@ one thing:
   - Adds the membership for the account bound to the transaction, and returns that studio alone.
 - `app.mark_unclaimed_pieces(now)` moves READY pieces past their hold to UNCLAIMED and writes
   their timeline entries. It changes nothing else.
+- `app.take_abandoned_photo_uploads(before)` (added in V13, ADR 12) deletes photos still pending
+  from before that time and returns their ids, so the sweep can delete their blobs. It touches
+  no finished photo.
 
-Both functions pin `search_path` to `pg_catalog, pg_temp` and schema-qualify every table, so a
-planted object can't hijack them. Both are `REVOKE`d from `PUBLIC` and granted only to `app_rw`.
+All three functions pin `search_path` to `pg_catalog, pg_temp` and schema-qualify every table, so a
+planted object can't hijack them. All are `REVOKE`d from `PUBLIC` and granted only to `app_rw`.
 
 ## Consequences
 
-- The application role still can't read across studios. The only way across is through two
-  audited functions, and the migration is their single definition.
+- The application role still can't read across studios. The only way across is through a few
+  audited functions, and the migrations are their single definition.
 - A new cross-tenant need means a new function and a review, not a quiet `BYPASSRLS`.
 - Because the API scales to zero, the sweep runs only while an instance is up. Pieces past their
   hold are also flagged `overdue` when read, so correctness doesn't depend on when the sweep runs.

@@ -12,6 +12,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Currency;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import io.github.aaronfilson.studiomanager.platform.measure.Length;
 import io.github.aaronfilson.studiomanager.platform.measure.LengthUnit;
 import io.github.aaronfilson.studiomanager.platform.measure.Weight;
 import io.github.aaronfilson.studiomanager.platform.measure.WeightUnit;
+import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
@@ -65,15 +67,17 @@ public class PieceService {
     private final StudioService studios;
     private final StudioMembers members;
     private final AccountDirectory accounts;
+    private final BlobStore blobs;
     private final ApplicationEventPublisher events;
 
     PieceService(JdbcClient jdbc, FeeService fees, StudioService studios, StudioMembers members,
-            AccountDirectory accounts, ApplicationEventPublisher events) {
+            AccountDirectory accounts, BlobStore blobs, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.fees = fees;
         this.studios = studios;
         this.members = members;
         this.accounts = accounts;
+        this.blobs = blobs;
         this.events = events;
     }
 
@@ -149,7 +153,7 @@ public class PieceService {
                 .param("stage", stage == null ? null : stage.name())
                 .param("maker", makerFilter)
                 .query(PieceService::mapPiece).list();
-        return withNames(pieces, List.of());
+        return withDetails(pieces, List.of(), false);
     }
 
     /** One piece and its timeline. A member asking for someone else's piece gets a 404. */
@@ -171,7 +175,7 @@ public class PieceService {
                         rs.getObject("actor_account_id", UUID.class), null,
                         instant(rs, "occurred_at")))
                 .list();
-        return withNames(List.of(piece), timeline).getFirst();
+        return withDetails(List.of(piece), timeline, true).getFirst();
     }
 
     /**
@@ -231,7 +235,7 @@ public class PieceService {
                 .param("stage", stage.name())
                 .query((rs, row) -> new WaitingPiece(mapPiece(rs, row), instant(rs, "since")))
                 .list();
-        List<PieceView> named = withNames(waiting.stream().map(WaitingPiece::piece).toList(), List.of());
+        List<PieceView> named = withDetails(waiting.stream().map(WaitingPiece::piece).toList(), List.of(), false);
         List<WaitingPiece> result = new ArrayList<>(waiting.size());
         for (int i = 0; i < waiting.size(); i++) {
             result.add(new WaitingPiece(named.get(i), waiting.get(i).since()));
@@ -276,7 +280,7 @@ public class PieceService {
         List<PieceView> pieces = jdbc.sql(SELECT_PIECE + "where id = any(:ids) order by number")
                 .param("ids", pieceIds.toArray(UUID[]::new))
                 .query(PieceService::mapPiece).list();
-        return withNames(pieces, List.of());
+        return withDetails(pieces, List.of(), false);
     }
 
     /** How many pieces are in each stage, and how many ready pieces are past their hold. */
@@ -352,7 +356,12 @@ public class PieceService {
                 .update();
     }
 
-    private List<PieceView> withNames(List<PieceView> pieces, List<PieceView.Event> timeline) {
+    /**
+     * Adds what the piece rows don't carry: people's names, and photos with signed URLs. With
+     * {@code allPhotos} false, each piece gets only its first photo, which keeps long lists small.
+     */
+    private List<PieceView> withDetails(List<PieceView> pieces, List<PieceView.Event> timeline, boolean allPhotos) {
+        Map<UUID, List<PieceView.Photo>> photos = photosOf(pieces, allPhotos);
         Set<UUID> ids = new HashSet<>();
         pieces.forEach(piece -> ids.add(piece.makerAccountId()));
         timeline.forEach(event -> {
@@ -370,9 +379,35 @@ public class PieceService {
             named.add(new PieceView(p.id(), p.number(), p.makerAccountId(), names.get(p.makerAccountId()),
                     p.description(), p.clayBody(), p.makerMark(), p.size(), p.stage(), p.fee(),
                     p.feeScheduleVersion(), p.feeTaxCategory(), p.feeBreakdown(), p.receivedAt(), p.readyAt(),
-                    p.holdUntil(), p.version(), namedTimeline));
+                    p.holdUntil(), p.version(), photos.getOrDefault(p.id(), List.of()), namedTimeline));
         }
         return named;
+    }
+
+    private Map<UUID, List<PieceView.Photo>> photosOf(List<PieceView> pieces, boolean all) {
+        if (pieces.isEmpty()) {
+            return Map.of();
+        }
+        UUID studioId = TenantContext.require().studioId();
+        Map<UUID, List<PieceView.Photo>> byPiece = new HashMap<>();
+        jdbc.sql("""
+                select %s id, piece_id, uploaded_by, ready_at
+                from piece_photo
+                where piece_id = any(:ids) and status = 'READY'
+                order by piece_id, created_at, id
+                """.formatted(all ? "" : "distinct on (piece_id)"))
+                .param("ids", pieces.stream().map(PieceView::id).toArray(UUID[]::new))
+                .query((rs, row) -> {
+                    UUID pieceId = rs.getObject("piece_id", UUID.class);
+                    UUID photoId = rs.getObject("id", UUID.class);
+                    return Map.entry(pieceId, new PieceView.Photo(photoId,
+                            blobs.readUrl(PhotoBlobs.full(studioId, pieceId, photoId), PhotoBlobs.CONTENT_TYPE),
+                            blobs.readUrl(PhotoBlobs.thumbnail(studioId, pieceId, photoId), PhotoBlobs.CONTENT_TYPE),
+                            rs.getObject("uploaded_by", UUID.class), instant(rs, "ready_at")));
+                })
+                .list()
+                .forEach(e -> byPiece.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(e.getValue()));
+        return byPiece;
     }
 
     private static PieceView mapPiece(ResultSet rs, int row) throws SQLException {
@@ -389,7 +424,7 @@ public class PieceService {
                 new Money(rs.getBigDecimal("fee_amount"), Currency.getInstance(rs.getString("fee_currency"))),
                 scheduleVersion, rs.getString("fee_tax_category"),
                 rs.getString("fee_breakdown"), instant(rs, "received_at"), instantOrNull(rs, "ready_at"),
-                instantOrNull(rs, "hold_until"), rs.getLong("version"), List.of());
+                instantOrNull(rs, "hold_until"), rs.getLong("version"), List.of(), List.of());
     }
 
     private static @Nullable Length length(@Nullable BigDecimal value, @Nullable String unit) {

@@ -35,6 +35,8 @@ dependencies {
     // Email through Azure Communication Services, authenticated by the managed identity
     implementation("com.azure:azure-communication-email:1.1.6")
     implementation("com.azure:azure-identity:1.18.7")
+    // Piece photos: the API signs upload and read URLs; the bytes go straight to Blob Storage
+    implementation("com.azure:azure-storage-blob:12.35.2")
     runtimeOnly("org.postgresql:postgresql")
     // Passwordless Postgres on Azure: the JDBC driver gets an Entra token from the managed identity
     runtimeOnly("com.azure:azure-identity-extensions:1.2.10")

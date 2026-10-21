@@ -63,3 +63,9 @@ studiomanager:
     acs-endpoint: ${STUDIOMANAGER_MAIL_ACS_ENDPOINT:}
     # Links in emails point here
     web-origin: ${STUDIOMANAGER_WEB_ORIGIN:http://localhost:5173}
+  storage:
+    # Azure sets the endpoint and the API signs in as its managed identity. Without one, it uses
+    # the connection string: by default, Azurite from compose.yaml with its well-known dev key.
+    blob-endpoint: ${STUDIOMANAGER_STORAGE_BLOB_ENDPOINT:}
+    connection-string: ${STUDIOMANAGER_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;}
+    container: piece-photos

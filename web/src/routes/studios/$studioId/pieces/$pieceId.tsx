@@ -11,6 +11,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../../components/ErrorMessage';
+import { PiecePhotos } from '../../../../components/PiecePhotos';
 import {
   formatDate,
   formatDateTime,
@@ -93,6 +94,8 @@ function PiecePage() {
           {formatMoney(p.fee.amount.amount, p.fee.amount.currency)} <span className="badge">({p.fee.breakdown})</span>
         </dd>
       </dl>
+
+      <PiecePhotos studioId={studioId} piece={p} />
 
       {isStaff(studio.myRole) && p.nextStages.length > 0 && (
         <section className="card stack" aria-labelledby={`${noteId}-title`}>

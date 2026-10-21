@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { formatDate, formatDateTime, formatMoney, stageLabel } from '../labels';
 import { Badge, Body, Button, Card, ErrorText, Loading, Title } from '../ui';
+import { PiecePhotos } from './PiecePhotos';
 
 export function PieceDetail({ studioId, pieceId, staff }: { studioId: string; pieceId: string; staff: boolean }) {
   const piece = useQuery(getPieceOptions({ path: { studioId, pieceId } }));
@@ -22,6 +23,7 @@ export function PieceDetail({ studioId, pieceId, staff }: { studioId: string; pi
       </View>
       <Details piece={piece.data} />
       {staff && <Moves studioId={studioId} piece={piece.data} />}
+      <PiecePhotos studioId={studioId} piece={piece.data} />
       <Title>History</Title>
       {piece.data.timeline.map((event) => (
         <Card key={`${event.occurredAt}-${event.to}`}>

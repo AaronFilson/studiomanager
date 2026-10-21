@@ -5,12 +5,14 @@ import {
   type Piece,
   type PieceSize,
   type UnitSystem,
+  uploadPiecePhoto,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 
 import { defaultUnits, formatMoney, lengthUnitLabel, weightUnitLabel } from '../labels';
+import { pickPhoto, type PreparedPhoto } from '../photos';
 import { Body, Button, Card, ErrorText, Field, Title } from '../ui';
 
 const decimal = /^\d{1,9}(\.\d{1,4})?$/;
@@ -18,6 +20,7 @@ const decimal = /^\d{1,9}(\.\d{1,4})?$/;
 /**
  * Takes in a piece at the shelf. Members drop off their own; staff can name the maker. Fill in
  * the measurements the studio prices by: the bounding box, the weight, or neither for a flat fee.
+ * A photo taken here is added once the piece is in.
  */
 export function IntakeForm({
   studioId,
@@ -40,6 +43,14 @@ export function IntakeForm({
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
+  const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
+  const [photoError, setPhotoError] = useState<unknown>(null);
+  const camera = useMutation({
+    mutationFn: () => pickPhoto('camera'),
+    onSuccess: (taken) => {
+      if (taken) setPhoto(taken);
+    },
+  });
   const intake = useMutation({
     ...intakePieceMutation(),
     onSuccess: async (piece) => {
@@ -48,6 +59,16 @@ export function IntakeForm({
       setWidth('');
       setHeight('');
       setWeight('');
+      setPhotoError(null);
+      // The piece is in either way; a photo that fails can be added again from the piece
+      if (photo) {
+        try {
+          await uploadPiecePhoto(studioId, piece.id, photo);
+          setPhoto(null);
+        } catch (error) {
+          setPhotoError(error);
+        }
+      }
       await queryClient.invalidateQueries();
       onDone?.(piece);
     },
@@ -94,6 +115,17 @@ export function IntakeForm({
         onChangeText={setWeight}
         keyboardType="decimal-pad"
       />
+      <View style={styles.row}>
+        {photo && (
+          <Image source={{ uri: photo.previewUri }} style={styles.preview} accessibilityLabel="The photo to add" />
+        )}
+        <Button
+          label={photo ? 'Take it again' : 'Take a photo'}
+          disabled={camera.isPending}
+          onPress={() => camera.mutate()}
+        />
+      </View>
+      {camera.isError && <ErrorText error={camera.error} />}
       {!boxValid && <Body>Enter all three measurements as numbers, or none.</Body>}
       {!weightValid && <Body>Enter the weight as a number.</Body>}
       {intake.isError && <ErrorText error={intake.error} />}
@@ -105,6 +137,12 @@ export function IntakeForm({
           <Body muted>
             Firing fee {formatMoney(intake.data.fee.amount.amount, intake.data.fee.amount.currency)}
           </Body>
+          {photoError !== null && (
+            <>
+              <Body>The piece is in, but its photo didn&apos;t upload. Add it from the piece.</Body>
+              <ErrorText error={photoError} />
+            </>
+          )}
         </Card>
       )}
     </ScrollView>
@@ -157,4 +195,5 @@ const styles = StyleSheet.create({
   content: { gap: 12, paddingBottom: 32 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   picker: { gap: 6 },
+  preview: { width: 64, height: 64, borderRadius: 8 },
 });

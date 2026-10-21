@@ -5,6 +5,7 @@ export * from './generated';
 export * from './generated/@tanstack/react-query.gen';
 export { client } from './generated/client.gen';
 export { ApiError, isApiError } from './errors';
+export { type PhotoFiles, uploadPiecePhoto } from './photos';
 
 export interface ApiClientConfig {
   /** Absolute API origin, e.g. `https://api.example.com`. For the same origin, pass `window.location.origin`. */
