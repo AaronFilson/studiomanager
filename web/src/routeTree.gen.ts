@@ -16,6 +16,7 @@ import { Route as StudiosIndexRouteImport } from './routes/studios/index'
 import { Route as StudiosStudioIdRouteRouteImport } from './routes/studios/$studioId/route'
 import { Route as StudiosStudioIdIndexRouteImport } from './routes/studios/$studioId/index'
 import { Route as StudiosStudioIdCalendarRouteImport } from './routes/studios/$studioId/calendar'
+import { Route as StudiosStudioIdMaintenanceRouteImport } from './routes/studios/$studioId/maintenance'
 import { Route as StudiosStudioIdMembersRouteImport } from './routes/studios/$studioId/members'
 import { Route as StudiosStudioIdMoneyRouteImport } from './routes/studios/$studioId/money'
 import { Route as StudiosStudioIdRosterRouteImport } from './routes/studios/$studioId/roster'
@@ -62,6 +63,12 @@ const StudiosStudioIdCalendarRoute = StudiosStudioIdCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
+const StudiosStudioIdMaintenanceRoute =
+  StudiosStudioIdMaintenanceRouteImport.update({
+    id: '/maintenance',
+    path: '/maintenance',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
 const StudiosStudioIdMembersRoute = StudiosStudioIdMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/invites/$code': typeof InvitesCodeRoute
   '/studios': typeof StudiosIndexRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
@@ -161,6 +170,7 @@ export interface FileRoutesById {
   '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/invites/$code'
     | '/studios/'
     | '/studios/$studioId/calendar'
+    | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
     | '/studios/$studioId/roster'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/invites/$code'
     | '/studios'
     | '/studios/$studioId/calendar'
+    | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
     | '/studios/$studioId/roster'
@@ -218,6 +230,7 @@ export interface FileRouteTypes {
     | '/invites/$code'
     | '/studios/'
     | '/studios/$studioId/calendar'
+    | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
     | '/studios/$studioId/roster'
@@ -286,6 +299,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/studios/$studioId/calendar'
       preLoaderRoute: typeof StudiosStudioIdCalendarRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/maintenance': {
+      id: '/studios/$studioId/maintenance'
+      path: '/maintenance'
+      fullPath: '/studios/$studioId/maintenance'
+      preLoaderRoute: typeof StudiosStudioIdMaintenanceRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
     '/studios/$studioId/members': {
@@ -363,6 +383,7 @@ declare module '@tanstack/react-router' {
 
 interface StudiosStudioIdRouteRouteChildren {
   StudiosStudioIdCalendarRoute: typeof StudiosStudioIdCalendarRoute
+  StudiosStudioIdMaintenanceRoute: typeof StudiosStudioIdMaintenanceRoute
   StudiosStudioIdMembersRoute: typeof StudiosStudioIdMembersRoute
   StudiosStudioIdMoneyRoute: typeof StudiosStudioIdMoneyRoute
   StudiosStudioIdRosterRoute: typeof StudiosStudioIdRosterRoute
@@ -378,6 +399,7 @@ interface StudiosStudioIdRouteRouteChildren {
 
 const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
   StudiosStudioIdCalendarRoute: StudiosStudioIdCalendarRoute,
+  StudiosStudioIdMaintenanceRoute: StudiosStudioIdMaintenanceRoute,
   StudiosStudioIdMembersRoute: StudiosStudioIdMembersRoute,
   StudiosStudioIdMoneyRoute: StudiosStudioIdMoneyRoute,
   StudiosStudioIdRosterRoute: StudiosStudioIdRosterRoute,

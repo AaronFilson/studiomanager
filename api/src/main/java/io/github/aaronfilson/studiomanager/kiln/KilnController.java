@@ -1,6 +1,5 @@
 package io.github.aaronfilson.studiomanager.kiln;
 
-import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -14,9 +13,7 @@ import io.github.aaronfilson.studiomanager.contract.KilnAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.KilnDto;
 import io.github.aaronfilson.studiomanager.contract.KilnsApi;
 import io.github.aaronfilson.studiomanager.contract.LoadKilnRequestDto;
-import io.github.aaronfilson.studiomanager.contract.MaintenanceEntryDto;
 import io.github.aaronfilson.studiomanager.contract.QueueEntryDto;
-import io.github.aaronfilson.studiomanager.contract.RecordMaintenanceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SaveKilnRequestDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateKilnRequestDto;
 import io.github.aaronfilson.studiomanager.piece.PieceDtos;
@@ -60,27 +57,6 @@ class KilnController implements KilnsApi {
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<KilnDto> setKilnAvailability(UUID studioId, UUID kilnId, KilnAvailabilityRequestDto request) {
         return ResponseEntity.ok(toDto(kilns.setDown(kilnId, request.getDownReason(), request.getExpectedVersion())));
-    }
-
-    @Override
-    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-    public ResponseEntity<List<MaintenanceEntryDto>> listKilnMaintenance(UUID studioId, UUID kilnId) {
-        return ResponseEntity.ok(kilns.maintenanceLog(kilnId).stream()
-                .map(entry -> new MaintenanceEntryDto()
-                        .note(entry.note())
-                        .cost(entry.cost() == null ? null : entry.cost().toPlainString())
-                        .atFiring(entry.atFiring())
-                        .performedBy(entry.performedBy())
-                        .performedByName(entry.performedByName())
-                        .performedAt(entry.performedAt().atOffset(ZoneOffset.UTC)))
-                .toList());
-    }
-
-    @Override
-    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-    public ResponseEntity<KilnDto> recordKilnMaintenance(UUID studioId, UUID kilnId, RecordMaintenanceRequestDto request) {
-        BigDecimal cost = request.getCost() == null ? null : new BigDecimal(request.getCost());
-        return ResponseEntity.ok(toDto(kilns.recordMaintenance(kilnId, request.getNote(), cost)));
     }
 
     @Override
@@ -130,8 +106,7 @@ class KilnController implements KilnsApi {
 
     private static KilnService.KilnSettings settings(SaveKilnRequestDto request) {
         return new KilnService.KilnSettings(request.getName(), request.getSite(),
-                KilnView.KilnType.valueOf(request.getKind().name()), request.getMaxPiecesPerMember(),
-                request.getMaintenanceEveryFirings());
+                KilnView.KilnType.valueOf(request.getKind().name()), request.getMaxPiecesPerMember());
     }
 
     private static KilnDto toDto(KilnView kiln) {

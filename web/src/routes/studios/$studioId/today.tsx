@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
-import { formatDate, formatTime } from '../../../labels';
+import { dueText, formatDate, formatTime } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/today')({
   component: TodayPage,
@@ -27,7 +27,7 @@ function TodayPage() {
   const t = today.data;
   const attention = [
     ...t.outOfService.map((k) => `${k.name} is out of service: ${k.downReason ?? ''}`),
-    ...t.maintenanceDue.map((k) => `${k.name} is due for maintenance`),
+    ...t.maintenanceDue.map((task) => `${task.assetName}: ${task.title} ${dueText(task)}`),
     ...(t.pastHold > 0 ? [`${count(t.pastHold, 'ready piece is', 'ready pieces are')} past their hold`] : []),
     ...(t.unclaimed > 0 ? [`${count(t.unclaimed, 'piece is', 'pieces are')} unclaimed`] : []),
     ...t.lowStock.map((item) => `${item.name} is low (${item.onHand} left) and not on order`),

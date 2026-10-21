@@ -1,10 +1,21 @@
 import type { IntakePieceRequest, MovePieceRequest, Piece } from '@studiomanager/api-client';
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { preparePhoto } from '../photos';
 import { aPiece, aStudio, renderApp } from './renderApp';
 import { API, server } from './server';
+
+// jsdom has no canvas to shrink images with, so stand in for it
+vi.mock('../photos', () => ({
+  preparePhoto: vi.fn(() =>
+    Promise.resolve({
+      photo: new Blob(['full'], { type: 'image/jpeg' }),
+      thumbnail: new Blob(['thumb'], { type: 'image/jpeg' }),
+    }),
+  ),
+}));
 
 const studio = aStudio({ unitSystem: 'US_CUSTOMARY' });
 
@@ -76,6 +87,93 @@ describe('pieces', () => {
     expect(await screen.findByText('Cone 04')).toBeInTheDocument();
     expect(moved).toEqual({ to: 'BISQUE_FIRED', expectedVersion: 0, note: 'Cone 04' });
     expect(screen.getByRole('button', { name: 'Ready for pickup' })).toBeInTheDocument();
+  });
+});
+
+describe('piece photos', () => {
+  const photo = {
+    id: '3f0e6f1c-4c7a-4d55-8d2f-2b8b4a100b7f',
+    url: 'https://blob.test/full.jpg?sig=r',
+    thumbnailUrl: 'https://blob.test/thumb.jpg?sig=r',
+    uploadedByAccountId: 'a1',
+    uploadedAt: '2026-10-20T15:00:00Z',
+  };
+
+  it('lets a member add a photo, uploading the shrunk images straight to storage', async () => {
+    const puts: string[] = [];
+    let completed = false;
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(aStudio({ myRole: 'MEMBER' }))),
+      http.get(`${API}/api/v1/studios/:studioId/pieces/:pieceId`, () => HttpResponse.json(aPiece())),
+      http.post(`${API}/api/v1/studios/:studioId/pieces/:pieceId/photos`, () =>
+        HttpResponse.json(
+          {
+            photoId: photo.id,
+            photoUploadUrl: 'https://blob.test/full.jpg?sig=w',
+            thumbnailUploadUrl: 'https://blob.test/thumb.jpg?sig=w',
+            expiresAt: '2026-10-20T15:15:00Z',
+            maxPhotoBytes: 8388608,
+            maxThumbnailBytes: 524288,
+          },
+          { status: 201 },
+        ),
+      ),
+      http.put('https://blob.test/:name', ({ request }) => {
+        puts.push(new URL(request.url).pathname);
+        return new HttpResponse(null, { status: 201 });
+      }),
+      http.post(`${API}/api/v1/studios/:studioId/pieces/:pieceId/photos/:photoId/complete`, () => {
+        completed = true;
+        return HttpResponse.json(aPiece({ photos: [photo] }));
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/pieces/${aPiece().id}`);
+    expect(await screen.findByText(/No photos yet/)).toBeInTheDocument();
+
+    await user.upload(screen.getByLabelText('Add a photo'), new File(['raw'], 'jar.heic', { type: 'image/heic' }));
+
+    expect(await screen.findByRole('img', { name: 'Photo 1 of piece 42' })).toHaveAttribute('src', photo.thumbnailUrl);
+    expect(puts.sort()).toEqual(['/full.jpg', '/thumb.jpg']);
+    expect(completed).toBe(true);
+  });
+
+  it('shows a thumbnail on the shelf and lets staff remove a photo', async () => {
+    let deleted: string | undefined;
+    let current = aPiece({ photos: [photo] });
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json([current])),
+      http.get(`${API}/api/v1/studios/:studioId/pieces/:pieceId`, () => HttpResponse.json(current)),
+      http.delete(`${API}/api/v1/studios/:studioId/pieces/:pieceId/photos/:photoId`, ({ params }) => {
+        deleted = params.photoId as string;
+        current = aPiece();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { user, router } = renderApp(`/studios/${studio.id}/pieces`);
+    const row = (await screen.findByRole('link', { name: '42' })).closest('tr') as HTMLElement;
+    expect(row.querySelector('img')).toHaveAttribute('src', photo.thumbnailUrl);
+
+    await router.navigate({ to: '/studios/$studioId/pieces/$pieceId', params: { studioId: studio.id, pieceId: current.id } });
+    await user.click(await screen.findByRole('button', { name: 'Remove photo 1' }));
+
+    expect(await screen.findByText(/No photos yet/)).toBeInTheDocument();
+    expect(deleted).toBe(photo.id);
+  });
+
+  it('says so when a picked file isn’t an image it can read', async () => {
+    vi.mocked(preparePhoto).mockRejectedValueOnce(new Error("This image couldn't be read. Try a JPEG or PNG."));
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/pieces/:pieceId`, () => HttpResponse.json(aPiece())),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/pieces/${aPiece().id}`);
+    await user.upload(await screen.findByLabelText('Add a photo'), new File(['x'], 'notes.png', { type: 'image/png' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("This image couldn't be read. Try a JPEG or PNG.");
   });
 });
 

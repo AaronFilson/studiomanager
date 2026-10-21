@@ -19,6 +19,12 @@ variable "static_web_app_location" {
   default     = "eastus2"
 }
 
+variable "communication_data_location" {
+  description = "Where Communication Services keeps email data at rest. A geography, not a region."
+  type        = string
+  default     = "United States"
+}
+
 variable "api_image" {
   description = "Image used only when the Container App and job are first created. CI rolls later images after migrations."
   type        = string

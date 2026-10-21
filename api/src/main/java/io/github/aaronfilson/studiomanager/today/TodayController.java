@@ -6,6 +6,7 @@ import java.util.UUID;
 import io.github.aaronfilson.studiomanager.contract.TodayApi;
 import io.github.aaronfilson.studiomanager.contract.TodayDto;
 import io.github.aaronfilson.studiomanager.kiln.KilnDtos;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDtos;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleDtos;
 import io.github.aaronfilson.studiomanager.supplies.SupplyDtos;
 
@@ -35,7 +36,7 @@ class TodayController implements TodayApi {
                 .readyForPickup(t.readyForPickup())
                 .pastHold(t.pastHold())
                 .unclaimed(t.unclaimed())
-                .maintenanceDue(t.maintenanceDue().stream().map(KilnDtos::toDto).toList())
+                .maintenanceDue(t.maintenanceDue().stream().map(MaintenanceDtos::toDto).toList())
                 .outOfService(t.outOfService().stream().map(KilnDtos::toDto).toList())
                 .bookings(t.bookings().stream().map(ScheduleDtos::toDto).toList())
                 .shifts(t.shifts().stream().map(ScheduleDtos::toDto).toList())

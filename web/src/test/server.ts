@@ -11,6 +11,7 @@ export const API = 'http://api.test';
  */
 const background = [
   http.get(`${API}/api/v1/studios/:studioId/notifications`, () => HttpResponse.json([])),
+  http.get(`${API}/api/v1/studios/:studioId/maintenance/my-tasks`, () => HttpResponse.json([])),
   http.get(`${API}/api/v1/me`, () => HttpResponse.json({ account: { id: 'a1' }, memberships: [] })),
   http.get(`${API}/api/v1/studios/:studioId/members/:accountId/statement`, ({ params }) =>
     HttpResponse.json({ memberId: params.accountId, owed: '0', storedValues: [] }),

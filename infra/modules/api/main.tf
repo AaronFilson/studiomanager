@@ -15,6 +15,10 @@ locals {
     STUDIOMANAGER_AUTH_AUDIENCE         = var.auth_audience
     STUDIOMANAGER_CORS_ALLOWED_ORIGINS  = join(",", var.cors_allowed_origins)
     STUDIOMANAGER_STORAGE_BLOB_ENDPOINT = var.blob_endpoint
+    STUDIOMANAGER_WEB_ORIGIN            = var.web_origin
+    STUDIOMANAGER_MAIL_SENDER           = "acs"
+    STUDIOMANAGER_MAIL_ACS_ENDPOINT     = var.mail_acs_endpoint
+    STUDIOMANAGER_MAIL_FROM             = var.mail_from
   }
 
   migrate_env = merge(local.common_env, {

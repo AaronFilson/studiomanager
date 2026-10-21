@@ -35,4 +35,4 @@ The SPA registration needs a **Single-page application** redirect URI for each o
 
 ## Deployment
 
-The build is deployed to Azure Static Web Apps. `public/staticwebapp.config.json` rewrites unknown paths to `index.html` for client-side routing, caches hashed assets for a year, and sets security headers. Its Content-Security-Policy allows API calls to `*.azurecontainerapps.io` and sign-in at `*.ciamlogin.com`; update `connect-src` if the API moves to a custom domain.
+The build is deployed to Azure Static Web Apps. `public/staticwebapp.config.json` rewrites unknown paths to `index.html` for client-side routing, caches hashed assets for a year, and sets security headers. Its Content-Security-Policy allows API calls to `*.azurecontainerapps.io`, sign-in at `*.ciamlogin.com`, and photo uploads and images from `*.blob.core.windows.net`; update `connect-src` if the API moves to a custom domain.

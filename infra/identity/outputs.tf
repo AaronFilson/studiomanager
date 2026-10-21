@@ -18,6 +18,15 @@ output "api_scope" {
   value       = "${azuread_application_identifier_uri.api.identifier_uri}/access_as_user"
 }
 
+output "mobile_env" {
+  description = "Put in mobile/.env.local. Add EXPO_PUBLIC_API_BASE_URL: the api_url output of envs/<env>, or the API on your machine. None of these is secret."
+  value = {
+    EXPO_PUBLIC_ENTRA_CLIENT_ID = azuread_application.mobile.client_id
+    EXPO_PUBLIC_ENTRA_ISSUER    = "https://${var.external_tenant_subdomain}.ciamlogin.com/${var.external_tenant_id}/v2.0"
+    EXPO_PUBLIC_API_SCOPES      = "${azuread_application_identifier_uri.api.identifier_uri}/access_as_user"
+  }
+}
+
 output "authority" {
   description = "VITE_ENTRA_AUTHORITY for the web app."
   value       = "https://${var.external_tenant_subdomain}.ciamlogin.com/"

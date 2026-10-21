@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnMaintenanceData, ListKilnMaintenanceErrors, ListKilnMaintenanceResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordKilnMaintenanceData, RecordKilnMaintenanceErrors, RecordKilnMaintenanceResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -63,6 +63,19 @@ export const listMembers = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
+ * Invites not yet accepted, newest first (staff only)
+ *
+ * Both emailed invites and link invites. Expired ones are included, so staff can see who
+ * never joined and send again.
+ *
+ */
+export const listOpenInvites = <ThrowOnError extends boolean = false>(options: Options<ListOpenInvitesData, ThrowOnError>): RequestResult<ListOpenInvitesResponses, ListOpenInvitesErrors, ThrowOnError> => (options.client ?? client).get<ListOpenInvitesResponses, ListOpenInvitesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/invites',
+    ...options
+});
+
+/**
  * Invite someone into the studio (staff only)
  *
  * Returns a one-time code, valid for 14 days. Nobody can invite to a role above their own.
@@ -77,6 +90,46 @@ export const createInvite = <ThrowOnError extends boolean = false>(options: Opti
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Email an invite to each address in a pasted list (staff only)
+ *
+ * Takes text as pasted from a spreadsheet, a mailing list or an email's To line, and finds
+ * the addresses in it (`Jane Doe <jane@example.com>` works). Each new address gets its own
+ * invite, emailed after this request commits. Addresses that already belong to a member,
+ * or that already have an unexpired invite, are skipped and reported. At most 200
+ * addresses at once.
+ *
+ */
+export const emailInvites = <ThrowOnError extends boolean = false>(options: Options<EmailInvitesData, ThrowOnError>): RequestResult<EmailInvitesResponses, EmailInvitesErrors, ThrowOnError> => (options.client ?? client).post<EmailInvitesResponses, EmailInvitesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/invites/emails',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Withdraw an invite that hasn't been accepted (staff only)
+ */
+export const revokeInvite = <ThrowOnError extends boolean = false>(options: Options<RevokeInviteData, ThrowOnError>): RequestResult<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/invites/{inviteId}',
+    ...options
+});
+
+/**
+ * Email an invite again, with a new code and a fresh 14 days (staff only)
+ *
+ * Only for emailed invites. The code in any earlier email stops working.
+ */
+export const resendInvite = <ThrowOnError extends boolean = false>(options: Options<ResendInviteData, ThrowOnError>): RequestResult<ResendInviteResponses, ResendInviteErrors, ThrowOnError> => (options.client ?? client).post<ResendInviteResponses, ResendInviteErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/invites/{inviteId}/resend',
+    ...options
 });
 
 /**
@@ -202,7 +255,50 @@ export const movePiece = <ThrowOnError extends boolean = false>(options: Options
 });
 
 /**
- * The studio's kilns, with availability and maintenance counters
+ * Start adding a photo to a piece
+ *
+ * Returns two signed URLs, one for the photo and one for its thumbnail. Upload each as a
+ * JPEG straight to storage with `PUT`, the headers `x-ms-blob-type: BlockBlob` and
+ * `Content-Type: image/jpeg`, and no bearer token. Then call `completePhotoUpload`.
+ * Shrink the image first (a 1600-pixel long edge for the photo and 320 for the thumbnail
+ * suit a shelf), which also drops the location the camera stored in it.
+ *
+ * Anyone who can see the piece can add photos, up to 6 a piece.
+ *
+ */
+export const startPhotoUpload = <ThrowOnError extends boolean = false>(options: Options<StartPhotoUploadData, ThrowOnError>): RequestResult<StartPhotoUploadResponses, StartPhotoUploadErrors, ThrowOnError> => (options.client ?? client).post<StartPhotoUploadResponses, StartPhotoUploadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos',
+    ...options
+});
+
+/**
+ * Finish adding a photo, once both images are uploaded
+ *
+ * Checks that both images arrived, are JPEGs and are within the size limits, then shows
+ * the photo on the piece. Calling it again for a finished photo changes nothing. An upload
+ * that is never finished is removed after a day.
+ *
+ */
+export const completePhotoUpload = <ThrowOnError extends boolean = false>(options: Options<CompletePhotoUploadData, ThrowOnError>): RequestResult<CompletePhotoUploadResponses, CompletePhotoUploadErrors, ThrowOnError> => (options.client ?? client).post<CompletePhotoUploadResponses, CompletePhotoUploadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}/complete',
+    ...options
+});
+
+/**
+ * Remove a photo from a piece
+ *
+ * Anyone who can see the piece can remove its photos.
+ */
+export const deletePhoto = <ThrowOnError extends boolean = false>(options: Options<DeletePhotoData, ThrowOnError>): RequestResult<DeletePhotoResponses, DeletePhotoErrors, ThrowOnError> => (options.client ?? client).delete<DeletePhotoResponses, DeletePhotoErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}',
+    ...options
+});
+
+/**
+ * The studio's kilns, with availability and firing counts
  */
 export const listKilns = <ThrowOnError extends boolean = false>(options: Options<ListKilnsData, ThrowOnError>): RequestResult<ListKilnsResponses, ListKilnsErrors, ThrowOnError> => (options.client ?? client).get<ListKilnsResponses, ListKilnsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -250,25 +346,159 @@ export const setKilnAvailability = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * The kiln's maintenance log, newest first (staff only)
+ * Everything the studio maintains, with each one's tasks and when they fall due (staff only)
+ *
+ * Kilns are included automatically. Archived assets are left out.
  */
-export const listKilnMaintenance = <ThrowOnError extends boolean = false>(options: Options<ListKilnMaintenanceData, ThrowOnError>): RequestResult<ListKilnMaintenanceResponses, ListKilnMaintenanceErrors, ThrowOnError> => (options.client ?? client).get<ListKilnMaintenanceResponses, ListKilnMaintenanceErrors, ThrowOnError>({
+export const listAssets = <ThrowOnError extends boolean = false>(options: Options<ListAssetsData, ThrowOnError>): RequestResult<ListAssetsResponses, ListAssetsErrors, ThrowOnError> => (options.client ?? client).get<ListAssetsResponses, ListAssetsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v1/studios/{studioId}/kilns/{kilnId}/maintenance',
+    url: '/api/v1/studios/{studioId}/maintenance/assets',
     ...options
 });
 
 /**
- * Log maintenance, which restarts the firings-since-maintenance count (staff only)
+ * Add something to maintain, such as a pug mill, the clay trap or the roof (staff only)
+ *
+ * Kilns are added on the kilns page and appear here by themselves, so KILN isn't accepted.
  */
-export const recordKilnMaintenance = <ThrowOnError extends boolean = false>(options: Options<RecordKilnMaintenanceData, ThrowOnError>): RequestResult<RecordKilnMaintenanceResponses, RecordKilnMaintenanceErrors, ThrowOnError> => (options.client ?? client).post<RecordKilnMaintenanceResponses, RecordKilnMaintenanceErrors, ThrowOnError>({
+export const createAsset = <ThrowOnError extends boolean = false>(options: Options<CreateAssetData, ThrowOnError>): RequestResult<CreateAssetResponses, CreateAssetErrors, ThrowOnError> => (options.client ?? client).post<CreateAssetResponses, CreateAssetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v1/studios/{studioId}/kilns/{kilnId}/maintenance',
+    url: '/api/v1/studios/{studioId}/maintenance/assets',
     ...options,
     headers: {
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Stop tracking an asset (staff only)
+ *
+ * Its history is kept. A kiln's asset goes when the kiln does, so it can't be archived here.
+ */
+export const archiveAsset = <ThrowOnError extends boolean = false>(options: Options<ArchiveAssetData, ThrowOnError>): RequestResult<ArchiveAssetResponses, ArchiveAssetErrors, ThrowOnError> => (options.client ?? client).delete<ArchiveAssetResponses, ArchiveAssetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}',
+    ...options
+});
+
+/**
+ * Rename an asset or change its location and notes (staff only)
+ *
+ * A kiln asset takes its name from the kiln, so `name` is ignored for one.
+ */
+export const updateAsset = <ThrowOnError extends boolean = false>(options: Options<UpdateAssetData, ThrowOnError>): RequestResult<UpdateAssetResponses, UpdateAssetErrors, ThrowOnError> => (options.client ?? client).put<UpdateAssetResponses, UpdateAssetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Mark an asset out of service with a reason, or back in service (staff only)
+ *
+ * A kiln is marked down on the kiln itself, where it also stops loads, so a kiln asset is refused here.
+ */
+export const setAssetAvailability = <ThrowOnError extends boolean = false>(options: Options<SetAssetAvailabilityData, ThrowOnError>): RequestResult<SetAssetAvailabilityResponses, SetAssetAvailabilityErrors, ThrowOnError> => (options.client ?? client).put<SetAssetAvailabilityResponses, SetAssetAvailabilityErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/availability',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Add a recurring job to an asset (staff only)
+ *
+ * It falls due every N days, every N firings (kilns only), or whichever comes first. Its
+ * clock starts now; for a job done recently, complete it once after adding it.
+ *
+ */
+export const createMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<CreateMaintenanceTaskData, ThrowOnError>): RequestResult<CreateMaintenanceTaskResponses, CreateMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).post<CreateMaintenanceTaskResponses, CreateMaintenanceTaskErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/tasks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The asset's maintenance history, newest first (staff only)
+ */
+export const listMaintenanceRecords = <ThrowOnError extends boolean = false>(options: Options<ListMaintenanceRecordsData, ThrowOnError>): RequestResult<ListMaintenanceRecordsResponses, ListMaintenanceRecordsErrors, ThrowOnError> => (options.client ?? client).get<ListMaintenanceRecordsResponses, ListMaintenanceRecordsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/records',
+    ...options
+});
+
+/**
+ * Log work done outside any task, such as a repair (staff only)
+ *
+ * It doesn't restart any task's clock.
+ */
+export const recordRepair = <ThrowOnError extends boolean = false>(options: Options<RecordRepairData, ThrowOnError>): RequestResult<RecordRepairResponses, RecordRepairErrors, ThrowOnError> => (options.client ?? client).post<RecordRepairResponses, RecordRepairErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/records',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Stop a recurring task (staff only)
+ *
+ * Records of it are kept.
+ */
+export const archiveMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<ArchiveMaintenanceTaskData, ThrowOnError>): RequestResult<ArchiveMaintenanceTaskResponses, ArchiveMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).delete<ArchiveMaintenanceTaskResponses, ArchiveMaintenanceTaskErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}',
+    ...options
+});
+
+/**
+ * Change a task's job, interval or assignee (staff only)
+ */
+export const updateMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<UpdateMaintenanceTaskData, ThrowOnError>): RequestResult<UpdateMaintenanceTaskResponses, UpdateMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).put<UpdateMaintenanceTaskResponses, UpdateMaintenanceTaskErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Record that a task was done, which restarts its clock and no other's
+ *
+ * For staff, and for whoever the task is assigned to, by name or by duty.
+ */
+export const completeMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<CompleteMaintenanceTaskData, ThrowOnError>): RequestResult<CompleteMaintenanceTaskResponses, CompleteMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).post<CompleteMaintenanceTaskResponses, CompleteMaintenanceTaskErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}/completions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Tasks assigned to the caller, by name or through a duty they hold, soonest due first
+ */
+export const listMyMaintenanceTasks = <ThrowOnError extends boolean = false>(options: Options<ListMyMaintenanceTasksData, ThrowOnError>): RequestResult<ListMyMaintenanceTasksResponses, ListMyMaintenanceTasksErrors, ThrowOnError> => (options.client ?? client).get<ListMyMaintenanceTasksResponses, ListMyMaintenanceTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/maintenance/my-tasks',
+    ...options
 });
 
 /**

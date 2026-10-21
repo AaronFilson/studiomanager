@@ -23,10 +23,7 @@ public final class KilnDtos {
                 .site(kiln.site())
                 .kind(KilnTypeDto.valueOf(kiln.kind().name()))
                 .maxPiecesPerMember(kiln.maxPiecesPerMember())
-                .maintenanceEveryFirings(kiln.maintenanceEveryFirings())
-                .firingsSinceMaintenance(kiln.firingsSinceMaintenance())
                 .totalFirings(kiln.totalFirings())
-                .maintenanceDue(kiln.maintenanceDue())
                 .available(kiln.available())
                 .downReason(kiln.downReason())
                 .version(kiln.version());

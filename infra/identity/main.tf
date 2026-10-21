@@ -105,3 +105,55 @@ resource "azuread_service_principal_delegated_permission_grant" "web_to_graph" {
   resource_service_principal_object_id = data.azuread_service_principal.graph.object_id
   claim_values                         = ["openid", "offline_access"]
 }
+
+# --- The mobile app (public client, auth code + PKCE, custom-scheme redirect) -------------
+# A separate registration because a native app's redirect is a custom scheme, which the SPA
+# platform doesn't allow, and so either app's client ID can be rotated without the other.
+
+resource "azuread_application" "mobile" {
+  display_name     = "studiomanager-${var.environment}-mobile"
+  sign_in_audience = "AzureADMyOrg"
+
+  public_client {
+    redirect_uris = [var.mobile_redirect_uri]
+  }
+
+  required_resource_access {
+    resource_app_id = azuread_application.api.client_id
+
+    resource_access {
+      id   = random_uuid.access_as_user_scope.result
+      type = "Scope"
+    }
+  }
+
+  required_resource_access {
+    resource_app_id = local.graph_client_id
+
+    resource_access {
+      id   = data.azuread_service_principal.graph.oauth2_permission_scope_ids["openid"]
+      type = "Scope"
+    }
+
+    resource_access {
+      id   = data.azuread_service_principal.graph.oauth2_permission_scope_ids["offline_access"]
+      type = "Scope"
+    }
+  }
+}
+
+resource "azuread_service_principal" "mobile" {
+  client_id = azuread_application.mobile.client_id
+}
+
+resource "azuread_service_principal_delegated_permission_grant" "mobile_to_api" {
+  service_principal_object_id          = azuread_service_principal.mobile.object_id
+  resource_service_principal_object_id = azuread_service_principal.api.object_id
+  claim_values                         = ["access_as_user"]
+}
+
+resource "azuread_service_principal_delegated_permission_grant" "mobile_to_graph" {
+  service_principal_object_id          = azuread_service_principal.mobile.object_id
+  resource_service_principal_object_id = data.azuread_service_principal.graph.object_id
+  claim_values                         = ["openid", "offline_access"]
+}

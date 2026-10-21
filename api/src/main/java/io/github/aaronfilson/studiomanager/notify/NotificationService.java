@@ -24,7 +24,9 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
+import io.github.aaronfilson.studiomanager.studio.StudioView;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -32,7 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Members' inbox in each studio. Email and push delivery will be added on top of it, through
+ * Members' inbox in each studio. Each notice is also emailed ({@link NotificationEmails}), through
  * the transactional outbox, so nothing is sent for work that rolled back.
  *
  * <p>The research behind this: the most specific complaint about an existing tracker was "ready"
@@ -45,11 +47,14 @@ public class NotificationService {
     private final JdbcClient jdbc;
     private final StudioService studios;
     private final StudioMembers members;
+    private final ApplicationEventPublisher events;
 
-    NotificationService(JdbcClient jdbc, StudioService studios, StudioMembers members) {
+    NotificationService(JdbcClient jdbc, StudioService studios, StudioMembers members,
+            ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.studios = studios;
         this.members = members;
+        this.events = events;
     }
 
     /** The caller's notifications in the bound studio, newest first. */
@@ -131,21 +136,24 @@ public class NotificationService {
     }
 
     private void insert(Collection<UUID> accountIds, NotificationView.Kind kind, String title, String body) {
-        UUID studioId = TenantContext.require().studioId();
+        StudioView studio = studios.current();
         Instant now = now();
         for (UUID accountId : accountIds) {
+            UUID id = Uuids.v7();
             jdbc.sql("""
                     insert into notification (id, studio_id, account_id, kind, title, body, created_at)
                     values (:id, :studioId, :accountId, :kind, :title, :body, :now)
                     """)
-                    .param("id", Uuids.v7())
-                    .param("studioId", studioId)
+                    .param("id", id)
+                    .param("studioId", studio.id())
                     .param("accountId", accountId)
                     .param("kind", kind.name())
                     .param("title", title)
                     .param("body", body)
                     .param("now", utc(now))
                     .update();
+            // Recorded in the outbox in this transaction, emailed after it commits
+            events.publishEvent(new NotificationCreated(id, studio.id(), studio.name(), accountId, kind, title, body));
         }
     }
 

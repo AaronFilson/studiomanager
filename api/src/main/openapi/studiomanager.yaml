@@ -25,7 +25,9 @@ tags:
   - name: pieces
     description: Members' pieces from drop-off to pickup.
   - name: kilns
-    description: Kilns, their queues, firings and maintenance.
+    description: Kilns, their queues and firings.
+  - name: maintenance
+    description: Upkeep of equipment and the building, kilns included.
   - name: notifications
     description: Members' inbox, and notices from staff.
   - name: access
@@ -131,6 +133,26 @@ paths:
   /api/v1/studios/{studioId}/invites:
     parameters:
       - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [members]
+      operationId: listOpenInvites
+      summary: Invites not yet accepted, newest first (staff only)
+      description: |
+        Both emailed invites and link invites. Expired ones are included, so staff can see who
+        never joined and send again.
+      responses:
+        "200":
+          description: The open invites.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenInvite"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [members]
       operationId: createInvite
@@ -157,6 +179,82 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/invites/emails:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [members]
+      operationId: emailInvites
+      summary: Email an invite to each address in a pasted list (staff only)
+      description: |
+        Takes text as pasted from a spreadsheet, a mailing list or an email's To line, and finds
+        the addresses in it (`Jane Doe <jane@example.com>` works). Each new address gets its own
+        invite, emailed after this request commits. Addresses that already belong to a member,
+        or that already have an unexpired invite, are skipped and reported. At most 200
+        addresses at once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailInvitesRequest"
+      responses:
+        "200":
+          description: What was sent and what was skipped.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailInvitesResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/invites/{inviteId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/InviteId"
+    delete:
+      tags: [members]
+      operationId: revokeInvite
+      summary: Withdraw an invite that hasn't been accepted (staff only)
+      responses:
+        "204":
+          description: Revoked. Its code no longer works.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/invites/{inviteId}/resend:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/InviteId"
+    post:
+      tags: [members]
+      operationId: resendInvite
+      summary: Email an invite again, with a new code and a fresh 14 days (staff only)
+      description: Only for emailed invites. The code in any earlier email stops working.
+      responses:
+        "200":
+          description: The invite, as it will be sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenInvite"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /api/v1/invites/{code}/accept:
     parameters:
@@ -413,13 +511,96 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/pieces/{pieceId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+    post:
+      tags: [pieces]
+      operationId: startPhotoUpload
+      summary: Start adding a photo to a piece
+      description: |
+        Returns two signed URLs, one for the photo and one for its thumbnail. Upload each as a
+        JPEG straight to storage with `PUT`, the headers `x-ms-blob-type: BlockBlob` and
+        `Content-Type: image/jpeg`, and no bearer token. Then call `completePhotoUpload`.
+        Shrink the image first (a 1600-pixel long edge for the photo and 320 for the thumbnail
+        suit a shelf), which also drops the location the camera stored in it.
+
+        Anyone who can see the piece can add photos, up to 6 a piece.
+      responses:
+        "201":
+          description: Where to upload. The URLs expire after 15 minutes and can each be used once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+      - $ref: "#/components/parameters/PhotoId"
+    post:
+      tags: [pieces]
+      operationId: completePhotoUpload
+      summary: Finish adding a photo, once both images are uploaded
+      description: |
+        Checks that both images arrived, are JPEGs and are within the size limits, then shows
+        the photo on the piece. Calling it again for a finished photo changes nothing. An upload
+        that is never finished is removed after a day.
+      responses:
+        "200":
+          description: The piece, with the new photo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Piece"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PieceId"
+      - $ref: "#/components/parameters/PhotoId"
+    delete:
+      tags: [pieces]
+      operationId: deletePhoto
+      summary: Remove a photo from a piece
+      description: Anyone who can see the piece can remove its photos.
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/kilns:
     parameters:
       - $ref: "#/components/parameters/StudioId"
     get:
       tags: [kilns]
       operationId: listKilns
-      summary: The studio's kilns, with availability and maintenance counters
+      summary: The studio's kilns, with availability and firing counts
       responses:
         "200":
           description: Kilns.
@@ -521,46 +702,74 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/studios/{studioId}/kilns/{kilnId}/maintenance:
+  /api/v1/studios/{studioId}/maintenance/assets:
     parameters:
       - $ref: "#/components/parameters/StudioId"
-      - $ref: "#/components/parameters/KilnId"
     get:
-      tags: [kilns]
-      operationId: listKilnMaintenance
-      summary: The kiln's maintenance log, newest first (staff only)
+      tags: [maintenance]
+      operationId: listAssets
+      summary: Everything the studio maintains, with each one's tasks and when they fall due (staff only)
+      description: Kilns are included automatically. Archived assets are left out.
       responses:
         "200":
-          description: Entries.
+          description: Assets, kilns first, then by name.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/MaintenanceEntry"
+                  $ref: "#/components/schemas/Asset"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
     post:
-      tags: [kilns]
-      operationId: recordKilnMaintenance
-      summary: Log maintenance, which restarts the firings-since-maintenance count (staff only)
+      tags: [maintenance]
+      operationId: createAsset
+      summary: Add something to maintain, such as a pug mill, the clay trap or the roof (staff only)
+      description: Kilns are added on the kilns page and appear here by themselves, so KILN isn't accepted.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RecordMaintenanceRequest"
+              $ref: "#/components/schemas/SaveAssetRequest"
       responses:
-        "200":
-          description: The kiln afterwards.
+        "201":
+          description: The asset.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Kiln"
+                $ref: "#/components/schemas/Asset"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/maintenance/assets/{assetId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AssetId"
+    put:
+      tags: [maintenance]
+      operationId: updateAsset
+      summary: Rename an asset or change its location and notes (staff only)
+      description: A kiln asset takes its name from the kiln, so `name` is ignored for one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetRequest"
+      responses:
+        "200":
+          description: The asset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -569,6 +778,238 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [maintenance]
+      operationId: archiveAsset
+      summary: Stop tracking an asset (staff only)
+      description: Its history is kept. A kiln's asset goes when the kiln does, so it can't be archived here.
+      responses:
+        "204":
+          description: Archived.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/maintenance/assets/{assetId}/availability:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AssetId"
+    put:
+      tags: [maintenance]
+      operationId: setAssetAvailability
+      summary: Mark an asset out of service with a reason, or back in service (staff only)
+      description: A kiln is marked down on the kiln itself, where it also stops loads, so a kiln asset is refused here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetAvailabilityRequest"
+      responses:
+        "200":
+          description: The asset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/maintenance/assets/{assetId}/tasks:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AssetId"
+    post:
+      tags: [maintenance]
+      operationId: createMaintenanceTask
+      summary: Add a recurring job to an asset (staff only)
+      description: |
+        It falls due every N days, every N firings (kilns only), or whichever comes first. Its
+        clock starts now; for a job done recently, complete it once after adding it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMaintenanceTaskRequest"
+      responses:
+        "201":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceTask"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/assets/{assetId}/records:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AssetId"
+    get:
+      tags: [maintenance]
+      operationId: listMaintenanceRecords
+      summary: The asset's maintenance history, newest first (staff only)
+      responses:
+        "200":
+          description: Up to 500 records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaintenanceRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [maintenance]
+      operationId: recordRepair
+      summary: Log work done outside any task, such as a repair (staff only)
+      description: It doesn't restart any task's clock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordRepairRequest"
+      responses:
+        "201":
+          description: The record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/tasks/{taskId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/TaskId"
+    put:
+      tags: [maintenance]
+      operationId: updateMaintenanceTask
+      summary: Change a task's job, interval or assignee (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMaintenanceTaskRequest"
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceTask"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [maintenance]
+      operationId: archiveMaintenanceTask
+      summary: Stop a recurring task (staff only)
+      description: Records of it are kept.
+      responses:
+        "204":
+          description: Archived.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/tasks/{taskId}/completions:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      tags: [maintenance]
+      operationId: completeMaintenanceTask
+      summary: Record that a task was done, which restarts its clock and no other's
+      description: For staff, and for whoever the task is assigned to, by name or by duty.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteMaintenanceTaskRequest"
+      responses:
+        "200":
+          description: The task, with its clock restarted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceTask"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/maintenance/my-tasks:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [maintenance]
+      operationId: listMyMaintenanceTasks
+      summary: Tasks assigned to the caller, by name or through a duty they hold, soonest due first
+      responses:
+        "200":
+          description: The caller's tasks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaintenanceTask"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/v1/studios/{studioId}/kilns/{kilnId}/queue:
     parameters:
@@ -1886,8 +2327,36 @@ components:
       schema:
         type: string
         format: uuid
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InviteId:
+      name: inviteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     PieceId:
       name: pieceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PhotoId:
+      name: photoId
       in: path
       required: true
       schema:
@@ -2158,6 +2627,69 @@ components:
           type: string
           format: date-time
 
+    OpenInvite:
+      type: object
+      required: [id, role, createdAt, expiresAt, expired]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          description: Who it was emailed to. Absent for a link invite.
+        role:
+          $ref: "#/components/schemas/StudioRole"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
+        lastSentAt:
+          type: string
+          format: date-time
+          description: When the email last went out. Absent until it has, and for link invites.
+
+    EmailInvitesRequest:
+      type: object
+      required: [text, role]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+          description: Email addresses, separated by commas, semicolons, spaces or new lines.
+        role:
+          $ref: "#/components/schemas/StudioRole"
+
+    EmailInvitesResult:
+      type: object
+      required: [invited, skipped]
+      properties:
+        invited:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenInvite"
+        skipped:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkippedEmail"
+
+    SkippedEmail:
+      type: object
+      required: [email, reason]
+      properties:
+        email:
+          type: string
+        reason:
+          type: string
+          description: |
+            ALREADY_MEMBER: someone in the studio signs in with this address. ALREADY_INVITED: it
+            has an unexpired invite; resend that one instead.
+          enum: [ALREADY_MEMBER, ALREADY_INVITED]
+
     Decimal:
       type: string
       description: A non-negative decimal, as a string so no precision is lost (for example `"0.05"`).
@@ -2339,9 +2871,58 @@ components:
           type: string
           format: date-time
 
+    PiecePhoto:
+      type: object
+      required: [id, url, thumbnailUrl, uploadedByAccountId, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          description: |
+            The photo, readable for at least an hour without a bearer token. The URL stays the
+            same within each hour, so it caches.
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: A small version for lists, readable like `url`.
+        uploadedByAccountId:
+          type: string
+          format: uuid
+        uploadedAt:
+          type: string
+          format: date-time
+
+    PhotoUpload:
+      type: object
+      required: [photoId, photoUploadUrl, thumbnailUploadUrl, expiresAt, maxPhotoBytes, maxThumbnailBytes]
+      properties:
+        photoId:
+          type: string
+          format: uuid
+        photoUploadUrl:
+          type: string
+          format: uri
+          description: "`PUT` the photo here, as a JPEG."
+        thumbnailUploadUrl:
+          type: string
+          format: uri
+          description: "`PUT` the thumbnail here, as a JPEG."
+        expiresAt:
+          type: string
+          format: date-time
+        maxPhotoBytes:
+          type: integer
+          format: int32
+        maxThumbnailBytes:
+          type: integer
+          format: int32
+
     Piece:
       type: object
-      required: [id, number, makerAccountId, size, stage, fee, receivedAt, overdue, nextStages, version, timeline]
+      required: [id, number, makerAccountId, size, stage, fee, receivedAt, overdue, nextStages, version, photos, timeline]
       properties:
         id:
           type: string
@@ -2389,6 +2970,11 @@ components:
           type: integer
           format: int64
           description: Send back as `expectedVersion` when moving the piece.
+        photos:
+          type: array
+          description: Oldest first. Lists carry only the first photo; fetching one piece gives them all.
+          items:
+            $ref: "#/components/schemas/PiecePhoto"
         timeline:
           type: array
           description: Empty in lists; filled when fetching one piece.
@@ -2435,7 +3021,7 @@ components:
 
     Kiln:
       type: object
-      required: [id, name, kind, firingsSinceMaintenance, totalFirings, maintenanceDue, available, version]
+      required: [id, name, kind, totalFirings, available, version]
       properties:
         id:
           type: string
@@ -2451,18 +3037,10 @@ components:
           type: integer
           format: int32
           description: The queue rule "at most N pieces per member in one load". Absent for no cap.
-        maintenanceEveryFirings:
-          type: integer
-          format: int32
-          description: How often it is serviced, counted in firings. Absent if not tracked.
-        firingsSinceMaintenance:
-          type: integer
-          format: int32
         totalFirings:
           type: integer
           format: int32
-        maintenanceDue:
-          type: boolean
+          description: Firings so far. Maintenance tasks counted in firings read this.
         available:
           type: boolean
         downReason:
@@ -2489,11 +3067,6 @@ components:
           format: int32
           minimum: 1
           maximum: 500
-        maintenanceEveryFirings:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 10000
 
     UpdateKilnRequest:
       type: object
@@ -2517,38 +3090,259 @@ components:
           type: integer
           format: int64
 
-    MaintenanceEntry:
+    AssetKind:
+      type: string
+      enum: [KILN, WHEEL, PUG_MILL, SLAB_ROLLER, EXTRUDER, CLAY_TRAP, SPRAY_BOOTH, VENTILATION, BUILDING, SAFETY, OTHER]
+
+    Asset:
       type: object
-      required: [note, atFiring, performedBy, performedAt]
+      required: [id, kind, name, available, version, tasks]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/AssetKind"
+        name:
+          type: string
+          description: For a kiln, the kiln's name.
+        kilnId:
+          type: string
+          format: uuid
+          description: Present for a kiln.
+        location:
+          type: string
+        notes:
+          type: string
+        available:
+          type: boolean
+        downReason:
+          type: string
+          description: Why it is out of service. For a kiln, the kiln's own reason.
+        totalFirings:
+          type: integer
+          format: int32
+          description: For a kiln, its firings so far.
+        version:
+          type: integer
+          format: int64
+        tasks:
+          type: array
+          description: Its recurring tasks, soonest due first.
+          items:
+            $ref: "#/components/schemas/MaintenanceTask"
+
+    SaveAssetRequest:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          $ref: "#/components/schemas/AssetKind"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          examples: ["Peter Pugger VPM-20"]
+        location:
+          type: string
+          maxLength: 80
+        notes:
+          type: string
+          maxLength: 1000
+
+    UpdateAssetRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        location:
+          type: string
+          maxLength: 80
+        notes:
+          type: string
+          maxLength: 1000
+        expectedVersion:
+          type: integer
+          format: int64
+
+    AssetAvailabilityRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        downReason:
+          type: string
+          maxLength: 200
+          description: Why it is out of service. Absent puts it back in service.
+        expectedVersion:
+          type: integer
+          format: int64
+
+    DueStatus:
+      type: string
+      description: |
+        DUE once the interval has passed. DUE_SOON within a tenth of the interval (at least a day
+        or one firing, at most 14 days). OK otherwise.
+      enum: [OK, DUE_SOON, DUE]
+
+    MaintenanceTask:
+      type: object
+      required: [id, assetId, assetName, title, checklist, lastDoneAt, status, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        assetName:
+          type: string
+        title:
+          type: string
+        checklist:
+          type: array
+          items:
+            type: string
+        everyDays:
+          type: integer
+          format: int32
+        everyFirings:
+          type: integer
+          format: int32
+        assignedDuty:
+          $ref: "#/components/schemas/Duty"
+        assignedTo:
+          type: string
+          format: uuid
+        assignedToName:
+          type: string
+        lastDoneAt:
+          type: string
+          format: date-time
+          description: When it was last done, or set up if it hasn't been yet.
+        dueAt:
+          type: string
+          format: date-time
+          description: When the days interval runs out. Absent without one.
+        firingsLeft:
+          type: integer
+          format: int32
+          description: Firings until the firings interval runs out; zero or less once due. Absent without one.
+        status:
+          $ref: "#/components/schemas/DueStatus"
+        version:
+          type: integer
+          format: int64
+
+    SaveMaintenanceTaskRequest:
+      type: object
+      required: [title]
+      description: Needs everyDays, everyFirings or both. Assign it to a duty or a member, not both.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: ["Check element resistance"]
+        checklist:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+        everyDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3650
+        everyFirings:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000
+        assignedDuty:
+          $ref: "#/components/schemas/Duty"
+        assignedTo:
+          type: string
+          format: uuid
+
+    UpdateMaintenanceTaskRequest:
+      type: object
+      required: [task, expectedVersion]
+      properties:
+        task:
+          $ref: "#/components/schemas/SaveMaintenanceTaskRequest"
+        expectedVersion:
+          type: integer
+          format: int64
+
+    CompleteMaintenanceTaskRequest:
+      type: object
       properties:
         note:
           type: string
+          maxLength: 1000
+          examples: ["Elements read 11.2 Ω, within spec"]
         cost:
           $ref: "#/components/schemas/Decimal"
-        atFiring:
-          type: integer
-          format: int32
-          description: The kiln's total firings when the work was done.
-        performedBy:
-          type: string
-          format: uuid
-        performedByName:
-          type: string
-        performedAt:
-          type: string
-          format: date-time
+        checked:
+          type: array
+          description: The checklist lines that were done.
+          maxItems: 30
+          items:
+            type: string
 
-    RecordMaintenanceRequest:
+    RecordRepairRequest:
       type: object
       required: [note]
       properties:
         note:
           type: string
           minLength: 1
-          maxLength: 500
-          examples: ["Replaced elements; resistance 11.2 Ω"]
+          maxLength: 1000
+          examples: ["Replaced the lid hinge pin"]
         cost:
           $ref: "#/components/schemas/Decimal"
+
+    MaintenanceRecord:
+      type: object
+      required: [id, assetId, checked, doneBy, doneAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+          description: Absent for work outside any task.
+        taskTitle:
+          type: string
+        note:
+          type: string
+        cost:
+          $ref: "#/components/schemas/Decimal"
+        checked:
+          type: array
+          items:
+            type: string
+        atFiring:
+          type: integer
+          format: int32
+          description: For a kiln, its total firings when the work was done.
+        doneBy:
+          type: string
+          format: uuid
+        doneByName:
+          type: string
+        doneAt:
+          type: string
+          format: date-time
 
     FiringKind:
       type: string
@@ -3038,8 +3832,9 @@ components:
           format: int32
         maintenanceDue:
           type: array
+          description: Maintenance tasks due or due soon, on any asset, soonest first.
           items:
-            $ref: "#/components/schemas/Kiln"
+            $ref: "#/components/schemas/MaintenanceTask"
         outOfService:
           type: array
           items:

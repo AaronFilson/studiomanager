@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The full local check: API build and tests, the generated client, then web and client
+# The full local check: API build and tests, the generated client, then web, mobile and client
 # typecheck, lint and tests. Integration tests are skipped where Docker is missing.
 source "$(dirname "$0")/lib.sh"
 
@@ -16,7 +16,7 @@ if [[ "$(fingerprint)" != "$before" ]]; then
     exit 1
 fi
 
-echo "== Web and client"
+echo "== Web, mobile and client"
 pnpm -r run typecheck
 pnpm -r run lint
 pnpm -r run test

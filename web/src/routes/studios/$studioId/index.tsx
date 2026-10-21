@@ -2,6 +2,7 @@ import {
   getMeOptions,
   getStatementOptions,
   getStudioOptions,
+  listMyMaintenanceTasksOptions,
   listMyNotificationsOptions,
   listMyNotificationsQueryKey,
   markNotificationReadMutation,
@@ -12,6 +13,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
+import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
 import { formatDateTime, formatMoney, isStaff, roleLabel, unitSystemLabel } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/')({
@@ -28,6 +30,7 @@ function StudioHome() {
     <article className="stack">
       <h1>Hello, {studio.name}</h1>
       <Inbox studioId={studioId} />
+      <MyTasks studioId={studioId} />
       <MyBalance studioId={studioId} currency={studio.currency} />
       {isStaff(studio.myRole) && <NoticeForm studioId={studioId} />}
       <dl className="facts">
@@ -81,6 +84,27 @@ function Inbox({ studioId }: { studioId: string }) {
               Got it
             </button>
           </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Maintenance assigned to this person, by name or through a duty such as monitor. */
+function MyTasks({ studioId }: { studioId: string }) {
+  const tasks = useQuery(listMyMaintenanceTasksOptions({ path: { studioId } }));
+  if (tasks.isError) {
+    return <ErrorMessage error={tasks.error} />;
+  }
+  if (!tasks.data?.length) {
+    return null;
+  }
+  return (
+    <section className="card stack" aria-label="Your maintenance tasks">
+      <h2>Your maintenance tasks</h2>
+      <ul className="studio-list">
+        {tasks.data.map((task) => (
+          <MaintenanceTaskRow key={task.id} studioId={studioId} task={task} showAsset />
         ))}
       </ul>
     </section>

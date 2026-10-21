@@ -18,6 +18,19 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+  modulith:
+    events:
+      jdbc:
+        # Flyway creates event_publication (V10); the app's login can't create tables
+        schema-initialization:
+          enabled: false
+      # A publication stuck this long (the instance died mid-send) is marked failed, and then
+      # retried by OutboxRetry like any other failure.
+      staleness:
+        check-interval: PT1M
+        published: PT15M
+        processing: PT15M
+        resubmitted: PT15M
   security:
     oauth2:
       resourceserver:
@@ -43,3 +56,16 @@ management:
 studiomanager:
   cors:
     allowed-origins: ${STUDIOMANAGER_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  mail:
+    # "log" writes each email to the log, for local work; "acs" sends with Azure Communication Services
+    sender: ${STUDIOMANAGER_MAIL_SENDER:log}
+    from: ${STUDIOMANAGER_MAIL_FROM:DoNotReply@studiomanager.localhost}
+    acs-endpoint: ${STUDIOMANAGER_MAIL_ACS_ENDPOINT:}
+    # Links in emails point here
+    web-origin: ${STUDIOMANAGER_WEB_ORIGIN:http://localhost:5173}
+  storage:
+    # Azure sets the endpoint and the API signs in as its managed identity. Without one, it uses
+    # the connection string: by default, Azurite from compose.yaml with its well-known dev key.
+    blob-endpoint: ${STUDIOMANAGER_STORAGE_BLOB_ENDPOINT:}
+    connection-string: ${STUDIOMANAGER_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;}
+    container: piece-photos

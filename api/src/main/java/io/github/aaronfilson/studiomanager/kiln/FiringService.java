@@ -156,9 +156,7 @@ public class FiringService {
         List<PieceView> moved = pieces.advanceAll(pieceIds, firing.kind().takes(), firing.kind().leaves(),
                 "%s firing in %s".formatted(firing.kind() == FiringKind.BISQUE ? "Bisque" : "Glaze", firing.kilnName()));
         jdbc.sql("""
-                update kiln set total_firings = total_firings + 1,
-                                firings_since_maintenance = firings_since_maintenance + 1,
-                                version = version + 1
+                update kiln set total_firings = total_firings + 1, version = version + 1
                 where id = :id
                 """)
                 .param("id", firing.kilnId())

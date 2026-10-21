@@ -11,6 +11,7 @@ from one fixed path inside the repo, so use them, exactly as written, from the r
 | Everything (API, generated client, web) | `bash scripts/check.sh` |
 | API build and tests | `bash scripts/api.sh` |
 | API with the Docker integration tests (runs in WSL) | `bash scripts/integration.sh test` |
+| The CI web job on Linux (a node:24 container under WSL Docker) | `bash scripts/web-linux.sh` |
 | Any Gradle task | `bash scripts/api.sh compileJava` |
 | pnpm | `bash scripts/js.sh -r run test`, `bash scripts/js.sh --filter @studiomanager/api-client run generate` |
 

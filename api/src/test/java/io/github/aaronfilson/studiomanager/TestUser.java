@@ -19,9 +19,14 @@ public record TestUser(String subject, String name) {
         return new TestUser(name.toLowerCase() + "-" + UUID.randomUUID(), name);
     }
 
+    /** The address the identity provider gives for this person, unique like the subject. */
+    public String email() {
+        return subject + "@example.test";
+    }
+
     /** An access token for the API, carrying its {@code access_as_user} scope. */
     public RequestPostProcessor token() {
-        return jwt().jwt(token -> token.issuer(ISSUER).subject(subject).claim("name", name))
+        return jwt().jwt(token -> token.issuer(ISSUER).subject(subject).claim("name", name).claim("email", email()))
                 .authorities(new SimpleGrantedAuthority("SCOPE_access_as_user"));
     }
 

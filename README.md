@@ -11,16 +11,23 @@ the [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty Azure s
 running environment. The milestones:
 
 - **M1:** studios, invites, the fee engine, and the piece tracker with a hold period.
-- **M2:** kilns, queues with per-member caps, the firing log, maintenance counted in firings, and
-  one "ready" notice per batch.
+- **M2:** kilns, queues with per-member caps, the firing log, and one "ready" notice per batch.
 - **M3:** duties, expiring certifications, the bookable calendar, rosters with credited hours,
   and the "studio today" view.
 - **M4:** the double-entry ledger: balances, stored value, payouts from any provider, tax by date,
   and the journal export.
 - **M5:** clay and supplies, with par levels, purchase requests and sales to members.
 
-Photo upload, the mobile app, live QuickBooks posting and card charging come next (see the
-[plan](docs/planning/02-wave1-plan.md)).
+Since then, from the [pilot-readiness plan](docs/planning/04-pilot-readiness-plan.md):
+
+- notices emailed through a transactional outbox;
+- bulk invites by email;
+- the Expo mobile app.
+
+The first Wave 2 feature is also in: [maintenance](docs/planning/06-wave2-maintenance-plan.md) of
+kilns, other equipment and the building, with recurring tasks counted in days or firings.
+
+Photo upload, hardening, the pilot kit and the first deploy come next.
 
 ## Repository layout
 
@@ -28,8 +35,9 @@ Photo upload, the mobile app, live QuickBooks posting and card charging come nex
 |---|---|
 | [`api/`](api) | Spring Boot 4.1 on Java 25: a modular monolith (Spring Modulith), PostgreSQL 18 with row-level security, Flyway |
 | [`api/src/main/openapi/studiomanager.yaml`](api/src/main/openapi/studiomanager.yaml) | The HTTP contract. Server interfaces and the TypeScript client are generated from it |
-| [`packages/api-client/`](packages/api-client) | Generated TypeScript client and TanStack Query options, shared by web and (from M1) mobile |
+| [`packages/api-client/`](packages/api-client) | Generated TypeScript client and TanStack Query options, shared by web and mobile |
 | [`web/`](web) | React 19, Vite 8, TanStack Router and Query, MSAL for Entra External ID |
+| [`mobile/`](mobile) | Expo SDK 58 (React Native 0.88), Expo Router, sign-in with PKCE in the system browser |
 | [`infra/`](infra) | Terraform: bootstrap, identity, and the `dev` environment on Azure Container Apps |
 | [`.github/workflows/`](.github/workflows) | CI (build, test, drift and Terraform checks, plan on PRs) and deploy-on-merge, keyless via OIDC |
 | [`docs/adr/`](docs/adr) | Architecture decision records |

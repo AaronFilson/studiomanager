@@ -66,3 +66,42 @@ Deploying moved to the end and the mobile app moved in, so P1 becomes:
 | 5 | **Hardening**: branch protection, Dependabot and CodeQL, a Playwright smoke test, OpenTelemetry, a per-studio data export | Branch protection is a setting on your GitHub repo. |
 | 6 | **Pilot kit and outreach**: the guide, the interview questions, the diary, and a short list of US studios to approach | The [census](03-tools-in-use.md) already lists 42 US studios, a starting point. |
 | 7 | **First deploy** | Your call on when, once 1–6 are in hand. |
+
+## Status
+
+- **1. Email delivery: first version done (2026-10-20).** See [ADR 11](../adr/0011-transactional-outbox-for-email.md).
+  - Every inbox notice (batch "ready" and staff notices) is emailed through the Spring Modulith
+    outbox (V10), with scheduled retries.
+  - Locally, emails are written to the log. ACS and its email domain are in Terraform
+    (`infra/modules/email`).
+  - Left for the first deploy: the API identity's role on ACS, and a custom sender domain.
+  - Left for the pilot to decide: an email opt-out for studio notices.
+- **2. Bulk invite: first version done (2026-10-20).**
+  - Staff paste a list (a spreadsheet column, or an email's To line) on the Members page. Each
+    new address gets its own emailed invite; members and addresses already invited are skipped
+    and reported.
+  - "Waiting to join" lists open invites, with resend (a new code and a fresh 14 days) and withdraw.
+  - The plain code is made when the email is sent, and never stored (V11, `InviteEmails`).
+- **3. Mobile app: first version done (2026-10-20).** See [mobile/README.md](../../mobile/README.md).
+  - Expo SDK 58 (React Native 0.88) with Expo Router, in the pnpm workspace, on the shared API client.
+  - Covers sign-in (Entra External ID, PKCE, refresh token in the keychain), my pieces, the
+    shelf for staff with stage moves, drop-off, and notices.
+  - A new Entra registration for the app is in `infra/identity`.
+  - CI typechecks, lints, tests it and bundles it with Metro. It hasn't been run on a device yet:
+    that needs a development build on an emulator or phone.
+  - Camera intake and photos came with item 4. Waiting on a decision: push notifications.
+- **4. Piece photos: first version done (2026-10-20).** See [ADR 12](../adr/0012-direct-to-blob-photo-uploads.md).
+  - Up to 6 photos a piece. The web and the phone shrink each image to a JPEG photo and
+    thumbnail, then upload both straight to Blob Storage with create-only SAS URLs. The API checks
+    them before they show (V13).
+  - The shelf shows each piece's first photo as a thumbnail; the piece page shows them all.
+  - The phone can photograph a piece at drop-off; the photo is added once the piece is in.
+  - Azurite runs in `compose.yaml` and in the integration tests. Azure signs with a
+    user-delegation key from the API's managed identity; the storage account, container, CORS
+    and role were already in Terraform.
+  - Not yet run on a device or against real Azure storage.
+- **5. Hardening:** next in P1.
+
+**Wave 2 started early (2026-10-20)** with maintenance of equipment and the building, the top
+candidate from the [maintenance research](05-maintenance-research.md). See
+[06](06-wave2-maintenance-plan.md). The nine questions in 05 belong in the pilot kit (item 6).
