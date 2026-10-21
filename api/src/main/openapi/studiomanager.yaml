@@ -20,6 +20,8 @@ tags:
     description: Studios (tenants) and membership in them.
   - name: members
     description: The people in a studio, and invites.
+  - name: export
+    description: A studio's own copy of all its data.
   - name: fees
     description: Firing-fee schedules and quotes.
   - name: pieces
@@ -104,6 +106,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Studio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [export]
+      operationId: exportStudio
+      summary: Everything the studio holds, as a ZIP of CSV files (owner only)
+      description: |
+        One CSV per table, with a header row, plus `members.csv` with each member's name and
+        email address. Photos are listed but their images aren't included. The studio's data
+        is read in one transaction, so the files agree with each other.
+      responses:
+        "200":
+          description: The ZIP.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

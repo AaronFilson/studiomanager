@@ -1144,6 +1144,40 @@ export type GetStudioResponses = {
 
 export type GetStudioResponse = GetStudioResponses[keyof GetStudioResponses];
 
+export type ExportStudioData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/export';
+};
+
+export type ExportStudioErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ExportStudioError = ExportStudioErrors[keyof ExportStudioErrors];
+
+export type ExportStudioResponses = {
+    /**
+     * The ZIP.
+     */
+    200: Blob | File;
+};
+
+export type ExportStudioResponse = ExportStudioResponses[keyof ExportStudioResponses];
+
 export type ListMembersData = {
     body?: never;
     path: {

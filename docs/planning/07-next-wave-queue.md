@@ -34,5 +34,12 @@ Each group is a branch stacked on the one before, like P1 so far. `p1-photos` is
 
 Updated as each item lands.
 
-- **0. CI fix:** done 2026-10-21, pushed to `p1-photos`.
+- **0. CI fix:** done 2026-10-21. PR #2 (`p1-photos`) went green and was merged into `main`; the
+  branches below are rebased onto it.
 - **1. Pilot kit:** written 2026-10-21.
+- **2. Dependabot and CodeQL:** done 2026-10-21. The owner still applies
+  [the ruleset](../runbooks/branch-protection.md) and turns on secret scanning.
+- **3. Data export:** done 2026-10-21. `GET /studios/{id}/export`, owner only: a ZIP with one CSV
+  per studio table (found from the catalog, so new tables are included), `members.csv` with names
+  and addresses, and a README. Text cells are guarded against spreadsheet formulas; binary columns
+  (an invite's code hash) are left out. "Download all data" is on Settings.

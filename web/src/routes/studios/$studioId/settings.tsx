@@ -1,4 +1,5 @@
 import {
+  exportStudio,
   type FeeRounding,
   type FeeRuleType,
   type FeeSchedule,
@@ -18,7 +19,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
-import { ErrorMessage } from '../../../components/ErrorMessage';
+import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { feeRuleTypeLabel, feeUnitLabel, roundingLabel } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/settings')({
@@ -39,7 +40,52 @@ function SettingsPage() {
       {policy.isError && <ErrorMessage error={policy.error} />}
       {policy.isSuccess && <HoldForm key={policy.data.holdDays} studioId={studioId} holdDays={policy.data.holdDays} />}
       <TaxForm studioId={studioId} />
+      {studio.myRole === 'OWNER' && <ExportCard studioId={studioId} />}
     </div>
+  );
+}
+
+function ExportCard({ studioId }: { studioId: string }) {
+  const id = useId();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function download() {
+    setError(undefined);
+    setBusy(true);
+    try {
+      const { data, response } = await exportStudio({ path: { studioId }, parseAs: 'blob', throwOnError: true });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'studio-export.zip';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Your data</h2>
+      <p className="badge">
+        Everything the studio holds, as a ZIP of spreadsheets (CSV): pieces, firings, the calendar, the books,
+        supplies, maintenance, and every member with their email address. Photos are listed but not included.
+      </p>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <div>
+        <button type="button" disabled={busy} onClick={() => void download()}>
+          {busy ? 'Preparing…' : 'Download all data'}
+        </button>
+      </div>
+    </section>
   );
 }
 
