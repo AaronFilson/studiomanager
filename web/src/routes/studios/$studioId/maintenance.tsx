@@ -11,7 +11,6 @@ import {
   listMaintenanceRecordsOptions,
   listProblemReportsOptions,
   listSuggestedMaintenanceTasksOptions,
-  listSuppliesOptions,
   type PartUse,
   recordRepairMutation,
   resolveProblemReportMutation,
@@ -23,6 +22,7 @@ import { useId, useState } from 'react';
 
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
+import { PartsPicker } from '../../../components/PartsPicker';
 import { RecordPhotos } from '../../../components/RecordPhotos';
 import { assetKindLabel, dutyLabel, formatDate, formatDateTime, formatMoney, scheduleText } from '../../../labels';
 
@@ -84,7 +84,7 @@ function AssetCard({ studioId, asset }: { studioId: string; asset: Asset }) {
       ) : (
         <ul className="studio-list">
           {asset.tasks.map((task) => (
-            <MaintenanceTaskRow key={task.id} studioId={studioId} task={task} />
+            <MaintenanceTaskRow key={task.id} studioId={studioId} task={task} drawsParts />
           ))}
         </ul>
       )}
@@ -342,12 +342,9 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
   const records = useQuery(listMaintenanceRecordsOptions({ path: { studioId, assetId: asset.id } }));
   const studio = useQuery(getStudioOptions({ path: { studioId } }));
   const currency = studio.data?.currency ?? 'USD';
-  const supplies = useQuery(listSuppliesOptions({ path: { studioId } }));
   const [note, setNote] = useState('');
   const [cost, setCost] = useState('');
   const [parts, setParts] = useState<PartUse[]>([]);
-  const [partItem, setPartItem] = useState('');
-  const [partQuantity, setPartQuantity] = useState('1');
   const repair = useMutation({
     ...recordRepairMutation(),
     onSuccess: async () => {
@@ -357,7 +354,6 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
       await queryClient.invalidateQueries();
     },
   });
-  const itemName = (itemId: string) => supplies.data?.find((s) => s.id === itemId)?.name ?? 'Part';
 
   return (
     <div className="stack">
@@ -383,55 +379,7 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
           Log it
         </button>
       </div>
-      {!!supplies.data?.length && (
-        <div className="row">
-          <div className="field">
-            <label htmlFor={`${id}-part`}>Part from supplies (optional)</label>
-            <select id={`${id}-part`} value={partItem} onChange={(e) => setPartItem(e.target.value)}>
-              <option value="">Choose…</option>
-              {supplies.data
-                .filter((s) => !parts.some((p) => p.itemId === s.id))
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.onHand} {s.unit} on hand)
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor={`${id}-quantity`}>How many</label>
-            <input
-              id={`${id}-quantity`}
-              inputMode="decimal"
-              value={partQuantity}
-              onChange={(e) => setPartQuantity(e.target.value.trim())}
-            />
-          </div>
-          <button
-            type="button"
-            disabled={!partItem || !(Number(partQuantity) > 0)}
-            onClick={() => {
-              setParts((p) => [...p, { itemId: partItem, quantity: partQuantity }]);
-              setPartItem('');
-              setPartQuantity('1');
-            }}
-          >
-            Add part
-          </button>
-        </div>
-      )}
-      {parts.length > 0 && (
-        <ul aria-label="Parts used">
-          {parts.map((p) => (
-            <li key={p.itemId}>
-              {p.quantity} × {itemName(p.itemId)}{' '}
-              <button type="button" onClick={() => setParts((all) => all.filter((x) => x.itemId !== p.itemId))}>
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <PartsPicker studioId={studioId} parts={parts} onChange={setParts} />
       {repair.isError && <ErrorMessage error={repair.error} />}
       {records.isError && <ErrorMessage error={records.error} />}
       {records.isSuccess && records.data.length === 0 && <p>Nothing logged yet.</p>}

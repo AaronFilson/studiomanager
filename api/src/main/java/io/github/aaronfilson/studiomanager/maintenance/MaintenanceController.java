@@ -14,6 +14,7 @@ import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.contract.AssetAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.AssetDto;
 import io.github.aaronfilson.studiomanager.contract.AssetKindDto;
+import io.github.aaronfilson.studiomanager.contract.PartUseDto;
 import io.github.aaronfilson.studiomanager.contract.PhotoUploadDto;
 import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
 import io.github.aaronfilson.studiomanager.contract.ReportProblemRequestDto;
@@ -123,15 +124,15 @@ class MaintenanceController implements MaintenanceApi {
     public ResponseEntity<MaintenanceTaskDto> completeMaintenanceTask(UUID studioId, UUID taskId,
             CompleteMaintenanceTaskRequestDto request) {
         return ResponseEntity.ok(MaintenanceDtos.toDto(maintenance.complete(taskId, request.getNote(),
-                decimal(request.getCost()), request.getChecked() == null ? List.of() : request.getChecked())));
+                decimal(request.getCost()), request.getChecked() == null ? List.of() : request.getChecked(),
+                parts(request.getParts()))));
     }
 
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     public ResponseEntity<MaintenanceRecordDto> recordRepair(UUID studioId, UUID assetId, RecordRepairRequestDto request) {
         var record = maintenance.recordRepair(assetId, request.getNote(), decimal(request.getCost()),
-                request.getParts() == null ? List.of() : request.getParts().stream()
-                        .map(p -> new PartUse(p.getItemId(), new BigDecimal(p.getQuantity()))).toList());
+                parts(request.getParts()));
         return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record, List.of()));
     }
 
@@ -231,6 +232,11 @@ class MaintenanceController implements MaintenanceApi {
                 request.getEveryDays(), request.getEveryFirings(),
                 request.getAssignedDuty() == null ? null : Duty.valueOf(request.getAssignedDuty().name()),
                 request.getAssignedTo());
+    }
+
+    private static List<PartUse> parts(@Nullable List<PartUseDto> parts) {
+        return parts == null ? List.of()
+                : parts.stream().map(p -> new PartUse(p.getItemId(), new BigDecimal(p.getQuantity()))).toList();
     }
 
     private static @Nullable BigDecimal decimal(@Nullable String value) {

@@ -3673,6 +3673,12 @@ components:
           maxItems: 30
           items:
             type: string
+        parts:
+          type: array
+          maxItems: 20
+          description: Spare parts taken from supplies, such as a new element. Staff only, as for any stock movement.
+          items:
+            $ref: "#/components/schemas/PartUse"
 
     RecordRepairRequest:
       type: object

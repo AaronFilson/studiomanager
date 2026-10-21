@@ -67,8 +67,8 @@ Updated as each item lands.
   from supplies; each is a USED stock movement noted with the asset. Staff add up to 4 photos to
   any record, uploaded straight to storage like piece photos. Photos can't be removed, because
   records are evidence. The JPEG checks now live in `platform.storage.UploadedImages`, shared with
-  piece photos, and the client's upload helper serves both. Not yet: parts on task completions
-  (repairs are staff-only, and so is drawing stock), and photos from the phone.
+  piece photos, and the client's upload helper serves both. Staff can also record parts when they
+  mark a task done. Not yet: photos from the phone.
 - **10. Playwright smoke test:** not started. It needs a way to sign in without Entra in a test
   build. See "Left open" below.
 - **11. Wave 1 leftovers:** done 2026-10-21, on `wave1-leftovers`.

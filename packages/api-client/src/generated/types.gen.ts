@@ -564,6 +564,10 @@ export type CompleteMaintenanceTaskRequest = {
      * The checklist lines that were done.
      */
     checked?: Array<string>;
+    /**
+     * Spare parts taken from supplies, such as a new element. Staff only, as for any stock movement.
+     */
+    parts?: Array<PartUse>;
 };
 
 export type RecordRepairRequest = {

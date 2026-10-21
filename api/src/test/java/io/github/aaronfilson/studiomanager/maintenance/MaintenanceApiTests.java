@@ -233,6 +233,22 @@ class MaintenanceApiTests {
                 """.formatted(UUID.randomUUID()))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token())).hasStatusOk()
                 .bodyJson().extractingPath("$.length()").isEqualTo(1);
+
+        // Completing a task can draw parts too, but only staff draw stock
+        String check = read(post(owner, path("/maintenance/assets/" + kiln + "/tasks"), """
+                {"title": "Check elements", "everyFirings": 10, "assignedDuty": "MONITOR"}
+                """), "$.id");
+        assertThat(post(monitor, path("/maintenance/tasks/" + check + "/completions"), """
+                {"parts": [{"itemId": "%s", "quantity": "1"}]}
+                """.formatted(element))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(post(owner, path("/maintenance/tasks/" + check + "/completions"), """
+                {"note": "Bottom element replaced", "parts": [{"itemId": "%s", "quantity": "1"}]}
+                """.formatted(element))).hasStatusOk();
+        assertThat(mvc.get().uri(path("/supplies")).with(owner.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$[0].onHand", n -> assertThat(n).isEqualTo("0"));
+        assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token())).hasStatusOk()
+                .bodyJson().hasPathSatisfying("$[0].taskTitle", t -> assertThat(t).isEqualTo("Check elements"))
+                .hasPathSatisfying("$[0].parts[0].itemName", n -> assertThat(n).isEqualTo("Element, 1027 top"));
     }
 
     @Test

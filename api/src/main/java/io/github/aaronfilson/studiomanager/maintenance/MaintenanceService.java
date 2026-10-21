@@ -286,10 +286,12 @@ public class MaintenanceService {
 
     /**
      * Records a task as done and restarts its clock, and only its clock. Staff can complete any
-     * task; anyone else only one assigned to them, by name or through a duty they hold.
+     * task; anyone else only one assigned to them, by name or through a duty they hold. Parts
+     * used are drawn from supplies, which only staff can do.
      */
     @Transactional
-    public Task complete(UUID taskId, @Nullable String note, @Nullable BigDecimal cost, List<String> checked) {
+    public Task complete(UUID taskId, @Nullable String note, @Nullable BigDecimal cost, List<String> checked,
+            List<PartUse> parts) {
         Instant now = now();
         Task task = task(taskId, now);
         requireMayComplete(task);
@@ -298,9 +300,11 @@ public class MaintenanceService {
         if (!lines.containsAll(ticked)) {
             throw new InvalidInputException("Only lines from the task's checklist can be ticked.");
         }
+        requireValidParts(parts);
         AssetRow asset = assetRow(task.assetId());
         Integer firings = asset.kilnId() == null ? null : firingsOf(asset);
-        insertRecord(asset.id(), taskId, note, cost, ticked, firings, now);
+        UUID recordId = insertRecord(asset.id(), taskId, note, cost, ticked, firings, now);
+        drawParts(recordId, parts, task.title() + ": " + nameOf(asset, kilnsById()));
         jdbc.sql("""
                 update maintenance_task set last_done_at = :now, last_done_firings = :firings, version = version + 1
                 where id = :id
@@ -322,27 +326,35 @@ public class MaintenanceService {
         if (note.isBlank()) {
             throw new InvalidInputException("Describe the work.");
         }
-        if (parts.size() > 20 || parts.stream().map(PartUse::itemId).distinct().count() != parts.size()) {
-            throw new InvalidInputException("List each part once, up to 20 parts.");
-        }
+        requireValidParts(parts);
         AssetRow asset = assetRow(assetId);
         UUID id = insertRecord(assetId, null, note, cost, List.of(),
                 asset.kilnId() == null ? null : firingsOf(asset), now());
-        String movementNote = "Repair: " + nameOf(asset, kilnsById());
+        drawParts(id, parts, "Repair: " + nameOf(asset, kilnsById()));
+        return records(assetId).stream().filter(r -> r.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private static void requireValidParts(List<PartUse> parts) {
+        if (parts.size() > 20 || parts.stream().map(PartUse::itemId).distinct().count() != parts.size()) {
+            throw new InvalidInputException("List each part once, up to 20 parts.");
+        }
+    }
+
+    /** Takes each part out of stock, noted with what it was for, and links it to the record. */
+    private void drawParts(UUID recordId, List<PartUse> parts, String what) {
+        String movementNote = what.length() > 200 ? what.substring(0, 200) : what;
         for (PartUse part : parts) {
-            supplies.recordMovement(part.itemId(), MovementKind.USED, part.quantity(),
-                    movementNote.length() > 200 ? movementNote.substring(0, 200) : movementNote);
+            supplies.recordMovement(part.itemId(), MovementKind.USED, part.quantity(), movementNote);
             jdbc.sql("""
                     insert into maintenance_record_part (record_id, studio_id, item_id, quantity)
                     values (:recordId, :studioId, :itemId, :quantity)
                     """)
-                    .param("recordId", id)
+                    .param("recordId", recordId)
                     .param("studioId", TenantContext.require().studioId())
                     .param("itemId", part.itemId())
                     .param("quantity", part.quantity())
                     .update();
         }
-        return records(assetId).stream().filter(r -> r.id().equals(id)).findFirst().orElseThrow();
     }
 
     /** The asset's history, newest first. */
