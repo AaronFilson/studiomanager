@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, createAsset, createBooking, createCertificationType, createInvite, createKiln, createMaintenanceTask, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, deletePhoto, emailInvites, expireStoredValue, exportJournal, exportMaintenanceRecords, exportStudio, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listDuties, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayouts, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, quoteFee, recordPayment, recordRepair, recordStockMovement, reportProblem, resendInvite, resolveProblemReport, revokeCertification, revokeInvite, saveFeeSchedule, savePiecePolicy, sellStoredValue, sellSupply, sendNotice, setAssetAvailability, setDuties, setKilnAvailability, setTaxRate, startPhotoUpload, startRecordPhotoUpload, transitionFiring, updateAsset, updateKiln, updateMaintenanceTask, updateSupply, useStoredValue } from '../sdk.gen';
-import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
+import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, createAsset, createBooking, createCertificationType, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, deletePhoto, emailInvites, expireStoredValue, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importPayout, intakePiece, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, reportProblem, resendInvite, resolveProblemReport, returnConsignment, revokeCertification, revokeInvite, saveFeeSchedule, savePiecePolicy, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAssetAvailability, setDuties, setKilnAvailability, setTaxRate, startPhotoUpload, startRecordPhotoUpload, takeInConsignment, transitionFiring, updateAsset, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -1743,6 +1743,254 @@ export const setTaxRateMutation = (options?: Partial<Options<SetTaxRateData>>): 
     };
     return mutationOptions;
 };
+
+export const listPayeesQueryKey = (options: Options<ListPayeesData>) => createQueryKey('listPayees', options);
+
+/**
+ * Everyone the studio pays, with what each is owed (staff only)
+ */
+export const listPayeesOptions = (options: Options<ListPayeesData>) => queryOptions<ListPayeesResponse, ListPayeesError, ListPayeesResponse, ReturnType<typeof listPayeesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPayees({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPayeesQueryKey(options)
+});
+
+/**
+ * Add an artist, instructor or anyone else the studio pays (staff only)
+ */
+export const createPayeeMutation = (options?: Partial<Options<CreatePayeeData>>): UseMutationOptions<CreatePayeeResponse, CreatePayeeError, Options<CreatePayeeData>> => {
+    const mutationOptions: UseMutationOptions<CreatePayeeResponse, CreatePayeeError, Options<CreatePayeeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPayee({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Change a payee's details, terms or tax status, or archive them (staff only)
+ */
+export const updatePayeeMutation = (options?: Partial<Options<UpdatePayeeData>>): UseMutationOptions<UpdatePayeeResponse, UpdatePayeeError, Options<UpdatePayeeData>> => {
+    const mutationOptions: UseMutationOptions<UpdatePayeeResponse, UpdatePayeeError, Options<UpdatePayeeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updatePayee({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPayeeStatementQueryKey = (options: Options<GetPayeeStatementData>) => createQueryKey('getPayeeStatement', options);
+
+/**
+ * What a payee was owed, earned and paid over a period (staff only)
+ */
+export const getPayeeStatementOptions = (options: Options<GetPayeeStatementData>) => queryOptions<GetPayeeStatementResponse, GetPayeeStatementError, GetPayeeStatementResponse, ReturnType<typeof getPayeeStatementQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPayeeStatement({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPayeeStatementQueryKey(options)
+});
+
+/**
+ * Record a share or fee a payee has earned, such as an instructor's share of a class (staff only)
+ */
+export const recordEarningMutation = (options?: Partial<Options<RecordEarningData>>): UseMutationOptions<RecordEarningResponse, RecordEarningError, Options<RecordEarningData>> => {
+    const mutationOptions: UseMutationOptions<RecordEarningResponse, RecordEarningError, Options<RecordEarningData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recordEarning({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Record money sent to a payee, up to what they're owed (staff only)
+ */
+export const payPayeeMutation = (options?: Partial<Options<PayPayeeData>>): UseMutationOptions<PayPayeeResponse, PayPayeeError, Options<PayPayeeData>> => {
+    const mutationOptions: UseMutationOptions<PayPayeeResponse, PayPayeeError, Options<PayPayeeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await payPayee({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listConsignmentItemsQueryKey = (options: Options<ListConsignmentItemsData>) => createQueryKey('listConsignmentItems', options);
+
+/**
+ * Consigned work, newest first (staff only)
+ */
+export const listConsignmentItemsOptions = (options: Options<ListConsignmentItemsData>) => queryOptions<ListConsignmentItemsResponse, ListConsignmentItemsError, ListConsignmentItemsResponse, ReturnType<typeof listConsignmentItemsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listConsignmentItems({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listConsignmentItemsQueryKey(options)
+});
+
+/**
+ * Take in an artist's work to sell (staff only)
+ */
+export const takeInConsignmentMutation = (options?: Partial<Options<TakeInConsignmentData>>): UseMutationOptions<TakeInConsignmentResponse, TakeInConsignmentError, Options<TakeInConsignmentData>> => {
+    const mutationOptions: UseMutationOptions<TakeInConsignmentResponse, TakeInConsignmentError, Options<TakeInConsignmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await takeInConsignment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sell consigned work; the artist's share becomes what they're owed (staff only)
+ */
+export const sellConsignmentMutation = (options?: Partial<Options<SellConsignmentData>>): UseMutationOptions<SellConsignmentResponse, SellConsignmentError, Options<SellConsignmentData>> => {
+    const mutationOptions: UseMutationOptions<SellConsignmentResponse, SellConsignmentError, Options<SellConsignmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await sellConsignment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give unsold work back to the artist (staff only)
+ */
+export const returnConsignmentMutation = (options?: Partial<Options<ReturnConsignmentData>>): UseMutationOptions<ReturnConsignmentResponse, ReturnConsignmentError, Options<ReturnConsignmentData>> => {
+    const mutationOptions: UseMutationOptions<ReturnConsignmentResponse, ReturnConsignmentError, Options<ReturnConsignmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await returnConsignment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listConsignmentSalesQueryKey = (options: Options<ListConsignmentSalesData>) => createQueryKey('listConsignmentSales', options);
+
+/**
+ * Recent sales of consigned work, newest first (staff only)
+ */
+export const listConsignmentSalesOptions = (options: Options<ListConsignmentSalesData>) => queryOptions<ListConsignmentSalesResponse, ListConsignmentSalesError, ListConsignmentSalesResponse, ReturnType<typeof listConsignmentSalesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listConsignmentSales({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listConsignmentSalesQueryKey(options)
+});
+
+/**
+ * Refund a sale in full and put the work back on the shelf (staff only)
+ *
+ * Reverses the artist's share, the commission and the tax. If the artist was already
+ * paid, they owe it back, and it comes off their next sales.
+ *
+ */
+export const refundConsignmentSaleMutation = (options?: Partial<Options<RefundConsignmentSaleData>>): UseMutationOptions<RefundConsignmentSaleResponse, RefundConsignmentSaleError, Options<RefundConsignmentSaleData>> => {
+    const mutationOptions: UseMutationOptions<RefundConsignmentSaleResponse, RefundConsignmentSaleError, Options<RefundConsignmentSaleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await refundConsignmentSale({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getNecReportQueryKey = (options: Options<GetNecReportData>) => createQueryKey('getNecReport', options);
+
+/**
+ * Payments in a year to payees the studio files a 1099-NEC for (staff only)
+ */
+export const getNecReportOptions = (options: Options<GetNecReportData>) => queryOptions<GetNecReportResponse, GetNecReportError, GetNecReportResponse, ReturnType<typeof getNecReportQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getNecReport({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getNecReportQueryKey(options)
+});
+
+export const exportNecReportQueryKey = (options: Options<ExportNecReportData>) => createQueryKey('exportNecReport', options);
+
+/**
+ * The 1099-NEC list as CSV, for whoever files the forms (staff only)
+ */
+export const exportNecReportOptions = (options: Options<ExportNecReportData>) => queryOptions<ExportNecReportResponse, ExportNecReportError, ExportNecReportResponse, ReturnType<typeof exportNecReportQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportNecReport({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportNecReportQueryKey(options)
+});
 
 export const listSuppliesQueryKey = (options: Options<ListSuppliesData>) => createQueryKey('listSupplies', options);
 

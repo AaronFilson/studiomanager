@@ -32,7 +32,11 @@ public final class LedgerModel {
         STORED_VALUE_EXPIRY,
         PAYOUT,
         REFUND,
-        ADJUSTMENT
+        ADJUSTMENT,
+        CONSIGNMENT_SALE,
+        CONSIGNMENT_REFUND,
+        PAYEE_EARNING,
+        PAYEE_PAYMENT
     }
 
     public enum StoredValueKind {
@@ -45,30 +49,39 @@ public final class LedgerModel {
 
     /** One line of a journal entry. Debits are positive, credits negative. */
     public record Line(LedgerAccount account, BigDecimal amount, @Nullable UUID member, @Nullable UUID storedValue,
-            @Nullable Provider provider, @Nullable String taxCategory) {
+            @Nullable Provider provider, @Nullable String taxCategory, @Nullable UUID payee) {
 
         public static Line debit(LedgerAccount account, BigDecimal amount) {
-            return new Line(account, amount, null, null, null, null);
+            return new Line(account, amount, null, null, null, null, null);
         }
 
         public static Line credit(LedgerAccount account, BigDecimal amount) {
-            return new Line(account, amount.negate(), null, null, null, null);
+            return new Line(account, amount.negate(), null, null, null, null, null);
         }
 
         public Line member(UUID id) {
-            return new Line(account, amount, id, storedValue, provider, taxCategory);
+            return new Line(account, amount, id, storedValue, provider, taxCategory, payee);
         }
 
         public Line storedValue(UUID id) {
-            return new Line(account, amount, member, id, provider, taxCategory);
+            return new Line(account, amount, member, id, provider, taxCategory, payee);
         }
 
         public Line provider(Provider p) {
-            return new Line(account, amount, member, storedValue, p, taxCategory);
+            return new Line(account, amount, member, storedValue, p, taxCategory, payee);
         }
 
         public Line taxCategory(String category) {
-            return new Line(account, amount, member, storedValue, provider, category);
+            return new Line(account, amount, member, storedValue, provider, category, payee);
+        }
+
+        public Line payee(UUID id) {
+            return new Line(account, amount, member, storedValue, provider, taxCategory, id);
+        }
+
+        /** The same line on the other side, for reversing an entry. */
+        public Line reversed() {
+            return new Line(account, amount.negate(), member, storedValue, provider, taxCategory, payee);
         }
     }
 

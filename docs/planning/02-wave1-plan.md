@@ -73,7 +73,8 @@ Each feature answers a researched job *and* carries a distinct technical story.
 - Native QuickBooks posting, if the pilot doesn't already need it in Wave 1
 - Charging through the first payment provider: card on file, automatic firing fees, membership
   billing with pause and stop
-- Consignment and instructor payables, with a 1099-NEC export ($2,000 threshold from 2026)
+- Consignment and instructor payables, with a 1099-NEC export ($2,000 threshold from 2026).
+  _First version done 2026-10-21 ([08](08-wave2-queue.md), item 1)._
 - Waitlists that offer freed places
 - Reading class bookings from storefronts (Shopify, WooCommerce, Acuity)
 - Glaze book (users' own Glazy exports, test-tile photos)

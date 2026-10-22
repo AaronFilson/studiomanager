@@ -15,6 +15,8 @@ public enum LedgerAccount {
     /** Prepaid money held for people: gift cards, firing cards, class packs, deposits. */
     STORED_VALUE_LIABILITY(Type.LIABILITY),
     SALES_TAX_PAYABLE(Type.LIABILITY),
+    /** What the studio owes the people it pays (consignors, instructors), per payee. */
+    PAYEES_PAYABLE(Type.LIABILITY),
     REVENUE_FIRING(Type.REVENUE),
     REVENUE_CLASSES(Type.REVENUE),
     REVENUE_MEMBERSHIPS(Type.REVENUE),
@@ -22,10 +24,14 @@ public enum LedgerAccount {
     REVENUE_EVENTS(Type.REVENUE),
     /** Stored value that expired unused. */
     REVENUE_BREAKAGE(Type.REVENUE),
+    /** The studio's share of consigned work it sells; the artist's share is never its revenue. */
+    REVENUE_COMMISSIONS(Type.REVENUE),
     REVENUE_OTHER(Type.REVENUE),
     /** Contra-revenue: money given back. */
     REFUNDS(Type.REVENUE),
-    PROCESSOR_FEES(Type.EXPENSE);
+    PROCESSOR_FEES(Type.EXPENSE),
+    /** Instructors' and other contractors' shares and fees. */
+    CONTRACT_SERVICES(Type.EXPENSE);
 
     private final Type type;
 

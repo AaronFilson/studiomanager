@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadErrors, CompleteRecordPhotoUploadResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, ExportMaintenanceRecordsData, ExportMaintenanceRecordsErrors, ExportMaintenanceRecordsResponses, ExportStudioData, ExportStudioErrors, ExportStudioResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListProblemReportsData, ListProblemReportsErrors, ListProblemReportsResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListReportableAssetsData, ListReportableAssetsErrors, ListReportableAssetsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksErrors, ListSuggestedMaintenanceTasksResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, OfferShiftData, OfferShiftErrors, OfferShiftResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, ReportProblemData, ReportProblemErrors, ReportProblemResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResolveProblemReportData, ResolveProblemReportErrors, ResolveProblemReportResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, StartRecordPhotoUploadData, StartRecordPhotoUploadErrors, StartRecordPhotoUploadResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadErrors, CompleteRecordPhotoUploadResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePayeeData, CreatePayeeErrors, CreatePayeeResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, ExportMaintenanceRecordsData, ExportMaintenanceRecordsErrors, ExportMaintenanceRecordsResponses, ExportNecReportData, ExportNecReportErrors, ExportNecReportResponses, ExportStudioData, ExportStudioErrors, ExportStudioResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetNecReportData, GetNecReportErrors, GetNecReportResponses, GetPayeeStatementData, GetPayeeStatementErrors, GetPayeeStatementResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListConsignmentItemsData, ListConsignmentItemsErrors, ListConsignmentItemsResponses, ListConsignmentSalesData, ListConsignmentSalesErrors, ListConsignmentSalesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayeesData, ListPayeesErrors, ListPayeesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListProblemReportsData, ListProblemReportsErrors, ListProblemReportsResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListReportableAssetsData, ListReportableAssetsErrors, ListReportableAssetsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksErrors, ListSuggestedMaintenanceTasksResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, OfferShiftData, OfferShiftErrors, OfferShiftResponses, PayPayeeData, PayPayeeErrors, PayPayeeResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordEarningData, RecordEarningErrors, RecordEarningResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, RefundConsignmentSaleData, RefundConsignmentSaleErrors, RefundConsignmentSaleResponses, ReportProblemData, ReportProblemErrors, ReportProblemResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResolveProblemReportData, ResolveProblemReportErrors, ResolveProblemReportResponses, ReturnConsignmentData, ReturnConsignmentErrors, ReturnConsignmentResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, SellConsignmentData, SellConsignmentErrors, SellConsignmentResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, StartRecordPhotoUploadData, StartRecordPhotoUploadErrors, StartRecordPhotoUploadResponses, TakeInConsignmentData, TakeInConsignmentErrors, TakeInConsignmentResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdatePayeeData, UpdatePayeeErrors, UpdatePayeeResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -1102,6 +1102,164 @@ export const setTaxRate = <ThrowOnError extends boolean = false>(options: Option
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Everyone the studio pays, with what each is owed (staff only)
+ */
+export const listPayees = <ThrowOnError extends boolean = false>(options: Options<ListPayeesData, ThrowOnError>): RequestResult<ListPayeesResponses, ListPayeesErrors, ThrowOnError> => (options.client ?? client).get<ListPayeesResponses, ListPayeesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payees',
+    ...options
+});
+
+/**
+ * Add an artist, instructor or anyone else the studio pays (staff only)
+ */
+export const createPayee = <ThrowOnError extends boolean = false>(options: Options<CreatePayeeData, ThrowOnError>): RequestResult<CreatePayeeResponses, CreatePayeeErrors, ThrowOnError> => (options.client ?? client).post<CreatePayeeResponses, CreatePayeeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payees',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Change a payee's details, terms or tax status, or archive them (staff only)
+ */
+export const updatePayee = <ThrowOnError extends boolean = false>(options: Options<UpdatePayeeData, ThrowOnError>): RequestResult<UpdatePayeeResponses, UpdatePayeeErrors, ThrowOnError> => (options.client ?? client).put<UpdatePayeeResponses, UpdatePayeeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * What a payee was owed, earned and paid over a period (staff only)
+ */
+export const getPayeeStatement = <ThrowOnError extends boolean = false>(options: Options<GetPayeeStatementData, ThrowOnError>): RequestResult<GetPayeeStatementResponses, GetPayeeStatementErrors, ThrowOnError> => (options.client ?? client).get<GetPayeeStatementResponses, GetPayeeStatementErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}/statement',
+    ...options
+});
+
+/**
+ * Record a share or fee a payee has earned, such as an instructor's share of a class (staff only)
+ */
+export const recordEarning = <ThrowOnError extends boolean = false>(options: Options<RecordEarningData, ThrowOnError>): RequestResult<RecordEarningResponses, RecordEarningErrors, ThrowOnError> => (options.client ?? client).post<RecordEarningResponses, RecordEarningErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}/earnings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Record money sent to a payee, up to what they're owed (staff only)
+ */
+export const payPayee = <ThrowOnError extends boolean = false>(options: Options<PayPayeeData, ThrowOnError>): RequestResult<PayPayeeResponses, PayPayeeErrors, ThrowOnError> => (options.client ?? client).post<PayPayeeResponses, PayPayeeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}/payments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Consigned work, newest first (staff only)
+ */
+export const listConsignmentItems = <ThrowOnError extends boolean = false>(options: Options<ListConsignmentItemsData, ThrowOnError>): RequestResult<ListConsignmentItemsResponses, ListConsignmentItemsErrors, ThrowOnError> => (options.client ?? client).get<ListConsignmentItemsResponses, ListConsignmentItemsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/consignment-items',
+    ...options
+});
+
+/**
+ * Take in an artist's work to sell (staff only)
+ */
+export const takeInConsignment = <ThrowOnError extends boolean = false>(options: Options<TakeInConsignmentData, ThrowOnError>): RequestResult<TakeInConsignmentResponses, TakeInConsignmentErrors, ThrowOnError> => (options.client ?? client).post<TakeInConsignmentResponses, TakeInConsignmentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/consignment-items',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sell consigned work; the artist's share becomes what they're owed (staff only)
+ */
+export const sellConsignment = <ThrowOnError extends boolean = false>(options: Options<SellConsignmentData, ThrowOnError>): RequestResult<SellConsignmentResponses, SellConsignmentErrors, ThrowOnError> => (options.client ?? client).post<SellConsignmentResponses, SellConsignmentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/consignment-items/{itemId}/sales',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Give unsold work back to the artist (staff only)
+ */
+export const returnConsignment = <ThrowOnError extends boolean = false>(options: Options<ReturnConsignmentData, ThrowOnError>): RequestResult<ReturnConsignmentResponses, ReturnConsignmentErrors, ThrowOnError> => (options.client ?? client).post<ReturnConsignmentResponses, ReturnConsignmentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/consignment-items/{itemId}/returns',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Recent sales of consigned work, newest first (staff only)
+ */
+export const listConsignmentSales = <ThrowOnError extends boolean = false>(options: Options<ListConsignmentSalesData, ThrowOnError>): RequestResult<ListConsignmentSalesResponses, ListConsignmentSalesErrors, ThrowOnError> => (options.client ?? client).get<ListConsignmentSalesResponses, ListConsignmentSalesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/consignment-sales',
+    ...options
+});
+
+/**
+ * Refund a sale in full and put the work back on the shelf (staff only)
+ *
+ * Reverses the artist's share, the commission and the tax. If the artist was already
+ * paid, they owe it back, and it comes off their next sales.
+ *
+ */
+export const refundConsignmentSale = <ThrowOnError extends boolean = false>(options: Options<RefundConsignmentSaleData, ThrowOnError>): RequestResult<RefundConsignmentSaleResponses, RefundConsignmentSaleErrors, ThrowOnError> => (options.client ?? client).post<RefundConsignmentSaleResponses, RefundConsignmentSaleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/consignment-sales/{saleId}/refund',
+    ...options
+});
+
+/**
+ * Payments in a year to payees the studio files a 1099-NEC for (staff only)
+ */
+export const getNecReport = <ThrowOnError extends boolean = false>(options: Options<GetNecReportData, ThrowOnError>): RequestResult<GetNecReportResponses, GetNecReportErrors, ThrowOnError> => (options.client ?? client).get<GetNecReportResponses, GetNecReportErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payables/1099-nec',
+    ...options
+});
+
+/**
+ * The 1099-NEC list as CSV, for whoever files the forms (staff only)
+ */
+export const exportNecReport = <ThrowOnError extends boolean = false>(options: Options<ExportNecReportData, ThrowOnError>): RequestResult<ExportNecReportResponses, ExportNecReportErrors, ThrowOnError> => (options.client ?? client).get<ExportNecReportResponses, ExportNecReportErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/studios/{studioId}/payables/1099-nec/export',
+    ...options
 });
 
 /**

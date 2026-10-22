@@ -44,6 +44,10 @@ tags:
     description: |
       The studio's books: what members owe, prepaid balances, payouts from every provider,
       tax rates by date, and the daily summary that feeds QuickBooks or Xero.
+  - name: payables
+    description: |
+      What the studio owes the people it pays: consignors for work sold, instructors for their
+      share of a class. Statements, payments, and the 1099-NEC list.
 
 paths:
   /api/v1/me:
@@ -2347,6 +2351,392 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/studios/{studioId}/payees:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [payables]
+      operationId: listPayees
+      summary: Everyone the studio pays, with what each is owed (staff only)
+      responses:
+        "200":
+          description: Payees, archived ones last.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payee"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [payables]
+      operationId: createPayee
+      summary: Add an artist, instructor or anyone else the studio pays (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePayeeRequest"
+      responses:
+        "201":
+          description: The payee.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payee"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/payees/{payeeId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PayeeId"
+    put:
+      tags: [payables]
+      operationId: updatePayee
+      summary: Change a payee's details, terms or tax status, or archive them (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePayeeRequest"
+      responses:
+        "200":
+          description: The payee.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payee"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/payees/{payeeId}/statement:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PayeeId"
+    get:
+      tags: [payables]
+      operationId: getPayeeStatement
+      summary: What a payee was owed, earned and paid over a period (staff only)
+      parameters:
+        - $ref: "#/components/parameters/FromDate"
+        - $ref: "#/components/parameters/ToDate"
+      responses:
+        "200":
+          description: The statement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayeeStatement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/payees/{payeeId}/earnings:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PayeeId"
+    post:
+      tags: [payables]
+      operationId: recordEarning
+      summary: Record a share or fee a payee has earned, such as an instructor's share of a class (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordEarningRequest"
+      responses:
+        "201":
+          description: What was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Earning"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/payees/{payeeId}/payments:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/PayeeId"
+    post:
+      tags: [payables]
+      operationId: payPayee
+      summary: Record money sent to a payee, up to what they're owed (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayPayeeRequest"
+      responses:
+        "201":
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayeePayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/consignment-items:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [payables]
+      operationId: listConsignmentItems
+      summary: Consigned work, newest first (staff only)
+      parameters:
+        - name: payeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: all
+          in: query
+          required: false
+          description: Include work sold out or returned to the artist.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsignmentItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [payables]
+      operationId: takeInConsignment
+      summary: Take in an artist's work to sell (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TakeInConsignmentRequest"
+      responses:
+        "201":
+          description: The item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/consignment-items/{itemId}/sales:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      tags: [payables]
+      operationId: sellConsignment
+      summary: Sell consigned work; the artist's share becomes what they're owed (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SellConsignmentRequest"
+      responses:
+        "201":
+          description: The sale.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentSale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/consignment-items/{itemId}/returns:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      tags: [payables]
+      operationId: returnConsignment
+      summary: Give unsold work back to the artist (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnConsignmentRequest"
+      responses:
+        "200":
+          description: The item afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/consignment-sales:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [payables]
+      operationId: listConsignmentSales
+      summary: Recent sales of consigned work, newest first (staff only)
+      parameters:
+        - name: payeeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Sales.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsignmentSale"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/consignment-sales/{saleId}/refund:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/SaleId"
+    post:
+      tags: [payables]
+      operationId: refundConsignmentSale
+      summary: Refund a sale in full and put the work back on the shelf (staff only)
+      description: |
+        Reverses the artist's share, the commission and the tax. If the artist was already
+        paid, they owe it back, and it comes off their next sales.
+      responses:
+        "200":
+          description: The sale afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentSale"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/payables/1099-nec:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [payables]
+      operationId: getNecReport
+      summary: Payments in a year to payees the studio files a 1099-NEC for (staff only)
+      parameters:
+        - $ref: "#/components/parameters/Year"
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NecReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/payables/1099-nec/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [payables]
+      operationId: exportNecReport
+      summary: The 1099-NEC list as CSV, for whoever files the forms (staff only)
+      parameters:
+        - $ref: "#/components/parameters/Year"
+      responses:
+        "200":
+          description: One row per payee.
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/studios/{studioId}/supplies:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -2695,6 +3085,29 @@ components:
       schema:
         type: string
         format: uuid
+    PayeeId:
+      name: payeeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SaleId:
+      name: saleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Year:
+      name: year
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 2000
+        maximum: 2100
     FromDate:
       name: from
       in: query
@@ -4539,9 +4952,9 @@ components:
 
     LedgerAccount:
       type: string
-      enum: [BANK, PROCESSOR_CLEARING, MEMBER_RECEIVABLE, STORED_VALUE_LIABILITY, SALES_TAX_PAYABLE, REVENUE_FIRING,
-             REVENUE_CLASSES, REVENUE_MEMBERSHIPS, REVENUE_RETAIL, REVENUE_EVENTS, REVENUE_BREAKAGE, REVENUE_OTHER,
-             REFUNDS, PROCESSOR_FEES]
+      enum: [BANK, PROCESSOR_CLEARING, MEMBER_RECEIVABLE, STORED_VALUE_LIABILITY, SALES_TAX_PAYABLE, PAYEES_PAYABLE,
+             REVENUE_FIRING, REVENUE_CLASSES, REVENUE_MEMBERSHIPS, REVENUE_RETAIL, REVENUE_EVENTS, REVENUE_BREAKAGE,
+             REVENUE_COMMISSIONS, REVENUE_OTHER, REFUNDS, PROCESSOR_FEES, CONTRACT_SERVICES]
 
     MemberBalance:
       type: object
@@ -4766,6 +5179,363 @@ components:
         effectiveFrom:
           type: string
           format: date
+
+    Share:
+      type: string
+      description: A fraction above 0 and up to 1, such as `"0.6"` for 60%.
+      pattern: "^(0(\\.\\d{1,4})?|1(\\.0{1,4})?)$"
+      examples: ["0.6"]
+
+    DiscountsFrom:
+      type: string
+      description: |
+        Who bears a discount on consigned work. SHARED splits the price paid by the shares;
+        STUDIO pays the artist their share of the retail price, out of the studio's commission.
+      enum: [SHARED, STUDIO]
+
+    PaymentMethod:
+      type: string
+      description: |
+        How a payee was paid. PAYPAL and STRIPE are payment networks, which report on a 1099-K,
+        so they don't count towards a 1099-NEC. STUDIO_CREDIT pays a member-payee by taking it off
+        what they owe the studio.
+      enum: [CHECK, BANK_TRANSFER, CASH, PAYPAL, STRIPE, STUDIO_CREDIT]
+
+    EarningKind:
+      type: string
+      enum: [CLASS_SHARE, SERVICE, ADJUSTMENT]
+
+    Payee:
+      type: object
+      required: [id, name, files1099, discountsFrom, archived, owed]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        accountId:
+          type: string
+          format: uuid
+          description: The member this payee is, if they are one.
+        accountName:
+          type: string
+        files1099:
+          type: boolean
+          description: Whether the studio files a 1099-NEC for them.
+        w9ReceivedOn:
+          type: string
+          format: date
+        consignorShare:
+          $ref: "#/components/schemas/Share"
+        discountsFrom:
+          $ref: "#/components/schemas/DiscountsFrom"
+        archived:
+          type: boolean
+        owed:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    SavePayeeRequest:
+      type: object
+      required: [name, files1099]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          maxLength: 254
+        accountId:
+          type: string
+          format: uuid
+        files1099:
+          type: boolean
+        w9ReceivedOn:
+          type: string
+          format: date
+          description: When the payee's W-9 arrived. The tax id itself is never sent here.
+        consignorShare:
+          $ref: "#/components/schemas/Share"
+        discountsFrom:
+          $ref: "#/components/schemas/DiscountsFrom"
+        archived:
+          type: boolean
+
+    ConsignmentItem:
+      type: object
+      required: [id, payeeId, payeeName, description, retailPrice, consignorShare, discountsFrom, quantity, sold,
+                 returned, inStock, receivedOn]
+      properties:
+        id:
+          type: string
+          format: uuid
+        payeeId:
+          type: string
+          format: uuid
+        payeeName:
+          type: string
+        description:
+          type: string
+        retailPrice:
+          $ref: "#/components/schemas/Decimal"
+        consignorShare:
+          $ref: "#/components/schemas/Share"
+        discountsFrom:
+          $ref: "#/components/schemas/DiscountsFrom"
+        quantity:
+          type: integer
+          format: int32
+        sold:
+          type: integer
+          format: int32
+        returned:
+          type: integer
+          format: int32
+        inStock:
+          type: integer
+          format: int32
+        receivedOn:
+          type: string
+          format: date
+
+    TakeInConsignmentRequest:
+      type: object
+      required: [payeeId, description, retailPrice]
+      properties:
+        payeeId:
+          type: string
+          format: uuid
+        description:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: ["Celadon mug"]
+        retailPrice:
+          $ref: "#/components/schemas/Decimal"
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000
+          default: 1
+        consignorShare:
+          $ref: "#/components/schemas/Share"
+        receivedOn:
+          type: string
+          format: date
+
+    SellConsignmentRequest:
+      type: object
+      required: [provider]
+      properties:
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+        price:
+          $ref: "#/components/schemas/Decimal"
+        provider:
+          $ref: "#/components/schemas/Provider"
+
+    ReturnConsignmentRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+
+    ConsignmentSale:
+      type: object
+      required: [id, itemId, description, quantity, price, consignorAmount, tax, provider, soldOn]
+      properties:
+        id:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+        description:
+          type: string
+          description: What was sold, from the consigned item.
+        quantity:
+          type: integer
+          format: int32
+        price:
+          $ref: "#/components/schemas/Decimal"
+        consignorAmount:
+          $ref: "#/components/schemas/Decimal"
+        tax:
+          $ref: "#/components/schemas/Decimal"
+        provider:
+          $ref: "#/components/schemas/Provider"
+        soldOn:
+          type: string
+          format: date
+        refundedOn:
+          type: string
+          format: date
+
+    RecordEarningRequest:
+      type: object
+      required: [kind, description]
+      description: Give either the amount, or what the class took (gross) and the payee's share.
+      properties:
+        kind:
+          $ref: "#/components/schemas/EarningKind"
+        description:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: ["Wheel 101, spring session"]
+        earnedOn:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/SignedDecimal"
+        gross:
+          $ref: "#/components/schemas/Decimal"
+        share:
+          $ref: "#/components/schemas/Share"
+
+    Earning:
+      type: object
+      required: [id, payeeId, kind, description, earnedOn, amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        payeeId:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/EarningKind"
+        description:
+          type: string
+        earnedOn:
+          type: string
+          format: date
+        gross:
+          $ref: "#/components/schemas/Decimal"
+        share:
+          $ref: "#/components/schemas/Share"
+        amount:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    PayPayeeRequest:
+      type: object
+      required: [amount, method]
+      properties:
+        amount:
+          $ref: "#/components/schemas/Decimal"
+        method:
+          $ref: "#/components/schemas/PaymentMethod"
+        reference:
+          type: string
+          maxLength: 80
+          examples: ["Cheque 1043"]
+        paidOn:
+          type: string
+          format: date
+
+    PayeePayment:
+      type: object
+      required: [id, payeeId, paidOn, amount, method]
+      properties:
+        id:
+          type: string
+          format: uuid
+        payeeId:
+          type: string
+          format: uuid
+        paidOn:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/Decimal"
+        method:
+          $ref: "#/components/schemas/PaymentMethod"
+        reference:
+          type: string
+
+    PayeeStatementLine:
+      type: object
+      required: [date, kind, memo, amount]
+      properties:
+        date:
+          type: string
+          format: date
+        kind:
+          type: string
+          description: The journal entry's kind, such as CONSIGNMENT_SALE or PAYEE_PAYMENT.
+        memo:
+          type: string
+        amount:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    PayeeStatement:
+      type: object
+      required: [payeeId, payeeName, from, to, opening, lines, closing]
+      properties:
+        payeeId:
+          type: string
+          format: uuid
+        payeeName:
+          type: string
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        opening:
+          $ref: "#/components/schemas/SignedDecimal"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PayeeStatementLine"
+        closing:
+          $ref: "#/components/schemas/SignedDecimal"
+
+    NecLine:
+      type: object
+      required: [payeeId, name, reportable, paidThroughNetworks, meetsThreshold]
+      properties:
+        payeeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        w9ReceivedOn:
+          type: string
+          format: date
+        reportable:
+          $ref: "#/components/schemas/Decimal"
+        paidThroughNetworks:
+          $ref: "#/components/schemas/Decimal"
+        meetsThreshold:
+          type: boolean
+
+    NecReport:
+      type: object
+      required: [year, threshold, payees]
+      properties:
+        year:
+          type: integer
+          format: int32
+        threshold:
+          $ref: "#/components/schemas/Decimal"
+        payees:
+          type: array
+          items:
+            $ref: "#/components/schemas/NecLine"
 
     Problem:
       type: object

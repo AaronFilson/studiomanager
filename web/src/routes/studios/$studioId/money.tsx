@@ -20,22 +20,13 @@ import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
-import { formatDate, formatMoney } from '../../../labels';
+import { formatDate, formatMoney, providerLabels, providers } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/money')({
   component: MoneyPage,
 });
 
-const providers: Provider[] = ['CASH', 'SQUARE', 'STRIPE', 'SHOPIFY', 'PAYPAL', 'OTHER'];
 const payoutProviders: PayoutProvider[] = ['STRIPE', 'SQUARE', 'SHOPIFY', 'PAYPAL', 'OTHER'];
-const providerLabels: Record<Provider, string> = {
-  CASH: 'Cash or cheque',
-  SQUARE: 'Square',
-  STRIPE: 'Stripe',
-  SHOPIFY: 'Shopify',
-  PAYPAL: 'PayPal',
-  OTHER: 'Other',
-};
 const kinds: StoredValueKind[] = ['FIRING_CARD', 'CLASS_PACK', 'GIFT_CARD', 'DEPOSIT', 'CREDIT'];
 const kindLabels: Record<StoredValueKind, string> = {
   FIRING_CARD: 'Firing card',

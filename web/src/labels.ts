@@ -7,6 +7,7 @@ import type {
   FeeUnit,
   LengthUnit,
   PieceStage,
+  Provider,
   StudioRole,
   UnitSystem,
   WeightUnit,
@@ -92,6 +93,17 @@ const assetKindLabels: Record<AssetKind, string> = {
 };
 
 export const assetKindLabel = (kind: AssetKind): string => assetKindLabels[kind];
+
+export const providers: Provider[] = ['CASH', 'SQUARE', 'STRIPE', 'SHOPIFY', 'PAYPAL', 'OTHER'];
+
+export const providerLabels: Record<Provider, string> = {
+  CASH: 'Cash or cheque',
+  SQUARE: 'Square',
+  STRIPE: 'Stripe',
+  SHOPIFY: 'Shopify',
+  PAYPAL: 'PayPal',
+  OTHER: 'Other',
+};
 
 /** "every 30 days or 10 firings, whichever comes first" */
 export function scheduleText(task: Pick<MaintenanceTask, 'everyDays' | 'everyFirings'>): string {

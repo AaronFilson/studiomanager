@@ -997,7 +997,7 @@ export type PayoutProvider = 'STRIPE' | 'SQUARE' | 'SHOPIFY' | 'PAYPAL' | 'OTHER
 
 export type StoredValueKind = 'GIFT_CARD' | 'FIRING_CARD' | 'CLASS_PACK' | 'DEPOSIT' | 'CREDIT';
 
-export type LedgerAccount = 'BANK' | 'PROCESSOR_CLEARING' | 'MEMBER_RECEIVABLE' | 'STORED_VALUE_LIABILITY' | 'SALES_TAX_PAYABLE' | 'REVENUE_FIRING' | 'REVENUE_CLASSES' | 'REVENUE_MEMBERSHIPS' | 'REVENUE_RETAIL' | 'REVENUE_EVENTS' | 'REVENUE_BREAKAGE' | 'REVENUE_OTHER' | 'REFUNDS' | 'PROCESSOR_FEES';
+export type LedgerAccount = 'BANK' | 'PROCESSOR_CLEARING' | 'MEMBER_RECEIVABLE' | 'STORED_VALUE_LIABILITY' | 'SALES_TAX_PAYABLE' | 'PAYEES_PAYABLE' | 'REVENUE_FIRING' | 'REVENUE_CLASSES' | 'REVENUE_MEMBERSHIPS' | 'REVENUE_RETAIL' | 'REVENUE_EVENTS' | 'REVENUE_BREAKAGE' | 'REVENUE_COMMISSIONS' | 'REVENUE_OTHER' | 'REFUNDS' | 'PROCESSOR_FEES' | 'CONTRACT_SERVICES';
 
 export type MemberBalance = {
     memberId: string;
@@ -1115,6 +1115,187 @@ export type SetTaxRateRequest = {
 };
 
 /**
+ * A fraction above 0 and up to 1, such as `"0.6"` for 60%.
+ */
+export type Share = string;
+
+/**
+ * Who bears a discount on consigned work. SHARED splits the price paid by the shares;
+ * STUDIO pays the artist their share of the retail price, out of the studio's commission.
+ *
+ */
+export type DiscountsFrom = 'SHARED' | 'STUDIO';
+
+/**
+ * How a payee was paid. PAYPAL and STRIPE are payment networks, which report on a 1099-K,
+ * so they don't count towards a 1099-NEC. STUDIO_CREDIT pays a member-payee by taking it off
+ * what they owe the studio.
+ *
+ */
+export type PaymentMethod = 'CHECK' | 'BANK_TRANSFER' | 'CASH' | 'PAYPAL' | 'STRIPE' | 'STUDIO_CREDIT';
+
+export type EarningKind = 'CLASS_SHARE' | 'SERVICE' | 'ADJUSTMENT';
+
+export type Payee = {
+    id: string;
+    name: string;
+    email?: string;
+    /**
+     * The member this payee is, if they are one.
+     */
+    accountId?: string;
+    accountName?: string;
+    /**
+     * Whether the studio files a 1099-NEC for them.
+     */
+    files1099: boolean;
+    w9ReceivedOn?: string;
+    consignorShare?: Share;
+    discountsFrom: DiscountsFrom;
+    archived: boolean;
+    owed: SignedDecimal;
+};
+
+export type SavePayeeRequest = {
+    name: string;
+    email?: string;
+    accountId?: string;
+    files1099: boolean;
+    /**
+     * When the payee's W-9 arrived. The tax id itself is never sent here.
+     */
+    w9ReceivedOn?: string;
+    consignorShare?: Share;
+    discountsFrom?: DiscountsFrom;
+    archived?: boolean;
+};
+
+export type ConsignmentItem = {
+    id: string;
+    payeeId: string;
+    payeeName: string;
+    description: string;
+    retailPrice: Decimal;
+    consignorShare: Share;
+    discountsFrom: DiscountsFrom;
+    quantity: number;
+    sold: number;
+    returned: number;
+    inStock: number;
+    receivedOn: string;
+};
+
+export type TakeInConsignmentRequest = {
+    payeeId: string;
+    description: string;
+    retailPrice: Decimal;
+    quantity?: number;
+    consignorShare?: Share;
+    receivedOn?: string;
+};
+
+export type SellConsignmentRequest = {
+    quantity?: number;
+    price?: Decimal;
+    provider: Provider;
+};
+
+export type ReturnConsignmentRequest = {
+    quantity: number;
+};
+
+export type ConsignmentSale = {
+    id: string;
+    itemId: string;
+    /**
+     * What was sold, from the consigned item.
+     */
+    description: string;
+    quantity: number;
+    price: Decimal;
+    consignorAmount: Decimal;
+    tax: Decimal;
+    provider: Provider;
+    soldOn: string;
+    refundedOn?: string;
+};
+
+/**
+ * Give either the amount, or what the class took (gross) and the payee's share.
+ */
+export type RecordEarningRequest = {
+    kind: EarningKind;
+    description: string;
+    earnedOn?: string;
+    amount?: SignedDecimal;
+    gross?: Decimal;
+    share?: Share;
+};
+
+export type Earning = {
+    id: string;
+    payeeId: string;
+    kind: EarningKind;
+    description: string;
+    earnedOn: string;
+    gross?: Decimal;
+    share?: Share;
+    amount: SignedDecimal;
+};
+
+export type PayPayeeRequest = {
+    amount: Decimal;
+    method: PaymentMethod;
+    reference?: string;
+    paidOn?: string;
+};
+
+export type PayeePayment = {
+    id: string;
+    payeeId: string;
+    paidOn: string;
+    amount: Decimal;
+    method: PaymentMethod;
+    reference?: string;
+};
+
+export type PayeeStatementLine = {
+    date: string;
+    /**
+     * The journal entry's kind, such as CONSIGNMENT_SALE or PAYEE_PAYMENT.
+     */
+    kind: string;
+    memo: string;
+    amount: SignedDecimal;
+};
+
+export type PayeeStatement = {
+    payeeId: string;
+    payeeName: string;
+    from: string;
+    to: string;
+    opening: SignedDecimal;
+    lines: Array<PayeeStatementLine>;
+    closing: SignedDecimal;
+};
+
+export type NecLine = {
+    payeeId: string;
+    name: string;
+    email?: string;
+    w9ReceivedOn?: string;
+    reportable: Decimal;
+    paidThroughNetworks: Decimal;
+    meetsThreshold: boolean;
+};
+
+export type NecReport = {
+    year: number;
+    threshold: Decimal;
+    payees: Array<NecLine>;
+};
+
+/**
  * RFC 9457 problem details.
  */
 export type Problem = {
@@ -1155,6 +1336,12 @@ export type ShiftId = string;
 export type ItemId = string;
 
 export type StoredValueId = string;
+
+export type PayeeId = string;
+
+export type SaleId = string;
+
+export type Year = number;
 
 export type FromDate = string;
 
@@ -4736,6 +4923,588 @@ export type SetTaxRateResponses = {
 };
 
 export type SetTaxRateResponse = SetTaxRateResponses[keyof SetTaxRateResponses];
+
+export type ListPayeesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/payees';
+};
+
+export type ListPayeesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListPayeesError = ListPayeesErrors[keyof ListPayeesErrors];
+
+export type ListPayeesResponses = {
+    /**
+     * Payees, archived ones last.
+     */
+    200: Array<Payee>;
+};
+
+export type ListPayeesResponse = ListPayeesResponses[keyof ListPayeesResponses];
+
+export type CreatePayeeData = {
+    body: SavePayeeRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/payees';
+};
+
+export type CreatePayeeErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CreatePayeeError = CreatePayeeErrors[keyof CreatePayeeErrors];
+
+export type CreatePayeeResponses = {
+    /**
+     * The payee.
+     */
+    201: Payee;
+};
+
+export type CreatePayeeResponse = CreatePayeeResponses[keyof CreatePayeeResponses];
+
+export type UpdatePayeeData = {
+    body: SavePayeeRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        payeeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}';
+};
+
+export type UpdatePayeeErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type UpdatePayeeError = UpdatePayeeErrors[keyof UpdatePayeeErrors];
+
+export type UpdatePayeeResponses = {
+    /**
+     * The payee.
+     */
+    200: Payee;
+};
+
+export type UpdatePayeeResponse = UpdatePayeeResponses[keyof UpdatePayeeResponses];
+
+export type GetPayeeStatementData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        payeeId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}/statement';
+};
+
+export type GetPayeeStatementErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetPayeeStatementError = GetPayeeStatementErrors[keyof GetPayeeStatementErrors];
+
+export type GetPayeeStatementResponses = {
+    /**
+     * The statement.
+     */
+    200: PayeeStatement;
+};
+
+export type GetPayeeStatementResponse = GetPayeeStatementResponses[keyof GetPayeeStatementResponses];
+
+export type RecordEarningData = {
+    body: RecordEarningRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        payeeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}/earnings';
+};
+
+export type RecordEarningErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type RecordEarningError = RecordEarningErrors[keyof RecordEarningErrors];
+
+export type RecordEarningResponses = {
+    /**
+     * What was recorded.
+     */
+    201: Earning;
+};
+
+export type RecordEarningResponse = RecordEarningResponses[keyof RecordEarningResponses];
+
+export type PayPayeeData = {
+    body: PayPayeeRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        payeeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/payees/{payeeId}/payments';
+};
+
+export type PayPayeeErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type PayPayeeError = PayPayeeErrors[keyof PayPayeeErrors];
+
+export type PayPayeeResponses = {
+    /**
+     * The payment.
+     */
+    201: PayeePayment;
+};
+
+export type PayPayeeResponse = PayPayeeResponses[keyof PayPayeeResponses];
+
+export type ListConsignmentItemsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        payeeId?: string;
+        /**
+         * Include work sold out or returned to the artist.
+         */
+        all?: boolean;
+    };
+    url: '/api/v1/studios/{studioId}/consignment-items';
+};
+
+export type ListConsignmentItemsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListConsignmentItemsError = ListConsignmentItemsErrors[keyof ListConsignmentItemsErrors];
+
+export type ListConsignmentItemsResponses = {
+    /**
+     * Items.
+     */
+    200: Array<ConsignmentItem>;
+};
+
+export type ListConsignmentItemsResponse = ListConsignmentItemsResponses[keyof ListConsignmentItemsResponses];
+
+export type TakeInConsignmentData = {
+    body: TakeInConsignmentRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/consignment-items';
+};
+
+export type TakeInConsignmentErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type TakeInConsignmentError = TakeInConsignmentErrors[keyof TakeInConsignmentErrors];
+
+export type TakeInConsignmentResponses = {
+    /**
+     * The item.
+     */
+    201: ConsignmentItem;
+};
+
+export type TakeInConsignmentResponse = TakeInConsignmentResponses[keyof TakeInConsignmentResponses];
+
+export type SellConsignmentData = {
+    body: SellConsignmentRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/consignment-items/{itemId}/sales';
+};
+
+export type SellConsignmentErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type SellConsignmentError = SellConsignmentErrors[keyof SellConsignmentErrors];
+
+export type SellConsignmentResponses = {
+    /**
+     * The sale.
+     */
+    201: ConsignmentSale;
+};
+
+export type SellConsignmentResponse = SellConsignmentResponses[keyof SellConsignmentResponses];
+
+export type ReturnConsignmentData = {
+    body: ReturnConsignmentRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/consignment-items/{itemId}/returns';
+};
+
+export type ReturnConsignmentErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ReturnConsignmentError = ReturnConsignmentErrors[keyof ReturnConsignmentErrors];
+
+export type ReturnConsignmentResponses = {
+    /**
+     * The item afterwards.
+     */
+    200: ConsignmentItem;
+};
+
+export type ReturnConsignmentResponse = ReturnConsignmentResponses[keyof ReturnConsignmentResponses];
+
+export type ListConsignmentSalesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        payeeId?: string;
+    };
+    url: '/api/v1/studios/{studioId}/consignment-sales';
+};
+
+export type ListConsignmentSalesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListConsignmentSalesError = ListConsignmentSalesErrors[keyof ListConsignmentSalesErrors];
+
+export type ListConsignmentSalesResponses = {
+    /**
+     * Sales.
+     */
+    200: Array<ConsignmentSale>;
+};
+
+export type ListConsignmentSalesResponse = ListConsignmentSalesResponses[keyof ListConsignmentSalesResponses];
+
+export type RefundConsignmentSaleData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        saleId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/consignment-sales/{saleId}/refund';
+};
+
+export type RefundConsignmentSaleErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type RefundConsignmentSaleError = RefundConsignmentSaleErrors[keyof RefundConsignmentSaleErrors];
+
+export type RefundConsignmentSaleResponses = {
+    /**
+     * The sale afterwards.
+     */
+    200: ConsignmentSale;
+};
+
+export type RefundConsignmentSaleResponse = RefundConsignmentSaleResponses[keyof RefundConsignmentSaleResponses];
+
+export type GetNecReportData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query: {
+        year: number;
+    };
+    url: '/api/v1/studios/{studioId}/payables/1099-nec';
+};
+
+export type GetNecReportErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetNecReportError = GetNecReportErrors[keyof GetNecReportErrors];
+
+export type GetNecReportResponses = {
+    /**
+     * The report.
+     */
+    200: NecReport;
+};
+
+export type GetNecReportResponse = GetNecReportResponses[keyof GetNecReportResponses];
+
+export type ExportNecReportData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query: {
+        year: number;
+    };
+    url: '/api/v1/studios/{studioId}/payables/1099-nec/export';
+};
+
+export type ExportNecReportErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ExportNecReportError = ExportNecReportErrors[keyof ExportNecReportErrors];
+
+export type ExportNecReportResponses = {
+    /**
+     * One row per payee.
+     */
+    200: string;
+};
+
+export type ExportNecReportResponse = ExportNecReportResponses[keyof ExportNecReportResponses];
 
 export type ListSuppliesData = {
     body?: never;
