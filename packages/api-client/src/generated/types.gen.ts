@@ -997,7 +997,7 @@ export type PayoutProvider = 'STRIPE' | 'SQUARE' | 'SHOPIFY' | 'PAYPAL' | 'OTHER
 
 export type StoredValueKind = 'GIFT_CARD' | 'FIRING_CARD' | 'CLASS_PACK' | 'DEPOSIT' | 'CREDIT';
 
-export type LedgerAccount = 'BANK' | 'PROCESSOR_CLEARING' | 'MEMBER_RECEIVABLE' | 'STORED_VALUE_LIABILITY' | 'SALES_TAX_PAYABLE' | 'PAYEES_PAYABLE' | 'REVENUE_FIRING' | 'REVENUE_CLASSES' | 'REVENUE_MEMBERSHIPS' | 'REVENUE_RETAIL' | 'REVENUE_EVENTS' | 'REVENUE_BREAKAGE' | 'REVENUE_COMMISSIONS' | 'REVENUE_OTHER' | 'REFUNDS' | 'PROCESSOR_FEES' | 'CONTRACT_SERVICES';
+export type LedgerAccount = 'BANK' | 'PROCESSOR_CLEARING' | 'MEMBER_RECEIVABLE' | 'STORED_VALUE_LIABILITY' | 'SALES_TAX_PAYABLE' | 'PAYEES_PAYABLE' | 'REVENUE_FIRING' | 'REVENUE_CLASSES' | 'REVENUE_MEMBERSHIPS' | 'REVENUE_RETAIL' | 'REVENUE_EVENTS' | 'REVENUE_BREAKAGE' | 'REVENUE_COMMISSIONS' | 'REVENUE_OTHER' | 'REFUNDS' | 'PROCESSOR_FEES' | 'CONTRACT_SERVICES' | 'OPENING_BALANCE_EQUITY';
 
 export type MemberBalance = {
     memberId: string;
@@ -1152,6 +1152,10 @@ export type Payee = {
     w9ReceivedOn?: string;
     consignorShare?: Share;
     discountsFrom: DiscountsFrom;
+    /**
+     * How long unsold work stays before it goes back to the artist. Absent for no limit.
+     */
+    consignmentDays?: number;
     archived: boolean;
     owed: SignedDecimal;
 };
@@ -1167,6 +1171,12 @@ export type SavePayeeRequest = {
     w9ReceivedOn?: string;
     consignorShare?: Share;
     discountsFrom?: DiscountsFrom;
+    /**
+     * How long the studio keeps unsold work before it goes back to the artist; leave out
+     * for no limit. Applies to work taken in from now on.
+     *
+     */
+    consignmentDays?: number;
     archived?: boolean;
 };
 
@@ -1183,6 +1193,79 @@ export type ConsignmentItem = {
     returned: number;
     inStock: number;
     receivedOn: string;
+    /**
+     * When unsold work goes back to the artist, from their consignment period.
+     */
+    returnBy?: string;
+    /**
+     * Past its return date with some still on the shelf.
+     */
+    dueBack: boolean;
+};
+
+export type PaymentRunRequest = {
+    method: PaymentMethod;
+    paidOn?: string;
+    payments: Array<{
+        payeeId: string;
+        amount: Decimal;
+        reference?: string;
+    }>;
+};
+
+export type MyConsignment = {
+    payeeId: string;
+    name: string;
+    owed: SignedDecimal;
+    items: Array<ConsignmentItem>;
+    sales: Array<ConsignmentSale>;
+};
+
+export type ImportMembersRequest = {
+    dryRun?: boolean;
+    rows: Array<{
+        /**
+         * The row's line in the file, echoed back in the result.
+         */
+        line: number;
+        email?: string;
+        /**
+         * What they owed the studio, such as "$12.50"; negative or in parentheses if the
+         * studio owed them.
+         *
+         */
+        balance?: string;
+        balanceAsOf?: string;
+    }>;
+};
+
+export type ImportConsignmentRequest = {
+    dryRun?: boolean;
+    rows: Array<{
+        line: number;
+        artist?: string;
+        artistEmail?: string;
+        description?: string;
+        retailPrice?: string;
+        quantity?: string;
+        /**
+         * The artist's share, such as "60%" or "0.6".
+         */
+        artistShare?: string;
+        receivedOn?: string;
+    }>;
+};
+
+export type ImportResult = {
+    /**
+     * False for a dry run, or when any row has an error; then nothing was kept.
+     */
+    committed: boolean;
+    rows: Array<{
+        line: number;
+        outcome: 'CREATED' | 'UPDATED' | 'SKIPPED' | 'ERROR';
+        message: string;
+    }>;
 };
 
 export type TakeInConsignmentRequest = {
@@ -5179,6 +5262,162 @@ export type PayPayeeResponses = {
 
 export type PayPayeeResponse = PayPayeeResponses[keyof PayPayeeResponses];
 
+export type PayPayeesData = {
+    body: PaymentRunRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/payment-runs';
+};
+
+export type PayPayeesErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type PayPayeesError = PayPayeesErrors[keyof PayPayeesErrors];
+
+export type PayPayeesResponses = {
+    /**
+     * The payments, in the order asked for.
+     */
+    201: Array<PayeePayment>;
+};
+
+export type PayPayeesResponse = PayPayeesResponses[keyof PayPayeesResponses];
+
+export type GetMyConsignmentData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/my-consignment';
+};
+
+export type GetMyConsignmentErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetMyConsignmentError = GetMyConsignmentErrors[keyof GetMyConsignmentErrors];
+
+export type GetMyConsignmentResponses = {
+    /**
+     * Their consignment.
+     */
+    200: MyConsignment;
+};
+
+export type GetMyConsignmentResponse = GetMyConsignmentResponses[keyof GetMyConsignmentResponses];
+
+export type ImportMembersData = {
+    body: ImportMembersRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/imports/members';
+};
+
+export type ImportMembersErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ImportMembersError = ImportMembersErrors[keyof ImportMembersErrors];
+
+export type ImportMembersResponses = {
+    /**
+     * What each row did, or would do.
+     */
+    200: ImportResult;
+};
+
+export type ImportMembersResponse = ImportMembersResponses[keyof ImportMembersResponses];
+
+export type ImportConsignmentData = {
+    body: ImportConsignmentRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/imports/consignment';
+};
+
+export type ImportConsignmentErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ImportConsignmentError = ImportConsignmentErrors[keyof ImportConsignmentErrors];
+
+export type ImportConsignmentResponses = {
+    /**
+     * What each row did, or would do.
+     */
+    200: ImportResult;
+};
+
+export type ImportConsignmentResponse = ImportConsignmentResponses[keyof ImportConsignmentResponses];
+
 export type ListConsignmentItemsData = {
     body?: never;
     path: {
@@ -5188,6 +5427,10 @@ export type ListConsignmentItemsData = {
         studioId: string;
     };
     query?: {
+        /**
+         * Only work kept past its consignment period with some unsold, oldest first.
+         */
+        dueBack?: boolean;
         payeeId?: string;
         /**
          * Include work sold out or returned to the artist.

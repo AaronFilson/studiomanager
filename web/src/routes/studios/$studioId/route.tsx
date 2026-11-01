@@ -1,4 +1,4 @@
-import { getStudioOptions, isApiError } from '@studiomanager/api-client';
+import { getMyConsignmentOptions, getStudioOptions, isApiError } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 
@@ -13,6 +13,12 @@ export const Route = createFileRoute('/studios/$studioId')({
 function StudioLayout() {
   const { studioId } = Route.useParams();
   const studio = useQuery(getStudioOptions({ path: { studioId } }));
+  // Members who sell work here see their own consignment; a 404 just means they don't
+  const consignment = useQuery({
+    ...getMyConsignmentOptions({ path: { studioId } }),
+    enabled: studio.isSuccess && !isStaff(studio.data.myRole),
+    retry: false,
+  });
 
   if (studio.isPending) {
     return <p>Loading studio…</p>;
@@ -65,10 +71,18 @@ function StudioLayout() {
             <Link to="/studios/$studioId/members" params={{ studioId }}>
               Members
             </Link>
+            <Link to="/studios/$studioId/import" params={{ studioId }}>
+              Import
+            </Link>
             <Link to="/studios/$studioId/settings" params={{ studioId }}>
               Settings
             </Link>
           </>
+        )}
+        {!staff && consignment.isSuccess && (
+          <Link to="/studios/$studioId/my-consignment" params={{ studioId }}>
+            My work for sale
+          </Link>
         )}
       </nav>
       <Outlet />

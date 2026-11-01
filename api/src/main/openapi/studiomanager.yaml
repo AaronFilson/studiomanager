@@ -48,6 +48,10 @@ tags:
     description: |
       What the studio owes the people it pays: consignors for work sold, instructors for their
       share of a class. Statements, payments, and the 1099-NEC list.
+  - name: imports
+    description: |
+      Bringing a studio's existing lists in from a spreadsheet. Every import can be previewed
+      as a dry run, and is all or nothing.
 
 paths:
   /api/v1/me:
@@ -2516,6 +2520,123 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/payment-runs:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [payables]
+      operationId: payPayees
+      summary: Pay several payees at once, all or none (staff only)
+      description: |
+        Records one payment per line by the same method and date, such as the month's
+        consignors by cheque. If any line fails (more than is owed, an archived or unknown
+        payee), nothing is recorded and the error names the payee.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRunRequest"
+      responses:
+        "201":
+          description: The payments, in the order asked for.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PayeePayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/my-consignment:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [payables]
+      operationId: getMyConsignment
+      summary: The signed-in member's own work on consignment, its sales, and what they're owed
+      responses:
+        "200":
+          description: Their consignment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyConsignment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/imports/members:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [imports]
+      operationId: importMembers
+      summary: Invite members from a spreadsheet, with what each owed (staff only)
+      description: |
+        Each row is the text from the mapped columns. New addresses are invited as members;
+        a balance is posted now for an existing member, or when a new one joins. With `dryRun`,
+        or if any row has an error, nothing is kept and the result says what each row would do.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportMembersRequest"
+      responses:
+        "200":
+          description: What each row did, or would do.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/imports/consignment:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [imports]
+      operationId: importConsignment
+      summary: Take in artists' work from a spreadsheet (staff only)
+      description: |
+        Each row is one item. Its artist is matched by email, then by name, and created if
+        neither matches. With `dryRun`, or if any row has an error, nothing is kept.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportConsignmentRequest"
+      responses:
+        "200":
+          description: What each row did, or would do.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/studios/{studioId}/consignment-items:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -2524,6 +2645,13 @@ paths:
       operationId: listConsignmentItems
       summary: Consigned work, newest first (staff only)
       parameters:
+        - name: dueBack
+          in: query
+          required: false
+          description: Only work kept past its consignment period with some unsold, oldest first.
+          schema:
+            type: boolean
+            default: false
         - name: payeeId
           in: query
           required: false
@@ -4954,7 +5082,7 @@ components:
       type: string
       enum: [BANK, PROCESSOR_CLEARING, MEMBER_RECEIVABLE, STORED_VALUE_LIABILITY, SALES_TAX_PAYABLE, PAYEES_PAYABLE,
              REVENUE_FIRING, REVENUE_CLASSES, REVENUE_MEMBERSHIPS, REVENUE_RETAIL, REVENUE_EVENTS, REVENUE_BREAKAGE,
-             REVENUE_COMMISSIONS, REVENUE_OTHER, REFUNDS, PROCESSOR_FEES, CONTRACT_SERVICES]
+             REVENUE_COMMISSIONS, REVENUE_OTHER, REFUNDS, PROCESSOR_FEES, CONTRACT_SERVICES, OPENING_BALANCE_EQUITY]
 
     MemberBalance:
       type: object
@@ -5232,6 +5360,10 @@ components:
           $ref: "#/components/schemas/Share"
         discountsFrom:
           $ref: "#/components/schemas/DiscountsFrom"
+        consignmentDays:
+          type: integer
+          format: int32
+          description: How long unsold work stays before it goes back to the artist. Absent for no limit.
         archived:
           type: boolean
         owed:
@@ -5261,13 +5393,21 @@ components:
           $ref: "#/components/schemas/Share"
         discountsFrom:
           $ref: "#/components/schemas/DiscountsFrom"
+        consignmentDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3650
+          description: |
+            How long the studio keeps unsold work before it goes back to the artist; leave out
+            for no limit. Applies to work taken in from now on.
         archived:
           type: boolean
 
     ConsignmentItem:
       type: object
       required: [id, payeeId, payeeName, description, retailPrice, consignorShare, discountsFrom, quantity, sold,
-                 returned, inStock, receivedOn]
+                 returned, inStock, receivedOn, dueBack]
       properties:
         id:
           type: string
@@ -5300,6 +5440,156 @@ components:
         receivedOn:
           type: string
           format: date
+        returnBy:
+          type: string
+          format: date
+          description: When unsold work goes back to the artist, from their consignment period.
+        dueBack:
+          type: boolean
+          description: Past its return date with some still on the shelf.
+
+    PaymentRunRequest:
+      type: object
+      required: [method, payments]
+      properties:
+        method:
+          $ref: "#/components/schemas/PaymentMethod"
+        paidOn:
+          type: string
+          format: date
+        payments:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            required: [payeeId, amount]
+            properties:
+              payeeId:
+                type: string
+                format: uuid
+              amount:
+                $ref: "#/components/schemas/Decimal"
+              reference:
+                type: string
+                maxLength: 80
+                examples: ["Cheque 1043"]
+
+    MyConsignment:
+      type: object
+      required: [payeeId, name, owed, items, sales]
+      properties:
+        payeeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owed:
+          $ref: "#/components/schemas/SignedDecimal"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsignmentItem"
+        sales:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsignmentSale"
+
+    ImportMembersRequest:
+      type: object
+      required: [rows]
+      properties:
+        dryRun:
+          type: boolean
+          default: false
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: object
+            required: [line]
+            description: The text in each mapped column. Leave a column out if it wasn't mapped.
+            properties:
+              line:
+                type: integer
+                format: int32
+                description: The row's line in the file, echoed back in the result.
+              email:
+                type: string
+                maxLength: 500
+              balance:
+                type: string
+                maxLength: 50
+                description: |
+                  What they owed the studio, such as "$12.50"; negative or in parentheses if the
+                  studio owed them.
+              balanceAsOf:
+                type: string
+                maxLength: 50
+
+    ImportConsignmentRequest:
+      type: object
+      required: [rows]
+      properties:
+        dryRun:
+          type: boolean
+          default: false
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: object
+            required: [line]
+            properties:
+              line:
+                type: integer
+                format: int32
+              artist:
+                type: string
+                maxLength: 500
+              artistEmail:
+                type: string
+                maxLength: 500
+              description:
+                type: string
+                maxLength: 500
+              retailPrice:
+                type: string
+                maxLength: 50
+              quantity:
+                type: string
+                maxLength: 50
+              artistShare:
+                type: string
+                maxLength: 50
+                description: The artist's share, such as "60%" or "0.6".
+              receivedOn:
+                type: string
+                maxLength: 50
+
+    ImportResult:
+      type: object
+      required: [committed, rows]
+      properties:
+        committed:
+          type: boolean
+          description: False for a dry run, or when any row has an error; then nothing was kept.
+        rows:
+          type: array
+          items:
+            type: object
+            required: [line, outcome, message]
+            properties:
+              line:
+                type: integer
+                format: int32
+              outcome:
+                type: string
+                enum: [CREATED, UPDATED, SKIPPED, ERROR]
+              message:
+                type: string
 
     TakeInConsignmentRequest:
       type: object

@@ -36,7 +36,8 @@ public final class LedgerModel {
         CONSIGNMENT_SALE,
         CONSIGNMENT_REFUND,
         PAYEE_EARNING,
-        PAYEE_PAYMENT
+        PAYEE_PAYMENT,
+        OPENING_BALANCE
     }
 
     public enum StoredValueKind {
