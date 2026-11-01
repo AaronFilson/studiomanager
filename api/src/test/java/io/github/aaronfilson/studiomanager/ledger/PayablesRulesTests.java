@@ -62,7 +62,8 @@ class PayablesRulesTests {
 
     private static ConsignmentItem item(String share, DiscountsFrom discountsFrom) {
         return new ConsignmentItem(UUID.randomUUID(), UUID.randomUUID(), "Ana", "Mug", new BigDecimal("40.00"),
-                new BigDecimal(share), discountsFrom, 3, 0, 0, LocalDate.of(2026, 10, 1));
+                new BigDecimal(share), discountsFrom, 3, 0, 0, LocalDate.of(2026, 10, 1),
+                null, false);
     }
 
 }

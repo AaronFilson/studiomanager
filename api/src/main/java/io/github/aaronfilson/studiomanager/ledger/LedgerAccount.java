@@ -31,7 +31,12 @@ public enum LedgerAccount {
     REFUNDS(Type.REVENUE),
     PROCESSOR_FEES(Type.EXPENSE),
     /** Instructors' and other contractors' shares and fees. */
-    CONTRACT_SERVICES(Type.EXPENSE);
+    CONTRACT_SERVICES(Type.EXPENSE),
+    /**
+     * The other side of balances carried in from before the studio used this app, such as what
+     * members owed in the old spreadsheet. The bookkeeper clears it into retained earnings.
+     */
+    OPENING_BALANCE_EQUITY(Type.EQUITY);
 
     private final Type type;
 
@@ -46,6 +51,7 @@ public enum LedgerAccount {
     public enum Type {
         ASSET,
         LIABILITY,
+        EQUITY,
         REVENUE,
         EXPENSE
     }

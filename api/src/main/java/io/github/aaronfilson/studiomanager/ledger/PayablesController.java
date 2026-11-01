@@ -11,7 +11,12 @@ import io.github.aaronfilson.studiomanager.contract.ConsignmentSaleDto;
 import io.github.aaronfilson.studiomanager.contract.DiscountsFromDto;
 import io.github.aaronfilson.studiomanager.contract.EarningDto;
 import io.github.aaronfilson.studiomanager.contract.EarningKindDto;
+import io.github.aaronfilson.studiomanager.contract.MyConsignmentDto;
 import io.github.aaronfilson.studiomanager.contract.NecLineDto;
+import io.github.aaronfilson.studiomanager.contract.PaymentRunRequestDto;
+import io.github.aaronfilson.studiomanager.ledger.PayablesModel.MyConsignment;
+import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Payment;
+import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentRunLine;
 import io.github.aaronfilson.studiomanager.contract.NecReportDto;
 import io.github.aaronfilson.studiomanager.contract.PayPayeeRequestDto;
 import io.github.aaronfilson.studiomanager.contract.PayablesApi;
@@ -114,21 +119,47 @@ class PayablesController implements PayablesApi {
     public ResponseEntity<PayeePaymentDto> payPayee(UUID studioId, UUID payeeId, PayPayeeRequestDto request) {
         var payment = payables.pay(payeeId, new BigDecimal(request.getAmount()),
                 PaymentMethod.valueOf(request.getMethod().getValue()), request.getReference(), request.getPaidOn());
-        return ResponseEntity.status(HttpStatus.CREATED).body(new PayeePaymentDto()
+        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(payment));
+    }
+
+    private static PayeePaymentDto toDto(Payment payment) {
+        return new PayeePaymentDto()
                 .id(payment.id())
                 .payeeId(payment.payeeId())
                 .paidOn(payment.paidOn())
                 .amount(payment.amount().toPlainString())
                 .method(PaymentMethodDto.fromValue(payment.method().name()))
-                .reference(payment.reference()));
+                .reference(payment.reference());
     }
 
     @Override
     @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-    public ResponseEntity<List<ConsignmentItemDto>> listConsignmentItems(UUID studioId, @Nullable UUID payeeId,
-            Boolean all) {
-        return ResponseEntity.ok(payables.consignmentItems(payeeId, !Boolean.TRUE.equals(all)).stream()
-                .map(PayablesController::toDto).toList());
+    public ResponseEntity<List<ConsignmentItemDto>> listConsignmentItems(UUID studioId, Boolean dueBack,
+            @Nullable UUID payeeId, Boolean all) {
+        return ResponseEntity.ok(payables.consignmentItems(payeeId, !Boolean.TRUE.equals(all), Boolean.TRUE.equals(dueBack))
+                .stream().map(PayablesController::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+    public ResponseEntity<List<PayeePaymentDto>> payPayees(UUID studioId, PaymentRunRequestDto request) {
+        List<PaymentRunLine> lines = request.getPayments().stream()
+                .map(line -> new PaymentRunLine(line.getPayeeId(), new BigDecimal(line.getAmount()), line.getReference()))
+                .toList();
+        var payments = payables.payRun(lines, PaymentMethod.valueOf(request.getMethod().getValue()), request.getPaidOn());
+        return ResponseEntity.status(HttpStatus.CREATED).body(payments.stream().map(PayablesController::toDto).toList());
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.isMember(#studioId)")
+    public ResponseEntity<MyConsignmentDto> getMyConsignment(UUID studioId) {
+        MyConsignment mine = payables.myConsignment();
+        return ResponseEntity.ok(new MyConsignmentDto()
+                .payeeId(mine.payeeId())
+                .name(mine.name())
+                .owed(mine.owed().toPlainString())
+                .items(mine.items().stream().map(PayablesController::toDto).toList())
+                .sales(mine.sales().stream().map(PayablesController::toDto).toList()));
     }
 
     @Override
@@ -215,7 +246,7 @@ class PayablesController implements PayablesApi {
                 Boolean.TRUE.equals(request.getFiles1099()), request.getW9ReceivedOn(),
                 decimal(request.getConsignorShare()),
                 request.getDiscountsFrom() == null ? DiscountsFrom.SHARED : DiscountsFrom.valueOf(request.getDiscountsFrom().getValue()),
-                Boolean.TRUE.equals(request.getArchived()));
+                request.getConsignmentDays(), Boolean.TRUE.equals(request.getArchived()));
     }
 
     private static PayeeDto toDto(Payee payee) {
@@ -229,6 +260,7 @@ class PayablesController implements PayablesApi {
                 .w9ReceivedOn(payee.w9ReceivedOn())
                 .consignorShare(plain(payee.consignorShare()))
                 .discountsFrom(DiscountsFromDto.fromValue(payee.discountsFrom().name()))
+                .consignmentDays(payee.consignmentDays())
                 .archived(payee.archived())
                 .owed(payee.owed().toPlainString());
     }
@@ -246,7 +278,9 @@ class PayablesController implements PayablesApi {
                 .sold(item.sold())
                 .returned(item.returned())
                 .inStock(item.inStock())
-                .receivedOn(item.receivedOn());
+                .receivedOn(item.receivedOn())
+                .returnBy(item.returnBy())
+                .dueBack(item.dueBack());
     }
 
     private static ConsignmentSaleDto toDto(ConsignmentSale sale) {

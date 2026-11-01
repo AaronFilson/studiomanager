@@ -16,9 +16,11 @@ import { Route as StudiosIndexRouteImport } from './routes/studios/index'
 import { Route as StudiosStudioIdRouteRouteImport } from './routes/studios/$studioId/route'
 import { Route as StudiosStudioIdIndexRouteImport } from './routes/studios/$studioId/index'
 import { Route as StudiosStudioIdCalendarRouteImport } from './routes/studios/$studioId/calendar'
+import { Route as StudiosStudioIdImportRouteImport } from './routes/studios/$studioId/import'
 import { Route as StudiosStudioIdMaintenanceRouteImport } from './routes/studios/$studioId/maintenance'
 import { Route as StudiosStudioIdMembersRouteImport } from './routes/studios/$studioId/members'
 import { Route as StudiosStudioIdMoneyRouteImport } from './routes/studios/$studioId/money'
+import { Route as StudiosStudioIdMyConsignmentRouteImport } from './routes/studios/$studioId/my-consignment'
 import { Route as StudiosStudioIdPayablesRouteImport } from './routes/studios/$studioId/payables'
 import { Route as StudiosStudioIdRosterRouteImport } from './routes/studios/$studioId/roster'
 import { Route as StudiosStudioIdSettingsRouteImport } from './routes/studios/$studioId/settings'
@@ -64,6 +66,11 @@ const StudiosStudioIdCalendarRoute = StudiosStudioIdCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
+const StudiosStudioIdImportRoute = StudiosStudioIdImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
 const StudiosStudioIdMaintenanceRoute =
   StudiosStudioIdMaintenanceRouteImport.update({
     id: '/maintenance',
@@ -80,6 +87,12 @@ const StudiosStudioIdMoneyRoute = StudiosStudioIdMoneyRouteImport.update({
   path: '/money',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
+const StudiosStudioIdMyConsignmentRoute =
+  StudiosStudioIdMyConsignmentRouteImport.update({
+    id: '/my-consignment',
+    path: '/my-consignment',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
 const StudiosStudioIdPayablesRoute = StudiosStudioIdPayablesRouteImport.update({
   id: '/payables',
   path: '/payables',
@@ -137,9 +150,11 @@ export interface FileRoutesByFullPath {
   '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/import': typeof StudiosStudioIdImportRoute
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/my-consignment': typeof StudiosStudioIdMyConsignmentRoute
   '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
@@ -156,9 +171,11 @@ export interface FileRoutesByTo {
   '/invites/$code': typeof InvitesCodeRoute
   '/studios': typeof StudiosIndexRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/import': typeof StudiosStudioIdImportRoute
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/my-consignment': typeof StudiosStudioIdMyConsignmentRoute
   '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
@@ -178,9 +195,11 @@ export interface FileRoutesById {
   '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
+  '/studios/$studioId/import': typeof StudiosStudioIdImportRoute
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
   '/studios/$studioId/members': typeof StudiosStudioIdMembersRoute
   '/studios/$studioId/money': typeof StudiosStudioIdMoneyRoute
+  '/studios/$studioId/my-consignment': typeof StudiosStudioIdMyConsignmentRoute
   '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
@@ -201,9 +220,11 @@ export interface FileRouteTypes {
     | '/invites/$code'
     | '/studios/'
     | '/studios/$studioId/calendar'
+    | '/studios/$studioId/import'
     | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
+    | '/studios/$studioId/my-consignment'
     | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
@@ -220,9 +241,11 @@ export interface FileRouteTypes {
     | '/invites/$code'
     | '/studios'
     | '/studios/$studioId/calendar'
+    | '/studios/$studioId/import'
     | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
+    | '/studios/$studioId/my-consignment'
     | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
@@ -241,9 +264,11 @@ export interface FileRouteTypes {
     | '/invites/$code'
     | '/studios/'
     | '/studios/$studioId/calendar'
+    | '/studios/$studioId/import'
     | '/studios/$studioId/maintenance'
     | '/studios/$studioId/members'
     | '/studios/$studioId/money'
+    | '/studios/$studioId/my-consignment'
     | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
@@ -313,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudiosStudioIdCalendarRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
+    '/studios/$studioId/import': {
+      id: '/studios/$studioId/import'
+      path: '/import'
+      fullPath: '/studios/$studioId/import'
+      preLoaderRoute: typeof StudiosStudioIdImportRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
     '/studios/$studioId/maintenance': {
       id: '/studios/$studioId/maintenance'
       path: '/maintenance'
@@ -332,6 +364,13 @@ declare module '@tanstack/react-router' {
       path: '/money'
       fullPath: '/studios/$studioId/money'
       preLoaderRoute: typeof StudiosStudioIdMoneyRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/my-consignment': {
+      id: '/studios/$studioId/my-consignment'
+      path: '/my-consignment'
+      fullPath: '/studios/$studioId/my-consignment'
+      preLoaderRoute: typeof StudiosStudioIdMyConsignmentRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
     '/studios/$studioId/payables': {
@@ -402,9 +441,11 @@ declare module '@tanstack/react-router' {
 
 interface StudiosStudioIdRouteRouteChildren {
   StudiosStudioIdCalendarRoute: typeof StudiosStudioIdCalendarRoute
+  StudiosStudioIdImportRoute: typeof StudiosStudioIdImportRoute
   StudiosStudioIdMaintenanceRoute: typeof StudiosStudioIdMaintenanceRoute
   StudiosStudioIdMembersRoute: typeof StudiosStudioIdMembersRoute
   StudiosStudioIdMoneyRoute: typeof StudiosStudioIdMoneyRoute
+  StudiosStudioIdMyConsignmentRoute: typeof StudiosStudioIdMyConsignmentRoute
   StudiosStudioIdPayablesRoute: typeof StudiosStudioIdPayablesRoute
   StudiosStudioIdRosterRoute: typeof StudiosStudioIdRosterRoute
   StudiosStudioIdSettingsRoute: typeof StudiosStudioIdSettingsRoute
@@ -419,9 +460,11 @@ interface StudiosStudioIdRouteRouteChildren {
 
 const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
   StudiosStudioIdCalendarRoute: StudiosStudioIdCalendarRoute,
+  StudiosStudioIdImportRoute: StudiosStudioIdImportRoute,
   StudiosStudioIdMaintenanceRoute: StudiosStudioIdMaintenanceRoute,
   StudiosStudioIdMembersRoute: StudiosStudioIdMembersRoute,
   StudiosStudioIdMoneyRoute: StudiosStudioIdMoneyRoute,
+  StudiosStudioIdMyConsignmentRoute: StudiosStudioIdMyConsignmentRoute,
   StudiosStudioIdPayablesRoute: StudiosStudioIdPayablesRoute,
   StudiosStudioIdRosterRoute: StudiosStudioIdRosterRoute,
   StudiosStudioIdSettingsRoute: StudiosStudioIdSettingsRoute,

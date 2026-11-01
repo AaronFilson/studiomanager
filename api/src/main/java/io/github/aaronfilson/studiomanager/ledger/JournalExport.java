@@ -60,6 +60,7 @@ public final class JournalExport {
             case REFUNDS -> "Refunds";
             case PROCESSOR_FEES -> "Payment processing fees";
             case CONTRACT_SERVICES -> "Contract instructors and services";
+            case OPENING_BALANCE_EQUITY -> "Opening balance equity";
         };
         return line.taxCategory() == null ? name : name + " (" + line.taxCategory() + ")";
     }

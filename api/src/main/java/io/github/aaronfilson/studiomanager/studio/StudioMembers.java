@@ -120,13 +120,7 @@ public class StudioMembers {
         Set<String> memberAddresses = accounts.emails(list().stream().map(MemberView::accountId).toList())
                 .values().stream().map(address -> address.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
         Instant now = now();
-        Set<String> invited = new HashSet<>(jdbc.sql("""
-                select lower(email) from studio_invite
-                where email is not null and accepted_at is null and expires_at > :now and lower(email) = any(:emails)
-                """)
-                .param("now", now.atOffset(ZoneOffset.UTC))
-                .param("emails", addresses.toArray(String[]::new))
-                .query(String.class).list());
+        Set<String> invited = openlyInvited(addresses);
 
         List<OpenInviteView> sent = new ArrayList<>();
         List<EmailInvitesResult.Skipped> skipped = new ArrayList<>();
@@ -151,6 +145,30 @@ public class StudioMembers {
             }
         }
         return new EmailInvitesResult(sent, skipped);
+    }
+
+    /** Each member's email address, lower-cased, to their account. For matching imported rows. */
+    @Transactional(readOnly = true)
+    public Map<String, UUID> membersByEmail() {
+        Map<String, UUID> byEmail = new java.util.HashMap<>();
+        accounts.emails(list().stream().map(MemberView::accountId).toList())
+                .forEach((account, address) -> byEmail.put(address.toLowerCase(Locale.ROOT), account));
+        return byEmail;
+    }
+
+    /** Which of {@code addresses} (lower-cased) already have an open, unexpired invite. */
+    @Transactional(readOnly = true)
+    public Set<String> openlyInvited(List<String> addresses) {
+        if (addresses.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(jdbc.sql("""
+                select lower(email) from studio_invite
+                where email is not null and accepted_at is null and expires_at > :now and lower(email) = any(:emails)
+                """)
+                .param("now", now().atOffset(ZoneOffset.UTC))
+                .param("emails", addresses.toArray(String[]::new))
+                .query(String.class).list());
     }
 
     /** Invites in the bound studio that nobody has accepted, newest first. */
@@ -187,12 +205,14 @@ public class StudioMembers {
     /** Accepts an invite for the signed-in account. Runs outside any studio. */
     @Transactional
     public MembershipView accept(String code) {
-        return jdbc.sql("select studio_id, studio_name, role from app.accept_invite(:code)")
+        MembershipView membership = jdbc.sql("select studio_id, studio_name, role from app.accept_invite(:code)")
                 .param("code", code)
                 .query((rs, row) -> new MembershipView(rs.getObject("studio_id", UUID.class),
                         rs.getString("studio_name"), StudioRole.valueOf(rs.getString("role"))))
                 .optional()
                 .orElseThrow(() -> new NotFoundException("This invite doesn't exist, has been used, or has expired."));
+        events.publishEvent(new MemberJoined(membership.studioId(), TenantContext.require().accountId()));
+        return membership;
     }
 
     private static TenantContext requireCanInvite(StudioRole role) {

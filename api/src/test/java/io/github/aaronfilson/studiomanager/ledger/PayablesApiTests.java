@@ -197,6 +197,77 @@ class PayablesApiTests {
         assertThat(post(maker, path("/payees"), "{\"name\": \"Me\", \"files1099\": false}")).hasStatus(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void workKeptPastTheConsignmentPeriodIsDueBackToTheArtist() throws Exception {
+        String eve = payee("{\"name\": \"Eve\", \"files1099\": false, \"consignorShare\": \"0.6\", \"consignmentDays\": 90}");
+        LocalDate today = LocalDate.now(CHICAGO);
+        String old = read(post(owner, path("/consignment-items"), """
+                {"payeeId": "%s", "description": "Old jug", "retailPrice": "50.00", "receivedOn": "%s"}
+                """.formatted(eve, today.minusDays(100))), "$.id");
+        post(owner, path("/consignment-items"), """
+                {"payeeId": "%s", "description": "New jug", "retailPrice": "50.00"}
+                """.formatted(eve));
+
+        assertThat(mvc.get().uri(path("/consignment-items?dueBack=true")).with(owner.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$[*].id", ids -> assertThat(ids).asArray().containsExactly(old))
+                .hasPathSatisfying("$[0].returnBy", d -> assertThat(d).isEqualTo(today.minusDays(10).toString()))
+                .hasPathSatisfying("$[0].dueBack", d -> assertThat(d).isEqualTo(true));
+        // Once it's back with her, it's no longer due
+        assertThat(post(owner, path("/consignment-items/" + old + "/returns"), "{\"quantity\": 1}")).hasStatusOk()
+                .bodyJson().extractingPath("$.dueBack").isEqualTo(false);
+        assertThat(mvc.get().uri(path("/consignment-items?dueBack=true")).with(owner.token())).hasStatusOk().bodyJson()
+                .extractingPath("$.length()").isEqualTo(0);
+    }
+
+    @Test
+    void aPaymentRunPaysEveryoneOrNobody() throws Exception {
+        String fay = payee("{\"name\": \"Fay\", \"files1099\": true}");
+        String gus = payee("{\"name\": \"Gus\", \"files1099\": true}");
+        for (String payee : List.of(fay, gus)) {
+            post(owner, path("/payees/" + payee + "/earnings"), "{\"kind\": \"SERVICE\", \"description\": \"Glazing\", \"amount\": \"100.00\"}");
+        }
+
+        // Gus is owed only 100, so nothing is paid
+        assertThat(post(owner, path("/payment-runs"), """
+                {"method": "CHECK", "payments": [{"payeeId": "%s", "amount": "100.00"}, {"payeeId": "%s", "amount": "150.00"}]}
+                """.formatted(fay, gus))).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(owed(fay)).isEqualTo("100.00");
+
+        assertThat(post(owner, path("/payment-runs"), """
+                {"method": "CHECK", "payments": [{"payeeId": "%s", "amount": "100.00", "reference": "1050"},
+                                                 {"payeeId": "%s", "amount": "60.00", "reference": "1051"}]}
+                """.formatted(gus, fay))).hasStatus(HttpStatus.CREATED).bodyJson()
+                .hasPathSatisfying("$[*].payeeId", ids -> assertThat(ids).asArray().containsExactly(gus, fay))
+                .hasPathSatisfying("$[1].reference", r -> assertThat(r).isEqualTo("1051"));
+        assertThat(owed(gus)).isEqualTo("0.00");
+        assertThat(owed(fay)).isEqualTo("40.00");
+        assertThat(post(maker, path("/payment-runs"), """
+                {"method": "CASH", "payments": [{"payeeId": "%s", "amount": "1.00"}]}
+                """.formatted(fay))).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void aMemberArtistSeesTheirOwnConsignmentAndNobodyElses() throws Exception {
+        assertThat(mvc.get().uri(path("/my-consignment")).with(maker.token())).hasStatus(HttpStatus.NOT_FOUND);
+        String mo = payee("{\"name\": \"Mo\", \"accountId\": \"%s\", \"files1099\": false, \"consignorShare\": \"0.5\"}"
+                .formatted(makerId));
+        String other = payee("{\"name\": \"Other\", \"files1099\": false, \"consignorShare\": \"0.5\"}");
+        String cup = read(post(owner, path("/consignment-items"), """
+                {"payeeId": "%s", "description": "Cup", "retailPrice": "20.00", "quantity": 2}
+                """.formatted(mo)), "$.id");
+        post(owner, path("/consignment-items"), """
+                {"payeeId": "%s", "description": "Not Mo's", "retailPrice": "20.00"}
+                """.formatted(other));
+        post(owner, path("/consignment-items/" + cup + "/sales"), "{\"provider\": \"CASH\"}");
+
+        assertThat(mvc.get().uri(path("/my-consignment")).with(maker.token())).hasStatusOk().bodyJson()
+                .hasPathSatisfying("$.payeeId", p -> assertThat(p).isEqualTo(mo))
+                .hasPathSatisfying("$.owed", o -> assertThat(o).isEqualTo("10.00"))
+                .hasPathSatisfying("$.items[*].description", d -> assertThat(d).asArray().containsExactly("Cup"))
+                .hasPathSatisfying("$.items[0].inStock", n -> assertThat(n).isEqualTo(1))
+                .hasPathSatisfying("$.sales.length()", n -> assertThat(n).isEqualTo(1));
+    }
+
     private String payee(String json) throws Exception {
         MvcTestResult created = post(owner, path("/payees"), json);
         assertThat(created).hasStatus(HttpStatus.CREATED);

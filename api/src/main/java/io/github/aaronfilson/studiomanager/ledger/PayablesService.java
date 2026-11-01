@@ -20,7 +20,9 @@ import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentSale;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.DiscountsFrom;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Earning;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.EarningKind;
+import io.github.aaronfilson.studiomanager.ledger.PayablesModel.MyConsignment;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.NecLine;
+import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentRunLine;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.NecReport;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Payee;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PayeeChanges;
@@ -92,8 +94,8 @@ public class PayablesService {
         try {
             jdbc.sql("""
                     insert into payee (id, studio_id, name, email, account_id, files_1099, w9_received_on, consignor_share,
-                                       discounts_from, archived_at, created_at)
-                    values (:id, :studioId, :name, :email, :account, :files, :w9, :share, :discounts, null, :now)
+                                       discounts_from, consignment_days, archived_at, created_at)
+                    values (:id, :studioId, :name, :email, :account, :files, :w9, :share, :discounts, :days, null, :now)
                     """)
                     .param("id", id)
                     .param("studioId", caller.studioId())
@@ -104,6 +106,7 @@ public class PayablesService {
                     .param("w9", changes.w9ReceivedOn())
                     .param("share", changes.consignorShare())
                     .param("discounts", changes.discountsFrom().name())
+                    .param("days", changes.consignmentDays())
                     .param("now", now())
                     .update();
         } catch (DuplicateKeyException taken) {
@@ -121,6 +124,7 @@ public class PayablesService {
             jdbc.sql("""
                     update payee set name = :name, email = :email, account_id = :account, files_1099 = :files,
                                      w9_received_on = :w9, consignor_share = :share, discounts_from = :discounts,
+                                     consignment_days = :days,
                                      archived_at = case when :archived then coalesce(archived_at, :now) end
                     where id = :id
                     """)
@@ -132,6 +136,7 @@ public class PayablesService {
                     .param("w9", changes.w9ReceivedOn())
                     .param("share", changes.consignorShare())
                     .param("discounts", changes.discountsFrom().name())
+                    .param("days", changes.consignmentDays())
                     .param("archived", changes.archived())
                     .param("now", now())
                     .update();
@@ -167,12 +172,15 @@ public class PayablesService {
         }
         requireShare(share);
         LocalDate received = receivedOn == null ? ledger.today() : notInFuture(receivedOn);
+        LocalDate returnBy = payee.consignmentDays() == null ? null : received.plusDays(payee.consignmentDays());
         UUID id = Uuids.v7();
         jdbc.sql("""
                 insert into consignment_item (id, studio_id, payee_id, description, retail_price, consignor_share,
-                                              discounts_from, quantity, received_on, created_at)
-                values (:id, :studioId, :payee, :description, :price, :share, :discounts, :quantity, :received, :now)
+                                              discounts_from, quantity, received_on, return_by, created_at)
+                values (:id, :studioId, :payee, :description, :price, :share, :discounts, :quantity, :received,
+                        :returnBy, :now)
                 """)
+                .param("returnBy", returnBy)
                 .param("id", id)
                 .param("studioId", caller.studioId())
                 .param("payee", payeeId)
@@ -190,13 +198,43 @@ public class PayablesService {
     /** Consigned work, newest first; only what's still on the shelf unless asked for everything. */
     @Transactional(readOnly = true)
     public List<ConsignmentItem> consignmentItems(@Nullable UUID payeeId, boolean inStockOnly) {
+        return consignmentItems(payeeId, inStockOnly, false);
+    }
+
+    /**
+     * Consigned work, newest first. {@code dueBackOnly} lists work kept past its consignment
+     * period, oldest first: what should go back to the artist.
+     */
+    @Transactional(readOnly = true)
+    public List<ConsignmentItem> consignmentItems(@Nullable UUID payeeId, boolean inStockOnly, boolean dueBackOnly) {
         requireStaff();
+        return items(payeeId, inStockOnly, dueBackOnly);
+    }
+
+    private List<ConsignmentItem> items(@Nullable UUID payeeId, boolean inStockOnly, boolean dueBackOnly) {
         String where = "where (cast(:payee as uuid) is null or i.payee_id = :payee)"
-                + (inStockOnly ? " and i.sold + i.returned < i.quantity" : "");
-        return jdbc.sql(itemSelect(where) + " order by i.received_on desc, i.created_at desc limit 500")
+                + (inStockOnly || dueBackOnly ? " and i.sold + i.returned < i.quantity" : "")
+                + (dueBackOnly ? " and i.return_by < :today" : "");
+        String order = dueBackOnly ? " order by i.return_by, i.created_at" : " order by i.received_on desc, i.created_at desc";
+        return jdbc.sql(itemSelect(where) + order + " limit 500")
                 .param("payee", payeeId)
+                .param("today", ledger.today())
                 .query(PayablesService::item)
                 .list();
+    }
+
+    /**
+     * A member's own consignment: the payee linked to their account, their work and its sales.
+     * Any member may ask; they see only their own.
+     */
+    @Transactional(readOnly = true)
+    public MyConsignment myConsignment() {
+        TenantContext caller = TenantContext.require();
+        Payee payee = payeeQuery("where p.account_id = :account", Map.of("account", caller.accountId())).stream()
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("You don't have work on consignment here."));
+        return new MyConsignment(payee.id(), payee.name(), payee.owed(), items(payee.id(), false, false),
+                sales(payee.id()));
     }
 
     /**
@@ -308,6 +346,10 @@ public class PayablesService {
     @Transactional(readOnly = true)
     public List<ConsignmentSale> consignmentSales(@Nullable UUID payeeId) {
         requireStaff();
+        return sales(payeeId);
+    }
+
+    private List<ConsignmentSale> sales(@Nullable UUID payeeId) {
         return jdbc.sql("""
                 select s.id, s.item_id, i.description, s.quantity, s.price, s.consignor_amount, s.tax, s.provider,
                        s.sold_on, s.refunded_on
@@ -433,6 +475,30 @@ public class PayablesService {
                 .param("now", now())
                 .update();
         return new Payment(id, payeeId, day, amount, method, ref);
+    }
+
+    /**
+     * Pays several payees at once, such as the month's consignors by cheque. All or none: if one
+     * line fails (more than is owed, an unknown payee), nothing is recorded and the error names it.
+     * Payees are locked in id order, so two runs at once can't deadlock.
+     */
+    @Transactional
+    public List<Payment> payRun(List<PaymentRunLine> lines, PaymentMethod method, @Nullable LocalDate paidOn) {
+        requireStaff();
+        if (lines.isEmpty() || lines.size() > 200) {
+            throw new InvalidInputException("Pay from 1 to 200 payees at once.");
+        }
+        if (lines.stream().map(PaymentRunLine::payeeId).distinct().count() != lines.size()) {
+            throw new InvalidInputException("Each payee can appear only once in a payment run.");
+        }
+        List<PaymentRunLine> ordered = lines.stream()
+                .sorted(java.util.Comparator.comparing(PaymentRunLine::payeeId)).toList();
+        java.util.Map<UUID, Payment> paid = new java.util.HashMap<>();
+        for (PaymentRunLine line : ordered) {
+            paid.put(line.payeeId(), pay(line.payeeId(), line.amount(), method, line.reference(), paidOn));
+        }
+        // Back in the order asked for
+        return lines.stream().map(line -> paid.get(line.payeeId())).toList();
     }
 
     // ---- Reports
@@ -574,7 +640,7 @@ public class PayablesService {
     private List<Payee> payeeQuery(String where, Map<String, Object> params) {
         var spec = jdbc.sql("""
                 select p.id, p.name, p.email, p.account_id, p.files_1099, p.w9_received_on, p.consignor_share,
-                       p.discounts_from, p.archived_at is not null as archived,
+                       p.discounts_from, p.consignment_days, p.archived_at is not null as archived,
                        coalesce(-(select sum(l.amount) from journal_line l
                                   where l.account = 'PAYEES_PAYABLE' and l.payee_id = p.id), 0) as owed
                 from payee p %s order by p.archived_at nulls first, p.name limit 500
@@ -585,25 +651,27 @@ public class PayablesService {
         List<Payee> raw = spec.query((rs, row) -> new Payee(rs.getObject("id", UUID.class), rs.getString("name"),
                 rs.getString("email"), rs.getObject("account_id", UUID.class), null, rs.getBoolean("files_1099"),
                 rs.getObject("w9_received_on", LocalDate.class), rs.getBigDecimal("consignor_share"),
-                DiscountsFrom.valueOf(rs.getString("discounts_from")), rs.getBoolean("archived"),
-                rs.getBigDecimal("owed"))).list();
+                DiscountsFrom.valueOf(rs.getString("discounts_from")), rs.getObject("consignment_days", Integer.class),
+                rs.getBoolean("archived"), rs.getBigDecimal("owed"))).list();
         Map<UUID, String> names = accounts.displayNames(raw.stream().map(Payee::accountId).filter(Objects::nonNull).toList());
         return raw.stream()
                 .map(p -> new Payee(p.id(), p.name(), p.email(), p.accountId(),
                         p.accountId() == null ? null : names.get(p.accountId()), p.files1099(), p.w9ReceivedOn(),
-                        p.consignorShare(), p.discountsFrom(), p.archived(), p.owed()))
+                        p.consignorShare(), p.discountsFrom(), p.consignmentDays(), p.archived(), p.owed()))
                 .toList();
     }
 
     private ConsignmentItem item(UUID itemId) {
-        return jdbc.sql(itemSelect("where i.id = :id")).param("id", itemId).query(PayablesService::item).optional()
+        return jdbc.sql(itemSelect("where i.id = :id")).param("id", itemId).param("today", ledger.today())
+                .query(PayablesService::item).optional()
                 .orElseThrow(() -> new NotFoundException("No such consigned item."));
     }
 
     private static String itemSelect(String where) {
         return """
                 select i.id, i.payee_id, p.name as payee_name, i.description, i.retail_price, i.consignor_share,
-                       i.discounts_from, i.quantity, i.sold, i.returned, i.received_on
+                       i.discounts_from, i.quantity, i.sold, i.returned, i.received_on, i.return_by,
+                       coalesce(i.return_by < cast(:today as date) and i.sold + i.returned < i.quantity, false) as due_back
                 from consignment_item i join payee p on p.id = i.payee_id
                 """ + where;
     }
@@ -613,7 +681,8 @@ public class PayablesService {
                 rs.getString("payee_name"), rs.getString("description"), rs.getBigDecimal("retail_price"),
                 rs.getBigDecimal("consignor_share"), DiscountsFrom.valueOf(rs.getString("discounts_from")),
                 rs.getInt("quantity"), rs.getInt("sold"), rs.getInt("returned"),
-                rs.getObject("received_on", LocalDate.class));
+                rs.getObject("received_on", LocalDate.class), rs.getObject("return_by", LocalDate.class),
+                rs.getBoolean("due_back"));
     }
 
     private ConsignmentSale sale(UUID saleId) {
@@ -650,6 +719,9 @@ public class PayablesService {
         }
         if (changes.w9ReceivedOn() != null) {
             notInFuture(changes.w9ReceivedOn());
+        }
+        if (changes.consignmentDays() != null && (changes.consignmentDays() < 1 || changes.consignmentDays() > 3650)) {
+            throw new InvalidInputException("A consignment period is from 1 to 3,650 days.");
         }
     }
 

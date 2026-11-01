@@ -52,17 +52,26 @@ public final class PayablesModel {
     /** {@code owed} is what the studio owes them now; negative if they owe the studio. */
     public record Payee(UUID id, String name, @Nullable String email, @Nullable UUID accountId,
             @Nullable String accountName, boolean files1099, @Nullable LocalDate w9ReceivedOn,
-            @Nullable BigDecimal consignorShare, DiscountsFrom discountsFrom, boolean archived, BigDecimal owed) {
+            @Nullable BigDecimal consignorShare, DiscountsFrom discountsFrom, @Nullable Integer consignmentDays,
+            boolean archived, BigDecimal owed) {
     }
 
+    /**
+     * {@code consignmentDays}: how long the studio keeps unsold work before it goes back to the
+     * artist; null for no limit.
+     */
     public record PayeeChanges(String name, @Nullable String email, @Nullable UUID accountId, boolean files1099,
             @Nullable LocalDate w9ReceivedOn, @Nullable BigDecimal consignorShare, DiscountsFrom discountsFrom,
-            boolean archived) {
+            @Nullable Integer consignmentDays, boolean archived) {
     }
 
+    /**
+     * {@code returnBy} is when unsold work goes back to the artist, from the payee's consignment
+     * period; {@code dueBack} is true once that day has passed with some still on the shelf.
+     */
     public record ConsignmentItem(UUID id, UUID payeeId, String payeeName, String description, BigDecimal retailPrice,
             BigDecimal consignorShare, DiscountsFrom discountsFrom, int quantity, int sold, int returned,
-            LocalDate receivedOn) {
+            LocalDate receivedOn, @Nullable LocalDate returnBy, boolean dueBack) {
 
         public int inStock() {
             return quantity - sold - returned;
@@ -95,6 +104,15 @@ public final class PayablesModel {
     }
 
     public record NecReport(int year, BigDecimal threshold, List<NecLine> payees) {
+    }
+
+    /** One payee in a payment run: how much, and an optional reference such as a cheque number. */
+    public record PaymentRunLine(UUID payeeId, BigDecimal amount, @Nullable String reference) {
+    }
+
+    /** A member's own view of their consignment: what they're owed, their work and its sales. */
+    public record MyConsignment(UUID payeeId, String name, BigDecimal owed, List<ConsignmentItem> items,
+            List<ConsignmentSale> sales) {
     }
 
 }

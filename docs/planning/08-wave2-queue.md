@@ -98,5 +98,31 @@ Updated as each item lands.
     $2,000 for 2026 and $600 before. The list shows on the web and downloads as CSV, marking any
     W-9 still missing.
   - **Web.** An "Artists and instructors" page. The 1099 section shows for US studios only.
-  - **Not yet:** see "Not in this slice" above. Also, the pilot should show whether staff want
-    to pay several payees at once.
+  - **Not yet:** bill.com or QuickBooks bill export, and class revenue itself (see "Not in this
+    slice" above).
+  - **Follow-ups, 2026-10-31 (V22), on `wave2-import`:**
+    - A payee can have a consignment period in days. Each item takes its return date from it when
+      it comes in. Work kept past that date with some unsold is flagged "due back", and staff can
+      list just those.
+    - A member who is also a payee sees their own work, its sales and what they're owed under "My
+      work for sale". They see nobody else's.
+    - A payment run pays several payees at once, by one method, all or none.
+- **2. CSV importer:** first version done 2026-10-31 (V22), on `wave2-import`.
+  - **How it works.** The browser reads the CSV (commas or semicolons, quoted fields), guesses which
+    column is which from the headers, and lets staff change the guesses. It sends each row as
+    the text in its mapped columns, so the server alone decides what "$1,234.50", "(4.00)", "60%"
+    or "3/4/2026" means. Slashed dates are month-first for US studios and day-first elsewhere.
+  - **Dry run, then all or nothing.** "Check the file" runs the whole import in a transaction and
+    rolls it back, returning what each row would do. A real import that hits any row error also
+    rolls back. So a file is never half imported.
+  - **Members and balances.** New addresses get emailed member invites. A balance posts against a
+    new `OPENING_BALANCE_EQUITY` account. For an existing member it posts now. For someone
+    invited it waits in `pending_opening_balance` and posts when they accept (a `MemberJoined`
+    event). Each member gets at most one opening balance, so importing the same file twice
+    changes nothing.
+  - **Consigned stock.** Each row is one item. The artist is matched by email, then by name, and
+    created if neither matches. A new artist takes the row's share as their terms.
+  - **Not yet:** balances owed *to* artists (payee opening balances), names on invites (invites
+    carry only an address), and importing supplies or class rosters. A re-imported consignment
+    file adds the items again, so the preview is what catches it.
+  - `MemberJoined` is also the "member joined" event that item 3's webhooks need.

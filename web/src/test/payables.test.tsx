@@ -1,4 +1,4 @@
-import type { PayPayeeRequest, Payee, TakeInConsignmentRequest } from '@studiomanager/api-client';
+import type { PaymentRunRequest, PayPayeeRequest, Payee, TakeInConsignmentRequest } from '@studiomanager/api-client';
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -98,6 +98,30 @@ describe('artists and instructors', () => {
       retailPrice: '40.00',
       quantity: 1,
       consignorShare: '0.55',
+    });
+  });
+
+  it('pays everyone owed in one run, leaving out anyone whose amount is cleared', async () => {
+    const ben: Payee = { ...ana, id: 'p2', name: 'Ben Lee', owed: '15.00' };
+    payablesApi();
+    let run: PaymentRunRequest | undefined;
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId/payees`, () => HttpResponse.json([ana, ben])),
+      http.post(`${API}/api/v1/studios/:studioId/payment-runs`, async ({ request }) => {
+        run = (await request.json()) as PaymentRunRequest;
+        return HttpResponse.json([], { status: 201 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/payables`);
+    const form = await screen.findByRole('form', { name: 'Pay everyone owed' });
+    await user.clear(await within(form).findByLabelText('Pay Ben Lee'));
+    await user.type(within(form).getByLabelText('Reference for Ana Ruiz'), '1060');
+    await user.click(within(form).getByRole('button', { name: 'Pay 1 person' }));
+
+    await expect.poll(() => run).toEqual({
+      method: 'CHECK',
+      payments: [{ payeeId: 'p1', amount: '42.00', reference: '1060' }],
     });
   });
 });

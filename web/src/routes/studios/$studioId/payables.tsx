@@ -14,6 +14,7 @@ import {
   type Payee,
   type PaymentMethod,
   payPayeeMutation,
+  payPayeesMutation,
   type Provider,
   recordEarningMutation,
   refundConsignmentSaleMutation,
@@ -99,6 +100,8 @@ function PayablesPage() {
 
       <ConsignmentSection studio={studio} payees={active} />
 
+      <PaymentRun studio={studio} payees={active} />
+
       {studio.country === 'US' && <NecSection studioId={studioId} money={money} />}
     </div>
   );
@@ -116,6 +119,7 @@ function PayeeForm({ studio, payee }: { studio: Studio; payee?: Payee }) {
   const [discountsFrom, setDiscountsFrom] = useState<DiscountsFrom>(payee?.discountsFrom ?? 'SHARED');
   const [files1099, setFiles1099] = useState(payee?.files1099 ?? studio.country === 'US');
   const [w9, setW9] = useState(payee?.w9ReceivedOn ?? '');
+  const [days, setDays] = useState(payee?.consignmentDays ? String(payee.consignmentDays) : '');
   const [archived, setArchived] = useState(payee?.archived ?? false);
   const onSuccess = async () => {
     if (!payee) {
@@ -124,6 +128,7 @@ function PayeeForm({ studio, payee }: { studio: Studio; payee?: Payee }) {
       setAccountId('');
       setShare('');
       setW9('');
+      setDays('');
     }
     await queryClient.invalidateQueries();
   };
@@ -142,6 +147,7 @@ function PayeeForm({ studio, payee }: { studio: Studio; payee?: Payee }) {
       ...(accountId ? { accountId } : {}),
       ...(consignorShare ? { consignorShare } : {}),
       ...(w9 ? { w9ReceivedOn: w9 } : {}),
+      ...(days ? { consignmentDays: Number(days) } : {}),
     };
   }
 
@@ -191,6 +197,10 @@ function PayeeForm({ studio, payee }: { studio: Studio; payee?: Payee }) {
             <option value="SHARED">Both shares</option>
             <option value="STUDIO">The studio&apos;s commission</option>
           </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-days`}>Unsold work goes back after … days (optional)</label>
+          <input id={`${id}-days`} type="number" min={1} max={3650} value={days} onChange={(e) => setDays(e.target.value)} />
         </div>
       </div>
       <div className="row">
@@ -413,20 +423,29 @@ function EarningForm({ studio, payee }: { studio: Studio; payee: Payee }) {
 function ConsignmentSection({ studio, payees }: { studio: Studio; payees: Payee[] }) {
   const money = (amount: string) => formatMoney(amount, studio.currency);
   const queryClient = useQueryClient();
-  const items = useQuery(listConsignmentItemsOptions({ path: { studioId: studio.id } }));
+  const id = useId();
+  const [dueBack, setDueBack] = useState(false);
+  const items = useQuery(listConsignmentItemsOptions({ path: { studioId: studio.id }, query: { dueBack } }));
   const sales = useQuery(listConsignmentSalesOptions({ path: { studioId: studio.id } }));
   const refund = useMutation({ ...refundConsignmentSaleMutation(), onSuccess: () => queryClient.invalidateQueries() });
 
   return (
     <section className="card stack" aria-label="Consigned work">
       <h2>Consigned work</h2>
+      <label htmlFor={`${id}-due`}>
+        <input id={`${id}-due`} type="checkbox" checked={dueBack} onChange={(e) => setDueBack(e.target.checked)} /> Only
+        work due back to the artist
+      </label>
       {items.isError && <ErrorMessage error={items.error} />}
-      {items.isSuccess && items.data.length === 0 && <p>Nothing on the shelf.</p>}
+      {items.isSuccess && items.data.length === 0 && <p>{dueBack ? 'Nothing is due back.' : 'Nothing on the shelf.'}</p>}
       <ul className="studio-list">
         {items.data?.map((item) => (
           <li key={item.id}>
             <span>
               {item.description} · {item.payeeName} · {money(item.retailPrice)} · {item.inStock} in stock
+              {item.dueBack && item.returnBy && (
+                <span className="badge warning"> · due back since {formatDate(`${item.returnBy}T12:00:00`)}</span>
+              )}
             </span>
             <SellForm studio={studio} item={item} />
           </li>
@@ -588,6 +607,92 @@ function TakeInForm({ studio, payees }: { studio: Studio; payees: Payee[] }) {
       <div>
         <button type="submit" disabled={takeIn.isPending}>
           Take in
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Pays everyone owed something at once, such as the month's consignors by cheque. All or none. */
+function PaymentRun({ studio, payees }: { studio: Studio; payees: Payee[] }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const money = (amount: string) => formatMoney(amount, studio.currency);
+  const owed = payees.filter((p) => Number(p.owed) > 0);
+  const [method, setMethod] = useState<PaymentMethod>('CHECK');
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [references, setReferences] = useState<Record<string, string>>({});
+  const run = useMutation({
+    ...payPayeesMutation(),
+    onSuccess: async () => {
+      setAmounts({});
+      setReferences({});
+      await queryClient.invalidateQueries();
+    },
+  });
+  const amountOf = (p: Payee) => amounts[p.id] ?? p.owed;
+  const lines = owed.filter((p) => Number(amountOf(p)) > 0);
+
+  if (owed.length === 0) return null;
+  return (
+    <form
+      className="card stack"
+      aria-labelledby={`${id}-title`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        run.mutate({
+          path: { studioId: studio.id },
+          body: {
+            method,
+            payments: lines.map((p) => {
+              const reference = references[p.id]?.trim();
+              return { payeeId: p.id, amount: amountOf(p), ...(reference ? { reference } : {}) };
+            }),
+          },
+        });
+      }}
+    >
+      <h2 id={`${id}-title`}>Pay everyone owed</h2>
+      <p className="badge">Clear an amount to leave someone out. If any payment can&apos;t be made, none are recorded.</p>
+      <div className="field">
+        <label htmlFor={`${id}-method`}>Paid by</label>
+        <select id={`${id}-method`} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+          {methods
+            .filter((m) => m !== 'STUDIO_CREDIT')
+            .map((m) => (
+              <option key={m} value={m}>
+                {methodLabels[m]}
+              </option>
+            ))}
+        </select>
+      </div>
+      <ul className="studio-list">
+        {owed.map((p) => (
+          <li key={p.id} className="row">
+            <span>
+              {p.name} · owed {money(p.owed)}
+            </span>
+            <input
+              aria-label={`Pay ${p.name}`}
+              inputMode="decimal"
+              value={amountOf(p)}
+              onChange={(e) => setAmounts({ ...amounts, [p.id]: e.target.value.trim() })}
+            />
+            <input
+              aria-label={`Reference for ${p.name}`}
+              placeholder="Reference"
+              maxLength={80}
+              value={references[p.id] ?? ''}
+              onChange={(e) => setReferences({ ...references, [p.id]: e.target.value })}
+            />
+          </li>
+        ))}
+      </ul>
+      {run.isError && <ErrorMessage error={run.error} />}
+      {run.isSuccess && <p aria-live="polite">Recorded {run.data.length} payments.</p>}
+      <div>
+        <button type="submit" className="primary" disabled={run.isPending || lines.length === 0}>
+          Pay {lines.length} {lines.length === 1 ? 'person' : 'people'}
         </button>
       </div>
     </form>
