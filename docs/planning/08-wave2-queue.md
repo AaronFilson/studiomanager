@@ -126,3 +126,15 @@ Updated as each item lands.
     carry only an address), and importing supplies or class rosters. A re-imported consignment
     file adds the items again, so the preview is what catches it.
   - `MemberJoined` is also the "member joined" event that item 3's webhooks need.
+- **3. Outbound webhooks:** first version done 2026-11-02 (V23), on `wave2-webhooks`. The plan
+  and its status are in [10](10-webhooks-plan.md), and the design is in
+  [ADR 14](../adr/0014-outbound-webhooks.md).
+  - **Events:** `pieces.ready`, `fee.charged` and `member.joined`, each signed the Standard
+    Webhooks way.
+  - **Delivery:** retried with backoff for about 4 days. An endpoint that keeps failing is turned
+    off, and staff are told.
+  - **SSRF filter:** sends only to public addresses, and connects to the address it checked.
+  - **Web:** a "Webhooks" page with a delivery log and resend.
+  - **Next:** Kafka event streaming, as an optional resume slice (see 10). The kiln log import
+    (item 4) waits for a real Genesis export
+    ([09](09-kiln-log-import-research.md)).

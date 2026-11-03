@@ -11,8 +11,7 @@ source "$(dirname "$0")/lib.sh"
 
 DISTRO="${STUDIOMANAGER_WSL_DISTRO:-Debian}"
 
-drive="$(echo "${REPO_ROOT:1:1}" | tr '[:upper:]' '[:lower:]')"
-WSL_REPO="/mnt/$drive${REPO_ROOT:2}"
+WSL_REPO="$(wsl_repo_path)"
 
 # `git stash create` makes a commit of the working tree without touching it; empty when clean
 tree="$(git -C "$REPO_ROOT" stash create)"

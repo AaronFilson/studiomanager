@@ -14,7 +14,8 @@ public record NotificationView(UUID id, Kind kind, String title, String body, In
         STUDIO_NOTICE,
         MAINTENANCE_DUE,
         PROBLEM_REPORTED,
-        SHIFT_COVER
+        SHIFT_COVER,
+        WEBHOOK_DISABLED
     }
 
 }

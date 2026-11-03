@@ -52,6 +52,11 @@ tags:
     description: |
       Bringing a studio's existing lists in from a spreadsheet. Every import can be previewed
       as a dry run, and is all or nothing.
+  - name: webhooks
+    description: |
+      Signed HTTPS POSTs to the studio's own tools (a Zapier catch hook, Make, n8n…) when
+      pieces are ready, a fee is charged or a member joins. Signed the Standard Webhooks way;
+      delivered at least once, so receivers drop duplicates by the webhook-id header.
 
 paths:
   /api/v1/me:
@@ -3105,6 +3110,219 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/webhooks/event-types:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [webhooks]
+      operationId: listWebhookEventTypes
+      summary: The events an endpoint can subscribe to, each with an example payload (staff only)
+      responses:
+        "200":
+          description: The event types.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookEventTypeInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/webhooks/endpoints:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [webhooks]
+      operationId: listWebhookEndpoints
+      summary: Where the studio's webhooks go (staff only)
+      responses:
+        "200":
+          description: The endpoints, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookEndpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [webhooks]
+      operationId: createWebhookEndpoint
+      summary: Add an endpoint (staff only)
+      description: |
+        The URL must be https and resolve only to public addresses. The response carries the
+        signing secret, which is never shown again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookEndpoint"
+      responses:
+        "201":
+          description: The endpoint and its secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedWebhookEndpoint"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/EndpointId"
+    patch:
+      tags: [webhooks]
+      operationId: updateWebhookEndpoint
+      summary: Change an endpoint, or turn it off or back on (staff only)
+      description: Turning an endpoint back on clears its failures. Events missed while it was off aren't replayed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWebhookEndpoint"
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [webhooks]
+      operationId: deleteWebhookEndpoint
+      summary: Delete an endpoint and its delivery log (staff only)
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/rotate-secret:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/EndpointId"
+    post:
+      tags: [webhooks]
+      operationId: rotateWebhookSecret
+      summary: A new signing secret (staff only)
+      description: The old secret keeps signing, alongside the new one, for 24 hours.
+      responses:
+        "200":
+          description: The new secret, shown once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSecret"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/test:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/EndpointId"
+    post:
+      tags: [webhooks]
+      operationId: testWebhookEndpoint
+      summary: Send a ping now and return how it went (staff only)
+      responses:
+        "200":
+          description: The delivery, with its one attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/deliveries:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/EndpointId"
+    get:
+      tags: [webhooks]
+      operationId: listWebhookDeliveries
+      summary: The last 30 days of deliveries to an endpoint, newest first (staff only)
+      responses:
+        "200":
+          description: The deliveries, each with its attempts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/webhooks/deliveries/{deliveryId}/resend:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: deliveryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [webhooks]
+      operationId: resendWebhookDelivery
+      summary: Send the same event again, now (staff only)
+      description: A new delivery with the same event id, so a receiver that saw it already can drop it.
+      responses:
+        "200":
+          description: The new delivery, with its attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3222,6 +3440,13 @@ components:
         format: uuid
     SaleId:
       name: saleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EndpointId:
+      name: endpointId
       in: path
       required: true
       schema:
@@ -4406,7 +4631,7 @@ components:
 
     NotificationKind:
       type: string
-      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED, SHIFT_COVER]
+      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED, SHIFT_COVER, WEBHOOK_DISABLED]
 
     Notification:
       type: object
@@ -5826,6 +6051,160 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NecLine"
+
+    WebhookEventType:
+      type: string
+      enum: [pieces.ready, fee.charged, member.joined, ping]
+
+    WebhookEventTypeInfo:
+      type: object
+      required: [type, description, example]
+      properties:
+        type:
+          $ref: "#/components/schemas/WebhookEventType"
+        description:
+          type: string
+        example:
+          type: object
+          additionalProperties: true
+          description: A whole payload as it would be POSTed, with made-up values.
+
+    WebhookEndpoint:
+      type: object
+      required: [id, url, eventTypes, enabled, consecutiveFailures, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+        description:
+          type: string
+        eventTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        enabled:
+          type: boolean
+        disabledReason:
+          type: string
+          description: Why it was turned off automatically, if it was.
+        consecutiveFailures:
+          type: integer
+          format: int32
+        previousSecretValidUntil:
+          type: string
+          format: date-time
+          description: Set during a rotation, while the old secret still signs too.
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateWebhookEndpoint:
+      type: object
+      required: [url, eventTypes]
+      properties:
+        url:
+          type: string
+          maxLength: 2000
+        description:
+          type: string
+          maxLength: 200
+        eventTypes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+
+    UpdateWebhookEndpoint:
+      type: object
+      properties:
+        url:
+          type: string
+          maxLength: 2000
+        description:
+          type: string
+          maxLength: 200
+        eventTypes:
+          type: array
+          description: Left out or empty, the events don't change.
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        enabled:
+          type: boolean
+
+    CreatedWebhookEndpoint:
+      type: object
+      required: [endpoint, secret]
+      properties:
+        endpoint:
+          $ref: "#/components/schemas/WebhookEndpoint"
+        secret:
+          type: string
+          description: The signing secret (whsec_…). Shown only now.
+
+    WebhookSecret:
+      type: object
+      required: [secret, previousValidUntil]
+      properties:
+        secret:
+          type: string
+        previousValidUntil:
+          type: string
+          format: date-time
+
+    WebhookAttempt:
+      type: object
+      required: [attemptedAt, durationMs]
+      properties:
+        attemptedAt:
+          type: string
+          format: date-time
+        statusCode:
+          type: integer
+          format: int32
+        error:
+          type: string
+          description: Set when there was no HTTP answer, such as a timeout or a refused address.
+        durationMs:
+          type: integer
+          format: int32
+        responseExcerpt:
+          type: string
+          description: The first 1,000 characters of the response.
+
+    WebhookDelivery:
+      type: object
+      required: [id, eventId, eventType, status, attempts, createdAt, attemptLog]
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          description: The webhook-id header receivers see, the same on every retry and resend.
+        eventType:
+          $ref: "#/components/schemas/WebhookEventType"
+        status:
+          type: string
+          enum: [PENDING, DELIVERED, FAILED]
+        attempts:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        nextAttemptAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        attemptLog:
+          type: array
+          description: Newest first.
+          items:
+            $ref: "#/components/schemas/WebhookAttempt"
 
     Problem:
       type: object

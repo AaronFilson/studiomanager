@@ -16,6 +16,13 @@ otel:
   sdk:
     disabled: false
 
+studiomanager:
+  webhooks:
+    # No default: the API won't start without the key that encrypts webhook secrets. It comes from
+    # Key Vault (open at first deploy: docs/planning/10-webhooks-plan.md).
+    secret-key: ${STUDIOMANAGER_WEBHOOK_SECRET_KEY}
+    allow-private-networks: false
+
 logging:
   structured:
     format:

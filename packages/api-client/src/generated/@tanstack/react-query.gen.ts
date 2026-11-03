@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, createAsset, createBooking, createCertificationType, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, decidePurchaseRequest, deletePhoto, emailInvites, expireStoredValue, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getMyConsignment, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importConsignment, importMembers, importPayout, intakePiece, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, payPayees, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, reportProblem, resendInvite, resolveProblemReport, returnConsignment, revokeCertification, revokeInvite, saveFeeSchedule, savePiecePolicy, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAssetAvailability, setDuties, setKilnAvailability, setTaxRate, startPhotoUpload, startRecordPhotoUpload, takeInConsignment, transitionFiring, updateAsset, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, useStoredValue } from '../sdk.gen';
-import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetMyConsignmentData, GetMyConsignmentError, GetMyConsignmentResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportConsignmentData, ImportConsignmentError, ImportConsignmentResponse, ImportMembersData, ImportMembersError, ImportMembersResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, PayPayeesData, PayPayeesError, PayPayeesResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
+import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, createAsset, createBooking, createCertificationType, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, createWebhookEndpoint, decidePurchaseRequest, deletePhoto, deleteWebhookEndpoint, emailInvites, expireStoredValue, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getClearing, getFeeSchedule, getFiring, getHours, getKilnQueue, getLedgerSummary, getMe, getMyConsignment, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getStatement, getStoredValueMovements, getStudio, getToday, grantCertification, importConsignment, importMembers, importPayout, intakePiece, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, listWebhookDeliveries, listWebhookEndpoints, listWebhookEventTypes, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, payPayees, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, reportProblem, resendInvite, resendWebhookDelivery, resolveProblemReport, returnConsignment, revokeCertification, revokeInvite, rotateWebhookSecret, saveFeeSchedule, savePiecePolicy, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAssetAvailability, setDuties, setKilnAvailability, setTaxRate, startPhotoUpload, startRecordPhotoUpload, takeInConsignment, testWebhookEndpoint, transitionFiring, updateAsset, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, updateWebhookEndpoint, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, CreateWebhookEndpointData, CreateWebhookEndpointError, CreateWebhookEndpointResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, DeleteWebhookEndpointData, DeleteWebhookEndpointError, DeleteWebhookEndpointResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetHoursData, GetHoursError, GetHoursResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetMyConsignmentData, GetMyConsignmentError, GetMyConsignmentResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportConsignmentData, ImportConsignmentError, ImportConsignmentResponse, ImportMembersData, ImportMembersError, ImportMembersResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, ListWebhookDeliveriesData, ListWebhookDeliveriesError, ListWebhookDeliveriesResponse, ListWebhookEndpointsData, ListWebhookEndpointsError, ListWebhookEndpointsResponse, ListWebhookEventTypesData, ListWebhookEventTypesError, ListWebhookEventTypesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, PayPayeesData, PayPayeesError, PayPayeesResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResendWebhookDeliveryData, ResendWebhookDeliveryError, ResendWebhookDeliveryResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, RotateWebhookSecretData, RotateWebhookSecretError, RotateWebhookSecretResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TestWebhookEndpointData, TestWebhookEndpointError, TestWebhookEndpointResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UpdateWebhookEndpointData, UpdateWebhookEndpointError, UpdateWebhookEndpointResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -2225,6 +2225,172 @@ export const decidePurchaseRequestMutation = (options?: Partial<Options<DecidePu
     const mutationOptions: UseMutationOptions<DecidePurchaseRequestResponse, DecidePurchaseRequestError, Options<DecidePurchaseRequestData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await decidePurchaseRequest({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listWebhookEventTypesQueryKey = (options: Options<ListWebhookEventTypesData>) => createQueryKey('listWebhookEventTypes', options);
+
+/**
+ * The events an endpoint can subscribe to, each with an example payload (staff only)
+ */
+export const listWebhookEventTypesOptions = (options: Options<ListWebhookEventTypesData>) => queryOptions<ListWebhookEventTypesResponse, ListWebhookEventTypesError, ListWebhookEventTypesResponse, ReturnType<typeof listWebhookEventTypesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWebhookEventTypes({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhookEventTypesQueryKey(options)
+});
+
+export const listWebhookEndpointsQueryKey = (options: Options<ListWebhookEndpointsData>) => createQueryKey('listWebhookEndpoints', options);
+
+/**
+ * Where the studio's webhooks go (staff only)
+ */
+export const listWebhookEndpointsOptions = (options: Options<ListWebhookEndpointsData>) => queryOptions<ListWebhookEndpointsResponse, ListWebhookEndpointsError, ListWebhookEndpointsResponse, ReturnType<typeof listWebhookEndpointsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWebhookEndpoints({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhookEndpointsQueryKey(options)
+});
+
+/**
+ * Add an endpoint (staff only)
+ *
+ * The URL must be https and resolve only to public addresses. The response carries the
+ * signing secret, which is never shown again.
+ *
+ */
+export const createWebhookEndpointMutation = (options?: Partial<Options<CreateWebhookEndpointData>>): UseMutationOptions<CreateWebhookEndpointResponse, CreateWebhookEndpointError, Options<CreateWebhookEndpointData>> => {
+    const mutationOptions: UseMutationOptions<CreateWebhookEndpointResponse, CreateWebhookEndpointError, Options<CreateWebhookEndpointData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createWebhookEndpoint({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an endpoint and its delivery log (staff only)
+ */
+export const deleteWebhookEndpointMutation = (options?: Partial<Options<DeleteWebhookEndpointData>>): UseMutationOptions<DeleteWebhookEndpointResponse, DeleteWebhookEndpointError, Options<DeleteWebhookEndpointData>> => {
+    const mutationOptions: UseMutationOptions<DeleteWebhookEndpointResponse, DeleteWebhookEndpointError, Options<DeleteWebhookEndpointData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteWebhookEndpoint({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Change an endpoint, or turn it off or back on (staff only)
+ *
+ * Turning an endpoint back on clears its failures. Events missed while it was off aren't replayed.
+ */
+export const updateWebhookEndpointMutation = (options?: Partial<Options<UpdateWebhookEndpointData>>): UseMutationOptions<UpdateWebhookEndpointResponse, UpdateWebhookEndpointError, Options<UpdateWebhookEndpointData>> => {
+    const mutationOptions: UseMutationOptions<UpdateWebhookEndpointResponse, UpdateWebhookEndpointError, Options<UpdateWebhookEndpointData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateWebhookEndpoint({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * A new signing secret (staff only)
+ *
+ * The old secret keeps signing, alongside the new one, for 24 hours.
+ */
+export const rotateWebhookSecretMutation = (options?: Partial<Options<RotateWebhookSecretData>>): UseMutationOptions<RotateWebhookSecretResponse, RotateWebhookSecretError, Options<RotateWebhookSecretData>> => {
+    const mutationOptions: UseMutationOptions<RotateWebhookSecretResponse, RotateWebhookSecretError, Options<RotateWebhookSecretData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rotateWebhookSecret({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Send a ping now and return how it went (staff only)
+ */
+export const testWebhookEndpointMutation = (options?: Partial<Options<TestWebhookEndpointData>>): UseMutationOptions<TestWebhookEndpointResponse, TestWebhookEndpointError, Options<TestWebhookEndpointData>> => {
+    const mutationOptions: UseMutationOptions<TestWebhookEndpointResponse, TestWebhookEndpointError, Options<TestWebhookEndpointData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await testWebhookEndpoint({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listWebhookDeliveriesQueryKey = (options: Options<ListWebhookDeliveriesData>) => createQueryKey('listWebhookDeliveries', options);
+
+/**
+ * The last 30 days of deliveries to an endpoint, newest first (staff only)
+ */
+export const listWebhookDeliveriesOptions = (options: Options<ListWebhookDeliveriesData>) => queryOptions<ListWebhookDeliveriesResponse, ListWebhookDeliveriesError, ListWebhookDeliveriesResponse, ReturnType<typeof listWebhookDeliveriesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWebhookDeliveries({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhookDeliveriesQueryKey(options)
+});
+
+/**
+ * Send the same event again, now (staff only)
+ *
+ * A new delivery with the same event id, so a receiver that saw it already can drop it.
+ */
+export const resendWebhookDeliveryMutation = (options?: Partial<Options<ResendWebhookDeliveryData>>): UseMutationOptions<ResendWebhookDeliveryResponse, ResendWebhookDeliveryError, Options<ResendWebhookDeliveryData>> => {
+    const mutationOptions: UseMutationOptions<ResendWebhookDeliveryResponse, ResendWebhookDeliveryError, Options<ResendWebhookDeliveryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resendWebhookDelivery({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
