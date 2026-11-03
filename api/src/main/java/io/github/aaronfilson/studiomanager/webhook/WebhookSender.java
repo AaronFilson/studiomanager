@@ -76,7 +76,7 @@ class WebhookSender {
                 return false;
             }
             Outcome outcome = send(claimed);
-            Boolean arrived = transactions.execute(tx -> record(as, claimed, outcome, now()));
+            Boolean arrived = transactions.execute(tx -> record(claimed, outcome, now()));
             return Boolean.TRUE.equals(arrived);
         });
     }
@@ -119,7 +119,7 @@ class WebhookSender {
         }
     }
 
-    private boolean record(TenantContext as, Claimed delivery, Outcome outcome, Instant now) {
+    private boolean record(Claimed delivery, Outcome outcome, Instant now) {
         jdbc.sql("""
                 insert into webhook_attempt (id, studio_id, delivery_id, attempted_at, status_code, error, duration_ms,
                                              response_excerpt)
@@ -169,16 +169,16 @@ class WebhookSender {
                 .param("now", now.atOffset(ZoneOffset.UTC)).param("id", delivery.endpointId())
                 .query(Failing.class).single();
         if (outcome.statusCode() != null && outcome.statusCode() == 410) {
-            disable(as, delivery, "It answered 410 Gone, which means the receiver was removed.");
+            disable(delivery, "It answered 410 Gone, which means the receiver was removed.");
         } else if (Backoff.shouldDisable(failing.consecutiveFailures(), failing.failingSince().toInstant(), now)) {
-            disable(as, delivery, "Every delivery failed for %s (%d in a row). The last: %s"
+            disable(delivery, "Every delivery failed for %s (%d in a row). The last: %s"
                     .formatted(failing.failingSince().toInstant().isBefore(now.minus(Backoff.DISABLE_AFTER))
                             ? "3 days" : "a while", failing.consecutiveFailures(), outcome.summary()));
         }
         return false;
     }
 
-    private void disable(TenantContext as, Claimed delivery, String reason) {
+    private void disable(Claimed delivery, String reason) {
         Optional<String> url = jdbc.sql("""
                 update webhook_endpoint set enabled = false, disabled_reason = :reason
                 where id = :id and enabled
