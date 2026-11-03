@@ -14,8 +14,6 @@ if [[ $# -eq 0 ]]; then
     set -- build
 fi
 
-# /c/Users/... (Git Bash) → /mnt/c/Users/... (WSL)
-drive="$(echo "${REPO_ROOT:1:1}" | tr '[:upper:]' '[:lower:]')"
-WSL_REPO="/mnt/$drive${REPO_ROOT:2}"
+WSL_REPO="$(wsl_repo_path)"
 
 MSYS_NO_PATHCONV=1 exec wsl.exe -d "$DISTRO" -- bash "$WSL_REPO/scripts/wsl/integration-inner.sh" "$WSL_REPO" "$@"

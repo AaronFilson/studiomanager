@@ -77,6 +77,9 @@ function StudioLayout() {
             <Link to="/studios/$studioId/settings" params={{ studioId }}>
               Settings
             </Link>
+            <Link to="/studios/$studioId/webhooks" params={{ studioId }}>
+              Webhooks
+            </Link>
           </>
         )}
         {!staff && consignment.isSuccess && (

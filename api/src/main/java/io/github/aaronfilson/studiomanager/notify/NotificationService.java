@@ -31,6 +31,7 @@ import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
 import io.github.aaronfilson.studiomanager.supplies.SupplyRanOut;
+import io.github.aaronfilson.studiomanager.webhook.WebhookEndpointDisabled;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -213,6 +214,22 @@ public class NotificationService {
                 .formatted(report.reportedByName() == null ? "A member" : report.reportedByName(), what,
                         report.description());
         insert(report.recipients(), NotificationView.Kind.PROBLEM_REPORTED, clip(title, 120), clip(body, 2000));
+    }
+
+    /** Tells staff that an integration stopped, so a broken Zap isn't found weeks later. */
+    @EventListener
+    void onWebhookEndpointDisabled(WebhookEndpointDisabled disabled) {
+        List<UUID> staff = members.list().stream().filter(m -> m.role().includes(StudioRole.STAFF))
+                .map(MemberView::accountId).toList();
+        String body = """
+                Webhooks to %s have been turned off.
+
+                %s
+
+                Fix the receiver, then turn the endpoint back on from the Webhooks page under Settings. \
+                Events from while it was off aren't sent again, but you can resend any of them from its log."""
+                .formatted(disabled.url(), disabled.reason());
+        insert(staff, NotificationView.Kind.WEBHOOK_DISABLED, "A webhook was turned off", clip(body, 2000));
     }
 
     private static String clip(String text, int max) {

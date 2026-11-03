@@ -663,7 +663,7 @@ export type FiringTransitionRequest = {
     expectedVersion: number;
 };
 
-export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED' | 'SHIFT_COVER';
+export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED' | 'SHIFT_COVER' | 'WEBHOOK_DISABLED';
 
 export type Notification = {
     id: string;
@@ -1378,6 +1378,98 @@ export type NecReport = {
     payees: Array<NecLine>;
 };
 
+export type WebhookEventType = 'pieces.ready' | 'fee.charged' | 'member.joined' | 'ping';
+
+export type WebhookEventTypeInfo = {
+    type: WebhookEventType;
+    description: string;
+    /**
+     * A whole payload as it would be POSTed, with made-up values.
+     */
+    example: {
+        [key: string]: unknown;
+    };
+};
+
+export type WebhookEndpoint = {
+    id: string;
+    url: string;
+    description?: string;
+    eventTypes: Array<WebhookEventType>;
+    enabled: boolean;
+    /**
+     * Why it was turned off automatically, if it was.
+     */
+    disabledReason?: string;
+    consecutiveFailures: number;
+    /**
+     * Set during a rotation, while the old secret still signs too.
+     */
+    previousSecretValidUntil?: string;
+    createdAt: string;
+};
+
+export type CreateWebhookEndpoint = {
+    url: string;
+    description?: string;
+    eventTypes: Array<WebhookEventType>;
+};
+
+export type UpdateWebhookEndpoint = {
+    url?: string;
+    description?: string;
+    /**
+     * Left out or empty, the events don't change.
+     */
+    eventTypes?: Array<WebhookEventType>;
+    enabled?: boolean;
+};
+
+export type CreatedWebhookEndpoint = {
+    endpoint: WebhookEndpoint;
+    /**
+     * The signing secret (whsec_…). Shown only now.
+     */
+    secret: string;
+};
+
+export type WebhookSecret = {
+    secret: string;
+    previousValidUntil: string;
+};
+
+export type WebhookAttempt = {
+    attemptedAt: string;
+    statusCode?: number;
+    /**
+     * Set when there was no HTTP answer, such as a timeout or a refused address.
+     */
+    error?: string;
+    durationMs: number;
+    /**
+     * The first 1,000 characters of the response.
+     */
+    responseExcerpt?: string;
+};
+
+export type WebhookDelivery = {
+    id: string;
+    /**
+     * The webhook-id header receivers see, the same on every retry and resend.
+     */
+    eventId: string;
+    eventType: WebhookEventType;
+    status: 'PENDING' | 'DELIVERED' | 'FAILED';
+    attempts: number;
+    createdAt: string;
+    nextAttemptAt?: string;
+    deliveredAt?: string;
+    /**
+     * Newest first.
+     */
+    attemptLog: Array<WebhookAttempt>;
+};
+
 /**
  * RFC 9457 problem details.
  */
@@ -1423,6 +1515,8 @@ export type StoredValueId = string;
 export type PayeeId = string;
 
 export type SaleId = string;
+
+export type EndpointId = string;
 
 export type Year = number;
 
@@ -6115,3 +6209,355 @@ export type DecidePurchaseRequestResponses = {
 };
 
 export type DecidePurchaseRequestResponse = DecidePurchaseRequestResponses[keyof DecidePurchaseRequestResponses];
+
+export type ListWebhookEventTypesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/event-types';
+};
+
+export type ListWebhookEventTypesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListWebhookEventTypesError = ListWebhookEventTypesErrors[keyof ListWebhookEventTypesErrors];
+
+export type ListWebhookEventTypesResponses = {
+    /**
+     * The event types.
+     */
+    200: Array<WebhookEventTypeInfo>;
+};
+
+export type ListWebhookEventTypesResponse = ListWebhookEventTypesResponses[keyof ListWebhookEventTypesResponses];
+
+export type ListWebhookEndpointsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints';
+};
+
+export type ListWebhookEndpointsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListWebhookEndpointsError = ListWebhookEndpointsErrors[keyof ListWebhookEndpointsErrors];
+
+export type ListWebhookEndpointsResponses = {
+    /**
+     * The endpoints, oldest first.
+     */
+    200: Array<WebhookEndpoint>;
+};
+
+export type ListWebhookEndpointsResponse = ListWebhookEndpointsResponses[keyof ListWebhookEndpointsResponses];
+
+export type CreateWebhookEndpointData = {
+    body: CreateWebhookEndpoint;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints';
+};
+
+export type CreateWebhookEndpointErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type CreateWebhookEndpointError = CreateWebhookEndpointErrors[keyof CreateWebhookEndpointErrors];
+
+export type CreateWebhookEndpointResponses = {
+    /**
+     * The endpoint and its secret.
+     */
+    201: CreatedWebhookEndpoint;
+};
+
+export type CreateWebhookEndpointResponse = CreateWebhookEndpointResponses[keyof CreateWebhookEndpointResponses];
+
+export type DeleteWebhookEndpointData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        endpointId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}';
+};
+
+export type DeleteWebhookEndpointErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type DeleteWebhookEndpointError = DeleteWebhookEndpointErrors[keyof DeleteWebhookEndpointErrors];
+
+export type DeleteWebhookEndpointResponses = {
+    /**
+     * Deleted.
+     */
+    204: void;
+};
+
+export type DeleteWebhookEndpointResponse = DeleteWebhookEndpointResponses[keyof DeleteWebhookEndpointResponses];
+
+export type UpdateWebhookEndpointData = {
+    body: UpdateWebhookEndpoint;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        endpointId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}';
+};
+
+export type UpdateWebhookEndpointErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type UpdateWebhookEndpointError = UpdateWebhookEndpointErrors[keyof UpdateWebhookEndpointErrors];
+
+export type UpdateWebhookEndpointResponses = {
+    /**
+     * The endpoint.
+     */
+    200: WebhookEndpoint;
+};
+
+export type UpdateWebhookEndpointResponse = UpdateWebhookEndpointResponses[keyof UpdateWebhookEndpointResponses];
+
+export type RotateWebhookSecretData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        endpointId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/rotate-secret';
+};
+
+export type RotateWebhookSecretErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type RotateWebhookSecretError = RotateWebhookSecretErrors[keyof RotateWebhookSecretErrors];
+
+export type RotateWebhookSecretResponses = {
+    /**
+     * The new secret, shown once.
+     */
+    200: WebhookSecret;
+};
+
+export type RotateWebhookSecretResponse = RotateWebhookSecretResponses[keyof RotateWebhookSecretResponses];
+
+export type TestWebhookEndpointData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        endpointId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/test';
+};
+
+export type TestWebhookEndpointErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type TestWebhookEndpointError = TestWebhookEndpointErrors[keyof TestWebhookEndpointErrors];
+
+export type TestWebhookEndpointResponses = {
+    /**
+     * The delivery, with its one attempt.
+     */
+    200: WebhookDelivery;
+};
+
+export type TestWebhookEndpointResponse = TestWebhookEndpointResponses[keyof TestWebhookEndpointResponses];
+
+export type ListWebhookDeliveriesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        endpointId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/deliveries';
+};
+
+export type ListWebhookDeliveriesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ListWebhookDeliveriesError = ListWebhookDeliveriesErrors[keyof ListWebhookDeliveriesErrors];
+
+export type ListWebhookDeliveriesResponses = {
+    /**
+     * The deliveries, each with its attempts.
+     */
+    200: Array<WebhookDelivery>;
+};
+
+export type ListWebhookDeliveriesResponse = ListWebhookDeliveriesResponses[keyof ListWebhookDeliveriesResponses];
+
+export type ResendWebhookDeliveryData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        deliveryId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/webhooks/deliveries/{deliveryId}/resend';
+};
+
+export type ResendWebhookDeliveryErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ResendWebhookDeliveryError = ResendWebhookDeliveryErrors[keyof ResendWebhookDeliveryErrors];
+
+export type ResendWebhookDeliveryResponses = {
+    /**
+     * The new delivery, with its attempt.
+     */
+    200: WebhookDelivery;
+};
+
+export type ResendWebhookDeliveryResponse = ResendWebhookDeliveryResponses[keyof ResendWebhookDeliveryResponses];

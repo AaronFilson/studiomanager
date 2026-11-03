@@ -26,6 +26,19 @@ use_jdk_25() {
     return 1
 }
 
+# The repo's path as WSL sees it. Git Bash reports /c/Users/... or C:/Users/..., depending on how
+# it was started; both become /mnt/c/Users/...
+wsl_repo_path() {
+    local drive rest
+    if [[ "$REPO_ROOT" == ?:/* ]]; then
+        drive="${REPO_ROOT:0:1}"
+    else
+        drive="${REPO_ROOT:1:1}"
+    fi
+    rest="${REPO_ROOT:2}"
+    echo "/mnt/$(echo "$drive" | tr '[:upper:]' '[:lower:]')$rest"
+}
+
 pnpm() {
     (cd "$REPO_ROOT" && corepack "pnpm@$PNPM_VERSION" "$@")
 }

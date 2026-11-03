@@ -6,3 +6,9 @@ spring:
           # Never contacted: tests authenticate with Spring Security's jwt() request post-processor
           issuer-uri: https://issuer.test/
           audiences: studiomanager-api-test
+
+studiomanager:
+  webhooks:
+    # The tests' receiver listens on localhost. PublicAddressesTests and WebhookApiTests cover the
+    # filter with this off.
+    allow-private-networks: true

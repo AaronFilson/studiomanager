@@ -37,6 +37,9 @@ dependencies {
     implementation("com.azure:azure-identity:1.18.7")
     // Piece photos: the API signs upload and read URLs; the bytes go straight to Blob Storage
     implementation("com.azure:azure-storage-blob:12.35.2")
+    // Outbound webhooks: its DnsResolver hook lets the SSRF filter connect only to the addresses it
+    // checked, which the JDK HttpClient can't do. The version comes from Spring Boot's BOM.
+    implementation("org.apache.httpcomponents.client5:httpclient5")
     // OpenTelemetry traces, metrics and logs to Application Insights. Off unless the azure profile
     // turns it on; the connection string comes from APPLICATIONINSIGHTS_CONNECTION_STRING
     implementation("com.azure.spring:spring-cloud-azure-starter-monitor:7.4.0")
