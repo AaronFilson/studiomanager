@@ -1380,6 +1380,39 @@ export type NecReport = {
 
 export type WebhookEventType = 'pieces.ready' | 'fee.charged' | 'member.joined' | 'ping';
 
+export type WeeklyActivity = {
+    /**
+     * Whether the event stream, and so these totals, are on.
+     */
+    streaming: boolean;
+    weeks: Array<ActivityWeek>;
+};
+
+export type ActivityWeek = {
+    /**
+     * The Monday the week starts on, in the studio's time zone.
+     */
+    weekStart: string;
+    firings: number;
+    piecesFired: number;
+    membersJoined: number;
+    kilns: Array<{
+        kiln: string;
+        firings: number;
+    }>;
+    /**
+     * Fees charged to members, one entry per currency.
+     */
+    fees: Array<{
+        currency: string;
+        /**
+         * A decimal, such as "125.50".
+         */
+        amount: string;
+        count: number;
+    }>;
+};
+
 export type WebhookEventTypeInfo = {
     type: WebhookEventType;
     description: string;
@@ -6209,6 +6242,42 @@ export type DecidePurchaseRequestResponses = {
 };
 
 export type DecidePurchaseRequestResponse = DecidePurchaseRequestResponses[keyof DecidePurchaseRequestResponses];
+
+export type GetWeeklyActivityData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        weeks?: number;
+    };
+    url: '/api/v1/studios/{studioId}/activity/weekly';
+};
+
+export type GetWeeklyActivityErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetWeeklyActivityError = GetWeeklyActivityErrors[keyof GetWeeklyActivityErrors];
+
+export type GetWeeklyActivityResponses = {
+    /**
+     * The weeks that had any activity.
+     */
+    200: WeeklyActivity;
+};
+
+export type GetWeeklyActivityResponse = GetWeeklyActivityResponses[keyof GetWeeklyActivityResponses];
 
 export type ListWebhookEventTypesData = {
     body?: never;

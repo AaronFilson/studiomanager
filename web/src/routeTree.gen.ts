@@ -15,6 +15,7 @@ import { Route as InvitesCodeRouteImport } from './routes/invites/$code'
 import { Route as StudiosIndexRouteImport } from './routes/studios/index'
 import { Route as StudiosStudioIdRouteRouteImport } from './routes/studios/$studioId/route'
 import { Route as StudiosStudioIdIndexRouteImport } from './routes/studios/$studioId/index'
+import { Route as StudiosStudioIdActivityRouteImport } from './routes/studios/$studioId/activity'
 import { Route as StudiosStudioIdCalendarRouteImport } from './routes/studios/$studioId/calendar'
 import { Route as StudiosStudioIdImportRouteImport } from './routes/studios/$studioId/import'
 import { Route as StudiosStudioIdMaintenanceRouteImport } from './routes/studios/$studioId/maintenance'
@@ -60,6 +61,11 @@ const StudiosStudioIdRouteRoute = StudiosStudioIdRouteRouteImport.update({
 const StudiosStudioIdIndexRoute = StudiosStudioIdIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => StudiosStudioIdRouteRoute,
+} as any)
+const StudiosStudioIdActivityRoute = StudiosStudioIdActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
 const StudiosStudioIdCalendarRoute = StudiosStudioIdCalendarRouteImport.update({
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/studios/$studioId': typeof StudiosStudioIdRouteRouteWithChildren
   '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
+  '/studios/$studioId/activity': typeof StudiosStudioIdActivityRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
   '/studios/$studioId/import': typeof StudiosStudioIdImportRoute
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/invites/$code': typeof InvitesCodeRoute
   '/studios': typeof StudiosIndexRoute
+  '/studios/$studioId/activity': typeof StudiosStudioIdActivityRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
   '/studios/$studioId/import': typeof StudiosStudioIdImportRoute
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/studios/$studioId': typeof StudiosStudioIdRouteRouteWithChildren
   '/invites/$code': typeof InvitesCodeRoute
   '/studios/': typeof StudiosIndexRoute
+  '/studios/$studioId/activity': typeof StudiosStudioIdActivityRoute
   '/studios/$studioId/calendar': typeof StudiosStudioIdCalendarRoute
   '/studios/$studioId/import': typeof StudiosStudioIdImportRoute
   '/studios/$studioId/maintenance': typeof StudiosStudioIdMaintenanceRoute
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId'
     | '/invites/$code'
     | '/studios/'
+    | '/studios/$studioId/activity'
     | '/studios/$studioId/calendar'
     | '/studios/$studioId/import'
     | '/studios/$studioId/maintenance'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/'
     | '/invites/$code'
     | '/studios'
+    | '/studios/$studioId/activity'
     | '/studios/$studioId/calendar'
     | '/studios/$studioId/import'
     | '/studios/$studioId/maintenance'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId'
     | '/invites/$code'
     | '/studios/'
+    | '/studios/$studioId/activity'
     | '/studios/$studioId/calendar'
     | '/studios/$studioId/import'
     | '/studios/$studioId/maintenance'
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/studios/$studioId/'
       preLoaderRoute: typeof StudiosStudioIdIndexRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/activity': {
+      id: '/studios/$studioId/activity'
+      path: '/activity'
+      fullPath: '/studios/$studioId/activity'
+      preLoaderRoute: typeof StudiosStudioIdActivityRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
     '/studios/$studioId/calendar': {
@@ -459,6 +478,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface StudiosStudioIdRouteRouteChildren {
+  StudiosStudioIdActivityRoute: typeof StudiosStudioIdActivityRoute
   StudiosStudioIdCalendarRoute: typeof StudiosStudioIdCalendarRoute
   StudiosStudioIdImportRoute: typeof StudiosStudioIdImportRoute
   StudiosStudioIdMaintenanceRoute: typeof StudiosStudioIdMaintenanceRoute
@@ -479,6 +499,7 @@ interface StudiosStudioIdRouteRouteChildren {
 }
 
 const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
+  StudiosStudioIdActivityRoute: StudiosStudioIdActivityRoute,
   StudiosStudioIdCalendarRoute: StudiosStudioIdCalendarRoute,
   StudiosStudioIdImportRoute: StudiosStudioIdImportRoute,
   StudiosStudioIdMaintenanceRoute: StudiosStudioIdMaintenanceRoute,

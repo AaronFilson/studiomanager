@@ -46,6 +46,11 @@ spring:
       properties:
         enable.idempotence: true
         interceptor.classes: io.github.aaronfilson.studiomanager.stream.DropTypeIdHeader
+    consumer:
+      # A new consumer group reads the topic from the start, rebuilding what it projects
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
   security:
     oauth2:
       resourceserver:

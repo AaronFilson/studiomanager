@@ -52,6 +52,8 @@ tags:
     description: |
       Bringing a studio's existing lists in from a spreadsheet. Every import can be previewed
       as a dry run, and is all or nothing.
+  - name: activity
+    description: Weekly totals built from the studio's event stream.
   - name: webhooks
     description: |
       Signed HTTPS POSTs to the studio's own tools (a Zapier catch hook, Make, n8n…) when
@@ -3110,6 +3112,38 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/activity/weekly:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [activity]
+      operationId: getWeeklyActivity
+      summary: Weekly totals built from the event stream, newest week first (staff only)
+      description: >
+        Firings by kiln, pieces fired, members joined and fees charged, per week starting Monday in
+        the studio's time zone. Built by a consumer of the Kafka event stream, so it is empty while
+        streaming is off (`streaming` is false) and can lag the studio by a few seconds.
+      parameters:
+        - name: weeks
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 52
+            default: 12
+      responses:
+        "200":
+          description: The weeks that had any activity.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyActivity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/studios/{studioId}/webhooks/event-types:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -6055,6 +6089,57 @@ components:
     WebhookEventType:
       type: string
       enum: [pieces.ready, fee.charged, member.joined, ping]
+
+    WeeklyActivity:
+      type: object
+      required: [streaming, weeks]
+      properties:
+        streaming:
+          type: boolean
+          description: Whether the event stream, and so these totals, are on.
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityWeek"
+
+    ActivityWeek:
+      type: object
+      required: [weekStart, firings, piecesFired, membersJoined, kilns, fees]
+      properties:
+        weekStart:
+          type: string
+          format: date
+          description: The Monday the week starts on, in the studio's time zone.
+        firings:
+          type: integer
+        piecesFired:
+          type: integer
+        membersJoined:
+          type: integer
+        kilns:
+          type: array
+          items:
+            type: object
+            required: [kiln, firings]
+            properties:
+              kiln:
+                type: string
+              firings:
+                type: integer
+        fees:
+          type: array
+          description: Fees charged to members, one entry per currency.
+          items:
+            type: object
+            required: [currency, amount, count]
+            properties:
+              currency:
+                type: string
+              amount:
+                type: string
+                description: A decimal, such as "125.50".
+              count:
+                type: integer
 
     WebhookEventTypeInfo:
       type: object

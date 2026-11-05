@@ -56,8 +56,25 @@ for.
      serializer encoded those bytes again, as a base64 string.
    - The externalizer also adds a `__TypeId__` header holding the Java class name. A producer
      interceptor, `DropTypeIdHeader`, removes it, so consumers read `event-type` instead.
-2. **A consumer worth showing:** an analytics projection, with firings per kiln per week and fees
-   charged per week.
+2. **A consumer worth showing** (done 2026-11-05, V24). These are the changes from the plan
+   below:
+   - `ActivityConsumer` is in group `studiomanager-activity`. It binds the studio from the message
+     key, acting as no account (an all-zero id), so it can reach only that studio's rows under
+     RLS. `ActivityProjection` records the event id in `stream_event_seen` in the same
+     transaction as the `weekly_activity` upsert, so a duplicate or a replay counts once.
+   - Weeks start on Monday in the studio's time zone. A type it doesn't know is marked as seen
+     and not counted, so a newer producer doesn't break it.
+   - `GET /studios/{id}/activity/weekly` (staff only) returns `streaming: false` when the flag is
+     off. The web "Activity" page shows a table, not a chart. A chart can follow if anyone wants
+     one.
+   - The tests cover the full path from the API through Kafka back to the endpoint, a duplicate
+     counting once, other studios staying apart, and members getting a 403. All 207 API tests
+     pass in WSL, and the Linux web job passes.
+   - **Not yet:** a dead-letter topic. Spring Kafka's default handler retries a failing event,
+     then logs and skips it.
+
+   The original plan for this step: an analytics projection, with firings per kiln per week and
+   fees charged per week.
    - A `@KafkaListener` in its own consumer group, deduping on `id`, writes to a projection table
      under RLS. That means binding the studio from the event before the transaction, the way the
      invite emails do.

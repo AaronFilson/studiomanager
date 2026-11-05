@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistrar;
@@ -37,6 +39,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.databind.json.JsonMapper;
 
 /** The stream end to end: real work in the API, read back off a real Kafka topic. */
 @IntegrationTest
@@ -73,6 +76,12 @@ class StreamTests {
 
     @Autowired
     ApplicationEventPublisher events;
+
+    @Autowired
+    ActivityProjection projection;
+
+    @Autowired
+    JsonMapper json;
 
     @Value("${spring.kafka.bootstrap-servers}")
     String bootstrapServers;
@@ -122,6 +131,53 @@ class StreamTests {
         assertThat(joined + fee).doesNotContain(member.email()).doesNotContain("Mo");
         // Nor Java class names
         assertThat(mine.get(0).headers().lastHeader("__TypeId__")).isNull();
+    }
+
+    @Test
+    void theConsumerTotalsTheWeekForStaffOnly() throws Exception {
+        String memberId = join(member);
+        String clay = read(post(owner, path("/supplies"), """
+                {"name": "Speckled buff", "category": "CLAY", "unit": "25 lb bag", "salePrice": "30.00"}
+                """), "$.id");
+        assertThat(post(owner, path("/supplies/" + clay + "/movements"), "{\"kind\": \"RECEIVED\", \"quantity\": \"10\"}"))
+                .hasStatusOk();
+        assertThat(post(owner, path("/supplies/" + clay + "/sales"), "{\"memberId\": \"%s\", \"quantity\": \"2\"}"
+                .formatted(memberId))).hasStatusOk();
+
+        await().atMost(WAIT).untilAsserted(() -> assertThat(mvc.get().uri(path("/activity/weekly")).with(owner.token()))
+                .hasStatusOk().bodyJson().extractingPath("$.weeks[0].fees[0].count").isEqualTo(1));
+        String body = mvc.get().uri(path("/activity/weekly")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        assertThat((Boolean) JsonPath.read(body, "$.streaming")).isTrue();
+        assertThat((Integer) JsonPath.read(body, "$.weeks[0].membersJoined")).isEqualTo(1);
+        assertThat((String) JsonPath.read(body, "$.weeks[0].fees[0].amount")).isEqualTo("60.00");
+        assertThat((String) JsonPath.read(body, "$.weeks[0].fees[0].currency")).isEqualTo("USD");
+
+        assertThat(mvc.get().uri(path("/activity/weekly")).with(member.token())).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void anEventDeliveredTwiceCountsOnceAndStudiosStayApart() throws Exception {
+        UUID firingId = UUID.randomUUID();
+        var event = new StudioStreamEvent.FiringCompleted(studioId, Instant.now(), firingId, "bisque", "Big Skutt",
+                24, 5);
+        var tree = json.readTree(json.writeValueAsBytes(event));
+        TenantContext staff = TenantContext.forAccount(ActivityConsumer.NO_ACCOUNT).inStudio(studioId, StudioRole.STAFF);
+        assertThat(TenantContext.callAs(staff, () -> projection.apply(studioId, event.type(), tree))).isTrue();
+        assertThat(TenantContext.callAs(staff, () -> projection.apply(studioId, event.type(), tree))).isFalse();
+
+        String body = mvc.get().uri(path("/activity/weekly")).with(owner.token()).exchange().getResponse()
+                .getContentAsString();
+        assertThat((Integer) JsonPath.read(body, "$.weeks[0].firings")).isEqualTo(1);
+        assertThat((Integer) JsonPath.read(body, "$.weeks[0].piecesFired")).isEqualTo(24);
+        assertThat((String) JsonPath.read(body, "$.weeks[0].kilns[0].kiln")).isEqualTo("Big Skutt");
+
+        TestUser other = TestUser.named("Ozzie");
+        String otherStudio = read(post(other, "/api/v1/studios", """
+                {"name": "Other Clay", "unitSystem": "METRIC", "timeZone": "Europe/London", "country": "GB"}
+                """), "$.id");
+        assertThat(mvc.get().uri("/api/v1/studios/" + otherStudio + "/activity/weekly").with(other.token()))
+                .hasStatusOk().bodyJson().extractingPath("$.weeks").asArray().isEmpty();
     }
 
     @Test
