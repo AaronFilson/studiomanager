@@ -40,6 +40,10 @@ dependencies {
     // Outbound webhooks: its DnsResolver hook lets the SSRF filter connect only to the addresses it
     // checked, which the JDK HttpClient can't do. The version comes from Spring Boot's BOM.
     implementation("org.apache.httpcomponents.client5:httpclient5")
+    // Event streaming (off unless studiomanager.stream.enabled): Modulith publishes the stream
+    // contract to Kafka through the same outbox as email (ADR 15)
+    implementation("org.springframework.boot:spring-boot-starter-kafka")
+    implementation("org.springframework.modulith:spring-modulith-events-kafka")
     // OpenTelemetry traces, metrics and logs to Application Insights. Off unless the azure profile
     // turns it on; the connection string comes from APPLICATIONINSIGHTS_CONNECTION_STRING
     implementation("com.azure.spring:spring-cloud-azure-starter-monitor:7.4.0")
@@ -59,6 +63,7 @@ dependencies {
     testImplementation("org.awaitility:awaitility")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation("org.testcontainers:testcontainers-kafka")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

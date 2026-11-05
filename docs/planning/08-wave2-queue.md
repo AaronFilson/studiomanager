@@ -135,6 +135,7 @@ Updated as each item lands.
     off, and staff are told.
   - **SSRF filter:** sends only to public addresses, and connects to the address it checked.
   - **Web:** a "Webhooks" page with a delivery log and resend.
-  - **Next:** Kafka event streaming, as an optional resume slice (see 10). The kiln log import
+  - **Next:** Kafka event streaming, as an optional resume slice: in progress on `wave2-kafka`,
+    plan and status in [11](11-kafka-stream-plan.md). The kiln log import
     (item 4) waits for a real Genesis export
     ([09](09-kiln-log-import-research.md)).

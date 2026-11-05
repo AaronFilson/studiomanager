@@ -31,6 +31,21 @@ spring:
         published: PT15M
         processing: PT15M
         resubmitted: PT15M
+      # Kafka streaming follows studiomanager.stream.enabled
+      externalization:
+        enabled: ${studiomanager.stream.enabled}
+  kafka:
+    bootstrap-servers: ${STUDIOMANAGER_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # Waits for every in-sync replica and never writes a duplicate on retry
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Modulith's externalizer hands over the event already serialized, as JSON bytes. A JSON
+      # serializer here would encode those bytes again, as a base64 string
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      properties:
+        enable.idempotence: true
+        interceptor.classes: io.github.aaronfilson.studiomanager.stream.DropTypeIdHeader
   security:
     oauth2:
       resourceserver:
@@ -81,3 +96,7 @@ studiomanager:
     secret-key: ${STUDIOMANAGER_WEBHOOK_SECRET_KEY:}
     # true lets webhooks reach localhost and private networks: local work and tests only
     allow-private-networks: ${STUDIOMANAGER_WEBHOOK_ALLOW_PRIVATE_NETWORKS:false}
+  stream:
+    # Publishes StudioStreamEvents to Kafka. Off by default: there's no broker locally unless
+    # compose's "stream" profile is up, and none deployed (docs/planning/11)
+    enabled: ${STUDIOMANAGER_STREAM_ENABLED:false}

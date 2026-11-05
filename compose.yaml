@@ -29,6 +29,14 @@ services:
     volumes:
       - azurite-data:/data
 
+  # Kafka, only for event streaming: `docker compose --profile stream up -d`, then run the API with
+  # STUDIOMANAGER_STREAM_ENABLED=true. One KRaft node, no ZooKeeper.
+  kafka:
+    image: apache/kafka-native:4.1.0
+    profiles: ["stream"]
+    ports:
+      - "9092:9092"
+
 volumes:
   postgres-data:
   azurite-data:
