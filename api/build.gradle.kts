@@ -41,7 +41,7 @@ dependencies {
     // checked, which the JDK HttpClient can't do. The version comes from Spring Boot's BOM.
     implementation("org.apache.httpcomponents.client5:httpclient5")
     // Event streaming (off unless studiomanager.stream.enabled): Modulith publishes the stream
-    // contract to Kafka through the same outbox as email (ADR 15)
+    // contract to Kafka through the same outbox as email (ADR 15, docs/adr/0015-event-streaming-to-kafka.md)
     implementation("org.springframework.boot:spring-boot-starter-kafka")
     implementation("org.springframework.modulith:spring-modulith-events-kafka")
     // OpenTelemetry traces, metrics and logs to Application Insights. Off unless the azure profile

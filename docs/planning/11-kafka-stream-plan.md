@@ -81,7 +81,8 @@ for.
    - A read endpoint and a small chart on the dashboard.
    - It is idempotent and safe to replay from the earliest offset. A test replays the topic twice
      and gets the same totals.
-3. **ADR 15: event streaming.**
+3. **ADR 15: event streaming** (done 2026-11-05:
+   [ADR 15](../adr/0015-event-streaming-to-kafka.md)).
    - Why a separate contract and ids only.
    - Why go through the outbox and not send to Kafka inside the transaction.
    - At least once, unordered, and dedupe by id.
