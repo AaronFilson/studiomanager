@@ -172,7 +172,7 @@ the business code doesn't change.
 
 ## Status
 
-First version done 2026-11-02 (V23), on `wave2-webhooks`. It follows the design above, with these
+First version done 2026-11-02 (V23), merged into `main` on 2026-11-05 (PR #15). It follows the design above, with these
 changes:
 - **No outbox event for the first attempt.** Deliveries are written in the business transaction.
   The first attempt runs right after commit, and the sweep is the safety net: it waits 1 minute
