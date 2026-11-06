@@ -18,6 +18,15 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        # Lazy associations and collections load in batches, not one query per row (ADR 21)
+        default_batch_fetch_size: 32
+        # Inserts and updates from one flush go to Postgres in batches
+        jdbc:
+          batch_size: 32
+        order_inserts: true
+        order_updates: true
   modulith:
     events:
       jdbc:

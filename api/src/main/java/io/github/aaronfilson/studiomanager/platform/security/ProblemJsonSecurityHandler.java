@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -44,7 +45,11 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
       HttpServletRequest request, HttpServletResponse response, AccessDeniedException ex)
       throws IOException, ServletException {
     bearerAccessDenied.handle(request, response, ex);
-    write(request, response, ex.getMessage());
+    // Ours always carry a reason; Spring's own may not
+    write(
+        request,
+        response,
+        Objects.requireNonNullElse(ex.getMessage(), "You don't have access to this."));
   }
 
   private void write(HttpServletRequest request, HttpServletResponse response, String detail)

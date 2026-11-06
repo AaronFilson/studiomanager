@@ -44,7 +44,8 @@ class StartupTimeTests {
                   "spring.flyway.password", postgres.getPassword(),
                   "server.port", "0",
                   "logging.level.root", "OFF",
-                  "spring.main.banner-mode", "off")
+                  "spring.main.banner-mode", "off",
+                  "spring.jpa.properties.hibernate.generate_statistics", "false")
               .entrySet()
               .stream()
               .map(setting -> "--%s=%s".formatted(setting.getKey(), setting.getValue()))

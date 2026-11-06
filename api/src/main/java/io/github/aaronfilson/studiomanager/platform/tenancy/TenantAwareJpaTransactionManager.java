@@ -35,9 +35,11 @@ public class TenantAwareJpaTransactionManager extends JpaTransactionManager {
   @Override
   protected void doBegin(Object transaction, TransactionDefinition definition) {
     super.doBegin(transaction, definition);
-    EntityManagerHolder holder =
-        (EntityManagerHolder)
-            TransactionSynchronizationManager.getResource(obtainEntityManagerFactory());
+    // super.doBegin binds the transaction's EntityManager, so it is always there
+    if (!(TransactionSynchronizationManager.getResource(obtainEntityManagerFactory())
+        instanceof EntityManagerHolder holder)) {
+      throw new IllegalStateException("JpaTransactionManager began without an EntityManager");
+    }
     EntityManager entityManager = holder.getEntityManager();
     try {
       bindTenant(entityManager);

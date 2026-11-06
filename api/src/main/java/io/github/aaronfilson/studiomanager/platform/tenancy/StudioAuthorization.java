@@ -18,9 +18,11 @@ public class StudioAuthorization {
   }
 
   public boolean hasRole(UUID studioId, StudioRole minimum) {
-    return TenantContext.current()
-        .filter(context -> studioId.equals(context.studioId()) && context.role() != null)
-        .map(context -> context.role().includes(minimum))
-        .orElse(false);
+    TenantContext context = TenantContext.current().orElse(null);
+    if (context == null || !studioId.equals(context.studioId())) {
+      return false;
+    }
+    StudioRole role = context.role();
+    return role != null && role.includes(minimum);
   }
 }

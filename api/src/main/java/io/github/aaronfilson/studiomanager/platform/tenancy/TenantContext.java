@@ -83,6 +83,18 @@ public record TenantContext(
     return new TenantContext(accountId, studioId, role, kind);
   }
 
+  /**
+   * The studio this call acts in, for code that only runs inside one.
+   *
+   * @throws IllegalStateException outside any one studio
+   */
+  public UUID requireStudioId() {
+    if (studioId == null) {
+      throw new IllegalStateException("This call isn't bound to a studio");
+    }
+    return studioId;
+  }
+
   public boolean isSystem() {
     return kind == PrincipalKind.SYSTEM;
   }

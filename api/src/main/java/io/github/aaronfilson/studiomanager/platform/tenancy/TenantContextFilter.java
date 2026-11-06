@@ -95,7 +95,8 @@ public class TenantContextFilter extends OncePerRequestFilter {
   private static String areaOf(HttpServletRequest request) {
     String path = request.getRequestURI().substring(request.getContextPath().length());
     PathPattern.PathMatchInfo match = STUDIO_AREA.matchAndExtract(PathContainer.parsePath(path));
-    return match == null ? "" : match.getUriVariables().get("area");
+    // STUDIO_AREA always captures {area}, so a match always has it
+    return match == null ? "" : match.getUriVariables().getOrDefault("area", "");
   }
 
   private StudioRole roleIn(UUID studioId, TenantContext caller) {
