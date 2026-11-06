@@ -57,7 +57,6 @@ class FiringPiece {
    * Hibernate refuses one column reached by an implicit and an explicit name.
    */
   @Embeddable
-  record Key(
-      @Column(name = "firing_id") UUID firingId, @Column(name = "piece_id") UUID pieceId)
+  record Key(@Column(name = "firing_id") UUID firingId, @Column(name = "piece_id") UUID pieceId)
       implements Serializable {}
 }
