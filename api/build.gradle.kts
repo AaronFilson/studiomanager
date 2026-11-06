@@ -40,6 +40,8 @@ dependencies {
     // Outbound webhooks: its DnsResolver hook lets the SSRF filter connect only to the addresses it
     // checked, which the JDK HttpClient can't do. The version comes from Spring Boot's BOM.
     implementation("org.apache.httpcomponents.client5:httpclient5")
+    // Reading invoices with the studio's own Claude key (docs/planning/16-invoice-ocr-plan.md)
+    implementation("com.anthropic:anthropic-java:3.6.0")
     // Event streaming (off unless studiomanager.stream.enabled): Modulith publishes the stream
     // contract to Kafka through the same outbox as email (ADR 15, docs/adr/0015-event-streaming-to-kafka.md)
     implementation("org.springframework.boot:spring-boot-starter-kafka")

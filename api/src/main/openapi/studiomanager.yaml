@@ -15,6 +15,10 @@ security:
   - bearerAuth: []
   - apiToken: []
 tags:
+  - name: ai
+    description: |
+      The studio's own AI key, used to read supplier invoices. The studio's own provider account
+      pays for and governs that use. The key is stored encrypted and never returned.
   - name: api-tokens
     description: |
       Personal API tokens let a script or an AI assistant act as a staff member, in one studio,
@@ -3593,6 +3597,94 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/ai-key:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ai]
+      operationId: getAiKey
+      summary: The studio's own AI key, without the key itself (owner only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The key's provider, last four characters and whether it works.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [ai]
+      operationId: setAiKey
+      summary: Save the studio's own AI key, replacing any before it (owner only)
+      description: |
+        The key is stored encrypted and never returned. Saving it doesn't send anything
+        anywhere; "test" does.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAiKeyRequest"
+      responses:
+        "200":
+          description: The saved key's status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [ai]
+      operationId: deleteAiKey
+      summary: Delete the studio's AI key (owner only)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/ai-key/test:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [ai]
+      operationId: testAiKey
+      summary: Check the key with one small call to the provider (owner only)
+      description: Lists the provider's models, which spends no tokens.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The key's status after the check.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -6711,6 +6803,48 @@ components:
           type: string
         weight:
           $ref: "#/components/schemas/Decimal"
+
+    AiProvider:
+      type: string
+      enum: [ANTHROPIC]
+
+    AiKeyStatus:
+      type: object
+      required: [provider, lastFour, status, allowGoogleFallback, setAt]
+      properties:
+        provider:
+          $ref: "#/components/schemas/AiProvider"
+        lastFour:
+          type: string
+        status:
+          type: string
+          enum: [UNTESTED, WORKING, REJECTED]
+        reason:
+          type: string
+          description: Why the last check didn't pass.
+        checkedAt:
+          type: string
+          format: date-time
+        allowGoogleFallback:
+          type: boolean
+          description: Whether an invoice the key can't read may be read by Google Document AI instead.
+        setAt:
+          type: string
+          format: date-time
+
+    SetAiKeyRequest:
+      type: object
+      required: [provider, apiKey]
+      properties:
+        provider:
+          $ref: "#/components/schemas/AiProvider"
+        apiKey:
+          type: string
+          minLength: 20
+          maxLength: 300
+          writeOnly: true
+        allowGoogleFallback:
+          type: boolean
 
     TokenScope:
       type: string

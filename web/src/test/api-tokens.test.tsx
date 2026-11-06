@@ -25,8 +25,50 @@ function settings(studio = aStudio()) {
     ),
     http.get(`${API}/api/v1/studios/:studioId/piece-policy`, () => HttpResponse.json({ holdDays: 30 })),
     http.get(`${API}/api/v1/studios/:studioId/tax-rates`, () => HttpResponse.json([])),
+    http.get(`${API}/api/v1/studios/:studioId/ai-key`, () => new HttpResponse(null, { status: 404 })),
   ];
 }
+
+describe('AI for invoices', () => {
+  it('saves a key without ever showing it, then tests it', async () => {
+    const studio = aStudio();
+    let sent: unknown;
+    server.use(
+      ...settings(studio),
+      http.get(`${API}/api/v1/studios/:studioId/api-tokens`, () => HttpResponse.json([])),
+      http.put(`${API}/api/v1/studios/:studioId/ai-key`, async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json({
+          provider: 'ANTHROPIC',
+          lastFour: 'Wxyz',
+          status: 'UNTESTED',
+          allowGoogleFallback: true,
+          setAt: '2026-11-06T08:00:00Z',
+        });
+      }),
+      http.post(`${API}/api/v1/studios/:studioId/ai-key/test`, () =>
+        HttpResponse.json({
+          provider: 'ANTHROPIC',
+          lastFour: 'Wxyz',
+          status: 'WORKING',
+          allowGoogleFallback: true,
+          setAt: '2026-11-06T08:00:00Z',
+        }),
+      ),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/settings`);
+    await user.type(await screen.findByLabelText('Anthropic API key'), 'sk-ant-api03-secret-Wxyz');
+    await user.click(screen.getByLabelText(/let Google Document AI try/));
+    await user.click(screen.getByRole('button', { name: 'Save key' }));
+
+    expect(await screen.findByText('not checked yet')).toBeInTheDocument();
+    expect(sent).toEqual({ provider: 'ANTHROPIC', apiKey: 'sk-ant-api03-secret-Wxyz', allowGoogleFallback: true });
+    expect(screen.queryByText(/sk-ant-api03-secret/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Test key' }));
+    expect(await screen.findByText('working')).toBeInTheDocument();
+  });
+});
 
 describe('API access', () => {
   it('makes a token with the chosen scopes and shows it once', async () => {

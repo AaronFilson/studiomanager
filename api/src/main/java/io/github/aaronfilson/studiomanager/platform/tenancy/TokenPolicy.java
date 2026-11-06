@@ -78,6 +78,7 @@ public final class TokenPolicy {
             Map.entry("imports", ADMIN),
             Map.entry("webhooks", ADMIN),
             Map.entry("api-tokens", ADMIN),
+            Map.entry("ai-key", ADMIN),
             Map.entry("export", new Never("Download the studio's data while signed in, not with a token.")));
 
     private TokenPolicy() {

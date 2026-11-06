@@ -109,6 +109,11 @@ studiomanager:
     secret-key: ${STUDIOMANAGER_WEBHOOK_SECRET_KEY:}
     # true lets webhooks reach localhost and private networks: local work and tests only
     allow-private-networks: ${STUDIOMANAGER_WEBHOOK_ALLOW_PRIVATE_NETWORKS:false}
+  ai:
+    # AES-256, base64: encrypts studios' own AI keys at rest. Blank uses a fixed development key;
+    # application-azure.yaml requires a real one.
+    key-encryption-key: ${STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY:}
+    anthropic-base-url: ${STUDIOMANAGER_ANTHROPIC_BASE_URL:https://api.anthropic.com}
   stream:
     # Publishes StudioStreamEvents to Kafka. Off by default: there's no broker locally unless
     # compose's "stream" profile is up, and none deployed (docs/planning/11)
