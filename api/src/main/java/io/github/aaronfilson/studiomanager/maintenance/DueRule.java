@@ -24,12 +24,10 @@ final class DueRule {
      */
     static Due evaluate(@Nullable Integer everyDays, @Nullable Integer everyFirings, Instant lastDoneAt,
             int lastDoneFirings, @Nullable Integer totalFirings, Instant now) {
-        Instant dueAt = everyDays == null ? null : lastDoneAt.plus(Duration.ofDays(everyDays));
-        Integer firingsLeft = everyFirings == null || totalFirings == null ? null
-                : everyFirings - (totalFirings - lastDoneFirings);
-
+        Instant dueAt = null;
         DueStatus byDays = DueStatus.OK;
-        if (dueAt != null && everyDays != null) {
+        if (everyDays != null) {
+            dueAt = lastDoneAt.plus(Duration.ofDays(everyDays));
             Duration warning = clamp(Duration.ofDays(everyDays).dividedBy(10), Duration.ofDays(1), MAX_DAYS_WARNING);
             if (!dueAt.isAfter(now)) {
                 byDays = DueStatus.DUE;
@@ -37,8 +35,10 @@ final class DueRule {
                 byDays = DueStatus.DUE_SOON;
             }
         }
+        Integer firingsLeft = null;
         DueStatus byFirings = DueStatus.OK;
-        if (firingsLeft != null && everyFirings != null) {
+        if (everyFirings != null && totalFirings != null) {
+            firingsLeft = everyFirings - (totalFirings - lastDoneFirings);
             if (firingsLeft <= 0) {
                 byFirings = DueStatus.DUE;
             } else if (firingsLeft <= Math.max(1, everyFirings / 10)) {

@@ -141,8 +141,7 @@ class TenantIsolationTests {
             }
         }
         // A header and one member
-        assertThat(members).isNotNull();
-        assertThat(members.lines()).hasSize(2);
+        assertThat(members).isNotNull().satisfies(csv -> assertThat(csv.lines()).hasSize(2));
     }
 
     @Test

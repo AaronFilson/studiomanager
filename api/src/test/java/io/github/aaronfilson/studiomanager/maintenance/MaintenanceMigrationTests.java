@@ -33,8 +33,8 @@ class MaintenanceMigrationTests {
     void eachKilnBecomesAnAssetItsThresholdATaskAndItsLogRecords() throws SQLException {
         String database = "v12_" + UUID.randomUUID().toString().replace("-", "");
         try (Connection admin = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(),
-                postgres.getPassword())) {
-            admin.createStatement().execute("CREATE DATABASE " + database);
+                postgres.getPassword()); var statement = admin.createStatement()) {
+            statement.execute("CREATE DATABASE " + database);
         }
         String url = postgres.getJdbcUrl().replaceFirst("/[^/?]+(\\?|$)", "/" + database + "$1");
         try (var dataSource = new SingleConnectionDataSource(url, postgres.getUsername(), postgres.getPassword(), true)) {

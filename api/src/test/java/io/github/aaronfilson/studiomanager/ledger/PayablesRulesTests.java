@@ -54,8 +54,8 @@ class PayablesRulesTests {
                         new BigDecimal("500.00"), new BigDecimal("340.00"), false))));
 
         assertThat(csv.lines().toList()).containsExactly(
-                "Payee,Email,W-9 received,Box 1 nonemployee compensation,"
-                        + "Paid through card or payment networks (on a 1099-K; not included),At or over threshold",
+                String.join(",", "Payee", "Email", "W-9 received", "Box 1 nonemployee compensation",
+                        "Paid through card or payment networks (on a 1099-K; not included)", "At or over threshold"),
                 "'=Ana,,MISSING,2400.00,0.00,Yes",
                 "\"Ben, Guild\",ben@example.test,2026-02-01,500.00,340.00,No");
     }
