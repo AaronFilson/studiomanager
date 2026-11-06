@@ -1,0 +1,5 @@
+# Formatting-only commits, hidden from `git blame` (GitHub reads this file too).
+# Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Google Java Format applied to every file (plan 20, foundation)
+3014aaf477e8e36ffe9831e3c633d49f7352918a
