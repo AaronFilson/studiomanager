@@ -83,6 +83,18 @@ variable "application_insights_connection_string" {
   sensitive = true
 }
 
+variable "webhook_secret_key" {
+  description = "Base64 AES-256 key that encrypts webhook signing secrets at rest (studiomanager.webhooks.secret-key)."
+  type        = string
+  sensitive   = true
+}
+
+variable "ai_key_encryption_key" {
+  description = "Base64 AES-256 key that encrypts studios' AI provider keys at rest (studiomanager.ai.key-encryption-key)."
+  type        = string
+  sensitive   = true
+}
+
 variable "min_replicas" {
   description = "0 lets the API scale to zero when idle; the first request then pays a cold start."
   type        = number

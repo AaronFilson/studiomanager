@@ -3,5 +3,5 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 
 # Optional overrides
 # location          = "eastus2"
-# github_repository = "AaronFilson/studiomanager"
+# github_oidc_subject_prefix = "repo:AaronFilson@14099435/studiomanager@1426092900"
 # environments      = ["dev"]

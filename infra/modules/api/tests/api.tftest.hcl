@@ -30,7 +30,34 @@ variables {
   mail_acs_endpoint                      = "https://acs-studiomanager-test.unitedstates.communication.azure.com"
   mail_from                              = "DoNotReply@00000000-0000-0000-0000-000000000000.azurecomm.net"
   application_insights_connection_string = "InstrumentationKey=00000000-0000-0000-0000-000000000000"
+  webhook_secret_key                     = "d2ViaG9vay1zZWNyZXQta2V5LWZvci10ZXN0cy0zMmI="
+  ai_key_encryption_key                  = "YWkta2V5LWVuY3J5cHRpb24ta2V5LWZvci10ZXN0cyE="
   tags                                   = { app = "studiomanager" }
+}
+
+run "the_app_and_the_migration_job_get_the_encryption_keys_from_secrets" {
+  command = plan
+
+  assert {
+    condition     = anytrue([for e in azurerm_container_app.api.template[0].container[0].env : e.name == "STUDIOMANAGER_WEBHOOK_SECRET_KEY" && e.secret_name == "webhook-secret-key"])
+    error_message = "The app's webhook secret key must come from a secret."
+  }
+
+  assert {
+    condition     = anytrue([for e in azurerm_container_app.api.template[0].container[0].env : e.name == "STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY" && e.secret_name == "ai-key-encryption-key"])
+    error_message = "The app's AI key encryption key must come from a secret."
+  }
+
+  # The migration job starts the same Spring context as the app, so it needs both keys too
+  assert {
+    condition     = anytrue([for e in azurerm_container_app_job.migrate.template[0].container[0].env : e.name == "STUDIOMANAGER_WEBHOOK_SECRET_KEY" && e.secret_name == "webhook-secret-key"])
+    error_message = "The migration job's webhook secret key must come from a secret."
+  }
+
+  assert {
+    condition     = anytrue([for e in azurerm_container_app_job.migrate.template[0].container[0].env : e.name == "STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY" && e.secret_name == "ai-key-encryption-key"])
+    error_message = "The migration job's AI key encryption key must come from a secret."
+  }
 }
 
 run "api_runs_as_the_api_identity" {

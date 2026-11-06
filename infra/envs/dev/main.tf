@@ -107,6 +107,17 @@ resource "azurerm_static_web_app" "web" {
   tags                = local.tags
 }
 
+# Keys that encrypt secrets the app stores (webhook signing secrets, studios' AI keys). They live
+# in Terraform state, which is in Entra-only storage, and reach the app as Container App secrets.
+# A bare key is key version 1; to rotate, see docs/adr/0023 and the keyring format.
+resource "random_bytes" "webhook_secret_key" {
+  length = 32
+}
+
+resource "random_bytes" "ai_key_encryption_key" {
+  length = 32
+}
+
 module "api" {
   source = "../../modules/api"
 
@@ -138,6 +149,8 @@ module "api" {
   mail_acs_endpoint                      = module.email.endpoint
   mail_from                              = module.email.sender_address
   application_insights_connection_string = module.platform.application_insights_connection_string
+  webhook_secret_key                     = random_bytes.webhook_secret_key.base64
+  ai_key_encryption_key                  = random_bytes.ai_key_encryption_key.base64
   tags                                   = local.tags
 }
 

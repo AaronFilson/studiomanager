@@ -23,14 +23,25 @@ an hour, most of it waiting for Postgres. For background on the design, see
 
 2. **Apply bootstrap** (as yourself, in the subscription's normal tenant):
 
+   After step 1 your account belongs to two tenants. Sign in to the one that owns the
+   subscription, not the External ID tenant: bootstrap creates its Entra group in whichever tenant
+   the CLI is signed in to. A plain `az login` lists each tenant and its subscriptions; the
+   External ID tenant shows as having none.
+
    ```bash
-   az login
+   az login --tenant <tenant that owns the subscription>
    cd infra/bootstrap
    cp terraform.tfvars.example terraform.tfvars   # set subscription_id
    terraform init
    terraform apply
    terraform output        # keep this: github_variables and db_admin_groups
    ```
+
+   The GitHub identities trust tokens whose subject starts with `github_oidc_subject_prefix`.
+   GitHub's newer subject form names the owner and the repository by name and numeric id; check
+   it with `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` (`sub_claim_prefix`), and
+   set the variable if yours differs from the default. A mismatch shows up later as `AADSTS700213:
+   No matching federated identity record` in the plan or deploy job.
 
    This creates the state storage, the GitHub deploy and plan identities, `rg-studiomanager-dev`,
    and the Entra group `studiomanager-dev-db-admins` with you in it, and registers the resource
