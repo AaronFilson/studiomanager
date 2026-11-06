@@ -4,9 +4,9 @@ variable "subscription_id" {
 }
 
 variable "location" {
-  description = "Region for the shared resources and the environment resource groups."
+  description = "Region for the shared resources and the environment resource groups. Pick the one nearest the people running the service."
   type        = string
-  default     = "eastus2"
+  default     = "westus"
 }
 
 variable "github_oidc_subject_prefix" {

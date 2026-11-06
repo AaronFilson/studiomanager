@@ -2,8 +2,10 @@
 # docs/runbooks/first-deploy.md); validation fails the plan until you do.
 
 environment             = "dev"
-location                = "eastus2"
-static_web_app_location = "eastus2"
+# West US, near the owner. Static Web Apps isn't offered in westus, so it uses the nearest region
+# that has it.
+location                = "westus"
+static_web_app_location = "westus2"
 
 # From `terraform output env_tfvars` in infra/identity
 entra_external_tenant_id        = "694cd29a-7b3a-4b47-90a0-465a3c1e0482"
