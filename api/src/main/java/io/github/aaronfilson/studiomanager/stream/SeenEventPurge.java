@@ -2,6 +2,9 @@ package io.github.aaronfilson.studiomanager.stream;
 
 import java.time.Instant;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,7 +29,9 @@ class SeenEventPurge {
 
     @Scheduled(initialDelayString = "PT15M", fixedDelayString = "PT24H")
     void run() {
-        int forgotten = projection.forgetSeenBefore(Instant.now().minus(ActivityProjection.REMEMBER_SEEN));
+        // Crosses studios, so it runs as the consumer's system account outside any one studio
+        int forgotten = TenantContext.callAs(TenantContext.system(SystemActor.ACTIVITY_CONSUMER),
+                () -> projection.forgetSeenBefore(Instant.now().minus(ActivityProjection.REMEMBER_SEEN)));
         if (forgotten > 0) {
             log.info("Forgot {} stream event ids older than {}", forgotten, ActivityProjection.REMEMBER_SEEN);
         }

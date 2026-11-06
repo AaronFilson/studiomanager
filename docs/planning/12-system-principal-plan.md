@@ -131,6 +131,40 @@ One commit per job, each with its test, after the V25 and context commit.
 - An append-only audit table. This slice fixes attribution on existing rows only.
 - Machine API keys for outside callers. They'd reuse `kind = 'SYSTEM'` later.
 
+## Status
+
+**Step 1, 2026-11-05, on `wave2-system-principal` (V25).** Built and green: all 221 API tests pass
+in WSL. It differs from the plan above in four ways:
+- **Three jobs, not four.** `InviteEmails` already acts as the person who asked for the invite, not
+  as the owner, and that's the right actor, so it stays. `OpeningBalances` and `WebhookFanOut` act
+  as the member who just joined, for the same reason.
+- **No `SystemAuthentication` or `SystemWork` helper.** Method security is only on controllers,
+  and no job passes through one, so nothing would read a Spring `SecurityContext`. Jobs bind
+  `TenantContext.system(actor, studioId)` with `callAs`, the same way requests bind theirs.
+- **The checks are in `TenantContext` itself.** A `SYSTEM` context must use a `SystemActor`
+  account and stay within its ceiling. A `PERSON` context can't use a system account.
+- **More guards in the database.** A trigger stops a system account from joining a studio.
+  `AccountService` refuses a token issued by `urn:studiomanager:system`.
+
+What changed:
+- `ActivityConsumer` and `SeenEventPurge` act as `ACTIVITY_CONSUMER`, and `NO_ACCOUNT` is gone.
+- `MaintenanceReminderSweep` acts as `MAINTENANCE_REMINDERS`, so a studio with no owner is still
+  reminded.
+- `WebhookSweep` acts as `WEBHOOK_SWEEP`.
+- `studios_with_maintenance_to_remind` and `due_webhook_deliveries` now return ids only.
+- The definer functions those jobs call now raise unless a system principal is bound:
+  `studios_with_maintenance_to_remind`, `due_webhook_deliveries`, `purge_webhook_history` and
+  `purge_stream_event_seen`.
+- `SystemPrincipalTests` covers the seeded rows, the refused issuer, the job-only functions, the
+  membership trigger, and a job seeing only its own studio.
+
+**Left for later:**
+- The photo-upload sweeps and `mark_unclaimed_pieces` still run their definer functions with no
+  principal. They should get actors too.
+- `actorKind` in API responses and the "system" badge in the web app.
+- The ArchUnit rule. The checks in `TenantContext` cover most of what it would catch.
+- ADR 16.
+
 ## Decisions to record
 **ADR 16: a system principal for background work.** Seeded system accounts with a `kind`, a
 principal kind on `TenantContext` and in `app.principal_kind`, the same tenant RLS for jobs, no

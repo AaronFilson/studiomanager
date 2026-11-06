@@ -17,6 +17,7 @@ import com.jayway.jsonpath.JsonPath;
 import io.github.aaronfilson.studiomanager.IntegrationTest;
 import io.github.aaronfilson.studiomanager.TestUser;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -189,7 +190,7 @@ class StreamTests {
         var unknown = json.readTree("""
                 {"id": "%s", "studioId": "%s", "occurredAt": "%s"}
                 """.formatted(eventId, studioId, Instant.now()));
-        TenantContext consumer = TenantContext.forAccount(ActivityConsumer.NO_ACCOUNT).inStudio(studioId, StudioRole.STAFF);
+        TenantContext consumer = TenantContext.system(SystemActor.ACTIVITY_CONSUMER, studioId);
         assertThat(TenantContext.callAs(consumer, () -> projection.apply(studioId, "pieces.ready", unknown))).isFalse();
         Integer seen = jdbc.sql("select count(*) from stream_event_seen where event_id = ?").param(eventId)
                 .query(Integer.class).single();
@@ -303,8 +304,7 @@ class StreamTests {
     /** Applies an event the way the consumer does, bound to its studio. */
     private boolean applyAsConsumer(StudioStreamEvent event) throws Exception {
         var tree = json.readTree(json.writeValueAsBytes(event));
-        TenantContext consumer = TenantContext.forAccount(ActivityConsumer.NO_ACCOUNT)
-                .inStudio(event.studioId(), StudioRole.STAFF);
+        TenantContext consumer = TenantContext.system(SystemActor.ACTIVITY_CONSUMER, event.studioId());
         return TenantContext.callAs(consumer, () -> projection.apply(event.studioId(), event.type(), tree));
     }
 
