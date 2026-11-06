@@ -141,7 +141,13 @@ Updated as each item lands.
 - **System principal for background jobs:** done 2026-11-05 on `wave2-system-principal` (V25),
   PR #17. Plan in [12](12-system-principal-plan.md), design in
   [ADR 16](../adr/0016-system-principal-for-background-work.md).
-- **Next:** the glaze book (item 5), planned in [14](14-glaze-book-plan.md): studio bucket glazes
-  with a batch calculator and mix log, private member recipes, and import from glazecalc and
-  glaze-vault. The resume review is in [15](15-resume-review.md). The kiln log import
+- **Glaze book (item 5):** steps 1–2 done 2026-11-05 on `wave2-glaze-book` (V26). These are
+  studio and private member recipes, and the batch calculator. The mix log, import, photos and
+  promote come later; plan in [14](14-glaze-book-plan.md).
+- **Next, re-ordered by the owner:**
+  1. Invoice OCR (item 6), using the studio's own AI key with Google Document AI as the backup:
+     [16](16-invoice-ocr-plan.md).
+  2. Personal API tokens and an MCP server, so admins can bring their own AI safely:
+     [17](17-mcp-and-api-tokens-plan.md).
+- The resume review is in [15](15-resume-review.md). The kiln log import
   (item 4) still waits for a real Genesis export ([09](09-kiln-log-import-research.md)).

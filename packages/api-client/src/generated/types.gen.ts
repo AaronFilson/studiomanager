@@ -1517,6 +1517,102 @@ export type WebhookDelivery = {
 };
 
 /**
+ * STUDIO: the studio's glazes. MINE: the caller's own recipes. SHARED: other members' shared recipes.
+ */
+export type GlazeListFilter = 'STUDIO' | 'MINE' | 'SHARED';
+
+export type GlazeOwnerKind = 'STUDIO' | 'MEMBER';
+
+export type GlazeSource = 'MANUAL' | 'GLAZECALC' | 'GLAZE_VAULT';
+
+export type Atmosphere = 'OXIDATION' | 'REDUCTION' | 'NEUTRAL';
+
+/**
+ * BASE lines make up the recipe. ADDITION lines (colorants, opacifiers) go on top.
+ */
+export type GlazeLineKind = 'BASE' | 'ADDITION';
+
+/**
+ * PARTS of the base, PERCENT of the base (additions), or a fixed number of GRAMS.
+ */
+export type GlazeAmountUnit = 'PARTS' | 'PERCENT' | 'GRAMS';
+
+/**
+ * A specific gravity between 1 and 2.5, such as `"1.45"`.
+ */
+export type SpecificGravity = string;
+
+export type GlazeLine = {
+    kind: GlazeLineKind;
+    material: string;
+    amount: Decimal;
+    unit: GlazeAmountUnit;
+};
+
+export type GlazeRecipe = {
+    id: string;
+    ownerKind: GlazeOwnerKind;
+    ownerAccountId?: string;
+    /**
+     * The member who owns it. Absent for a studio glaze.
+     */
+    ownerName?: string;
+    name: string;
+    notes?: string;
+    /**
+     * As potters write it, such as "6" or "04".
+     */
+    cone?: string;
+    atmosphere?: Atmosphere;
+    /**
+     * Meant for surfaces that touch food. Not a test result; the studio's own rules apply.
+     */
+    foodSurface: boolean;
+    targetSpecificGravity?: SpecificGravity;
+    sharedWithStudio: boolean;
+    source: GlazeSource;
+    lines: Array<GlazeLine>;
+    /**
+     * Whether the caller may change or delete it.
+     */
+    canEdit: boolean;
+    version: number;
+    updatedAt: string;
+};
+
+export type SaveGlazeRequest = {
+    ownerKind?: GlazeOwnerKind;
+    name: string;
+    notes?: string;
+    cone?: string;
+    atmosphere?: Atmosphere;
+    foodSurface?: boolean;
+    targetSpecificGravity?: SpecificGravity;
+    /**
+     * Only for a member's own recipe.
+     */
+    sharedWithStudio?: boolean;
+    lines: Array<GlazeLine>;
+    /**
+     * Required on a change; the version the change was made from.
+     */
+    version?: number;
+};
+
+export type GlazeBatch = {
+    size: Decimal;
+    unit: WeightUnit;
+    lines: Array<GlazeBatchLine>;
+    total: Decimal;
+};
+
+export type GlazeBatchLine = {
+    kind: GlazeLineKind;
+    material: string;
+    weight: Decimal;
+};
+
+/**
  * RFC 9457 problem details.
  */
 export type Problem = {
@@ -1563,6 +1659,8 @@ export type PayeeId = string;
 export type SaleId = string;
 
 export type EndpointId = string;
+
+export type GlazeId = string;
 
 export type Year = number;
 
@@ -6643,3 +6741,248 @@ export type ResendWebhookDeliveryResponses = {
 };
 
 export type ResendWebhookDeliveryResponse = ResendWebhookDeliveryResponses[keyof ResendWebhookDeliveryResponses];
+
+export type ListGlazesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query: {
+        owner: GlazeListFilter;
+    };
+    url: '/api/v1/studios/{studioId}/glazes';
+};
+
+export type ListGlazesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListGlazesError = ListGlazesErrors[keyof ListGlazesErrors];
+
+export type ListGlazesResponses = {
+    /**
+     * The recipes, by name.
+     */
+    200: Array<GlazeRecipe>;
+};
+
+export type ListGlazesResponse = ListGlazesResponses[keyof ListGlazesResponses];
+
+export type CreateGlazeData = {
+    body: SaveGlazeRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes';
+};
+
+export type CreateGlazeErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type CreateGlazeError = CreateGlazeErrors[keyof CreateGlazeErrors];
+
+export type CreateGlazeResponses = {
+    /**
+     * The recipe.
+     */
+    201: GlazeRecipe;
+};
+
+export type CreateGlazeResponse = CreateGlazeResponses[keyof CreateGlazeResponses];
+
+export type DeleteGlazeData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}';
+};
+
+export type DeleteGlazeErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type DeleteGlazeError = DeleteGlazeErrors[keyof DeleteGlazeErrors];
+
+export type DeleteGlazeResponses = {
+    /**
+     * Deleted.
+     */
+    204: void;
+};
+
+export type DeleteGlazeResponse = DeleteGlazeResponses[keyof DeleteGlazeResponses];
+
+export type GetGlazeData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}';
+};
+
+export type GetGlazeErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetGlazeError = GetGlazeErrors[keyof GetGlazeErrors];
+
+export type GetGlazeResponses = {
+    /**
+     * The recipe.
+     */
+    200: GlazeRecipe;
+};
+
+export type GetGlazeResponse = GetGlazeResponses[keyof GetGlazeResponses];
+
+export type UpdateGlazeData = {
+    body: SaveGlazeRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}';
+};
+
+export type UpdateGlazeErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type UpdateGlazeError = UpdateGlazeErrors[keyof UpdateGlazeErrors];
+
+export type UpdateGlazeResponses = {
+    /**
+     * The recipe.
+     */
+    200: GlazeRecipe;
+};
+
+export type UpdateGlazeResponse = UpdateGlazeResponses[keyof UpdateGlazeResponses];
+
+export type GetGlazeBatchData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query: {
+        size: Decimal;
+        unit: WeightUnit;
+    };
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/batch';
+};
+
+export type GetGlazeBatchErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetGlazeBatchError = GetGlazeBatchErrors[keyof GetGlazeBatchErrors];
+
+export type GetGlazeBatchResponses = {
+    /**
+     * The batch.
+     */
+    200: GlazeBatch;
+};
+
+export type GetGlazeBatchResponse = GetGlazeBatchResponses[keyof GetGlazeBatchResponses];

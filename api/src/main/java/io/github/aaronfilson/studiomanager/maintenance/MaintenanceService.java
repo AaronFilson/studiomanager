@@ -32,7 +32,7 @@ import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUsed;
-import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.WorkRecord;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
@@ -322,7 +322,7 @@ public class MaintenanceService {
      * stays right.
      */
     @Transactional
-    public Record recordRepair(UUID assetId, String note, @Nullable BigDecimal cost, List<PartUse> parts) {
+    public WorkRecord recordRepair(UUID assetId, String note, @Nullable BigDecimal cost, List<PartUse> parts) {
         if (note.isBlank()) {
             throw new InvalidInputException("Describe the work.");
         }
@@ -359,24 +359,24 @@ public class MaintenanceService {
 
     /** The asset's history, newest first. */
     @Transactional(readOnly = true)
-    public List<Record> records(UUID assetId) {
+    public List<WorkRecord> records(UUID assetId) {
         assetRow(assetId);
-        List<Record> rows = jdbc.sql("""
+        List<WorkRecord> rows = jdbc.sql("""
                 select r.id, r.asset_id, r.task_id, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
                 from maintenance_record r left join maintenance_task t on t.id = r.task_id
                 where r.asset_id = :assetId order by r.done_at desc, r.id desc limit 500
                 """)
                 .param("assetId", assetId)
-                .query((rs, n) -> new Record(rs.getObject("id", UUID.class), rs.getObject("asset_id", UUID.class),
+                .query((rs, n) -> new WorkRecord(rs.getObject("id", UUID.class), rs.getObject("asset_id", UUID.class),
                         rs.getObject("task_id", UUID.class), rs.getString("title"), rs.getString("note"),
                         rs.getBigDecimal("cost"), strings(rs.getArray("checked")),
                         rs.getObject("at_firing", Integer.class), rs.getObject("done_by", UUID.class), null,
                         rs.getObject("done_at", OffsetDateTime.class).toInstant(), List.of()))
                 .list();
-        Map<UUID, String> names = accounts.displayNames(rows.stream().map(Record::doneBy).toList());
+        Map<UUID, String> names = accounts.displayNames(rows.stream().map(WorkRecord::doneBy).toList());
         Map<UUID, List<PartUsed>> parts = partsOf(assetId);
         return rows.stream()
-                .map(r -> new Record(r.id(), r.assetId(), r.taskId(), r.taskTitle(), r.note(), r.cost(), r.checked(),
+                .map(r -> new WorkRecord(r.id(), r.assetId(), r.taskId(), r.taskTitle(), r.note(), r.cost(), r.checked(),
                         r.atFiring(), r.doneBy(), names.get(r.doneBy()), r.doneAt(),
                         parts.getOrDefault(r.id(), List.of())))
                 .toList();

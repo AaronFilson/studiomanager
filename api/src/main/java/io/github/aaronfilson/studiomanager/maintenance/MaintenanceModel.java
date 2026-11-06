@@ -52,7 +52,7 @@ public final class MaintenanceModel {
     }
 
     /** @param parts spare parts taken from supplies for this work */
-    public record Record(UUID id, UUID assetId, @Nullable UUID taskId, @Nullable String taskTitle,
+    public record WorkRecord(UUID id, UUID assetId, @Nullable UUID taskId, @Nullable String taskTitle,
             @Nullable String note, @Nullable BigDecimal cost, List<String> checked, @Nullable Integer atFiring,
             UUID doneBy, @Nullable String doneByName, Instant doneAt, List<PartUsed> parts) {
     }

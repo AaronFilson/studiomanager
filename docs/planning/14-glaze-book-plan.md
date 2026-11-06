@@ -133,6 +133,38 @@ own copy.
 - **Web:** the import wizard, the batch calculator and the mix log, with MSW.
 - **Mobile:** the batch screen and logging a mix.
 
+## Status
+
+**Step 1, 2026-11-05, on `wave2-glaze-book` (V26).** Built and green: `GlazeApiTests` in WSL, and
+the Linux web job. It differs from the design above in a few ways:
+- **V26 has only recipes and lines.** The mix, reading and photo tables come with their steps,
+  and V26 is edited in place while it's unmerged.
+- **`cone` is short free text** (up to 10 characters), like the kiln log's. There's no
+  `cone_text`. Text from an import that doesn't fit goes into the notes.
+- **The owner rule is split by command.** Reading allows studio, shared or own recipes. Writing
+  allows only studio or own recipes, so staff can read a shared recipe but the database
+  won't let them change it. Lines follow their recipe through an `EXISTS` on it.
+- **Base lines are always in parts.** Only additions can be a percent or grams.
+- **Web:** a "Glaze book" link for everyone, with Studio, Mine and Shared tabs, a recipe page
+  with edit and delete, and a shared `GlazeForm`.
+
+**Step 2, 2026-11-05: the batch calculator.**
+- `BatchCalculator` is a pure function. It works in grams at `DECIMAL64` precision and rounds
+  only the result for the scale: g to 0.1, kg and lb to 0.001, oz to 0.01. A batch over a tonne is
+  refused.
+- `GET /glazes/{id}/batch?size&unit` uses the existing `WeightUnit`. Row-level security applies,
+  so nobody can scale a recipe they can't see.
+- The web recipe page has a "Mix a batch" panel.
+- **Property tests without jqwik.** jqwik's support for the JUnit 6 platform that Spring Boot 4
+  brings is unverified, so the property tests are `@RepeatedTest` with a seeded `Random`: 200
+  random recipes each. They check that the base lines add up to the size, that doubling the
+  batch doubles every scaled line, and that kg and g agree to within rounding.
+- **Not done:** the mobile batch screen. It's waiting until the mix log (step 3) gives the
+  phone a reason to be at the bucket.
+- **After this, the user re-ordered the work:** next are invoice OCR
+  ([16](16-invoice-ocr-plan.md)) and API tokens with MCP ([17](17-mcp-and-api-tokens-plan.md)).
+  The rest of this plan (the mix log, import, photos and promote) waits until after them.
+
 ## In an interview
 "Members bring recipes from two other apps I wrote, so the import treats every file as untrusted:
 it detects the format, enforces size and count limits, does a dry-run preview, then commits all or

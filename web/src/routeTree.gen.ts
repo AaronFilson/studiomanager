@@ -28,6 +28,8 @@ import { Route as StudiosStudioIdSettingsRouteImport } from './routes/studios/$s
 import { Route as StudiosStudioIdSuppliesRouteImport } from './routes/studios/$studioId/supplies'
 import { Route as StudiosStudioIdTodayRouteImport } from './routes/studios/$studioId/today'
 import { Route as StudiosStudioIdWebhooksRouteImport } from './routes/studios/$studioId/webhooks'
+import { Route as StudiosStudioIdGlazesIndexRouteImport } from './routes/studios/$studioId/glazes/index'
+import { Route as StudiosStudioIdGlazesGlazeIdRouteImport } from './routes/studios/$studioId/glazes/$glazeId'
 import { Route as StudiosStudioIdKilnsIndexRouteImport } from './routes/studios/$studioId/kilns/index'
 import { Route as StudiosStudioIdKilnsKilnIdRouteImport } from './routes/studios/$studioId/kilns/$kilnId'
 import { Route as StudiosStudioIdPiecesIndexRouteImport } from './routes/studios/$studioId/pieces/index'
@@ -130,6 +132,18 @@ const StudiosStudioIdWebhooksRoute = StudiosStudioIdWebhooksRouteImport.update({
   path: '/webhooks',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
+const StudiosStudioIdGlazesIndexRoute =
+  StudiosStudioIdGlazesIndexRouteImport.update({
+    id: '/glazes/',
+    path: '/glazes/',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
+const StudiosStudioIdGlazesGlazeIdRoute =
+  StudiosStudioIdGlazesGlazeIdRouteImport.update({
+    id: '/glazes/$glazeId',
+    path: '/glazes/$glazeId',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
 const StudiosStudioIdKilnsIndexRoute =
   StudiosStudioIdKilnsIndexRouteImport.update({
     id: '/kilns/',
@@ -175,8 +189,10 @@ export interface FileRoutesByFullPath {
   '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
   '/studios/$studioId/webhooks': typeof StudiosStudioIdWebhooksRoute
   '/studios/$studioId/': typeof StudiosStudioIdIndexRoute
+  '/studios/$studioId/glazes/$glazeId': typeof StudiosStudioIdGlazesGlazeIdRoute
   '/studios/$studioId/kilns/$kilnId': typeof StudiosStudioIdKilnsKilnIdRoute
   '/studios/$studioId/pieces/$pieceId': typeof StudiosStudioIdPiecesPieceIdRoute
+  '/studios/$studioId/glazes/': typeof StudiosStudioIdGlazesIndexRoute
   '/studios/$studioId/kilns/': typeof StudiosStudioIdKilnsIndexRoute
   '/studios/$studioId/pieces/': typeof StudiosStudioIdPiecesIndexRoute
 }
@@ -198,8 +214,10 @@ export interface FileRoutesByTo {
   '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
   '/studios/$studioId/webhooks': typeof StudiosStudioIdWebhooksRoute
   '/studios/$studioId': typeof StudiosStudioIdIndexRoute
+  '/studios/$studioId/glazes/$glazeId': typeof StudiosStudioIdGlazesGlazeIdRoute
   '/studios/$studioId/kilns/$kilnId': typeof StudiosStudioIdKilnsKilnIdRoute
   '/studios/$studioId/pieces/$pieceId': typeof StudiosStudioIdPiecesPieceIdRoute
+  '/studios/$studioId/glazes': typeof StudiosStudioIdGlazesIndexRoute
   '/studios/$studioId/kilns': typeof StudiosStudioIdKilnsIndexRoute
   '/studios/$studioId/pieces': typeof StudiosStudioIdPiecesIndexRoute
 }
@@ -224,8 +242,10 @@ export interface FileRoutesById {
   '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
   '/studios/$studioId/webhooks': typeof StudiosStudioIdWebhooksRoute
   '/studios/$studioId/': typeof StudiosStudioIdIndexRoute
+  '/studios/$studioId/glazes/$glazeId': typeof StudiosStudioIdGlazesGlazeIdRoute
   '/studios/$studioId/kilns/$kilnId': typeof StudiosStudioIdKilnsKilnIdRoute
   '/studios/$studioId/pieces/$pieceId': typeof StudiosStudioIdPiecesPieceIdRoute
+  '/studios/$studioId/glazes/': typeof StudiosStudioIdGlazesIndexRoute
   '/studios/$studioId/kilns/': typeof StudiosStudioIdKilnsIndexRoute
   '/studios/$studioId/pieces/': typeof StudiosStudioIdPiecesIndexRoute
 }
@@ -251,8 +271,10 @@ export interface FileRouteTypes {
     | '/studios/$studioId/today'
     | '/studios/$studioId/webhooks'
     | '/studios/$studioId/'
+    | '/studios/$studioId/glazes/$glazeId'
     | '/studios/$studioId/kilns/$kilnId'
     | '/studios/$studioId/pieces/$pieceId'
+    | '/studios/$studioId/glazes/'
     | '/studios/$studioId/kilns/'
     | '/studios/$studioId/pieces/'
   fileRoutesByTo: FileRoutesByTo
@@ -274,8 +296,10 @@ export interface FileRouteTypes {
     | '/studios/$studioId/today'
     | '/studios/$studioId/webhooks'
     | '/studios/$studioId'
+    | '/studios/$studioId/glazes/$glazeId'
     | '/studios/$studioId/kilns/$kilnId'
     | '/studios/$studioId/pieces/$pieceId'
+    | '/studios/$studioId/glazes'
     | '/studios/$studioId/kilns'
     | '/studios/$studioId/pieces'
   id:
@@ -299,8 +323,10 @@ export interface FileRouteTypes {
     | '/studios/$studioId/today'
     | '/studios/$studioId/webhooks'
     | '/studios/$studioId/'
+    | '/studios/$studioId/glazes/$glazeId'
     | '/studios/$studioId/kilns/$kilnId'
     | '/studios/$studioId/pieces/$pieceId'
+    | '/studios/$studioId/glazes/'
     | '/studios/$studioId/kilns/'
     | '/studios/$studioId/pieces/'
   fileRoutesById: FileRoutesById
@@ -446,6 +472,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudiosStudioIdWebhooksRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
+    '/studios/$studioId/glazes/': {
+      id: '/studios/$studioId/glazes/'
+      path: '/glazes'
+      fullPath: '/studios/$studioId/glazes/'
+      preLoaderRoute: typeof StudiosStudioIdGlazesIndexRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
+    '/studios/$studioId/glazes/$glazeId': {
+      id: '/studios/$studioId/glazes/$glazeId'
+      path: '/glazes/$glazeId'
+      fullPath: '/studios/$studioId/glazes/$glazeId'
+      preLoaderRoute: typeof StudiosStudioIdGlazesGlazeIdRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
     '/studios/$studioId/kilns/': {
       id: '/studios/$studioId/kilns/'
       path: '/kilns'
@@ -492,8 +532,10 @@ interface StudiosStudioIdRouteRouteChildren {
   StudiosStudioIdTodayRoute: typeof StudiosStudioIdTodayRoute
   StudiosStudioIdWebhooksRoute: typeof StudiosStudioIdWebhooksRoute
   StudiosStudioIdIndexRoute: typeof StudiosStudioIdIndexRoute
+  StudiosStudioIdGlazesGlazeIdRoute: typeof StudiosStudioIdGlazesGlazeIdRoute
   StudiosStudioIdKilnsKilnIdRoute: typeof StudiosStudioIdKilnsKilnIdRoute
   StudiosStudioIdPiecesPieceIdRoute: typeof StudiosStudioIdPiecesPieceIdRoute
+  StudiosStudioIdGlazesIndexRoute: typeof StudiosStudioIdGlazesIndexRoute
   StudiosStudioIdKilnsIndexRoute: typeof StudiosStudioIdKilnsIndexRoute
   StudiosStudioIdPiecesIndexRoute: typeof StudiosStudioIdPiecesIndexRoute
 }
@@ -513,8 +555,10 @@ const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
   StudiosStudioIdTodayRoute: StudiosStudioIdTodayRoute,
   StudiosStudioIdWebhooksRoute: StudiosStudioIdWebhooksRoute,
   StudiosStudioIdIndexRoute: StudiosStudioIdIndexRoute,
+  StudiosStudioIdGlazesGlazeIdRoute: StudiosStudioIdGlazesGlazeIdRoute,
   StudiosStudioIdKilnsKilnIdRoute: StudiosStudioIdKilnsKilnIdRoute,
   StudiosStudioIdPiecesPieceIdRoute: StudiosStudioIdPiecesPieceIdRoute,
+  StudiosStudioIdGlazesIndexRoute: StudiosStudioIdGlazesIndexRoute,
   StudiosStudioIdKilnsIndexRoute: StudiosStudioIdKilnsIndexRoute,
   StudiosStudioIdPiecesIndexRoute: StudiosStudioIdPiecesIndexRoute,
 }

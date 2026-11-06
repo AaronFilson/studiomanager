@@ -14,7 +14,7 @@ import io.github.aaronfilson.studiomanager.contract.PiecePhotoDto;
 import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.ProblemReport;
-import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Record;
+import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.WorkRecord;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 
 /** Converts maintenance to the HTTP contract. Public for Today, which lists due tasks. */
@@ -73,7 +73,7 @@ public final class MaintenanceDtos {
                 .version(report.version());
     }
 
-    static MaintenanceRecordDto toDto(Record record, List<RecordPhotoService.Photo> photos) {
+    static MaintenanceRecordDto toDto(WorkRecord record, List<RecordPhotoService.Photo> photos) {
         return new MaintenanceRecordDto()
                 .id(record.id())
                 .assetId(record.assetId())

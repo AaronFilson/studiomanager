@@ -51,6 +51,9 @@ function StudioLayout() {
         <Link to="/studios/$studioId/roster" params={{ studioId }}>
           Roster
         </Link>
+        <Link to="/studios/$studioId/glazes" params={{ studioId }}>
+          Glaze book
+        </Link>
         {staff && (
           <>
             <Link to="/studios/$studioId/kilns" params={{ studioId }}>

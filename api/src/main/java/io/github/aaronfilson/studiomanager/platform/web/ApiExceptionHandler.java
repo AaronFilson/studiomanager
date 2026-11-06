@@ -34,8 +34,8 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    @ExceptionHandler
-    ProblemDetail optimisticLock(OptimisticLockingFailureException ex) {
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail optimisticLock() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
                 "Someone else changed this at the same time. Reload and try again.");
     }
