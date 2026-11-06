@@ -27,6 +27,7 @@ provider "azurerm" {
   resource_providers_to_register = [
     "Microsoft.AlertsManagement",
     "Microsoft.App",
+    "Microsoft.Communication",
     "Microsoft.DBforPostgreSQL",
     "Microsoft.Insights",
     "Microsoft.KeyVault",

@@ -23,8 +23,13 @@ an hour, most of it waiting for Postgres. For background on the design, see
 
 2. **Apply bootstrap** (as yourself, in the subscription's normal tenant):
 
+   After step 1 your account belongs to two tenants. Sign in to the one that owns the
+   subscription, not the External ID tenant: bootstrap creates its Entra group in whichever tenant
+   the CLI is signed in to. A plain `az login` lists each tenant and its subscriptions; the
+   External ID tenant shows as having none.
+
    ```bash
-   az login
+   az login --tenant <tenant that owns the subscription>
    cd infra/bootstrap
    cp terraform.tfvars.example terraform.tfvars   # set subscription_id
    terraform init
