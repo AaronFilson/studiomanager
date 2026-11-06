@@ -142,6 +142,49 @@ clay". It has to be safe enough that a confused or manipulated assistant can't d
 5. Phase 2 OAuth, if a client needs it or for the resume. Spring Authorization Server, RFC 9728
    metadata and consent.
 
+## Status
+
+**Step 1, 2026-11-06, on `wave2-tokens-mcp` (V27, [ADR 19](../adr/0019-personal-api-tokens.md)):
+personal tokens.** Built and green. It differs from the plan above in these ways:
+- **Scopes are checked in one table, not on each controller method.** `TokenPolicy` maps each
+  route area and HTTP method to "read only", "writable with this scope" or "never", and it
+  fails closed. `TokenPolicyTests` reads the OpenAPI contract and fails if any area is missing,
+  which does the job of the planned "every method declares a scope" architecture test.
+- **Fewer write scopes.** There's no `propose` scope yet, because it comes with pending
+  actions. The money areas and `read:contact` are simply never reachable.
+- **Row-level security is tenant-only.** `api_token` has the plain tenant policy, and the app
+  shows a person only their own tokens, or everyone's to the studio owner.
+- **The token is looked up through a security-definer function,** `app.use_api_token`, because no
+  studio is bound yet when it's checked. It records the last use at most once a minute.
+- **Not done:** the last-used IP, and expiring tokens after 90 days unused.
+
+**Step 3, 2026-11-06: the MCP server, with phase 1 sign-in.**
+- **Endpoint:** `POST /api/v1/studios/{studioId}/mcp`, stateless Streamable HTTP. It handles
+  `initialize`, `ping`, `tools/list` and `tools/call`, and accepts notifications with a 202.
+  `GET` returns 405.
+- **Checks:** it checks `Origin` against the CORS origins and checks `MCP-Protocol-Version`
+  (2025-11-25, 2025-06-18 and 2025-03-26).
+- **Eight read-only tools:**
+  - `studio_today`
+  - `kilns`
+  - `open_firings`
+  - `low_supplies`
+  - `maintenance_due`
+  - `problem_reports`
+  - `glaze_book`
+  - `glaze_batch`
+- **Results:** each result is both `structuredContent` and text. A tool's own failure comes
+  back as `isError`, and protocol mistakes come back as JSON-RPC errors.
+- **Access:** the MCP area needs the `read` scope and the caller must be staff.
+- **Not the MCP Java SDK.** Its transports run on Reactor threads, while the tenant is a
+  `ScopedValue` on the request thread that row-level security depends on. The small protocol
+  surface is written by hand, inside the normal security chain. Revisit when the SDK's stateless
+  server for the 2026 spec is stable.
+- **Not built:** resources (`studio://policies`), and a per-tool scope check, which isn't needed
+  while every tool only reads.
+- **How to connect:** [connect-an-ai-assistant.md](../guides/connect-an-ai-assistant.md).
+- **Step 2 (call log, rate limit, "via token") comes next,** before any write or propose tools.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

@@ -35,6 +35,8 @@ public final class TokenPolicy {
 
     static final Map<String, Access> AREAS = Map.ofEntries(
             Map.entry("", READ_ONLY),
+            // The MCP endpoint is POST-only JSON-RPC, and every tool on it only reads (McpTools)
+            Map.entry("mcp", new Writable(TokenScope.READ)),
             Map.entry("today", READ_ONLY),
             Map.entry("activity", READ_ONLY),
             Map.entry("members", READ_ONLY),
