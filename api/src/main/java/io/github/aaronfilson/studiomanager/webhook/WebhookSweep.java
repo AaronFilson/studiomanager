@@ -1,8 +1,9 @@
 package io.github.aaronfilson.studiomanager.webhook;
 
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -16,7 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * Retries deliveries that are due, in every studio, and clears out old history.
+ * Retries deliveries that are due, in every studio. {@link WebhookHistoryPurge} clears out old
+ * history.
  *
  * <p>Finding them crosses tenants, so {@code app.due_webhook_deliveries} (ADR 10) returns only ids,
  * and only to a job. Each attempt then runs inside its studio, under row-level security, as {@link
@@ -24,26 +26,41 @@ import org.springframework.transaction.support.TransactionOperations;
  */
 @Component
 @ConditionalOnBooleanProperty(name = "studiomanager.webhooks.sweep", matchIfMissing = true)
-class WebhookSweep {
+class WebhookSweep implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(WebhookSweep.class);
 
   static final SystemActor ACTOR = SystemActor.WEBHOOK_SWEEP;
   static final int BATCH = 200;
-  static final Duration KEEP = Duration.ofDays(30);
 
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
   private final WebhookSender sender;
+  private final SweepRunner sweeps;
 
-  WebhookSweep(JdbcClient jdbc, TransactionOperations transactions, WebhookSender sender) {
+  WebhookSweep(
+      JdbcClient jdbc,
+      TransactionOperations transactions,
+      WebhookSender sender,
+      SweepRunner sweeps) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.sender = sender;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1M")
   void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "webhook-deliveries";
+  }
+
+  @Override
+  public void sweep() {
     runAt(Instant.now());
   }
 
@@ -68,30 +85,14 @@ class WebhookSweep {
           arrived++;
         }
       } catch (RuntimeException e) {
-        log.warn(
-            "Webhook delivery {} in studio {} failed: {}",
-            delivery.deliveryId(),
-            delivery.studioId(),
-            e.toString());
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue("deliveryId", delivery.deliveryId())
+            .addKeyValue("studioId", delivery.studioId())
+            .log("Webhook delivery {} failed", delivery.deliveryId());
       }
     }
     return arrived;
-  }
-
-  @Scheduled(initialDelayString = "PT15M", fixedDelayString = "PT24H")
-  void purge() {
-    Integer purged =
-        TenantContext.callAs(
-            TenantContext.system(ACTOR),
-            () ->
-                transactions.execute(tx ->
-                    jdbc.sql("select app.purge_webhook_history(:before)")
-                        .param("before", Instant.now().minus(KEEP).atOffset(ZoneOffset.UTC))
-                        .query(Integer.class)
-                        .single()));
-    if (purged != null && purged > 0) {
-      log.info("Purged {} webhook events older than {} days", purged, KEEP.toDays());
-    }
   }
 
   record Due(UUID deliveryId, UUID studioId) {}

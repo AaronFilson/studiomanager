@@ -13,3 +13,7 @@ output "url" {
 output "migration_job_name" {
   value = azurerm_container_app_job.migrate.name
 }
+
+output "sweep_job_name" {
+  value = azurerm_container_app_job.sweep.name
+}

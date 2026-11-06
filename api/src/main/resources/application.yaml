@@ -120,14 +120,15 @@ studiomanager:
     connection-string: ${STUDIOMANAGER_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;}
     container: piece-photos
   webhooks:
-    # AES-256, base64: encrypts endpoints' signing secrets at rest. Blank uses a fixed development
-    # key; application-azure.yaml requires a real one.
+    # Keyring of AES-256 keys, base64: encrypts endpoints' signing secrets at rest. "2:new,1:old"
+    # rotates (current first); a bare key is version 1 (SecretCipher). Blank uses a fixed
+    # development key; application-azure.yaml requires a real one.
     secret-key: ${STUDIOMANAGER_WEBHOOK_SECRET_KEY:}
     # true lets webhooks reach localhost and private networks: local work and tests only
     allow-private-networks: ${STUDIOMANAGER_WEBHOOK_ALLOW_PRIVATE_NETWORKS:false}
   ai:
-    # AES-256, base64: encrypts studios' own AI keys at rest. Blank uses a fixed development key;
-    # application-azure.yaml requires a real one.
+    # Keyring of AES-256 keys, base64, in the same form as the webhook one: encrypts studios' own
+    # AI keys at rest. Blank uses a fixed development key; application-azure.yaml requires a real one.
     key-encryption-key: ${STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY:}
     anthropic-base-url: ${STUDIOMANAGER_ANTHROPIC_BASE_URL:https://api.anthropic.com}
   rate-limit:

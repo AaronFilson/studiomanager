@@ -1,6 +1,8 @@
 package io.github.aaronfilson.studiomanager.piece;
 
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Duration;
@@ -29,7 +31,7 @@ import org.springframework.transaction.support.TransactionOperations;
 @ConditionalOnBooleanProperty(
     name = "studiomanager.pieces.photo-upload-sweep",
     matchIfMissing = true)
-class PhotoUploadSweep {
+class PhotoUploadSweep implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(PhotoUploadSweep.class);
 
@@ -38,15 +40,28 @@ class PhotoUploadSweep {
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
   private final BlobStore blobs;
+  private final SweepRunner sweeps;
 
-  PhotoUploadSweep(JdbcClient jdbc, TransactionOperations transactions, BlobStore blobs) {
+  PhotoUploadSweep(
+      JdbcClient jdbc, TransactionOperations transactions, BlobStore blobs, SweepRunner sweeps) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.blobs = blobs;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT3M", fixedDelayString = "PT1H")
   public void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "piece-photo-uploads";
+  }
+
+  @Override
+  public void sweep() {
     runAt(Instant.now());
   }
 
@@ -74,10 +89,11 @@ class PhotoUploadSweep {
         blobs.delete(PhotoBlobs.full(photo.studioId(), photo.pieceId(), photo.photoId()));
         blobs.delete(PhotoBlobs.thumbnail(photo.studioId(), photo.pieceId(), photo.photoId()));
       } catch (RuntimeException e) {
-        log.warn(
-            "Couldn't delete the images of abandoned photo {}: {}",
-            photo.photoId(),
-            e.getMessage());
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue("studioId", photo.studioId())
+            .addKeyValue("photoId", photo.photoId())
+            .log("Couldn't delete the images of abandoned photo {}", photo.photoId());
       }
     }
     log.info("Removed {} abandoned photo uploads", taken.size());

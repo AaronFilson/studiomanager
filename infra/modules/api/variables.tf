@@ -104,6 +104,23 @@ variable "memory" {
   default = "1Gi"
 }
 
+variable "trace_sampling_ratio" {
+  description = "Share of traces kept (OpenTelemetry's parent-based trace-id ratio sampler), so the log quota is a backstop rather than the thing that cuts logs off at midday."
+  type        = number
+  default     = 0.1
+
+  validation {
+    condition     = var.trace_sampling_ratio >= 0 && var.trace_sampling_ratio <= 1
+    error_message = "trace_sampling_ratio is a share, from 0 to 1."
+  }
+}
+
+variable "sweep_cron_expression" {
+  description = "When the sweep job runs every sweep once, in UTC (ADR 23). Every 6 hours by default."
+  type        = string
+  default     = "0 */6 * * *"
+}
+
 variable "tags" {
   type = map(string)
 }

@@ -10,8 +10,9 @@ public class StudioManagerApplication {
   public static void main(String[] args) {
     ConfigurableApplicationContext context =
         SpringApplication.run(StudioManagerApplication.class, args);
-    // The migrate profile has no web server: Flyway ran during startup, so the job is done.
-    if (context.getEnvironment().matchesProfiles("migrate")) {
+    // The migrate and sweep profiles have no web server: Flyway, or every sweep (SweepJob), ran
+    // during startup, so the job is done. The exit code says whether it succeeded.
+    if (context.getEnvironment().matchesProfiles("migrate | sweep")) {
       System.exit(SpringApplication.exit(context));
     }
   }
