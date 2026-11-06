@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.ratelimit;
 
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
@@ -15,7 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Keeps the call log to its last 90 days, across studios, as its own system account. */
 @Component
-class ApiCallLogPurge {
+class ApiCallLogPurge implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(ApiCallLogPurge.class);
   static final Duration KEEP = Duration.ofDays(90);
@@ -23,15 +25,28 @@ class ApiCallLogPurge {
   private final JdbcClient jdbc;
   private final TransactionTemplate transactions;
   private final Clock clock;
+  private final SweepRunner sweeps;
 
-  ApiCallLogPurge(JdbcClient jdbc, TransactionTemplate transactions, Clock clock) {
+  ApiCallLogPurge(
+      JdbcClient jdbc, TransactionTemplate transactions, Clock clock, SweepRunner sweeps) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.clock = clock;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT20M", fixedDelayString = "PT24H")
   void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "api-call-log-purge";
+  }
+
+  @Override
+  public void sweep() {
     int purged = purgeBefore(clock.instant().minus(KEEP));
     if (purged > 0) {
       log.info("Purged {} call log rows older than {} days", purged, KEEP.toDays());
