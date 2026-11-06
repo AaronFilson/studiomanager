@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const studio = aStudio();
 const ana: Payee = {
@@ -20,9 +20,9 @@ const ana: Payee = {
 function payablesApi() {
   server.use(
     http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
-    http.get(`${API}/api/v1/studios/:studioId/payees`, () => HttpResponse.json([ana])),
-    http.get(`${API}/api/v1/studios/:studioId/consignment-items`, () => HttpResponse.json([])),
-    http.get(`${API}/api/v1/studios/:studioId/consignment-sales`, () => HttpResponse.json([])),
+    http.get(`${API}/api/v1/studios/:studioId/payees`, () => HttpResponse.json(capped([ana]))),
+    http.get(`${API}/api/v1/studios/:studioId/consignment-items`, () => HttpResponse.json(capped([]))),
+    http.get(`${API}/api/v1/studios/:studioId/consignment-sales`, () => HttpResponse.json(capped([]))),
     http.get(`${API}/api/v1/studios/:studioId/payables/1099-nec`, () =>
       HttpResponse.json({
         year: 2026,
@@ -106,7 +106,7 @@ describe('artists and instructors', () => {
     payablesApi();
     let run: PaymentRunRequest | undefined;
     server.use(
-      http.get(`${API}/api/v1/studios/:studioId/payees`, () => HttpResponse.json([ana, ben])),
+      http.get(`${API}/api/v1/studios/:studioId/payees`, () => HttpResponse.json(capped([ana, ben]))),
       http.post(`${API}/api/v1/studios/:studioId/payment-runs`, async ({ request }) => {
         run = (await request.json()) as PaymentRunRequest;
         return HttpResponse.json([], { status: 201 });

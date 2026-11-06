@@ -1,6 +1,7 @@
 import {
   type Firing,
   type FiringKind,
+  FROM_THE_EXPORT,
   getFiringOptions,
   getFiringQueryKey,
   getKilnQueueOptions,
@@ -15,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { CappedNote } from '../../../../components/CappedNote';
 import { ErrorMessage } from '../../../../components/ErrorMessage';
 import { formatDate, formatDateTime } from '../../../../labels';
 
@@ -37,7 +39,7 @@ function KilnPage() {
   if (!kiln) {
     return <p role="alert">No such kiln.</p>;
   }
-  const open = firings.data?.find((f) => f.status === 'LOADING' || f.status === 'FIRING');
+  const open = firings.data?.items.find((f) => f.status === 'LOADING' || f.status === 'FIRING');
 
   return (
     <div className="stack">
@@ -68,9 +70,10 @@ function KilnPage() {
       </p>
       <section className="stack" aria-label="Firing log">
         <h2>Firing log</h2>
-        {firings.isSuccess && firings.data.length === 0 && <p>No firings yet.</p>}
+        {firings.isSuccess && firings.data.items.length === 0 && <p>No firings yet.</p>}
+        <CappedNote list={firings.data} noun="firings" findTheRest={FROM_THE_EXPORT} />
         <ol className="timeline">
-          {firings.data?.map((firing) => (
+          {firings.data?.items.map((firing) => (
             <li key={firing.id}>
               <strong>{firing.kind === 'BISQUE' ? 'Bisque' : 'Glaze'}</strong>
               {firing.cone && ` · cone ${firing.cone}`} · {firing.pieceCount} pieces · {firing.status.toLowerCase()} ·{' '}
@@ -109,7 +112,7 @@ function LoadForm({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
   }
 
   function fillFromQueue() {
-    setChosen(new Set(queue.data?.filter((e) => e.fitsNextLoad).map((e) => e.piece.id)));
+    setChosen(new Set(queue.data?.items.filter((e) => e.fitsNextLoad).map((e) => e.piece.id)));
   }
 
   return (
@@ -137,12 +140,18 @@ function LoadForm({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
         </div>
       </div>
       {queue.isError && <ErrorMessage error={queue.error} />}
-      {queue.isSuccess && queue.data.length === 0 && <p>Nothing is waiting for a {kind.toLowerCase()} firing.</p>}
-      {queue.isSuccess && queue.data.length > 0 && (
+      {queue.isSuccess && queue.data.items.length === 0 && <p>Nothing is waiting for a {kind.toLowerCase()} firing.</p>}
+      {queue.isSuccess && queue.data.items.length > 0 && (
         <>
           <p className="badge">Longest-waiting first. Greyed pieces are over the per-member cap for this load.</p>
+          <CappedNote
+            list={queue.data}
+            order="longest-waiting"
+            noun="pieces"
+            findTheRest="Load some of these, and the rest will show up next."
+          />
           <ul className="studio-list">
-            {queue.data.map(({ piece, waitingSince, fitsNextLoad }) => (
+            {queue.data.items.map(({ piece, waitingSince, fitsNextLoad }) => (
               <li key={piece.id} className={fitsNextLoad ? undefined : 'muted'}>
                 <label className="choice">
                   <input type="checkbox" checked={chosen.has(piece.id)} onChange={() => toggle(piece.id)} />
@@ -157,7 +166,7 @@ function LoadForm({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
       )}
       {load.isError && <ErrorMessage error={load.error} />}
       <div className="row">
-        <button type="button" onClick={fillFromQueue} disabled={!queue.data?.length}>
+        <button type="button" onClick={fillFromQueue} disabled={!queue.data?.items.length}>
           Fill from the queue
         </button>
         <button

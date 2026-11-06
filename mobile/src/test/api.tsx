@@ -67,6 +67,11 @@ export async function renderWithQueries(ui: ReactElement) {
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 
+/** A capped list response, as the API sends it: these rows, none left out unless `truncated`. */
+export function capped<T>(items: T[], truncated = false, limit = 2000) {
+  return { items, truncated, limit };
+}
+
 export function aPiece(overrides: Partial<Piece> = {}): Piece {
   return {
     id: 'p1',

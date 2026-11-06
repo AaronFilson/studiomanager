@@ -8,10 +8,12 @@ import io.github.aaronfilson.studiomanager.contract.SaveSupplyRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SellSupplyRequestDto;
 import io.github.aaronfilson.studiomanager.contract.StockMovementDto;
 import io.github.aaronfilson.studiomanager.contract.StockMovementKindDto;
+import io.github.aaronfilson.studiomanager.contract.StockMovementListDto;
 import io.github.aaronfilson.studiomanager.contract.StockMovementRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SuppliesApi;
 import io.github.aaronfilson.studiomanager.contract.SupplyItemDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateSupplyRequestDto;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Category;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.ItemSettings;
@@ -64,9 +66,10 @@ class SupplyController implements SuppliesApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<StockMovementDto>> listStockMovements(UUID studioId, UUID itemId) {
-    return ResponseEntity.ok(
-        supplies.movements(itemId).stream()
+  public ResponseEntity<StockMovementListDto> listStockMovements(UUID studioId, UUID itemId) {
+    Capped<StockMovementDto> history =
+        supplies
+            .movements(itemId)
             .map(m ->
                 new StockMovementDto()
                     .id(m.id())
@@ -75,8 +78,9 @@ class SupplyController implements SuppliesApi {
                     .memberId(m.memberId())
                     .memberName(m.memberName())
                     .note(m.note())
-                    .createdAt(m.createdAt().atOffset(ZoneOffset.UTC)))
-            .toList());
+                    .createdAt(m.createdAt().atOffset(ZoneOffset.UTC)));
+    return ResponseEntity.ok(
+        new StockMovementListDto(history.items(), history.truncated(), history.limit()));
   }
 
   @Override

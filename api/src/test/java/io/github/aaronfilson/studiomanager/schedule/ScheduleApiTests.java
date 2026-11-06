@@ -109,8 +109,8 @@ class ScheduleApiTests {
                 .with(monitor.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[0].title", t -> assertThat(t).isEqualTo("Reserved"))
-        .hasPathSatisfying("$[0].mine", m -> assertThat(m).isEqualTo(false));
+        .hasPathSatisfying("$.items[0].title", t -> assertThat(t).isEqualTo("Reserved"))
+        .hasPathSatisfying("$.items[0].mine", m -> assertThat(m).isEqualTo(false));
     assertThat(
             mvc.get()
                 .uri(
@@ -120,7 +120,7 @@ class ScheduleApiTests {
                 .with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[0].accountName")
+        .extractingPath("$.items[0].accountName")
         .isEqualTo("Mo");
   }
 
@@ -365,7 +365,7 @@ class ScheduleApiTests {
                     .uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
                     .with(maker.token())
                     .exchange(),
-                "$[0].title"))
+                "$.items[0].title"))
         .isEqualTo("Bisque firing");
     assertThat(
             post(
@@ -380,7 +380,7 @@ class ScheduleApiTests {
                 .uri(path("/bookings?from={from}&to={to}"), from.toString(), to.toString())
                 .with(owner.token())
                 .exchange(),
-            "$[0].endsAt");
+            "$.items[0].endsAt");
     assertThat(Instant.parse(ends)).isBefore(Instant.now().plus(5, ChronoUnit.MINUTES));
 
     String cancelled = startFiring(kiln);
@@ -420,7 +420,7 @@ class ScheduleApiTests {
             .exchange()
             .getResponse()
             .getContentAsString();
-    return JsonPath.read(body, "$[?(@.kind == 'FIRING')].id");
+    return JsonPath.read(body, "$.items[?(@.kind == 'FIRING')].id");
   }
 
   private MvcTestResult reserve(TestUser user, String resource, Instant start) {
@@ -501,7 +501,7 @@ class ScheduleApiTests {
             .exchange()
             .getResponse()
             .getContentAsString();
-    return JsonPath.read(body, "$[?(@.kind == 'SHIFT_COVER')].title");
+    return JsonPath.read(body, "$.items[?(@.kind == 'SHIFT_COVER')].title");
   }
 
   private MvcTestResult assign(TestUser user, String shift, String accountId, long version) {

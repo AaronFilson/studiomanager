@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const studio = aStudio({ currency: 'USD' });
 
@@ -16,11 +16,11 @@ describe('money', () => {
       http.get(`${API}/api/v1/studios/:studioId/balances`, () =>
         HttpResponse.json([{ memberId: 'm1', memberName: 'Mo', owed: '10.83' }]),
       ),
-      http.get(`${API}/api/v1/studios/:studioId/stored-values`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/stored-values`, () => HttpResponse.json(capped([]))),
       http.get(`${API}/api/v1/studios/:studioId/clearing`, () =>
         HttpResponse.json([{ provider: 'STRIPE', awaitingPayout: '50.00' }]),
       ),
-      http.get(`${API}/api/v1/studios/:studioId/payouts`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/payouts`, () => HttpResponse.json(capped([]))),
       http.get(`${API}/api/v1/studios/:studioId/members`, () => HttpResponse.json([])),
       http.post(`${API}/api/v1/studios/:studioId/payouts`, async ({ request }) => {
         imported = (await request.json()) as ImportPayoutRequest;

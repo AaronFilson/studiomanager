@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.webhook;
 
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -37,6 +38,9 @@ public class WebhookEndpoints {
   static final int MAX_ENDPOINTS = 10;
   static final Duration ROTATION_OVERLAP = Duration.ofHours(24);
   static final Duration LOG_DAYS = Duration.ofDays(30);
+
+  /** The most deliveries {@link #deliveries} returns. */
+  static final int DELIVERY_LOG_LIMIT = 500;
 
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
@@ -230,20 +234,23 @@ public class WebhookEndpoints {
 
   /** The last 30 days of deliveries to an endpoint, newest first. */
   @Transactional(readOnly = true)
-  public List<DeliveryView> deliveries(UUID endpointId) {
+  public Capped<DeliveryView> deliveries(UUID endpointId) {
     requireStaff();
     get(endpointId);
-    List<UUID> ids =
-        jdbc.sql(
-                """
-                select id from webhook_delivery where endpoint_id = :id and created_at > :since
-                order by created_at desc limit 200
-                """)
-            .param("id", endpointId)
-            .param("since", now().minus(LOG_DAYS).atOffset(ZoneOffset.UTC))
-            .query(UUID.class)
-            .list();
-    return ids.stream().map(this::delivery).toList();
+    Capped<UUID> ids =
+        Capped.fromFetched(
+            jdbc.sql(
+                    """
+                    select id from webhook_delivery where endpoint_id = :id and created_at > :since
+                    order by created_at desc limit :fetchSize
+                    """)
+                .param("id", endpointId)
+                .param("since", now().minus(LOG_DAYS).atOffset(ZoneOffset.UTC))
+                .param("fetchSize", Capped.fetchSize(DELIVERY_LOG_LIMIT))
+                .query(UUID.class)
+                .list(),
+            DELIVERY_LOG_LIMIT);
+    return ids.map(this::delivery);
   }
 
   /**

@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useMemo, useState } from 'react';
 
+import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { dutyLabel, formatDate, formatTime, isStaff } from '../../../labels';
 
@@ -51,9 +52,10 @@ function RosterPage() {
       <h1>Roster</h1>
       {myId && <MyHours studioId={studioId} accountId={myId} />}
       {shifts.isError && <ErrorMessage error={shifts.error} />}
-      {shifts.isSuccess && shifts.data.length === 0 && <p>No shifts in the next four weeks.</p>}
+      {shifts.isSuccess && shifts.data.items.length === 0 && <p>No shifts in the next four weeks.</p>}
+      <CappedNote list={shifts.data} order="first" noun="shifts" findTheRest="The rest of the four weeks isn't listed." />
       <ul className="studio-list">
-        {shifts.data?.map((shift) => (
+        {shifts.data?.items.map((shift) => (
           <ShiftRow key={shift.id} studioId={studioId} shift={shift} staff={staff} myId={myId} now={now} />
         ))}
       </ul>

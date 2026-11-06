@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const studio = aStudio({ myRole: 'MEMBER' });
 const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
@@ -28,9 +28,9 @@ function aShift(overrides: Partial<Shift>): Shift {
 function rosterHandlers(shifts: Shift[]) {
   return [
     http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
-    http.get(`${API}/api/v1/studios/:studioId/shifts`, () => HttpResponse.json(shifts)),
+    http.get(`${API}/api/v1/studios/:studioId/shifts`, () => HttpResponse.json(capped(shifts))),
     http.get(`${API}/api/v1/studios/:studioId/hours/:accountId`, ({ params }) =>
-      HttpResponse.json({ accountId: params.accountId, totalMinutes: 0, entries: [] }),
+      HttpResponse.json({ accountId: params.accountId, totalMinutes: 0, entries: [], truncated: false, limit: 1000 }),
     ),
   ];
 }

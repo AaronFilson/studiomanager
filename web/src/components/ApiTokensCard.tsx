@@ -158,5 +158,6 @@ function status(t: ApiToken): string {
   if (t.revokedAt) return 'Revoked';
   if (new Date(t.expiresAt) <= new Date()) return 'Expired';
   const used = t.lastUsedAt ? `last used ${new Date(t.lastUsedAt).toLocaleDateString()}` : 'never used';
-  return `Until ${new Date(t.expiresAt).toLocaleDateString()}, ${used}`;
+  const from = t.lastUsedFrom ? `. Last used from ${t.lastUsedFrom}` : '';
+  return `Until ${new Date(t.expiresAt).toLocaleDateString()}, ${used}${from}`;
 }

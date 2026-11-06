@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { pickPhoto } from '../photos';
-import { aPiece, renderWithQueries, stubApi } from '../test/api';
+import { aPiece, capped, renderWithQueries, stubApi } from '../test/api';
 import { IntakeForm } from './IntakeForm';
 import { PieceDetail } from './PieceDetail';
 import { PieceList } from './PieceList';
@@ -35,10 +35,10 @@ const upload = {
 describe('pieces', () => {
   it("lists a member's pieces with their stage and pickup date, and opens one", async () => {
     stubApi({
-      'GET /api/v1/studios/:studioId/pieces': [
+      'GET /api/v1/studios/:studioId/pieces': capped([
         aPiece({ stage: 'READY', holdUntil: '2026-11-04T05:59:59Z', nextStages: ['PICKED_UP'] }),
         aPiece({ id: 'p2', number: 43, description: 'Bowl', stage: 'UNCLAIMED', overdue: true }),
-      ],
+      ]),
     });
     const onOpen = jest.fn();
 
@@ -55,8 +55,18 @@ describe('pieces', () => {
     expect(onOpen).toHaveBeenCalledWith('p2');
   });
 
+  it('says so when the shelf list was cut at its limit', async () => {
+    stubApi({ 'GET /api/v1/studios/:studioId/pieces': capped([aPiece()], true, 2000) });
+
+    await renderWithQueries(<PieceList studioId={studioId} staff onOpen={jest.fn()} />);
+
+    expect(
+      await screen.findByText('Showing the newest 2,000 pieces. Filter by stage to find older ones.'),
+    ).toBeOnTheScreen();
+  });
+
   it('lets staff filter the shelf by stage', async () => {
-    const calls = stubApi({ 'GET /api/v1/studios/:studioId/pieces': [aPiece()] });
+    const calls = stubApi({ 'GET /api/v1/studios/:studioId/pieces': capped([aPiece()]) });
 
     await renderWithQueries(<PieceList studioId={studioId} staff onOpen={jest.fn()} />);
     expect(await screen.findByText('Mo Maker')).toBeOnTheScreen();
@@ -176,7 +186,7 @@ describe('pieces', () => {
   });
 
   it('shows the first photo as a thumbnail on the shelf', async () => {
-    stubApi({ 'GET /api/v1/studios/:studioId/pieces': [aPiece({ photos: [photo] })] });
+    stubApi({ 'GET /api/v1/studios/:studioId/pieces': capped([aPiece({ photos: [photo] })]) });
 
     await renderWithQueries(<PieceList studioId={studioId} staff onOpen={jest.fn()} />);
 

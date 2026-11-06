@@ -122,7 +122,7 @@ class PayablesApiTests {
     assertThat(mvc.get().uri(path("/consignment-items")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[0].inStock")
+        .extractingPath("$.items[0].inStock")
         .isEqualTo(2);
 
     // The rest goes back to her, and is off the shelf
@@ -131,7 +131,7 @@ class PayablesApiTests {
     assertThat(mvc.get().uri(path("/consignment-items")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
+        .extractingPath("$.items.length()")
         .isEqualTo(0);
 
     // The commission is revenue in the books; Ana's share isn't
@@ -399,10 +399,10 @@ class PayablesApiTests {
     assertThat(mvc.get().uri(path("/consignment-items?dueBack=true")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[*].id", ids -> assertThat(ids).asArray().containsExactly(old))
+        .hasPathSatisfying("$.items[*].id", ids -> assertThat(ids).asArray().containsExactly(old))
         .hasPathSatisfying(
-            "$[0].returnBy", d -> assertThat(d).isEqualTo(today.minusDays(10).toString()))
-        .hasPathSatisfying("$[0].dueBack", d -> assertThat(d).isEqualTo(true));
+            "$.items[0].returnBy", d -> assertThat(d).isEqualTo(today.minusDays(10).toString()))
+        .hasPathSatisfying("$.items[0].dueBack", d -> assertThat(d).isEqualTo(true));
     // Once it's back with her, it's no longer due
     assertThat(post(owner, path("/consignment-items/" + old + "/returns"), "{\"quantity\": 1}"))
         .hasStatusOk()
@@ -412,7 +412,7 @@ class PayablesApiTests {
     assertThat(mvc.get().uri(path("/consignment-items?dueBack=true")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
+        .extractingPath("$.items.length()")
         .isEqualTo(0);
   }
 
@@ -517,7 +517,7 @@ class PayablesApiTests {
     List<String> owed =
         JsonPath.read(
             payees.getResponse().getContentAsString(),
-            "$[?(@.id == '%s')].owed".formatted(payeeId));
+            "$.items[?(@.id == '%s')].owed".formatted(payeeId));
     return owed.getFirst();
   }
 

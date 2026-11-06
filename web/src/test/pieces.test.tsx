@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { preparePhoto } from '../photos';
 import { aPiece, aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 // jsdom has no canvas to shrink images with, so stand in for it
 vi.mock('../photos', () => ({
@@ -26,7 +26,7 @@ describe('pieces', () => {
     let pieces: Piece[] = [];
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(member)),
-      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json(pieces)),
+      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json(capped(pieces))),
       http.post(`${API}/api/v1/studios/:studioId/pieces`, async ({ request }) => {
         posted = (await request.json()) as IntakePieceRequest;
         const created = aPiece();
@@ -56,12 +56,25 @@ describe('pieces', () => {
     expect(within(row as HTMLElement).getByText('$48.00')).toBeInTheDocument();
   });
 
+  it('says so when the list was cut at its limit', async () => {
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json(capped([aPiece()], true, 2000))),
+    );
+
+    renderApp(`/studios/${studio.id}/pieces`);
+
+    expect(
+      await screen.findByText('Showing the newest 2,000 pieces. Filter by stage to find older ones.'),
+    ).toBeInTheDocument();
+  });
+
   it('lets staff move a piece on, sending the version they saw', async () => {
     let moved: MovePieceRequest | undefined;
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
       http.get(`${API}/api/v1/studios/:studioId/pieces/:pieceId`, () => HttpResponse.json(aPiece())),
-      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json(capped([]))),
       http.post(`${API}/api/v1/studios/:studioId/pieces/:pieceId/moves`, async ({ request }) => {
         moved = (await request.json()) as MovePieceRequest;
         return HttpResponse.json(
@@ -143,7 +156,7 @@ describe('piece photos', () => {
     let current = aPiece({ photos: [photo] });
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
-      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json([current])),
+      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json(capped([current]))),
       http.get(`${API}/api/v1/studios/:studioId/pieces/:pieceId`, () => HttpResponse.json(current)),
       http.delete(`${API}/api/v1/studios/:studioId/pieces/:pieceId/photos/:photoId`, ({ params }) => {
         deleted = params.photoId as string;

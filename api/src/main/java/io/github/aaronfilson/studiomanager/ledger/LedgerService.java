@@ -12,6 +12,7 @@ import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueMovemen
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.SummaryLine;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.TaxRate;
 import io.github.aaronfilson.studiomanager.piece.PieceReceived;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -55,6 +56,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class LedgerService {
+
+  /** The most payouts {@link #payouts} returns. */
+  static final int PAYOUTS_LIMIT = 1000;
+
+  /** The most balances {@link #storedValues} returns. */
+  static final int STORED_VALUES_LIMIT = 2000;
 
   private static final SecureRandom RANDOM = new SecureRandom();
   private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -286,8 +293,11 @@ public class LedgerService {
     }
     String key = "payout:%s:%s".formatted(provider, externalId);
     var existing =
-        payouts().stream()
-            .filter(p -> p.provider() == provider && p.externalId().equals(externalId))
+        payoutQuery(
+                "where provider = :provider and external_id = :externalId",
+                Map.of("provider", provider.name(), "externalId", externalId),
+                1)
+            .stream()
             .findFirst();
     if (existing.isPresent()) {
       return existing.get();
@@ -330,9 +340,9 @@ public class LedgerService {
           .param("now", utc(now()))
           .update();
     } catch (DuplicateKeyException race) {
-      throw new ConflictException("That payout was just imported by someone else.");
+      throw ConflictException.duplicate("That payout was just imported by someone else.");
     }
-    return payouts().stream().filter(p -> p.id().equals(id)).findFirst().orElseThrow();
+    return payoutQuery("where id = :id", Map.of("id", id), 1).getFirst();
   }
 
   // ---- Reading
@@ -372,16 +382,17 @@ public class LedgerService {
     if (!memberId.equals(caller.accountId()) && !isStaff(caller)) {
       throw new AccessDeniedException("You can see only your own balances.");
     }
-    return storedValueQuery("where s.holder = :holder", Map.of("holder", memberId));
+    return storedValueQuery("where s.holder = :holder", Map.of("holder", memberId)).items();
   }
 
-  /** Every stored-value balance with something left, staff only. */
+  /**
+   * Every stored-value balance with something left, newest first, at most {@value
+   * #STORED_VALUES_LIMIT}. Staff only.
+   */
   @Transactional(readOnly = true)
-  public List<StoredValueBalance> storedValues() {
+  public Capped<StoredValueBalance> storedValues() {
     requireStaff();
-    return storedValueQuery("", Map.of()).stream()
-        .filter(s -> s.remaining().signum() != 0)
-        .toList();
+    return storedValueQuery("where coalesce(used.total, 0) <> 0", Map.of());
   }
 
   /** Looks up a gift card by its code, for redeeming it at the desk. */
@@ -389,6 +400,7 @@ public class LedgerService {
   public StoredValueBalance giftCard(String code) {
     requireStaff();
     return storedValueQuery("where s.code = :code", Map.of("code", code.strip().toUpperCase()))
+        .items()
         .stream()
         .findFirst()
         .orElseThrow(() -> new NotFoundException("No gift card with that code."));
@@ -459,14 +471,25 @@ public class LedgerService {
   }
 
   @Transactional(readOnly = true)
-  public List<Payout> payouts() {
+  public Capped<Payout> payouts() {
     requireStaff();
-    return jdbc.sql(
-            """
-            select id, provider, external_id, arrival_on, gross, refunds, fees, adjustments, net, currency
-            from payout order by arrival_on desc, imported_at desc limit 500
-            """)
-        .query((rs, row) ->
+    return Capped.fromFetched(
+        payoutQuery("", Map.of(), Capped.fetchSize(PAYOUTS_LIMIT)), PAYOUTS_LIMIT);
+  }
+
+  private List<Payout> payoutQuery(String where, Map<String, Object> params, int fetchSize) {
+    var spec =
+        jdbc.sql(
+                """
+                select id, provider, external_id, arrival_on, gross, refunds, fees, adjustments, net, currency
+                from payout %s order by arrival_on desc, imported_at desc limit :fetchSize
+                """
+                    .formatted(where))
+            .param("fetchSize", fetchSize);
+    for (var param : params.entrySet()) {
+      spec = spec.param(param.getKey(), param.getValue());
+    }
+    return spec.query((rs, row) ->
             new Payout(
                 rs.getObject("id", UUID.class),
                 Provider.valueOf(rs.getString("provider")),
@@ -657,24 +680,28 @@ public class LedgerService {
   }
 
   private StoredValueBalance storedValue(UUID id) {
-    return storedValueQuery("where s.id = :id", Map.of("id", id)).stream()
+    return storedValueQuery("where s.id = :id", Map.of("id", id)).items().stream()
         .findFirst()
         .orElseThrow(() -> new NotFoundException("No such balance."));
   }
 
-  private List<StoredValueBalance> storedValueQuery(String where, Map<String, Object> params) {
+  private Capped<StoredValueBalance> storedValueQuery(String where, Map<String, Object> params) {
     var spec =
         jdbc.sql(
-            """
-            select s.id, s.kind, s.holder, s.code, s.label, s.expires_on,
-                   coalesce(-(select sum(l.amount) from journal_line l where l.stored_value = s.id), 0) as remaining
-            from stored_value s %s order by s.created_at desc limit 500
-            """
-                .formatted(where));
+                """
+                select s.id, s.kind, s.holder, s.code, s.label, s.expires_on,
+                       coalesce(-used.total, 0) as remaining
+                from stored_value s
+                left join lateral (select sum(l.amount) as total from journal_line l
+                                   where l.stored_value = s.id) used on true
+                %s order by s.created_at desc limit :fetchSize
+                """
+                    .formatted(where))
+            .param("fetchSize", Capped.fetchSize(STORED_VALUES_LIMIT));
     for (var param : params.entrySet()) {
       spec = spec.param(param.getKey(), param.getValue());
     }
-    List<StoredValueBalance> raw =
+    List<StoredValueBalance> fetchedRows =
         spec.query((rs, row) ->
                 new StoredValueBalance(
                     rs.getObject("id", UUID.class),
@@ -686,21 +713,20 @@ public class LedgerService {
                     rs.getObject("expires_on", LocalDate.class),
                     rs.getBigDecimal("remaining")))
             .list();
+    Capped<StoredValueBalance> raw = Capped.fromFetched(fetchedRows, STORED_VALUES_LIMIT);
     Map<UUID, String> names =
         accounts.displayNames(
-            raw.stream().map(StoredValueBalance::holder).filter(Objects::nonNull).toList());
-    return raw.stream()
-        .map(s ->
-            new StoredValueBalance(
-                s.id(),
-                s.kind(),
-                s.holder(),
-                s.holder() == null ? null : names.get(s.holder()),
-                s.code(),
-                s.label(),
-                s.expiresOn(),
-                s.remaining()))
-        .toList();
+            raw.items().stream().map(StoredValueBalance::holder).filter(Objects::nonNull).toList());
+    return raw.map(s ->
+        new StoredValueBalance(
+            s.id(),
+            s.kind(),
+            s.holder(),
+            s.holder() == null ? null : names.get(s.holder()),
+            s.code(),
+            s.label(),
+            s.expiresOn(),
+            s.remaining()));
   }
 
   private static void addIfNonZero(List<Line> lines, Line line) {

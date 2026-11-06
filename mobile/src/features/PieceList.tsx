@@ -1,4 +1,4 @@
-import { listPiecesOptions, type Piece, type PieceStage } from '@studiomanager/api-client';
+import { cappedNote, listPiecesOptions, type Piece, type PieceStage } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
@@ -33,9 +33,18 @@ export function PieceList({
       )}
       {pieces.isPending && <Loading />}
       {pieces.isError && <ErrorText error={pieces.error} />}
+      {pieces.isSuccess && pieces.data.truncated && (
+        <Body muted>
+          {cappedNote(
+            pieces.data,
+            { order: 'newest', noun: 'pieces' },
+            staff ? 'Filter by stage to find older ones.' : 'The studio has the rest on record.',
+          )}
+        </Body>
+      )}
       {pieces.isSuccess && (
         <FlatList
-          data={pieces.data}
+          data={pieces.data.items}
           keyExtractor={(piece) => piece.id}
           refreshControl={<RefreshControl refreshing={pieces.isRefetching} onRefresh={() => void pieces.refetch()} />}
           ListEmptyComponent={<Body muted>{staff ? 'No pieces here.' : 'You have no pieces yet.'}</Body>}

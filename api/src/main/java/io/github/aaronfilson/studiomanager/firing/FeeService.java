@@ -73,7 +73,7 @@ public class FeeService {
           .param("createdAt", Instant.now().truncatedTo(ChronoUnit.MICROS).atOffset(ZoneOffset.UTC))
           .update();
     } catch (DuplicateKeyException race) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed the fees at the same time. Reload and try again.");
     }
     return next;

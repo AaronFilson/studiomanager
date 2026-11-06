@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.supplies;
 
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -43,6 +44,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class SupplyService {
+
+  /** The most movements {@link #movements} returns. */
+  static final int STOCK_HISTORY_LIMIT = 1000;
 
   private static final String SELECT_ITEM =
       """
@@ -153,7 +157,7 @@ public class SupplyService {
     }
     if (updated == 0) {
       item(id);
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this item at the same time. Reload and try again.");
     }
     return item(id);
@@ -215,40 +219,41 @@ public class SupplyService {
   }
 
   @Transactional(readOnly = true)
-  public List<Movement> movements(UUID itemId) {
+  public Capped<Movement> movements(UUID itemId) {
     requireStaff();
     item(itemId);
-    List<Movement> raw =
-        jdbc.sql(
-                """
-                select id, kind, quantity, member_id, note, created_at from stock_movement
-                where item_id = :id order by created_at desc limit 200
-                """)
-            .param("id", itemId)
-            .query((rs, row) ->
-                new Movement(
-                    rs.getObject("id", UUID.class),
-                    MovementKind.valueOf(rs.getString("kind")),
-                    rs.getBigDecimal("quantity"),
-                    rs.getObject("member_id", UUID.class),
-                    null,
-                    rs.getString("note"),
-                    instant(rs, "created_at")))
-            .list();
+    Capped<Movement> raw =
+        Capped.fromFetched(
+            jdbc.sql(
+                    """
+                    select id, kind, quantity, member_id, note, created_at from stock_movement
+                    where item_id = :id order by created_at desc limit :fetchSize
+                    """)
+                .param("id", itemId)
+                .param("fetchSize", Capped.fetchSize(STOCK_HISTORY_LIMIT))
+                .query((rs, row) ->
+                    new Movement(
+                        rs.getObject("id", UUID.class),
+                        MovementKind.valueOf(rs.getString("kind")),
+                        rs.getBigDecimal("quantity"),
+                        rs.getObject("member_id", UUID.class),
+                        null,
+                        rs.getString("note"),
+                        instant(rs, "created_at")))
+                .list(),
+            STOCK_HISTORY_LIMIT);
     Map<UUID, String> names =
         accounts.displayNames(
-            raw.stream().map(Movement::memberId).filter(Objects::nonNull).toList());
-    return raw.stream()
-        .map(m ->
-            new Movement(
-                m.id(),
-                m.kind(),
-                m.quantity(),
-                m.memberId(),
-                m.memberId() == null ? null : names.get(m.memberId()),
-                m.note(),
-                m.createdAt()))
-        .toList();
+            raw.items().stream().map(Movement::memberId).filter(Objects::nonNull).toList());
+    return raw.map(m ->
+        new Movement(
+            m.id(),
+            m.kind(),
+            m.quantity(),
+            m.memberId(),
+            m.memberId() == null ? null : names.get(m.memberId()),
+            m.note(),
+            m.createdAt()));
   }
 
   // ---- Purchase requests
@@ -323,7 +328,7 @@ public class SupplyService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this request at the same time. Reload and try again.");
     }
     if (to == RequestStatus.RECEIVED) {

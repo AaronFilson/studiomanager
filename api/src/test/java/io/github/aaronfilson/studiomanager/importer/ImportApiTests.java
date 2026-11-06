@@ -188,18 +188,18 @@ class ImportApiTests {
     assertThat(mvc.get().uri(path("/payees")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[*].name")
+        .extractingPath("$.items[*].name")
         .asArray()
         .containsExactly("Ana Ruiz", "Ben Lee");
     assertThat(mvc.get().uri(path("/consignment-items")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$.length()", n -> assertThat(n).isEqualTo(3))
+        .hasPathSatisfying("$.items.length()", n -> assertThat(n).isEqualTo(3))
         .hasPathSatisfying(
-            "$[?(@.description == 'Bowl')].consignorShare",
+            "$.items[?(@.description == 'Bowl')].consignorShare",
             s -> assertThat(s).asArray().containsExactly("0.5"))
         .hasPathSatisfying(
-            "$[?(@.description == 'Bowl')].receivedOn",
+            "$.items[?(@.description == 'Bowl')].receivedOn",
             d -> assertThat(d).asArray().containsExactly("2026-10-01"));
   }
 

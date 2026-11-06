@@ -12,6 +12,7 @@ import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUsed
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.WorkRecord;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.Csv;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
@@ -65,6 +66,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class MaintenanceService {
+
+  /** The most records {@link #records} returns. */
+  static final int RECORDS_LIMIT = 500;
 
   private static final String SELECT_TASK =
       """
@@ -387,7 +391,10 @@ public class MaintenanceService {
             asset.kilnId() == null ? null : firingsOf(asset),
             now());
     drawParts(id, parts, "Repair: " + nameOf(asset, kilnsById()));
-    return records(assetId).stream().filter(r -> r.id().equals(id)).findFirst().orElseThrow();
+    return records(assetId).items().stream()
+        .filter(r -> r.id().equals(id))
+        .findFirst()
+        .orElseThrow();
   }
 
   private static void requireValidParts(List<PartUse> parts) {
@@ -417,49 +424,51 @@ public class MaintenanceService {
 
   /** The asset's history, newest first. */
   @Transactional(readOnly = true)
-  public List<WorkRecord> records(UUID assetId) {
+  public Capped<WorkRecord> records(UUID assetId) {
     assetRow(assetId);
-    List<WorkRecord> rows =
-        jdbc.sql(
-                """
-                select r.id, r.asset_id, r.task_id, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
-                from maintenance_record r left join maintenance_task t on t.id = r.task_id
-                where r.asset_id = :assetId order by r.done_at desc, r.id desc limit 500
-                """)
-            .param("assetId", assetId)
-            .query((rs, n) ->
-                new WorkRecord(
-                    rs.getObject("id", UUID.class),
-                    rs.getObject("asset_id", UUID.class),
-                    rs.getObject("task_id", UUID.class),
-                    rs.getString("title"),
-                    rs.getString("note"),
-                    rs.getBigDecimal("cost"),
-                    strings(rs.getArray("checked")),
-                    rs.getObject("at_firing", Integer.class),
-                    rs.getObject("done_by", UUID.class),
-                    null,
-                    rs.getObject("done_at", OffsetDateTime.class).toInstant(),
-                    List.of()))
-            .list();
-    Map<UUID, String> names = accounts.displayNames(rows.stream().map(WorkRecord::doneBy).toList());
+    Capped<WorkRecord> rows =
+        Capped.fromFetched(
+            jdbc.sql(
+                    """
+                    select r.id, r.asset_id, r.task_id, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
+                    from maintenance_record r left join maintenance_task t on t.id = r.task_id
+                    where r.asset_id = :assetId order by r.done_at desc, r.id desc limit :fetchSize
+                    """)
+                .param("assetId", assetId)
+                .param("fetchSize", Capped.fetchSize(RECORDS_LIMIT))
+                .query((rs, n) ->
+                    new WorkRecord(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("asset_id", UUID.class),
+                        rs.getObject("task_id", UUID.class),
+                        rs.getString("title"),
+                        rs.getString("note"),
+                        rs.getBigDecimal("cost"),
+                        strings(rs.getArray("checked")),
+                        rs.getObject("at_firing", Integer.class),
+                        rs.getObject("done_by", UUID.class),
+                        null,
+                        rs.getObject("done_at", OffsetDateTime.class).toInstant(),
+                        List.of()))
+                .list(),
+            RECORDS_LIMIT);
+    Map<UUID, String> names =
+        accounts.displayNames(rows.items().stream().map(WorkRecord::doneBy).toList());
     Map<UUID, List<PartUsed>> parts = partsOf(assetId);
-    return rows.stream()
-        .map(r ->
-            new WorkRecord(
-                r.id(),
-                r.assetId(),
-                r.taskId(),
-                r.taskTitle(),
-                r.note(),
-                r.cost(),
-                r.checked(),
-                r.atFiring(),
-                r.doneBy(),
-                names.get(r.doneBy()),
-                r.doneAt(),
-                parts.getOrDefault(r.id(), List.of())))
-        .toList();
+    return rows.map(r ->
+        new WorkRecord(
+            r.id(),
+            r.assetId(),
+            r.taskId(),
+            r.taskTitle(),
+            r.note(),
+            r.cost(),
+            r.checked(),
+            r.atFiring(),
+            r.doneBy(),
+            names.get(r.doneBy()),
+            r.doneAt(),
+            parts.getOrDefault(r.id(), List.of())));
   }
 
   /** Published tasks for this kind of asset that it doesn't have yet (matched by title). */
@@ -919,7 +928,7 @@ public class MaintenanceService {
 
   private static void requireUpdated(int updated) {
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this at the same time. Reload and try again.");
     }
   }

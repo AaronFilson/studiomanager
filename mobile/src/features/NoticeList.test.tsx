@@ -1,12 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import { renderWithQueries, stubApi } from '../test/api';
+import { capped, renderWithQueries, stubApi } from '../test/api';
 import { NoticeList } from './NoticeList';
 
 describe('NoticeList', () => {
   it('shows notices and marks an unread one read when opened', async () => {
     const calls = stubApi({
-      'GET /api/v1/studios/:studioId/notifications': [
+      'GET /api/v1/studios/:studioId/notifications': capped([
         {
           id: 'n1',
           kind: 'PIECES_READY',
@@ -15,7 +15,7 @@ describe('NoticeList', () => {
           createdAt: '2026-10-20T12:00:00Z',
         },
         { id: 'n2', kind: 'STUDIO_NOTICE', title: 'Closed Monday', body: '', createdAt: '2026-10-19T12:00:00Z', readAt: '2026-10-19T13:00:00Z' },
-      ],
+      ], false, 100),
       'POST /api/v1/studios/:studioId/notifications/:notificationId/read': null,
     });
 

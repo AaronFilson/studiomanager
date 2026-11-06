@@ -18,6 +18,7 @@ import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Payment;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentMethod;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentRunLine;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.StatementLine;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -58,6 +59,15 @@ public class PayablesService {
   /** Consigned work is retail: the same tax category as clay and tools sold at the desk. */
   static final String RETAIL = "RETAIL";
 
+  /** The most payees {@link #payees} returns. */
+  static final int PAYEES_LIMIT = 1000;
+
+  /** The most items {@link #consignmentItems} returns. */
+  static final int CONSIGNMENT_ITEMS_LIMIT = 2000;
+
+  /** The most sales {@link #consignmentSales} returns. */
+  static final int CONSIGNMENT_SALES_LIMIT = 1000;
+
   private final JdbcClient jdbc;
   private final LedgerService ledger;
   private final StudioMembers members;
@@ -74,7 +84,7 @@ public class PayablesService {
   // ---- Payees
 
   @Transactional(readOnly = true)
-  public List<Payee> payees() {
+  public Capped<Payee> payees() {
     requireStaff();
     return payeeQuery("", Map.of());
   }
@@ -110,7 +120,7 @@ public class PayablesService {
           .param("now", now())
           .update();
     } catch (DuplicateKeyException taken) {
-      throw new ConflictException("That member is already a payee.");
+      throw ConflictException.duplicate("That member is already a payee.");
     }
     return find(id);
   }
@@ -142,7 +152,7 @@ public class PayablesService {
           .param("now", now())
           .update();
     } catch (DuplicateKeyException taken) {
-      throw new ConflictException("That member is already a payee.");
+      throw ConflictException.duplicate("That member is already a payee.");
     }
     return find(payeeId);
   }
@@ -205,7 +215,7 @@ public class PayablesService {
 
   /** Consigned work, newest first; only what's still on the shelf unless asked for everything. */
   @Transactional(readOnly = true)
-  public List<ConsignmentItem> consignmentItems(@Nullable UUID payeeId, boolean inStockOnly) {
+  public Capped<ConsignmentItem> consignmentItems(@Nullable UUID payeeId, boolean inStockOnly) {
     return consignmentItems(payeeId, inStockOnly, false);
   }
 
@@ -214,13 +224,13 @@ public class PayablesService {
    * oldest first: what should go back to the artist.
    */
   @Transactional(readOnly = true)
-  public List<ConsignmentItem> consignmentItems(
+  public Capped<ConsignmentItem> consignmentItems(
       @Nullable UUID payeeId, boolean inStockOnly, boolean dueBackOnly) {
     requireStaff();
     return items(payeeId, inStockOnly, dueBackOnly);
   }
 
-  private List<ConsignmentItem> items(
+  private Capped<ConsignmentItem> items(
       @Nullable UUID payeeId, boolean inStockOnly, boolean dueBackOnly) {
     String where =
         "where (cast(:payee as uuid) is null or i.payee_id = :payee)"
@@ -230,11 +240,14 @@ public class PayablesService {
         dueBackOnly
             ? " order by i.return_by, i.created_at"
             : " order by i.received_on desc, i.created_at desc";
-    return jdbc.sql(itemSelect(where) + order + " limit 500")
-        .param("payee", payeeId)
-        .param("today", ledger.today())
-        .query(PayablesService::item)
-        .list();
+    return Capped.fromFetched(
+        jdbc.sql(itemSelect(where) + order + " limit :fetchSize")
+            .param("payee", payeeId)
+            .param("today", ledger.today())
+            .param("fetchSize", Capped.fetchSize(CONSIGNMENT_ITEMS_LIMIT))
+            .query(PayablesService::item)
+            .list(),
+        CONSIGNMENT_ITEMS_LIMIT);
   }
 
   /**
@@ -245,11 +258,17 @@ public class PayablesService {
   public MyConsignment myConsignment() {
     TenantContext caller = TenantContext.require();
     Payee payee =
-        payeeQuery("where p.account_id = :account", Map.of("account", caller.accountId())).stream()
+        payeeQuery("where p.account_id = :account", Map.of("account", caller.accountId()))
+            .items()
+            .stream()
             .findFirst()
             .orElseThrow(() -> new NotFoundException("You don't have work on consignment here."));
     return new MyConsignment(
-        payee.id(), payee.name(), payee.owed(), items(payee.id(), false, false), sales(payee.id()));
+        payee.id(),
+        payee.name(),
+        payee.owed(),
+        items(payee.id(), false, false).items(),
+        sales(payee.id()).items());
   }
 
   /**
@@ -395,23 +414,26 @@ public class PayablesService {
 
   /** Sales of a payee's work, or of everyone's, newest first. */
   @Transactional(readOnly = true)
-  public List<ConsignmentSale> consignmentSales(@Nullable UUID payeeId) {
+  public Capped<ConsignmentSale> consignmentSales(@Nullable UUID payeeId) {
     requireStaff();
     return sales(payeeId);
   }
 
-  private List<ConsignmentSale> sales(@Nullable UUID payeeId) {
-    return jdbc.sql(
-            """
-            select s.id, s.item_id, i.description, s.quantity, s.price, s.consignor_amount, s.tax, s.provider,
-                   s.sold_on, s.refunded_on
-            from consignment_sale s join consignment_item i on i.id = s.item_id
-            where cast(:payee as uuid) is null or i.payee_id = :payee
-            order by s.sold_on desc, s.created_at desc limit 200
-            """)
-        .param("payee", payeeId)
-        .query(PayablesService::sale)
-        .list();
+  private Capped<ConsignmentSale> sales(@Nullable UUID payeeId) {
+    return Capped.fromFetched(
+        jdbc.sql(
+                """
+                select s.id, s.item_id, i.description, s.quantity, s.price, s.consignor_amount, s.tax, s.provider,
+                       s.sold_on, s.refunded_on
+                from consignment_sale s join consignment_item i on i.id = s.item_id
+                where cast(:payee as uuid) is null or i.payee_id = :payee
+                order by s.sold_on desc, s.created_at desc limit :fetchSize
+                """)
+            .param("payee", payeeId)
+            .param("fetchSize", Capped.fetchSize(CONSIGNMENT_SALES_LIMIT))
+            .query(PayablesService::sale)
+            .list(),
+        CONSIGNMENT_SALES_LIMIT);
   }
 
   // ---- Shares, fees and payments
@@ -741,7 +763,7 @@ public class PayablesService {
   }
 
   private Payee find(UUID payeeId) {
-    return payeeQuery("where p.id = :id", Map.of("id", payeeId)).stream()
+    return payeeQuery("where p.id = :id", Map.of("id", payeeId)).items().stream()
         .findFirst()
         .orElseThrow(() -> new NotFoundException("No such payee."));
   }
@@ -755,21 +777,22 @@ public class PayablesService {
     return payee;
   }
 
-  private List<Payee> payeeQuery(String where, Map<String, Object> params) {
+  private Capped<Payee> payeeQuery(String where, Map<String, Object> params) {
     var spec =
         jdbc.sql(
-            """
-            select p.id, p.name, p.email, p.account_id, p.files_1099, p.w9_received_on, p.consignor_share,
-                   p.discounts_from, p.consignment_days, p.archived_at is not null as archived,
-                   coalesce(-(select sum(l.amount) from journal_line l
-                              where l.account = 'PAYEES_PAYABLE' and l.payee_id = p.id), 0) as owed
-            from payee p %s order by p.archived_at nulls first, p.name limit 500
-            """
-                .formatted(where));
+                """
+                select p.id, p.name, p.email, p.account_id, p.files_1099, p.w9_received_on, p.consignor_share,
+                       p.discounts_from, p.consignment_days, p.archived_at is not null as archived,
+                       coalesce(-(select sum(l.amount) from journal_line l
+                                  where l.account = 'PAYEES_PAYABLE' and l.payee_id = p.id), 0) as owed
+                from payee p %s order by p.archived_at nulls first, p.name limit :fetchSize
+                """
+                    .formatted(where))
+            .param("fetchSize", Capped.fetchSize(PAYEES_LIMIT));
     for (var param : params.entrySet()) {
       spec = spec.param(param.getKey(), param.getValue());
     }
-    List<Payee> raw =
+    List<Payee> fetchedRows =
         spec.query((rs, row) ->
                 new Payee(
                     rs.getObject("id", UUID.class),
@@ -785,24 +808,24 @@ public class PayablesService {
                     rs.getBoolean("archived"),
                     rs.getBigDecimal("owed")))
             .list();
+    Capped<Payee> raw = Capped.fromFetched(fetchedRows, PAYEES_LIMIT);
     Map<UUID, String> names =
-        accounts.displayNames(raw.stream().map(Payee::accountId).filter(Objects::nonNull).toList());
-    return raw.stream()
-        .map(p ->
-            new Payee(
-                p.id(),
-                p.name(),
-                p.email(),
-                p.accountId(),
-                p.accountId() == null ? null : names.get(p.accountId()),
-                p.files1099(),
-                p.w9ReceivedOn(),
-                p.consignorShare(),
-                p.discountsFrom(),
-                p.consignmentDays(),
-                p.archived(),
-                p.owed()))
-        .toList();
+        accounts.displayNames(
+            raw.items().stream().map(Payee::accountId).filter(Objects::nonNull).toList());
+    return raw.map(p ->
+        new Payee(
+            p.id(),
+            p.name(),
+            p.email(),
+            p.accountId(),
+            p.accountId() == null ? null : names.get(p.accountId()),
+            p.files1099(),
+            p.w9ReceivedOn(),
+            p.consignorShare(),
+            p.discountsFrom(),
+            p.consignmentDays(),
+            p.archived(),
+            p.owed()));
   }
 
   private ConsignmentItem item(UUID itemId) {

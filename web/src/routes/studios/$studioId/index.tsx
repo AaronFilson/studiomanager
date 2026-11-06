@@ -67,7 +67,8 @@ function Inbox({ studioId }: { studioId: string }) {
   if (notifications.isError) {
     return <ErrorMessage error={notifications.error} />;
   }
-  const unread = notifications.data?.filter((n) => !n.readAt) ?? [];
+  // The inbox is the newest 100; only unread ones show here, so older ones past the cap don't matter
+  const unread = notifications.data?.items.filter((n) => !n.readAt) ?? [];
   if (unread.length === 0) {
     return null;
   }

@@ -23,7 +23,7 @@ export function NoticeList({ studioId }: { studioId: string }) {
   if (notices.isError) return <ErrorText error={notices.error} />;
   return (
     <FlatList
-      data={notices.data}
+      data={notices.data.items}
       keyExtractor={(notice) => notice.id}
       refreshControl={<RefreshControl refreshing={notices.isRefetching} onRefresh={() => void notices.refetch()} />}
       ListEmptyComponent={<Body muted>No notices yet.</Body>}

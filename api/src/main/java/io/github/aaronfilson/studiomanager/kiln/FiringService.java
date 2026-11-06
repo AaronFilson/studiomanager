@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.kiln;
 import io.github.aaronfilson.studiomanager.piece.PieceService;
 import io.github.aaronfilson.studiomanager.piece.PieceService.WaitingPiece;
 import io.github.aaronfilson.studiomanager.piece.PieceView;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -37,6 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class FiringService {
 
+  /** The most firings {@link #listForKiln} returns. */
+  static final int FIRINGS_PER_KILN_LIMIT = 500;
+
   private static final String SELECT_FIRING =
       """
       select f.id, f.kiln_id, k.name as kiln_name, f.kind, f.cone, f.status, f.notes, f.created_at,
@@ -64,16 +68,16 @@ public class FiringService {
    * load.
    */
   @Transactional(readOnly = true)
-  public List<KilnQueue.Entry<WaitingPiece>> queue(UUID kilnId, FiringKind kind) {
+  public Capped<KilnQueue.Entry<WaitingPiece>> queue(UUID kilnId, FiringKind kind) {
     KilnView kiln = kilns.get(kilnId);
     Set<UUID> loaded =
         new HashSet<>(
             jdbc.sql("select piece_id from firing_piece where open").query(UUID.class).list());
+    Capped<WaitingPiece> waitingInStage = pieces.waitingIn(kind.takes());
     List<WaitingPiece> waiting =
-        pieces.waitingIn(kind.takes()).stream()
-            .filter(w -> !loaded.contains(w.piece().id()))
-            .toList();
-    return KilnQueue.plan(waiting, w -> w.piece().makerAccountId(), kiln.maxPiecesPerMember());
+        waitingInStage.items().stream().filter(w -> !loaded.contains(w.piece().id())).toList();
+    return waitingInStage.withItems(
+        KilnQueue.plan(waiting, w -> w.piece().makerAccountId(), kiln.maxPiecesPerMember()));
   }
 
   /**
@@ -93,7 +97,7 @@ public class FiringService {
       throw new InvalidInputException("Choose at least one piece to load.");
     }
     Map<UUID, KilnQueue.Entry<WaitingPiece>> queued =
-        queue(kilnId, kind).stream()
+        queue(kilnId, kind).items().stream()
             .collect(Collectors.toMap(e -> e.piece().piece().id(), Function.identity()));
     for (UUID id : chosen) {
       if (!queued.containsKey(id)) {
@@ -251,13 +255,17 @@ public class FiringService {
   }
 
   @Transactional(readOnly = true)
-  public List<FiringView> listForKiln(UUID kilnId) {
+  public Capped<FiringView> listForKiln(UUID kilnId) {
     kilns.get(kilnId);
-    return jdbc.sql(
-            SELECT_FIRING + "where f.kiln_id = :kilnId order by f.created_at desc limit 100")
-        .param("kilnId", kilnId)
-        .query(FiringService::mapFiring)
-        .list();
+    return Capped.fromFetched(
+        jdbc.sql(
+                SELECT_FIRING
+                    + "where f.kiln_id = :kilnId order by f.created_at desc limit :fetchSize")
+            .param("kilnId", kilnId)
+            .param("fetchSize", Capped.fetchSize(FIRINGS_PER_KILN_LIMIT))
+            .query(FiringService::mapFiring)
+            .list(),
+        FIRINGS_PER_KILN_LIMIT);
   }
 
   @Transactional(readOnly = true)
@@ -318,7 +326,7 @@ public class FiringService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this firing at the same time. Reload and try again.");
     }
   }

@@ -854,8 +854,22 @@ export type HoursEntry = {
 export type HoursLedger = {
     accountId: string;
     accountName?: string;
+    /**
+     * Every entry counts, including any past the limit.
+     */
     totalMinutes: number;
+    /**
+     * The newest entries, up to `limit`.
+     */
     entries: Array<HoursEntry>;
+    /**
+     * There were more entries than `limit`; only the newest are listed.
+     */
+    truncated: boolean;
+    /**
+     * The most entries this list returns.
+     */
+    limit: number;
 };
 
 export type AdjustHoursRequest = {
@@ -1658,6 +1672,10 @@ export type ApiToken = {
     createdAt: string;
     expiresAt: string;
     lastUsedAt?: string;
+    /**
+     * The address the token was last used from, such as `203.0.113.4`.
+     */
+    lastUsedFrom?: string;
     revokedAt?: string;
 };
 
@@ -1679,14 +1697,177 @@ export type CreatedApiToken = {
 };
 
 /**
- * RFC 9457 problem details.
+ * RFC 9457 problem details. `type` is a URI reference, `/problems/<code>`, and `code`
+ * repeats its last part, so a client can act on the kind of problem without reading
+ * `detail`, whose wording may change.
+ *
  */
 export type Problem = {
+    /**
+     * For example `/problems/stale-version`.
+     */
     type?: string;
+    /**
+     * A short, fixed summary of the kind of problem.
+     */
     title?: string;
     status?: number;
+    /**
+     * What went wrong this time, in words for a person.
+     */
     detail?: string;
     instance?: string;
+    code?: ProblemCode;
+};
+
+/**
+ * The kind of problem:
+ * - `invalid-input`: the request was well-formed but not acceptable, or couldn't be read (400).
+ * - `unauthenticated`: no valid access token (401).
+ * - `forbidden`: the caller may not do this (403).
+ * - `not-found`: no such thing, or not one the caller may see (404).
+ * - `stale-version`: someone else changed it since the caller read it; reload and try
+ * again (409).
+ * - `duplicate`: the same thing already exists (409).
+ * - `conflict`: the request clashes with the current state in some other way (409).
+ * - `other`: anything else.
+ *
+ */
+export type ProblemCode = 'invalid-input' | 'unauthenticated' | 'forbidden' | 'not-found' | 'stale-version' | 'duplicate' | 'conflict' | 'other';
+
+export type PieceList = {
+    items: Array<Piece>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type QueueEntryList = {
+    items: Array<QueueEntry>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type FiringList = {
+    items: Array<Firing>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type MaintenanceRecordList = {
+    items: Array<MaintenanceRecord>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type ProblemReportList = {
+    items: Array<ProblemReport>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type NotificationList = {
+    items: Array<Notification>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type BookingList = {
+    items: Array<Booking>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type ShiftList = {
+    items: Array<Shift>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type PayoutList = {
+    items: Array<Payout>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type StoredValueList = {
+    items: Array<StoredValue>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type ConsignmentItemList = {
+    items: Array<ConsignmentItem>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type ConsignmentSaleList = {
+    items: Array<ConsignmentSale>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type PayeeList = {
+    items: Array<Payee>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type StockMovementList = {
+    items: Array<StockMovement>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type WebhookDeliveryList = {
+    items: Array<WebhookDelivery>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
 };
 
 export type SetAiKeyRequestWritable = {
@@ -2341,9 +2522,9 @@ export type ListPiecesError = ListPiecesErrors[keyof ListPiecesErrors];
 
 export type ListPiecesResponses = {
     /**
-     * Up to 500 pieces.
+     * Up to 2,000 pieces, with `truncated` set when there were more.
      */
-    200: Array<Piece>;
+    200: PieceList;
 };
 
 export type ListPiecesResponse = ListPiecesResponses[keyof ListPiecesResponses];
@@ -3053,9 +3234,9 @@ export type ListMaintenanceRecordsError = ListMaintenanceRecordsErrors[keyof Lis
 
 export type ListMaintenanceRecordsResponses = {
     /**
-     * Up to 500 records.
+     * Up to 500 records, with `truncated` set when there were more.
      */
-    200: Array<MaintenanceRecord>;
+    200: MaintenanceRecordList;
 };
 
 export type ListMaintenanceRecordsResponse = ListMaintenanceRecordsResponses[keyof ListMaintenanceRecordsResponses];
@@ -3503,9 +3684,9 @@ export type ListProblemReportsError = ListProblemReportsErrors[keyof ListProblem
 
 export type ListProblemReportsResponses = {
     /**
-     * Up to 200 reports.
+     * Up to 500 reports, with `truncated` set when there were more.
      */
-    200: Array<ProblemReport>;
+    200: ProblemReportList;
 };
 
 export type ListProblemReportsResponse = ListProblemReportsResponses[keyof ListProblemReportsResponses];
@@ -3633,9 +3814,9 @@ export type GetKilnQueueError = GetKilnQueueErrors[keyof GetKilnQueueErrors];
 
 export type GetKilnQueueResponses = {
     /**
-     * The queue.
+     * The queue, up to 1,000 pieces, with `truncated` set when there were more.
      */
-    200: Array<QueueEntry>;
+    200: QueueEntryList;
 };
 
 export type GetKilnQueueResponse = GetKilnQueueResponses[keyof GetKilnQueueResponses];
@@ -3672,9 +3853,9 @@ export type ListKilnFiringsError = ListKilnFiringsErrors[keyof ListKilnFiringsEr
 
 export type ListKilnFiringsResponses = {
     /**
-     * Firings, without their pieces.
+     * Up to 500 firings, without their pieces, with `truncated` set when there were more.
      */
-    200: Array<Firing>;
+    200: FiringList;
 };
 
 export type ListKilnFiringsResponse = ListKilnFiringsResponses[keyof ListKilnFiringsResponses];
@@ -3839,9 +4020,9 @@ export type ListMyNotificationsError = ListMyNotificationsErrors[keyof ListMyNot
 
 export type ListMyNotificationsResponses = {
     /**
-     * Up to 100 notifications.
+     * Up to 100 notifications, with `truncated` set when there were more.
      */
-    200: Array<Notification>;
+    200: NotificationList;
 };
 
 export type ListMyNotificationsResponse = ListMyNotificationsResponses[keyof ListMyNotificationsResponses];
@@ -4290,9 +4471,9 @@ export type ListBookingsError = ListBookingsErrors[keyof ListBookingsErrors];
 
 export type ListBookingsResponses = {
     /**
-     * Bookings.
+     * Up to 2,000 bookings, with `truncated` set when there were more.
      */
-    200: Array<Booking>;
+    200: BookingList;
 };
 
 export type ListBookingsResponse = ListBookingsResponses[keyof ListBookingsResponses];
@@ -4416,9 +4597,9 @@ export type ListShiftsError = ListShiftsErrors[keyof ListShiftsErrors];
 
 export type ListShiftsResponses = {
     /**
-     * Shifts.
+     * Up to 2,000 shifts, with `truncated` set when there were more.
      */
-    200: Array<Shift>;
+    200: ShiftList;
 };
 
 export type ListShiftsResponse = ListShiftsResponses[keyof ListShiftsResponses];
@@ -4844,9 +5025,9 @@ export type ListStoredValuesError = ListStoredValuesErrors[keyof ListStoredValue
 
 export type ListStoredValuesResponses = {
     /**
-     * Balances.
+     * Up to 2,000 balances, with `truncated` set when there were more.
      */
-    200: Array<StoredValue>;
+    200: StoredValueList;
 };
 
 export type ListStoredValuesResponse = ListStoredValuesResponses[keyof ListStoredValuesResponses];
@@ -5082,9 +5263,9 @@ export type ListPayoutsError = ListPayoutsErrors[keyof ListPayoutsErrors];
 
 export type ListPayoutsResponses = {
     /**
-     * Payouts.
+     * Up to 1,000 payouts, with `truncated` set when there were more.
      */
-    200: Array<Payout>;
+    200: PayoutList;
 };
 
 export type ListPayoutsResponse = ListPayoutsResponses[keyof ListPayoutsResponses];
@@ -5346,9 +5527,9 @@ export type ListPayeesError = ListPayeesErrors[keyof ListPayeesErrors];
 
 export type ListPayeesResponses = {
     /**
-     * Payees, archived ones last.
+     * Up to 1,000 payees, archived ones last, with `truncated` set when there were more.
      */
-    200: Array<Payee>;
+    200: PayeeList;
 };
 
 export type ListPayeesResponse = ListPayeesResponses[keyof ListPayeesResponses];
@@ -5767,9 +5948,9 @@ export type ListConsignmentItemsError = ListConsignmentItemsErrors[keyof ListCon
 
 export type ListConsignmentItemsResponses = {
     /**
-     * Items.
+     * Up to 2,000 items, with `truncated` set when there were more.
      */
-    200: Array<ConsignmentItem>;
+    200: ConsignmentItemList;
 };
 
 export type ListConsignmentItemsResponse = ListConsignmentItemsResponses[keyof ListConsignmentItemsResponses];
@@ -5931,9 +6112,9 @@ export type ListConsignmentSalesError = ListConsignmentSalesErrors[keyof ListCon
 
 export type ListConsignmentSalesResponses = {
     /**
-     * Sales.
+     * Up to 1,000 sales, with `truncated` set when there were more.
      */
-    200: Array<ConsignmentSale>;
+    200: ConsignmentSaleList;
 };
 
 export type ListConsignmentSalesResponse = ListConsignmentSalesResponses[keyof ListConsignmentSalesResponses];
@@ -6212,9 +6393,9 @@ export type ListStockMovementsError = ListStockMovementsErrors[keyof ListStockMo
 
 export type ListStockMovementsResponses = {
     /**
-     * Movements.
+     * Up to 1,000 movements, with `truncated` set when there were more.
      */
-    200: Array<StockMovement>;
+    200: StockMovementList;
 };
 
 export type ListStockMovementsResponse = ListStockMovementsResponses[keyof ListStockMovementsResponses];
@@ -6766,9 +6947,9 @@ export type ListWebhookDeliveriesError = ListWebhookDeliveriesErrors[keyof ListW
 
 export type ListWebhookDeliveriesResponses = {
     /**
-     * The deliveries, each with its attempts.
+     * Up to 500 deliveries, each with its attempts, with `truncated` set when there were more.
      */
-    200: Array<WebhookDelivery>;
+    200: WebhookDeliveryList;
 };
 
 export type ListWebhookDeliveriesResponse = ListWebhookDeliveriesResponses[keyof ListWebhookDeliveriesResponses];
