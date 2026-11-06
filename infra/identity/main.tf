@@ -8,6 +8,8 @@ locals {
 
 resource "random_uuid" "access_as_user_scope" {}
 
+resource "random_uuid" "platform_admin_role" {}
+
 data "azuread_service_principal" "graph" {
   client_id = local.graph_client_id
 }
@@ -34,6 +36,17 @@ resource "azuread_application" "api" {
     }
   }
 
+  # The people who run the service, not a studio role (ADR 24). It arrives in the access token's
+  # `roles` claim, and the API requires it on /api/v1/admin/**.
+  app_role {
+    id                   = random_uuid.platform_admin_role.result
+    value                = "Platform.Admin"
+    allowed_member_types = ["User"]
+    enabled              = true
+    display_name         = "Platform admin"
+    description          = "Runs the service: live rate limits, boosts and the settings history."
+  }
+
   optional_claims {
     access_token {
       name = "email"
@@ -53,6 +66,15 @@ resource "azuread_application_identifier_uri" "api" {
 
 resource "azuread_service_principal" "api" {
   client_id = azuread_application.api.client_id
+}
+
+# The owner's account, and anyone else listed, gets the platform admin role.
+resource "azuread_app_role_assignment" "platform_admin" {
+  for_each = toset(var.platform_admin_object_ids)
+
+  app_role_id         = random_uuid.platform_admin_role.result
+  principal_object_id = each.value
+  resource_object_id  = azuread_service_principal.api.object_id
 }
 
 # --- The single-page app (public client, auth code + PKCE) --------------------------------
