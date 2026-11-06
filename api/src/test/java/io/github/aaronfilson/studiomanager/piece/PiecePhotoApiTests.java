@@ -109,7 +109,7 @@ class PiecePhotoApiTests {
     // Staff see the thumbnail on the shelf
     assertThat(get(owner, studioPath("/pieces")))
         .bodyJson()
-        .extractingPath("$[0].photos[0].thumbnailUrl")
+        .extractingPath("$.items[0].photos[0].thumbnailUrl")
         .asString()
         .contains("thumb.jpg");
     // Finishing again changes nothing

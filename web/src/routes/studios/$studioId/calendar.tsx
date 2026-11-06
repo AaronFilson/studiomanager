@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useMemo, useState } from 'react';
 
+import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { formatDate, formatTime, isStaff } from '../../../labels';
 
@@ -71,9 +72,10 @@ function CalendarPage() {
         </button>
       </div>
       {bookings.isError && <ErrorMessage error={bookings.error} />}
-      {bookings.isSuccess && bookings.data.length === 0 && <p>Nothing booked this week.</p>}
+      {bookings.isSuccess && bookings.data.items.length === 0 && <p>Nothing booked this week.</p>}
+      <CappedNote list={bookings.data} order="first" noun="bookings" findTheRest="The rest of the week isn't listed." />
       <ul className="studio-list">
-        {bookings.data?.map((b) => (
+        {bookings.data?.items.map((b) => (
           <li key={b.id}>
             <span>
               {formatDate(b.startsAt)} {formatTime(b.startsAt)}–{formatTime(b.endsAt)} · <strong>{b.resourceName}</strong>{' '}

@@ -78,7 +78,7 @@ public class TodayService {
 
     List<KilnView> allKilns = kilns.list();
     PieceService.StageCounts counts = pieces.counts();
-    List<Shift> upcoming = schedule.shifts(now, now.plus(GAP_HORIZON));
+    List<Shift> upcoming = schedule.shifts(now, now.plus(GAP_HORIZON)).items();
     return new Today(
         date,
         allKilns,
@@ -90,12 +90,12 @@ public class TodayService {
         counts.in(PieceStage.UNCLAIMED),
         maintenance.dueTasks(now),
         allKilns.stream().filter(k -> !k.available()).toList(),
-        schedule.bookings(dayStart, dayEnd),
-        schedule.shifts(dayStart, dayEnd),
+        schedule.bookings(dayStart, dayEnd).items(),
+        schedule.shifts(dayStart, dayEnd).items(),
         upcoming.stream().filter(s -> s.open() || s.offered()).toList(),
         supplies.needingOrder(),
         supplies.openRequests().size(),
-        problems.reports(true));
+        problems.reports(true).items());
   }
 
   /**

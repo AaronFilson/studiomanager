@@ -2,15 +2,18 @@ package io.github.aaronfilson.studiomanager.kiln;
 
 import io.github.aaronfilson.studiomanager.contract.FiringDto;
 import io.github.aaronfilson.studiomanager.contract.FiringKindDto;
+import io.github.aaronfilson.studiomanager.contract.FiringListDto;
 import io.github.aaronfilson.studiomanager.contract.FiringTransitionRequestDto;
 import io.github.aaronfilson.studiomanager.contract.KilnAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.KilnDto;
 import io.github.aaronfilson.studiomanager.contract.KilnsApi;
 import io.github.aaronfilson.studiomanager.contract.LoadKilnRequestDto;
 import io.github.aaronfilson.studiomanager.contract.QueueEntryDto;
+import io.github.aaronfilson.studiomanager.contract.QueueEntryListDto;
 import io.github.aaronfilson.studiomanager.contract.SaveKilnRequestDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateKilnRequestDto;
 import io.github.aaronfilson.studiomanager.piece.PieceDtos;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -64,24 +67,26 @@ class KilnController implements KilnsApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<QueueEntryDto>> getKilnQueue(
+  public ResponseEntity<QueueEntryListDto> getKilnQueue(
       FiringKindDto kind, UUID studioId, UUID kilnId) {
     Instant now = Instant.now();
-    return ResponseEntity.ok(
-        firings.queue(kilnId, FiringKind.valueOf(kind.name())).stream()
+    Capped<QueueEntryDto> queue =
+        firings
+            .queue(kilnId, FiringKind.valueOf(kind.name()))
             .map(entry ->
                 new QueueEntryDto()
                     .piece(PieceDtos.toDto(entry.piece().piece(), now))
                     .waitingSince(entry.piece().since().atOffset(ZoneOffset.UTC))
-                    .fitsNextLoad(entry.fitsNextLoad()))
-            .toList());
+                    .fitsNextLoad(entry.fitsNextLoad()));
+    return ResponseEntity.ok(
+        new QueueEntryListDto(queue.items(), queue.truncated(), queue.limit()));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<FiringDto>> listKilnFirings(UUID studioId, UUID kilnId) {
-    return ResponseEntity.ok(
-        firings.listForKiln(kilnId).stream().map(KilnController::toDto).toList());
+  public ResponseEntity<FiringListDto> listKilnFirings(UUID studioId, UUID kilnId) {
+    Capped<FiringDto> log = firings.listForKiln(kilnId).map(KilnController::toDto);
+    return ResponseEntity.ok(new FiringListDto(log.items(), log.truncated(), log.limit()));
   }
 
   @Override

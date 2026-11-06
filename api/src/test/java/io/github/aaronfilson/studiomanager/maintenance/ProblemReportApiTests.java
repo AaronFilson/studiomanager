@@ -104,12 +104,12 @@ class ProblemReportApiTests {
     assertThat(mvc.get().uri(path("/maintenance/problem-reports")).with(maker.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
+        .extractingPath("$.items.length()")
         .isEqualTo(1);
     assertThat(mvc.get().uri(path("/maintenance/problem-reports")).with(other.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
+        .extractingPath("$.items.length()")
         .isEqualTo(0);
 
     // Only staff resolve, once
@@ -140,7 +140,7 @@ class ProblemReportApiTests {
     assertThat(mvc.get().uri(path("/maintenance/problem-reports?open=true")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
+        .extractingPath("$.items.length()")
         .isEqualTo(0);
     assertThat(mvc.get().uri(path("/today")).with(owner.token()))
         .hasStatusOk()
@@ -164,7 +164,10 @@ class ProblemReportApiTests {
                 {"assetId": "%s", "description": "Huh"}
                 """
                     .formatted(UUID.randomUUID())))
-        .hasStatus(HttpStatus.NOT_FOUND);
+        .hasStatus(HttpStatus.NOT_FOUND)
+        .bodyJson()
+        .hasPathSatisfying("$.code", code -> assertThat(code).isEqualTo("not-found"))
+        .hasPathSatisfying("$.type", type -> assertThat(type).isEqualTo("/problems/not-found"));
     assertThat(post(other, path("/maintenance/problem-reports"), "{\"description\": \"  \"}"))
         .hasStatus(HttpStatus.BAD_REQUEST);
   }
@@ -177,7 +180,7 @@ class ProblemReportApiTests {
             .exchange()
             .getResponse()
             .getContentAsString();
-    return JsonPath.read(body, "$[?(@.kind == 'PROBLEM_REPORTED')].title");
+    return JsonPath.read(body, "$.items[?(@.kind == 'PROBLEM_REPORTED')].title");
   }
 
   private MvcTestResult post(TestUser user, String uri, String json) {

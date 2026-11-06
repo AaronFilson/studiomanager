@@ -17,6 +17,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage } from '../../../components/ErrorMessage';
 
 export const Route = createFileRoute('/studios/$studioId/webhooks')({
@@ -251,10 +252,16 @@ function DeliveryLog({ studioId, endpointId }: { studioId: string; endpointId: s
   if (deliveries.isError) {
     return <ErrorMessage error={deliveries.error} />;
   }
-  if (deliveries.data?.length === 0) {
+  if (deliveries.data?.items.length === 0) {
     return <p>Nothing sent in the last 30 days.</p>;
   }
   return (
+    <>
+    <CappedNote
+      list={deliveries.data}
+      noun="deliveries"
+      findTheRest="Older ones are still in the last 30 days, but aren't listed."
+    />
     <table>
       <caption>Last 30 days</caption>
       <thead>
@@ -266,7 +273,7 @@ function DeliveryLog({ studioId, endpointId }: { studioId: string; endpointId: s
         </tr>
       </thead>
       <tbody>
-        {deliveries.data?.map((d) => (
+        {deliveries.data?.items.map((d) => (
           <tr key={d.id}>
             <td>{new Date(d.createdAt).toLocaleString()}</td>
             <td>{eventLabel(d.eventType)}</td>
@@ -284,6 +291,7 @@ function DeliveryLog({ studioId, endpointId }: { studioId: string; endpointId: s
         ))}
       </tbody>
     </table>
+    </>
   );
 }
 

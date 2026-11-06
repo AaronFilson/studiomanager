@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
+import { CappedNote } from '../../../../components/CappedNote';
 import { ErrorMessage } from '../../../../components/ErrorMessage';
 import { formatDate, formatMoney, isStaff, stageLabel } from '../../../../labels';
 
@@ -49,7 +50,8 @@ function PiecesPage() {
       </div>
       {pieces.isPending && <p>Loading pieces…</p>}
       {pieces.isError && <ErrorMessage error={pieces.error} />}
-      {pieces.isSuccess && <PieceTable pieces={pieces.data} studioId={studioId} showMaker={staff} />}
+      <CappedNote list={pieces.data} noun="pieces" findTheRest="Filter by stage to find older ones." />
+      {pieces.isSuccess && <PieceTable pieces={pieces.data.items} studioId={studioId} showMaker={staff} />}
     </div>
   );
 }

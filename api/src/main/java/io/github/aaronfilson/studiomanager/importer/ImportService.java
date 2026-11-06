@@ -171,7 +171,7 @@ public class ImportService {
           String country = studios.current().country();
           Map<String, Payee> byEmail = new HashMap<>();
           Map<String, Payee> byName = new HashMap<>();
-          for (Payee payee : payables.payees()) {
+          for (Payee payee : payables.payees().items()) {
             if (payee.email() != null) {
               byEmail.putIfAbsent(payee.email().toLowerCase(Locale.ROOT), payee);
             }

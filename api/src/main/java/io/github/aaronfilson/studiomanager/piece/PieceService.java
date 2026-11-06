@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.piece;
 import io.github.aaronfilson.studiomanager.firing.FeeQuote;
 import io.github.aaronfilson.studiomanager.firing.FeeService;
 import io.github.aaronfilson.studiomanager.firing.PieceSize;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.Money;
@@ -51,6 +52,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class PieceService {
 
   static final int DEFAULT_HOLD_DAYS = 30;
+
+  /** The most pieces {@link #list} returns. */
+  public static final int LIST_LIMIT = 2000;
+
+  /** The most pieces {@link #waitingIn} returns. */
+  public static final int QUEUE_LIMIT = 1000;
 
   private static final String SELECT_PIECE =
       """
@@ -152,23 +159,26 @@ public class PieceService {
 
   /** Pieces, newest first, optionally filtered. Members only ever see their own. */
   @Transactional(readOnly = true)
-  public List<PieceView> list(@Nullable PieceStage stage, @Nullable UUID maker) {
+  public Capped<PieceView> list(@Nullable PieceStage stage, @Nullable UUID maker) {
     TenantContext caller = TenantContext.require();
     UUID makerFilter = isStaff(caller) ? maker : caller.accountId();
-    List<PieceView> pieces =
-        jdbc.sql(
-                SELECT_PIECE
-                    + """
-                    where (cast(:stage as text) is null or stage = :stage)
-                      and (cast(:maker as uuid) is null or maker_account_id = :maker)
-                    order by number desc
-                    limit 500
-                    """)
-            .param("stage", stage == null ? null : stage.name())
-            .param("maker", makerFilter)
-            .query(PieceService::mapPiece)
-            .list();
-    return withDetails(pieces, List.of(), false);
+    Capped<PieceView> pieces =
+        Capped.fromFetched(
+            jdbc.sql(
+                    SELECT_PIECE
+                        + """
+                        where (cast(:stage as text) is null or stage = :stage)
+                          and (cast(:maker as uuid) is null or maker_account_id = :maker)
+                        order by number desc
+                        limit :fetchSize
+                        """)
+                .param("stage", stage == null ? null : stage.name())
+                .param("maker", makerFilter)
+                .param("fetchSize", Capped.fetchSize(LIST_LIMIT))
+                .query(PieceService::mapPiece)
+                .list(),
+            LIST_LIMIT);
+    return pieces.withItems(withDetails(pieces.items(), List.of(), false));
   }
 
   /** One piece and its timeline. A member asking for someone else's piece gets a 404. */
@@ -238,7 +248,7 @@ public class PieceService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this piece at the same time. Reload and try again.");
     }
     recordEvent(pieceId, piece.stage(), target, clean(note, 500, "note"), caller.accountId(), now);
@@ -250,30 +260,34 @@ public class PieceService {
    * a kiln queue is built from. Staff only.
    */
   @Transactional(readOnly = true)
-  public List<WaitingPiece> waitingIn(PieceStage stage) {
+  public Capped<WaitingPiece> waitingIn(PieceStage stage) {
     requireStaff(TenantContext.require(), "Only staff can see the kiln queue.");
-    List<WaitingPiece> waiting =
-        jdbc.sql(
-                """
-                select p.*, e.since
-                from (%s) p
-                join lateral (select max(occurred_at) as since from piece_event
-                              where piece_id = p.id and to_stage = p.stage) e on true
-                where p.stage = :stage
-                order by e.since, p.number
-                limit 1000
-                """
-                    .formatted(SELECT_PIECE))
-            .param("stage", stage.name())
-            .query((rs, row) -> new WaitingPiece(mapPiece(rs, row), instant(rs, "since")))
-            .list();
+    Capped<WaitingPiece> waiting =
+        Capped.fromFetched(
+            jdbc.sql(
+                    """
+                    select p.*, e.since
+                    from (%s) p
+                    join lateral (select max(occurred_at) as since from piece_event
+                                  where piece_id = p.id and to_stage = p.stage) e on true
+                    where p.stage = :stage
+                    order by e.since, p.number
+                    limit :fetchSize
+                    """
+                        .formatted(SELECT_PIECE))
+                .param("stage", stage.name())
+                .param("fetchSize", Capped.fetchSize(QUEUE_LIMIT))
+                .query((rs, row) -> new WaitingPiece(mapPiece(rs, row), instant(rs, "since")))
+                .list(),
+            QUEUE_LIMIT);
+    List<WaitingPiece> waitingPieces = waiting.items();
     List<PieceView> named =
-        withDetails(waiting.stream().map(WaitingPiece::piece).toList(), List.of(), false);
-    List<WaitingPiece> result = new ArrayList<>(waiting.size());
-    for (int i = 0; i < waiting.size(); i++) {
-      result.add(new WaitingPiece(named.get(i), waiting.get(i).since()));
+        withDetails(waitingPieces.stream().map(WaitingPiece::piece).toList(), List.of(), false);
+    List<WaitingPiece> result = new ArrayList<>(waitingPieces.size());
+    for (int i = 0; i < waitingPieces.size(); i++) {
+      result.add(new WaitingPiece(named.get(i), waitingPieces.get(i).since()));
     }
-    return result;
+    return waiting.withItems(result);
   }
 
   /**
@@ -309,7 +323,7 @@ public class PieceService {
             .param("ids", pieceIds.toArray(UUID[]::new))
             .update();
     if (updated != pieceIds.size()) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Some of these pieces were moved by someone else. Reload and try again.");
     }
     for (UUID id : pieceIds) {

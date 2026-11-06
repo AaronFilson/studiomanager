@@ -7,10 +7,12 @@ import io.github.aaronfilson.studiomanager.contract.AssetKindDto;
 import io.github.aaronfilson.studiomanager.contract.CompleteMaintenanceTaskRequestDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceApi;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordDto;
+import io.github.aaronfilson.studiomanager.contract.MaintenanceRecordListDto;
 import io.github.aaronfilson.studiomanager.contract.MaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.PartUseDto;
 import io.github.aaronfilson.studiomanager.contract.PhotoUploadDto;
 import io.github.aaronfilson.studiomanager.contract.ProblemReportDto;
+import io.github.aaronfilson.studiomanager.contract.ProblemReportListDto;
 import io.github.aaronfilson.studiomanager.contract.RecordRepairRequestDto;
 import io.github.aaronfilson.studiomanager.contract.ReportProblemRequestDto;
 import io.github.aaronfilson.studiomanager.contract.ReportableAssetDto;
@@ -23,6 +25,7 @@ import io.github.aaronfilson.studiomanager.contract.UpdateMaintenanceTaskRequest
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -164,14 +167,15 @@ class MaintenanceController implements MaintenanceApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<MaintenanceRecordDto>> listMaintenanceRecords(
+  public ResponseEntity<MaintenanceRecordListDto> listMaintenanceRecords(
       UUID studioId, UUID assetId) {
-    var records = maintenance.records(assetId);
     Map<UUID, List<RecordPhotoService.Photo>> photos = recordPhotos.photosOf(assetId);
+    Capped<MaintenanceRecordDto> records =
+        maintenance
+            .records(assetId)
+            .map(r -> MaintenanceDtos.toDto(r, photos.getOrDefault(r.id(), List.of())));
     return ResponseEntity.ok(
-        records.stream()
-            .map(r -> MaintenanceDtos.toDto(r, photos.getOrDefault(r.id(), List.of())))
-            .toList());
+        new MaintenanceRecordListDto(records.items(), records.truncated(), records.limit()));
   }
 
   @Override
@@ -243,10 +247,12 @@ class MaintenanceController implements MaintenanceApi {
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
-  public ResponseEntity<List<ProblemReportDto>> listProblemReports(
+  public ResponseEntity<ProblemReportListDto> listProblemReports(
       UUID studioId, @Nullable Boolean open) {
+    Capped<ProblemReportDto> reports =
+        problems.reports(Boolean.TRUE.equals(open)).map(MaintenanceDtos::toDto);
     return ResponseEntity.ok(
-        problems.reports(Boolean.TRUE.equals(open)).stream().map(MaintenanceDtos::toDto).toList());
+        new ProblemReportListDto(reports.items(), reports.truncated(), reports.limit()));
   }
 
   @Override

@@ -5,11 +5,13 @@ import io.github.aaronfilson.studiomanager.contract.CreatedWebhookEndpointDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateWebhookEndpointDto;
 import io.github.aaronfilson.studiomanager.contract.WebhookAttemptDto;
 import io.github.aaronfilson.studiomanager.contract.WebhookDeliveryDto;
+import io.github.aaronfilson.studiomanager.contract.WebhookDeliveryListDto;
 import io.github.aaronfilson.studiomanager.contract.WebhookEndpointDto;
 import io.github.aaronfilson.studiomanager.contract.WebhookEventTypeDto;
 import io.github.aaronfilson.studiomanager.contract.WebhookEventTypeInfoDto;
 import io.github.aaronfilson.studiomanager.contract.WebhookSecretDto;
 import io.github.aaronfilson.studiomanager.contract.WebhooksApi;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -111,10 +113,12 @@ class WebhookController implements WebhooksApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<WebhookDeliveryDto>> listWebhookDeliveries(
+  public ResponseEntity<WebhookDeliveryListDto> listWebhookDeliveries(
       UUID studioId, UUID endpointId) {
+    Capped<WebhookDeliveryDto> deliveries =
+        endpoints.deliveries(endpointId).map(WebhookController::dto);
     return ResponseEntity.ok(
-        endpoints.deliveries(endpointId).stream().map(WebhookController::dto).toList());
+        new WebhookDeliveryListDto(deliveries.items(), deliveries.truncated(), deliveries.limit()));
   }
 
   @Override

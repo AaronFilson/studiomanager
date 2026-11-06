@@ -60,10 +60,10 @@ class KilnApiTests {
         .hasStatusOk()
         .bodyJson()
         .hasPathSatisfying(
-            "$[*].piece.id",
+            "$.items[*].piece.id",
             ids -> assertThat(ids).asArray().containsExactly(first, second, theirs))
         .hasPathSatisfying(
-            "$[*].fitsNextLoad",
+            "$.items[*].fitsNextLoad",
             fits -> assertThat(fits).asArray().containsExactly(true, false, true));
 
     assertThat(load(kiln, "BISQUE", first, second)).hasStatus(HttpStatus.BAD_REQUEST);
@@ -75,7 +75,7 @@ class KilnApiTests {
     assertThat(mvc.get().uri(path("/kilns/" + kiln + "/queue?kind=BISQUE")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[*].piece.id")
+        .extractingPath("$.items[*].piece.id")
         .asArray()
         .containsExactly(second);
     // Members can't run kilns
@@ -106,9 +106,9 @@ class KilnApiTests {
     assertThat(mvc.get().uri(path("/notifications")).with(maker.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$.length()", n -> assertThat(n).isEqualTo(1))
+        .hasPathSatisfying("$.items.length()", n -> assertThat(n).isEqualTo(1))
         .hasPathSatisfying(
-            "$[0].title",
+            "$.items[0].title",
             t -> assertThat(t).isEqualTo("Your 2 pieces are bisque fired and ready to glaze"));
 
     for (String piece : List.of(jar, bowl, mug)) {
@@ -127,18 +127,18 @@ class KilnApiTests {
     assertThat(inbox)
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$.length()", n -> assertThat(n).isEqualTo(2))
-        .hasPathSatisfying("$[0].kind", k -> assertThat(k).isEqualTo("PIECES_READY"))
+        .hasPathSatisfying("$.items.length()", n -> assertThat(n).isEqualTo(2))
+        .hasPathSatisfying("$.items[0].kind", k -> assertThat(k).isEqualTo("PIECES_READY"))
         .hasPathSatisfying(
-            "$[0].title", t -> assertThat(t).isEqualTo("Your 2 pieces are ready to collect"));
-    assertThat(read(inbox, "$[0].body"))
+            "$.items[0].title", t -> assertThat(t).isEqualTo("Your 2 pieces are ready to collect"));
+    assertThat(read(inbox, "$.items[0].body"))
         .contains(": Jar")
         .contains(": Bowl")
         .contains("Please collect by");
     assertThat(mvc.get().uri(path("/notifications")).with(other.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[0].title")
+        .extractingPath("$.items[0].title")
         .isEqualTo("Your piece is ready to collect");
 
     // Each completed firing is counted; maintenance tasks read the count (MaintenanceApiTests)
@@ -209,7 +209,7 @@ class KilnApiTests {
                 """))
         .hasStatus(HttpStatus.FORBIDDEN);
     String id =
-        read(mvc.get().uri(path("/notifications")).with(other.token()).exchange(), "$[0].id");
+        read(mvc.get().uri(path("/notifications")).with(other.token()).exchange(), "$.items[0].id");
     assertThat(mvc.post().uri(path("/notifications/" + id + "/read")).with(other.token()))
         .hasStatus(HttpStatus.NO_CONTENT);
     // Someone else's notification is invisible

@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const roller: Resource = {
   id: 'r1',
@@ -21,7 +21,7 @@ describe('calendar', () => {
     const studio = aStudio({ myRole: 'MEMBER' });
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
-      http.get(`${API}/api/v1/studios/:studioId/bookings`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/bookings`, () => HttpResponse.json(capped([]))),
       http.get(`${API}/api/v1/studios/:studioId/resources`, () => HttpResponse.json([roller])),
     );
 

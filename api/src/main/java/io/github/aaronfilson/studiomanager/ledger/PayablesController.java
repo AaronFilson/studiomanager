@@ -1,7 +1,9 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
 import io.github.aaronfilson.studiomanager.contract.ConsignmentItemDto;
+import io.github.aaronfilson.studiomanager.contract.ConsignmentItemListDto;
 import io.github.aaronfilson.studiomanager.contract.ConsignmentSaleDto;
+import io.github.aaronfilson.studiomanager.contract.ConsignmentSaleListDto;
 import io.github.aaronfilson.studiomanager.contract.DiscountsFromDto;
 import io.github.aaronfilson.studiomanager.contract.EarningDto;
 import io.github.aaronfilson.studiomanager.contract.EarningKindDto;
@@ -11,6 +13,7 @@ import io.github.aaronfilson.studiomanager.contract.NecReportDto;
 import io.github.aaronfilson.studiomanager.contract.PayPayeeRequestDto;
 import io.github.aaronfilson.studiomanager.contract.PayablesApi;
 import io.github.aaronfilson.studiomanager.contract.PayeeDto;
+import io.github.aaronfilson.studiomanager.contract.PayeeListDto;
 import io.github.aaronfilson.studiomanager.contract.PayeePaymentDto;
 import io.github.aaronfilson.studiomanager.contract.PayeeStatementDto;
 import io.github.aaronfilson.studiomanager.contract.PayeeStatementLineDto;
@@ -34,6 +37,7 @@ import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PayeeChanges;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Payment;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentMethod;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentRunLine;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.Csv;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -59,8 +63,9 @@ class PayablesController implements PayablesApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<PayeeDto>> listPayees(UUID studioId) {
-    return ResponseEntity.ok(payables.payees().stream().map(PayablesController::toDto).toList());
+  public ResponseEntity<PayeeListDto> listPayees(UUID studioId) {
+    Capped<PayeeDto> payees = payables.payees().map(PayablesController::toDto);
+    return ResponseEntity.ok(new PayeeListDto(payees.items(), payees.truncated(), payees.limit()));
   }
 
   @Override
@@ -153,14 +158,14 @@ class PayablesController implements PayablesApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<ConsignmentItemDto>> listConsignmentItems(
+  public ResponseEntity<ConsignmentItemListDto> listConsignmentItems(
       UUID studioId, Boolean dueBack, @Nullable UUID payeeId, Boolean all) {
-    return ResponseEntity.ok(
+    Capped<ConsignmentItemDto> items =
         payables
             .consignmentItems(payeeId, !Boolean.TRUE.equals(all), Boolean.TRUE.equals(dueBack))
-            .stream()
-            .map(PayablesController::toDto)
-            .toList());
+            .map(PayablesController::toDto);
+    return ResponseEntity.ok(
+        new ConsignmentItemListDto(items.items(), items.truncated(), items.limit()));
   }
 
   @Override
@@ -230,10 +235,12 @@ class PayablesController implements PayablesApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<ConsignmentSaleDto>> listConsignmentSales(
+  public ResponseEntity<ConsignmentSaleListDto> listConsignmentSales(
       UUID studioId, @Nullable UUID payeeId) {
+    Capped<ConsignmentSaleDto> sales =
+        payables.consignmentSales(payeeId).map(PayablesController::toDto);
     return ResponseEntity.ok(
-        payables.consignmentSales(payeeId).stream().map(PayablesController::toDto).toList());
+        new ConsignmentSaleListDto(sales.items(), sales.truncated(), sales.limit()));
   }
 
   @Override

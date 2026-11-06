@@ -6,6 +6,7 @@ import io.github.aaronfilson.studiomanager.contract.LedgerAccountDto;
 import io.github.aaronfilson.studiomanager.contract.LedgerApi;
 import io.github.aaronfilson.studiomanager.contract.MemberBalanceDto;
 import io.github.aaronfilson.studiomanager.contract.PayoutDto;
+import io.github.aaronfilson.studiomanager.contract.PayoutListDto;
 import io.github.aaronfilson.studiomanager.contract.ProviderDto;
 import io.github.aaronfilson.studiomanager.contract.RecordPaymentRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SellStoredValueRequestDto;
@@ -13,6 +14,7 @@ import io.github.aaronfilson.studiomanager.contract.SetTaxRateRequestDto;
 import io.github.aaronfilson.studiomanager.contract.StatementDto;
 import io.github.aaronfilson.studiomanager.contract.StoredValueDto;
 import io.github.aaronfilson.studiomanager.contract.StoredValueKindDto;
+import io.github.aaronfilson.studiomanager.contract.StoredValueListDto;
 import io.github.aaronfilson.studiomanager.contract.StoredValueMovementDto;
 import io.github.aaronfilson.studiomanager.contract.SummaryLineDto;
 import io.github.aaronfilson.studiomanager.contract.TaxRateDto;
@@ -23,6 +25,7 @@ import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueBalance;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.TaxRate;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -76,8 +79,10 @@ class LedgerController implements LedgerApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<StoredValueDto>> listStoredValues(UUID studioId) {
-    return ResponseEntity.ok(ledger.storedValues().stream().map(LedgerController::toDto).toList());
+  public ResponseEntity<StoredValueListDto> listStoredValues(UUID studioId) {
+    Capped<StoredValueDto> balances = ledger.storedValues().map(LedgerController::toDto);
+    return ResponseEntity.ok(
+        new StoredValueListDto(balances.items(), balances.truncated(), balances.limit()));
   }
 
   @Override
@@ -136,8 +141,10 @@ class LedgerController implements LedgerApi {
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
-  public ResponseEntity<List<PayoutDto>> listPayouts(UUID studioId) {
-    return ResponseEntity.ok(ledger.payouts().stream().map(LedgerController::toDto).toList());
+  public ResponseEntity<PayoutListDto> listPayouts(UUID studioId) {
+    Capped<PayoutDto> payouts = ledger.payouts().map(LedgerController::toDto);
+    return ResponseEntity.ok(
+        new PayoutListDto(payouts.items(), payouts.truncated(), payouts.limit()));
   }
 
   @Override

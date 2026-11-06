@@ -97,14 +97,15 @@ class PieceApiTests {
     assertThat(mvc.get().uri(studioPath("/pieces")).with(maker.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[*].id")
+        .extractingPath("$.items[*].id")
         .asArray()
         .containsExactly(mine);
     assertThat(mvc.get().uri(studioPath("/pieces")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
-        .isEqualTo(2);
+        .hasPathSatisfying("$.items.length()", count -> assertThat(count).isEqualTo(2))
+        .hasPathSatisfying("$.truncated", truncated -> assertThat(truncated).isEqualTo(false))
+        .hasPathSatisfying("$.limit", limit -> assertThat(limit).isEqualTo(2000));
     // Someone else's piece is a 404, not a 403, so its existence isn't revealed
     String theirs = read(intake(otherMaker), "$.id");
     assertThat(mvc.get().uri(studioPath("/pieces/" + theirs)).with(maker.token()))

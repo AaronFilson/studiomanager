@@ -1,5 +1,6 @@
 import {
   exportJournal,
+  FROM_THE_EXPORT,
   getClearingOptions,
   getStudioOptions,
   importPayoutMutation,
@@ -19,6 +20,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
+import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { formatDate, formatMoney, providerLabels, providers } from '../../../labels';
 
@@ -66,8 +68,9 @@ function MoneyPage() {
 
       <section className="card stack" aria-label="Prepaid balances">
         <h2>Prepaid balances</h2>
+        <CappedNote list={storedValues.data} noun="balances" findTheRest={FROM_THE_EXPORT} />
         <ul className="studio-list">
-          {storedValues.data?.map((sv) => (
+          {storedValues.data?.items.map((sv) => (
             <li key={sv.id}>
               <span>
                 {kindLabels[sv.kind]}
@@ -96,8 +99,9 @@ function MoneyPage() {
           ))}
         </ul>
         <PayoutForm studioId={studioId} />
+        <CappedNote list={payouts.data} noun="payouts" findTheRest={FROM_THE_EXPORT} />
         <ol className="timeline">
-          {payouts.data?.map((p) => (
+          {payouts.data?.items.map((p) => (
             <li key={p.id}>
               {providerLabels[p.provider]} {p.externalId} · {formatDate(`${p.arrivalOn}T12:00:00`)} · {money(p.gross)} −{' '}
               {money(p.refunds)} refunds − {money(p.fees)} fees = {money(p.net)}
@@ -285,7 +289,7 @@ function UseForm({ studio }: { studio: Studio }) {
           <label htmlFor={`${id}-balance`}>From</label>
           <select id={`${id}-balance`} required value={balance} onChange={(e) => setBalance(e.target.value)}>
             <option value="">Choose…</option>
-            {storedValues.data?.map((sv) => (
+            {storedValues.data?.items.map((sv) => (
               <option key={sv.id} value={sv.id}>
                 {kindLabels[sv.kind]} {sv.holderName ?? sv.code ?? ''} ({sv.remaining})
               </option>

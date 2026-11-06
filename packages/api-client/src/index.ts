@@ -4,7 +4,8 @@ import { toApiError } from './errors';
 export * from './generated';
 export * from './generated/@tanstack/react-query.gen';
 export { client } from './generated/client.gen';
-export { ApiError, isApiError } from './errors';
+export { ApiError, hasProblemCode, isApiError } from './errors';
+export { type CappedList, cappedNote, FROM_THE_EXPORT } from './capped';
 export { type PhotoFiles, uploadPiecePhoto, uploadRecordPhoto } from './photos';
 
 export interface ApiClientConfig {

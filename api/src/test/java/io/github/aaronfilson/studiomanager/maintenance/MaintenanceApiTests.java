@@ -136,14 +136,15 @@ class MaintenanceApiTests {
     assertThat(mvc.get().uri(path("/maintenance/assets/" + asset + "/records")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[0].note", n -> assertThat(n).isEqualTo("Replaced the lid hinge pin"))
-        .hasPathSatisfying("$[0].taskId", t -> assertThat(t).isNull())
         .hasPathSatisfying(
-            "$[1].taskTitle", t -> assertThat(t).isEqualTo("Check element resistance"))
-        .hasPathSatisfying("$[1].atFiring", n -> assertThat(n).isEqualTo(2))
+            "$.items[0].note", n -> assertThat(n).isEqualTo("Replaced the lid hinge pin"))
+        .hasPathSatisfying("$.items[0].taskId", t -> assertThat(t).isNull())
         .hasPathSatisfying(
-            "$[1].checked", c -> assertThat(c).asArray().containsExactly("Read each element"))
-        .hasPathSatisfying("$[1].doneByName", n -> assertThat(n).isEqualTo("Olive"));
+            "$.items[1].taskTitle", t -> assertThat(t).isEqualTo("Check element resistance"))
+        .hasPathSatisfying("$.items[1].atFiring", n -> assertThat(n).isEqualTo(2))
+        .hasPathSatisfying(
+            "$.items[1].checked", c -> assertThat(c).asArray().containsExactly("Read each element"))
+        .hasPathSatisfying("$.items[1].doneByName", n -> assertThat(n).isEqualTo("Olive"));
 
     // Ticking a line that isn't on the checklist is refused
     assertThat(
@@ -254,7 +255,10 @@ class MaintenanceApiTests {
                 .with(owner.token())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"expectedVersion\": 0}"))
-        .hasStatus(HttpStatus.CONFLICT);
+        .hasStatus(HttpStatus.CONFLICT)
+        .bodyJson()
+        .hasPathSatisfying("$.code", code -> assertThat(code).isEqualTo("stale-version"))
+        .hasPathSatisfying("$.type", type -> assertThat(type).isEqualTo("/problems/stale-version"));
     assertThat(mvc.delete().uri(path("/maintenance/assets/" + pugMill)).with(owner.token()))
         .hasStatus(HttpStatus.NO_CONTENT);
     assertThat(mvc.get().uri(path("/maintenance/assets")).with(owner.token()))
@@ -412,11 +416,11 @@ class MaintenanceApiTests {
         .hasStatusOk()
         .bodyJson()
         .hasPathSatisfying(
-            "$[*].note", n -> assertThat(n).asArray().contains("Repair: Skutt 1027"));
+            "$.items[*].note", n -> assertThat(n).asArray().contains("Repair: Skutt 1027"));
     assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[0].parts[0].itemId", i -> assertThat(i).isEqualTo(element));
+        .hasPathSatisfying("$.items[0].parts[0].itemId", i -> assertThat(i).isEqualTo(element));
 
     // The same part twice in one repair is refused, and so is a part from nowhere, with nothing
     // recorded
@@ -441,7 +445,7 @@ class MaintenanceApiTests {
     assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$.length()")
+        .extractingPath("$.items.length()")
         .isEqualTo(1);
 
     // Completing a task can draw parts too, but only staff draw stock
@@ -479,9 +483,9 @@ class MaintenanceApiTests {
     assertThat(mvc.get().uri(path("/maintenance/assets/" + kiln + "/records")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[0].taskTitle", t -> assertThat(t).isEqualTo("Check elements"))
+        .hasPathSatisfying("$.items[0].taskTitle", t -> assertThat(t).isEqualTo("Check elements"))
         .hasPathSatisfying(
-            "$[0].parts[0].itemName", n -> assertThat(n).isEqualTo("Element, 1027 top"));
+            "$.items[0].parts[0].itemName", n -> assertThat(n).isEqualTo("Element, 1027 top"));
   }
 
   @Test

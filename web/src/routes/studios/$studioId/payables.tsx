@@ -4,6 +4,7 @@ import {
   type DiscountsFrom,
   type EarningKind,
   exportNecReport,
+  FROM_THE_EXPORT,
   getNecReportOptions,
   getPayeeStatementOptions,
   getStudioOptions,
@@ -29,6 +30,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { formatDate, formatMoney, providerLabels, providers } from '../../../labels';
 
@@ -65,8 +67,8 @@ function PayablesPage() {
   const payees = useQuery(listPayeesOptions({ path: { studioId } }));
   const [selected, setSelected] = useState<string>();
   const money = (amount: string) => formatMoney(amount, studio.currency);
-  const active = payees.data?.filter((p) => !p.archived) ?? [];
-  const chosen = payees.data?.find((p) => p.id === selected);
+  const active = payees.data?.items.filter((p) => !p.archived) ?? [];
+  const chosen = payees.data?.items.find((p) => p.id === selected);
 
   return (
     <div className="stack">
@@ -75,11 +77,12 @@ function PayablesPage() {
       <section className="card stack" aria-label="Who the studio owes">
         <h2>Who the studio owes</h2>
         {payees.isError && <ErrorMessage error={payees.error} />}
-        {payees.isSuccess && payees.data.length === 0 && (
+        {payees.isSuccess && payees.data.items.length === 0 && (
           <p>No one yet. Add the artists whose work you sell and the instructors you share class takings with.</p>
         )}
+        <CappedNote list={payees.data} order="first" noun="payees" findTheRest={FROM_THE_EXPORT} />
         <ul className="studio-list">
-          {payees.data?.map((p) => (
+          {payees.data?.items.map((p) => (
             <li key={p.id}>
               <span>
                 <button type="button" className="link" onClick={() => setSelected(p.id)} aria-pressed={p.id === selected}>
@@ -437,9 +440,15 @@ function ConsignmentSection({ studio, payees }: { studio: Studio; payees: Payee[
         work due back to the artist
       </label>
       {items.isError && <ErrorMessage error={items.error} />}
-      {items.isSuccess && items.data.length === 0 && <p>{dueBack ? 'Nothing is due back.' : 'Nothing on the shelf.'}</p>}
+      {items.isSuccess && items.data.items.length === 0 && <p>{dueBack ? 'Nothing is due back.' : 'Nothing on the shelf.'}</p>}
+      <CappedNote
+        list={items.data}
+        order={dueBack ? 'oldest' : 'newest'}
+        noun="items"
+        findTheRest={dueBack ? 'Return some of these to see the rest.' : FROM_THE_EXPORT}
+      />
       <ul className="studio-list">
-        {items.data?.map((item) => (
+        {items.data?.items.map((item) => (
           <li key={item.id}>
             <span>
               {item.description} · {item.payeeName} · {money(item.retailPrice)} · {item.inStock} in stock
@@ -454,8 +463,9 @@ function ConsignmentSection({ studio, payees }: { studio: Studio; payees: Payee[
       <TakeInForm studio={studio} payees={payees} />
       <h3>Recent sales</h3>
       {refund.isError && <ErrorMessage error={refund.error} />}
+      <CappedNote list={sales.data} noun="sales" findTheRest={FROM_THE_EXPORT} />
       <ol className="timeline">
-        {sales.data?.map((sale) => (
+        {sales.data?.items.map((sale) => (
           <li key={sale.id}>
             {formatDate(`${sale.soldOn}T12:00:00`)} · {sale.quantity} × {sale.description} ·{' '}
             {money(sale.price)} ({money(sale.consignorAmount)} to the artist)

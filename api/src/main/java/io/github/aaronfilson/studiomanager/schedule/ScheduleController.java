@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.contract.AdjustHoursRequestDto;
 import io.github.aaronfilson.studiomanager.contract.AssignShiftRequestDto;
 import io.github.aaronfilson.studiomanager.contract.BookingDto;
+import io.github.aaronfilson.studiomanager.contract.BookingListDto;
 import io.github.aaronfilson.studiomanager.contract.CreateBookingRequestDto;
 import io.github.aaronfilson.studiomanager.contract.CreateResourceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.CreateShiftsRequestDto;
@@ -14,7 +15,9 @@ import io.github.aaronfilson.studiomanager.contract.ResourceDto;
 import io.github.aaronfilson.studiomanager.contract.ResourceKindDto;
 import io.github.aaronfilson.studiomanager.contract.ScheduleApi;
 import io.github.aaronfilson.studiomanager.contract.ShiftDto;
+import io.github.aaronfilson.studiomanager.contract.ShiftListDto;
 import io.github.aaronfilson.studiomanager.contract.VersionRequestDto;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.BookingKind;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.HoursLedger;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Resource;
@@ -62,12 +65,12 @@ class ScheduleController implements ScheduleApi {
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
-  public ResponseEntity<List<BookingDto>> listBookings(
+  public ResponseEntity<BookingListDto> listBookings(
       OffsetDateTime from, OffsetDateTime to, UUID studioId) {
+    Capped<BookingDto> calendar =
+        schedule.bookings(from.toInstant(), to.toInstant()).map(ScheduleDtos::toDto);
     return ResponseEntity.ok(
-        schedule.bookings(from.toInstant(), to.toInstant()).stream()
-            .map(ScheduleDtos::toDto)
-            .toList());
+        new BookingListDto(calendar.items(), calendar.truncated(), calendar.limit()));
   }
 
   @Override
@@ -98,12 +101,11 @@ class ScheduleController implements ScheduleApi {
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
-  public ResponseEntity<List<ShiftDto>> listShifts(
+  public ResponseEntity<ShiftListDto> listShifts(
       OffsetDateTime from, OffsetDateTime to, UUID studioId) {
-    return ResponseEntity.ok(
-        schedule.shifts(from.toInstant(), to.toInstant()).stream()
-            .map(ScheduleDtos::toDto)
-            .toList());
+    Capped<ShiftDto> roster =
+        schedule.shifts(from.toInstant(), to.toInstant()).map(ScheduleDtos::toDto);
+    return ResponseEntity.ok(new ShiftListDto(roster.items(), roster.truncated(), roster.limit()));
   }
 
   @Override
@@ -185,7 +187,7 @@ class ScheduleController implements ScheduleApi {
         .accountName(ledger.accountName())
         .totalMinutes(ledger.totalMinutes())
         .entries(
-            ledger.entries().stream()
+            ledger.entries().items().stream()
                 .map(e ->
                     new HoursEntryDto()
                         .id(e.id())
@@ -194,6 +196,8 @@ class ScheduleController implements ScheduleApi {
                         .shiftId(e.shiftId())
                         .creditedAt(e.creditedAt().atOffset(ZoneOffset.UTC))
                         .creditedByName(e.creditedByName()))
-                .toList());
+                .toList())
+        .truncated(ledger.entries().truncated())
+        .limit(ledger.entries().limit());
   }
 }

@@ -162,7 +162,8 @@ public class GlazeBook {
             .param("version", version)
             .update();
     if (changed == 0) {
-      throw new ConflictException("Someone else changed this recipe. Reload it and try again.");
+      throw ConflictException.staleVersion(
+          "Someone else changed this recipe. Reload it and try again.");
     }
     jdbc.sql("delete from glaze_line where recipe_id = :id").param("id", id).update();
     insertLines(caller.studioId(), id, clean.lines());

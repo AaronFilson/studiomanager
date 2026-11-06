@@ -4,14 +4,15 @@ import io.github.aaronfilson.studiomanager.contract.IntakePieceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.MovePieceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.PhotoUploadDto;
 import io.github.aaronfilson.studiomanager.contract.PieceDto;
+import io.github.aaronfilson.studiomanager.contract.PieceListDto;
 import io.github.aaronfilson.studiomanager.contract.PiecePolicyDto;
 import io.github.aaronfilson.studiomanager.contract.PieceStageDto;
 import io.github.aaronfilson.studiomanager.contract.PiecesApi;
 import io.github.aaronfilson.studiomanager.firing.PieceSizes;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
@@ -32,13 +33,14 @@ class PieceController implements PiecesApi {
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
-  public ResponseEntity<List<PieceDto>> listPieces(
+  public ResponseEntity<PieceListDto> listPieces(
       UUID studioId, @Nullable PieceStageDto stage, @Nullable UUID maker) {
     Instant now = Instant.now();
-    return ResponseEntity.ok(
-        pieces.list(stage == null ? null : PieceStage.valueOf(stage.name()), maker).stream()
-            .map(piece -> PieceDtos.toDto(piece, now))
-            .toList());
+    Capped<PieceDto> listed =
+        pieces
+            .list(stage == null ? null : PieceStage.valueOf(stage.name()), maker)
+            .map(piece -> PieceDtos.toDto(piece, now));
+    return ResponseEntity.ok(new PieceListDto(listed.items(), listed.truncated(), listed.limit()));
   }
 
   @Override

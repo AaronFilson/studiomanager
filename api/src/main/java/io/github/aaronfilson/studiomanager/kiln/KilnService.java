@@ -159,7 +159,7 @@ public class KilnService {
   private void requireUpdated(int updated, UUID kilnId) {
     if (updated == 0) {
       get(kilnId);
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this kiln at the same time. Reload and try again.");
     }
   }

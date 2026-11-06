@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.kiln.FiringKind;
 import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
 import io.github.aaronfilson.studiomanager.maintenance.ProblemReported;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -50,6 +51,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class NotificationService {
 
+  /** The most notifications {@link #mine} returns. */
+  static final int INBOX_LIMIT = 100;
+
   private final JdbcClient jdbc;
   private final StudioService studios;
   private final StudioMembers members;
@@ -68,24 +72,27 @@ public class NotificationService {
 
   /** The caller's notifications in the bound studio, newest first. */
   @Transactional(readOnly = true)
-  public List<NotificationView> mine() {
-    return jdbc.sql(
-            """
-            select id, kind, title, body, created_at, read_at from notification
-            where account_id = :me order by created_at desc limit 100
-            """)
-        .param("me", TenantContext.require().accountId())
-        .query((rs, row) ->
-            new NotificationView(
-                rs.getObject("id", UUID.class),
-                NotificationView.Kind.valueOf(rs.getString("kind")),
-                rs.getString("title"),
-                rs.getString("body"),
-                rs.getObject("created_at", OffsetDateTime.class).toInstant(),
-                rs.getObject("read_at", OffsetDateTime.class) == null
-                    ? null
-                    : rs.getObject("read_at", OffsetDateTime.class).toInstant()))
-        .list();
+  public Capped<NotificationView> mine() {
+    return Capped.fromFetched(
+        jdbc.sql(
+                """
+                select id, kind, title, body, created_at, read_at from notification
+                where account_id = :me order by created_at desc limit :fetchSize
+                """)
+            .param("me", TenantContext.require().accountId())
+            .param("fetchSize", Capped.fetchSize(INBOX_LIMIT))
+            .query((rs, row) ->
+                new NotificationView(
+                    rs.getObject("id", UUID.class),
+                    NotificationView.Kind.valueOf(rs.getString("kind")),
+                    rs.getString("title"),
+                    rs.getString("body"),
+                    rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+                    rs.getObject("read_at", OffsetDateTime.class) == null
+                        ? null
+                        : rs.getObject("read_at", OffsetDateTime.class).toInstant()))
+            .list(),
+        INBOX_LIMIT);
   }
 
   @Transactional

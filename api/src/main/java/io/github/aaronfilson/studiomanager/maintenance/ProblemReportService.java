@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.ProblemReport;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -40,6 +41,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ProblemReportService {
+
+  /** The most reports {@link #reports} returns. */
+  static final int LIMIT = 500;
 
   private final JdbcClient jdbc;
   private final MaintenanceService maintenance;
@@ -101,16 +105,26 @@ public class ProblemReportService {
     return find(id);
   }
 
-  /** Staff see every report; anyone else only their own. Newest first, at most 200. */
+  /** Staff see every report; anyone else only their own. Newest first, at most {@value #LIMIT}. */
   @Transactional(readOnly = true)
-  public List<ProblemReport> reports(boolean openOnly) {
+  public Capped<ProblemReport> reports(boolean openOnly) {
     TenantContext caller = TenantContext.require();
-    return query(
-        """
-        where (:all or p.reported_by = :me) and (not :openOnly or p.resolved_at is null)
-        order by p.reported_at desc limit 200
-        """,
-        Map.of("all", isStaff(caller), "me", caller.accountId(), "openOnly", openOnly));
+    return Capped.fromFetched(
+        query(
+            """
+            where (:all or p.reported_by = :me) and (not :openOnly or p.resolved_at is null)
+            order by p.reported_at desc limit :fetchSize
+            """,
+            Map.of(
+                "all",
+                isStaff(caller),
+                "me",
+                caller.accountId(),
+                "openOnly",
+                openOnly,
+                "fetchSize",
+                Capped.fetchSize(LIMIT))),
+        LIMIT);
   }
 
   /** Closes a report, saying what was done or why nothing was. Staff only. */
@@ -139,7 +153,7 @@ public class ProblemReportService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed or resolved this report. Reload and try again.");
     }
     return find(reportId);

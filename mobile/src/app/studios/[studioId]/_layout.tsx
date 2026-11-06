@@ -9,7 +9,7 @@ export default function StudioLayout() {
   const palette = usePalette();
   const studio = useQuery(getStudioOptions({ path: { studioId } }));
   const notices = useQuery(listMyNotificationsOptions({ path: { studioId } }));
-  const unread = notices.data?.filter((n) => !n.readAt).length ?? 0;
+  const unread = notices.data?.items.filter((n) => !n.readAt).length ?? 0;
 
   return (
     <Tabs

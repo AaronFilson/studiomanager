@@ -94,8 +94,9 @@ class RecordPhotoApiTests {
             .exchange()
             .getResponse()
             .getContentAsString();
-    assertThat(JsonPath.<List<String>>read(records, "$[0].photos[*].id")).containsExactly(photoId);
-    String url = JsonPath.read(records, "$[0].photos[0].url");
+    assertThat(JsonPath.<List<String>>read(records, "$.items[0].photos[*].id"))
+        .containsExactly(photoId);
+    String url = JsonPath.read(records, "$.items[0].photos[0].url");
     HttpResponse<byte[]> image =
         http.send(
             HttpRequest.newBuilder(URI.create(url)).build(),

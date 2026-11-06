@@ -4,6 +4,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { dueText, formatDate, formatTime } from '../../../labels';
+import { useIdle } from '../../../useIdle';
+
+/** How often the page refreshes while someone is using it. */
+const POLL_EVERY_MS = 60_000;
+/** How long without a tap, click or key before it stops refreshing. */
+const STOP_POLLING_AFTER_MS = 5 * 60_000;
 
 export const Route = createFileRoute('/studios/$studioId/today')({
   component: TodayPage,
@@ -16,7 +22,9 @@ function count(n: number, one: string, many: string): string {
 /** The handover view: everything whoever is covering the studio needs, on one page. */
 function TodayPage() {
   const { studioId } = Route.useParams();
-  const today = useQuery({ ...getTodayOptions({ path: { studioId } }), refetchInterval: 60_000 });
+  // A front-desk tablet left on this page would otherwise poll all day and keep the API awake
+  const idle = useIdle(STOP_POLLING_AFTER_MS);
+  const today = useQuery({ ...getTodayOptions({ path: { studioId } }), refetchInterval: idle ? false : POLL_EVERY_MS });
 
   if (today.isPending) {
     return <p>Loading today…</p>;
@@ -41,6 +49,7 @@ function TodayPage() {
   return (
     <div className="stack">
       <h1>Today, {formatDate(`${t.date}T12:00:00`)}</h1>
+      {idle && <p className="badge">Paused while nobody&apos;s using this page. Tap or move the mouse to pick it up again.</p>}
 
       {attention.length > 0 && (
         <section className="card stack" aria-label="Needs attention">
