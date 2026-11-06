@@ -30,7 +30,28 @@ variables {
   mail_acs_endpoint                      = "https://acs-studiomanager-test.unitedstates.communication.azure.com"
   mail_from                              = "DoNotReply@00000000-0000-0000-0000-000000000000.azurecomm.net"
   application_insights_connection_string = "InstrumentationKey=00000000-0000-0000-0000-000000000000"
+  webhook_secret_key                     = "d2ViaG9vay1zZWNyZXQta2V5LWZvci10ZXN0cy0zMmI="
+  ai_key_encryption_key                  = "YWkta2V5LWVuY3J5cHRpb24ta2V5LWZvci10ZXN0cyE="
   tags                                   = { app = "studiomanager" }
+}
+
+run "the_app_and_the_migration_job_get_the_encryption_keys_from_secrets" {
+  command = plan
+
+  assert {
+    condition = alltrue(flatten([
+      for container in [
+        azurerm_container_app.api.template[0].container[0],
+        azurerm_container_app_job.migrate.template[0].container[0],
+      ] : [
+        for name, secret in {
+          STUDIOMANAGER_WEBHOOK_SECRET_KEY    = "webhook-secret-key"
+          STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY = "ai-key-encryption-key"
+        } : anytrue([for e in container.env : e.name == name && e.secret_name == secret])
+      ]
+    ]))
+    error_message = "Both start the same Spring context, which requires both keys, and they must come from secrets."
+  }
 }
 
 run "api_runs_as_the_api_identity" {
