@@ -11,13 +11,14 @@ import java.util.UUID;
 @FunctionalInterface
 public interface ApiTokenResolver {
 
-    /** Every personal API token starts with this, so it's told apart from a JWT, and secret scanners can spot one. */
-    String PREFIX = "smpat_";
+  /**
+   * Every personal API token starts with this, so it's told apart from a JWT, and secret scanners
+   * can spot one.
+   */
+  String PREFIX = "smpat_";
 
-    /** An unexpired, unrevoked token: whose it is, the one studio it works in, and what it may do. */
-    record ResolvedToken(UUID tokenId, UUID accountId, UUID studioId, Set<TokenScope> scopes) {
-    }
+  /** An unexpired, unrevoked token: whose it is, the one studio it works in, and what it may do. */
+  record ResolvedToken(UUID tokenId, UUID accountId, UUID studioId, Set<TokenScope> scopes) {}
 
-    Optional<ResolvedToken> resolve(String bearer);
-
+  Optional<ResolvedToken> resolve(String bearer);
 }

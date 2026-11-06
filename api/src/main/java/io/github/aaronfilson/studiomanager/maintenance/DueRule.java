@@ -2,7 +2,6 @@ package io.github.aaronfilson.studiomanager.maintenance;
 
 import java.time.Duration;
 import java.time.Instant;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -14,49 +13,52 @@ import org.jspecify.annotations.Nullable;
  */
 final class DueRule {
 
-    static final Duration MAX_DAYS_WARNING = Duration.ofDays(14);
+  static final Duration MAX_DAYS_WARNING = Duration.ofDays(14);
 
-    private DueRule() {
+  private DueRule() {}
+
+  /**
+   * @param totalFirings the kiln's firings so far; null for an asset that isn't a kiln
+   */
+  static Due evaluate(
+      @Nullable Integer everyDays,
+      @Nullable Integer everyFirings,
+      Instant lastDoneAt,
+      int lastDoneFirings,
+      @Nullable Integer totalFirings,
+      Instant now) {
+    Instant dueAt = null;
+    DueStatus byDays = DueStatus.OK;
+    if (everyDays != null) {
+      dueAt = lastDoneAt.plus(Duration.ofDays(everyDays));
+      Duration warning =
+          clamp(Duration.ofDays(everyDays).dividedBy(10), Duration.ofDays(1), MAX_DAYS_WARNING);
+      if (!dueAt.isAfter(now)) {
+        byDays = DueStatus.DUE;
+      } else if (!dueAt.minus(warning).isAfter(now)) {
+        byDays = DueStatus.DUE_SOON;
+      }
     }
-
-    /**
-     * @param totalFirings the kiln's firings so far; null for an asset that isn't a kiln
-     */
-    static Due evaluate(@Nullable Integer everyDays, @Nullable Integer everyFirings, Instant lastDoneAt,
-            int lastDoneFirings, @Nullable Integer totalFirings, Instant now) {
-        Instant dueAt = null;
-        DueStatus byDays = DueStatus.OK;
-        if (everyDays != null) {
-            dueAt = lastDoneAt.plus(Duration.ofDays(everyDays));
-            Duration warning = clamp(Duration.ofDays(everyDays).dividedBy(10), Duration.ofDays(1), MAX_DAYS_WARNING);
-            if (!dueAt.isAfter(now)) {
-                byDays = DueStatus.DUE;
-            } else if (!dueAt.minus(warning).isAfter(now)) {
-                byDays = DueStatus.DUE_SOON;
-            }
-        }
-        Integer firingsLeft = null;
-        DueStatus byFirings = DueStatus.OK;
-        if (everyFirings != null && totalFirings != null) {
-            firingsLeft = everyFirings - (totalFirings - lastDoneFirings);
-            if (firingsLeft <= 0) {
-                byFirings = DueStatus.DUE;
-            } else if (firingsLeft <= Math.max(1, everyFirings / 10)) {
-                byFirings = DueStatus.DUE_SOON;
-            }
-        }
-        return new Due(byDays.compareTo(byFirings) >= 0 ? byDays : byFirings, dueAt, firingsLeft);
+    Integer firingsLeft = null;
+    DueStatus byFirings = DueStatus.OK;
+    if (everyFirings != null && totalFirings != null) {
+      firingsLeft = everyFirings - (totalFirings - lastDoneFirings);
+      if (firingsLeft <= 0) {
+        byFirings = DueStatus.DUE;
+      } else if (firingsLeft <= Math.max(1, everyFirings / 10)) {
+        byFirings = DueStatus.DUE_SOON;
+      }
     }
+    return new Due(byDays.compareTo(byFirings) >= 0 ? byDays : byFirings, dueAt, firingsLeft);
+  }
 
-    private static Duration clamp(Duration value, Duration min, Duration max) {
-        return value.compareTo(min) < 0 ? min : value.compareTo(max) > 0 ? max : value;
-    }
+  private static Duration clamp(Duration value, Duration min, Duration max) {
+    return value.compareTo(min) < 0 ? min : value.compareTo(max) > 0 ? max : value;
+  }
 
-    /**
-     * @param dueAt when the days interval runs out; null without one
-     * @param firingsLeft firings until the firings interval runs out; null without one
-     */
-    record Due(DueStatus status, @Nullable Instant dueAt, @Nullable Integer firingsLeft) {
-    }
-
+  /**
+   * @param dueAt when the days interval runs out; null without one
+   * @param firingsLeft firings until the firings interval runs out; null without one
+   */
+  record Due(DueStatus status, @Nullable Instant dueAt, @Nullable Integer firingsLeft) {}
 }

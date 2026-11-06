@@ -1,118 +1,170 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
-
 import org.jspecify.annotations.Nullable;
 
 /** Payables' types: payees, consigned work, shares earned and payments sent. */
 public final class PayablesModel {
 
-    private PayablesModel() {
+  private PayablesModel() {}
+
+  /**
+   * Who bears a discount on consigned work: split by the shares, or all from the studio's
+   * commission.
+   */
+  public enum DiscountsFrom {
+    SHARED,
+    STUDIO
+  }
+
+  public enum EarningKind {
+    CLASS_SHARE,
+    SERVICE,
+    ADJUSTMENT
+  }
+
+  /** How a payee was paid. Card and payment-network payments go on a 1099-K, not a 1099-NEC. */
+  public enum PaymentMethod {
+    CHECK(true),
+    BANK_TRANSFER(true),
+    CASH(true),
+    PAYPAL(false),
+    STRIPE(false),
+    STUDIO_CREDIT(true);
+
+    private final boolean countsTowardsNec;
+
+    PaymentMethod(boolean countsTowardsNec) {
+      this.countsTowardsNec = countsTowardsNec;
     }
 
-    /** Who bears a discount on consigned work: split by the shares, or all from the studio's commission. */
-    public enum DiscountsFrom {
-        SHARED,
-        STUDIO
+    /** Whether the studio reports it on a 1099-NEC, rather than the network on a 1099-K. */
+    public boolean countsTowardsNec() {
+      return countsTowardsNec;
     }
+  }
 
-    public enum EarningKind {
-        CLASS_SHARE,
-        SERVICE,
-        ADJUSTMENT
+  /** {@code owed} is what the studio owes them now; negative if they owe the studio. */
+  public record Payee(
+      UUID id,
+      String name,
+      @Nullable String email,
+      @Nullable UUID accountId,
+      @Nullable String accountName,
+      boolean files1099,
+      @Nullable LocalDate w9ReceivedOn,
+      @Nullable BigDecimal consignorShare,
+      DiscountsFrom discountsFrom,
+      @Nullable Integer consignmentDays,
+      boolean archived,
+      BigDecimal owed) {}
+
+  /**
+   * {@code consignmentDays}: how long the studio keeps unsold work before it goes back to the
+   * artist; null for no limit.
+   */
+  public record PayeeChanges(
+      String name,
+      @Nullable String email,
+      @Nullable UUID accountId,
+      boolean files1099,
+      @Nullable LocalDate w9ReceivedOn,
+      @Nullable BigDecimal consignorShare,
+      DiscountsFrom discountsFrom,
+      @Nullable Integer consignmentDays,
+      boolean archived) {}
+
+  /**
+   * {@code returnBy} is when unsold work goes back to the artist, from the payee's consignment
+   * period; {@code dueBack} is true once that day has passed with some still on the shelf.
+   */
+  public record ConsignmentItem(
+      UUID id,
+      UUID payeeId,
+      String payeeName,
+      String description,
+      BigDecimal retailPrice,
+      BigDecimal consignorShare,
+      DiscountsFrom discountsFrom,
+      int quantity,
+      int sold,
+      int returned,
+      LocalDate receivedOn,
+      @Nullable LocalDate returnBy,
+      boolean dueBack) {
+
+    public int inStock() {
+      return quantity - sold - returned;
     }
+  }
 
-    /** How a payee was paid. Card and payment-network payments go on a 1099-K, not a 1099-NEC. */
-    public enum PaymentMethod {
-        CHECK(true),
-        BANK_TRANSFER(true),
-        CASH(true),
-        PAYPAL(false),
-        STRIPE(false),
-        STUDIO_CREDIT(true);
+  public record ConsignmentSale(
+      UUID id,
+      UUID itemId,
+      String description,
+      int quantity,
+      BigDecimal price,
+      BigDecimal consignorAmount,
+      BigDecimal tax,
+      Provider provider,
+      LocalDate soldOn,
+      @Nullable LocalDate refundedOn) {}
 
-        private final boolean countsTowardsNec;
+  public record Earning(
+      UUID id,
+      UUID payeeId,
+      EarningKind kind,
+      String description,
+      LocalDate earnedOn,
+      @Nullable BigDecimal gross,
+      @Nullable BigDecimal share,
+      BigDecimal amount) {}
 
-        PaymentMethod(boolean countsTowardsNec) {
-            this.countsTowardsNec = countsTowardsNec;
-        }
+  public record Payment(
+      UUID id,
+      UUID payeeId,
+      LocalDate paidOn,
+      BigDecimal amount,
+      PaymentMethod method,
+      @Nullable String reference) {}
 
-        /** Whether the studio reports it on a 1099-NEC, rather than the network on a 1099-K. */
-        public boolean countsTowardsNec() {
-            return countsTowardsNec;
-        }
-    }
+  /** One line of a payee's statement: positive adds to what they're owed, negative pays it down. */
+  public record StatementLine(LocalDate date, EntryKind kind, String memo, BigDecimal amount) {}
 
-    /** {@code owed} is what the studio owes them now; negative if they owe the studio. */
-    public record Payee(UUID id, String name, @Nullable String email, @Nullable UUID accountId,
-            @Nullable String accountName, boolean files1099, @Nullable LocalDate w9ReceivedOn,
-            @Nullable BigDecimal consignorShare, DiscountsFrom discountsFrom, @Nullable Integer consignmentDays,
-            boolean archived, BigDecimal owed) {
-    }
+  public record PayeeStatement(
+      UUID payeeId,
+      String payeeName,
+      LocalDate from,
+      LocalDate to,
+      BigDecimal opening,
+      List<StatementLine> lines,
+      BigDecimal closing) {}
 
-    /**
-     * {@code consignmentDays}: how long the studio keeps unsold work before it goes back to the
-     * artist; null for no limit.
-     */
-    public record PayeeChanges(String name, @Nullable String email, @Nullable UUID accountId, boolean files1099,
-            @Nullable LocalDate w9ReceivedOn, @Nullable BigDecimal consignorShare, DiscountsFrom discountsFrom,
-            @Nullable Integer consignmentDays, boolean archived) {
-    }
+  /** One payee's payments in a calendar year, split by whether a 1099-NEC covers them. */
+  public record NecLine(
+      UUID payeeId,
+      String name,
+      @Nullable String email,
+      @Nullable LocalDate w9ReceivedOn,
+      BigDecimal reportable,
+      BigDecimal paidThroughNetworks,
+      boolean meetsThreshold) {}
 
-    /**
-     * {@code returnBy} is when unsold work goes back to the artist, from the payee's consignment
-     * period; {@code dueBack} is true once that day has passed with some still on the shelf.
-     */
-    public record ConsignmentItem(UUID id, UUID payeeId, String payeeName, String description, BigDecimal retailPrice,
-            BigDecimal consignorShare, DiscountsFrom discountsFrom, int quantity, int sold, int returned,
-            LocalDate receivedOn, @Nullable LocalDate returnBy, boolean dueBack) {
+  public record NecReport(int year, BigDecimal threshold, List<NecLine> payees) {}
 
-        public int inStock() {
-            return quantity - sold - returned;
-        }
-    }
+  /** One payee in a payment run: how much, and an optional reference such as a cheque number. */
+  public record PaymentRunLine(UUID payeeId, BigDecimal amount, @Nullable String reference) {}
 
-    public record ConsignmentSale(UUID id, UUID itemId, String description, int quantity, BigDecimal price,
-            BigDecimal consignorAmount, BigDecimal tax, Provider provider, LocalDate soldOn, @Nullable LocalDate refundedOn) {
-    }
-
-    public record Earning(UUID id, UUID payeeId, EarningKind kind, String description, LocalDate earnedOn,
-            @Nullable BigDecimal gross, @Nullable BigDecimal share, BigDecimal amount) {
-    }
-
-    public record Payment(UUID id, UUID payeeId, LocalDate paidOn, BigDecimal amount, PaymentMethod method,
-            @Nullable String reference) {
-    }
-
-    /** One line of a payee's statement: positive adds to what they're owed, negative pays it down. */
-    public record StatementLine(LocalDate date, EntryKind kind, String memo, BigDecimal amount) {
-    }
-
-    public record PayeeStatement(UUID payeeId, String payeeName, LocalDate from, LocalDate to, BigDecimal opening,
-            List<StatementLine> lines, BigDecimal closing) {
-    }
-
-    /** One payee's payments in a calendar year, split by whether a 1099-NEC covers them. */
-    public record NecLine(UUID payeeId, String name, @Nullable String email, @Nullable LocalDate w9ReceivedOn,
-            BigDecimal reportable, BigDecimal paidThroughNetworks, boolean meetsThreshold) {
-    }
-
-    public record NecReport(int year, BigDecimal threshold, List<NecLine> payees) {
-    }
-
-    /** One payee in a payment run: how much, and an optional reference such as a cheque number. */
-    public record PaymentRunLine(UUID payeeId, BigDecimal amount, @Nullable String reference) {
-    }
-
-    /** A member's own view of their consignment: what they're owed, their work and its sales. */
-    public record MyConsignment(UUID payeeId, String name, BigDecimal owed, List<ConsignmentItem> items,
-            List<ConsignmentSale> sales) {
-    }
-
+  /** A member's own view of their consignment: what they're owed, their work and its sales. */
+  public record MyConsignment(
+      UUID payeeId,
+      String name,
+      BigDecimal owed,
+      List<ConsignmentItem> items,
+      List<ConsignmentSale> sales) {}
 }

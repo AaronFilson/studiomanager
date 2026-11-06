@@ -8,5 +8,4 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @Configuration
 @ConditionalOnWebApplication
 @EnableScheduling
-class SchedulingConfiguration {
-}
+class SchedulingConfiguration {}

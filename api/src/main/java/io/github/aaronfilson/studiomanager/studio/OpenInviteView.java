@@ -1,10 +1,8 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import java.time.Instant;
 import java.util.UUID;
-
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -13,11 +11,15 @@ import org.jspecify.annotations.Nullable;
  * @param email who it was emailed to; {@code null} for a link invite
  * @param lastSentAt when the email last went out; {@code null} until it has
  */
-public record OpenInviteView(UUID id, @Nullable String email, StudioRole role, Instant createdAt,
-        Instant expiresAt, @Nullable Instant lastSentAt) {
+public record OpenInviteView(
+    UUID id,
+    @Nullable String email,
+    StudioRole role,
+    Instant createdAt,
+    Instant expiresAt,
+    @Nullable Instant lastSentAt) {
 
-    public boolean expiredAt(Instant now) {
-        return !expiresAt.isAfter(now);
-    }
-
+  public boolean expiredAt(Instant now) {
+    return !expiresAt.isAfter(now);
+  }
 }

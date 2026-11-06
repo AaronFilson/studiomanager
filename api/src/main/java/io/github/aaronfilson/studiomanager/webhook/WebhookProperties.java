@@ -10,5 +10,4 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     addresses. Only for local work and tests: it turns the SSRF filter off.
  */
 @ConfigurationProperties("studiomanager.webhooks")
-record WebhookProperties(@Nullable String secretKey, boolean allowPrivateNetworks) {
-}
+record WebhookProperties(@Nullable String secretKey, boolean allowPrivateNetworks) {}

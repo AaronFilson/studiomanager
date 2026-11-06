@@ -1,11 +1,9 @@
 package io.github.aaronfilson.studiomanager.piece;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
-
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
-
+import java.time.Instant;
+import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
@@ -20,40 +18,43 @@ import org.springframework.transaction.support.TransactionOperations;
  * <p>No studio is bound here, so row-level security would hide every piece. The work happens in
  * {@code app.mark_unclaimed_pieces}, a SECURITY DEFINER function that can do only this one thing,
  * and only for a job. It runs as {@link SystemActor#UNCLAIMED_PIECES}, which each piece's history
- * names (ADR 16).
- * The API scales to zero, so this runs whenever an instance is up; pieces past their hold are
- * also flagged as overdue when read, so nothing depends on the sweep's timing.
+ * names (ADR 16). The API scales to zero, so this runs whenever an instance is up; pieces past
+ * their hold are also flagged as overdue when read, so nothing depends on the sweep's timing.
  */
 @Component
 @ConditionalOnBooleanProperty(name = "studiomanager.pieces.unclaimed-sweep", matchIfMissing = true)
 class UnclaimedPieceSweep {
 
-    private static final Logger log = LoggerFactory.getLogger(UnclaimedPieceSweep.class);
+  private static final Logger log = LoggerFactory.getLogger(UnclaimedPieceSweep.class);
 
-    private final JdbcClient jdbc;
-    private final TransactionOperations transactions;
+  private final JdbcClient jdbc;
+  private final TransactionOperations transactions;
 
-    UnclaimedPieceSweep(JdbcClient jdbc, TransactionOperations transactions) {
-        this.jdbc = jdbc;
-        this.transactions = transactions;
-    }
+  UnclaimedPieceSweep(JdbcClient jdbc, TransactionOperations transactions) {
+    this.jdbc = jdbc;
+    this.transactions = transactions;
+  }
 
-    @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1H")
-    public void run() {
-        runAt(Instant.now());
-    }
+  @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1H")
+  public void run() {
+    runAt(Instant.now());
+  }
 
-    /** Marks every piece whose hold ended at or before {@code now}, and returns how many. */
-    public int runAt(Instant now) {
-        Integer marked = TenantContext.callAs(TenantContext.system(SystemActor.UNCLAIMED_PIECES),
-                () -> transactions.execute(tx -> jdbc.sql("select app.mark_unclaimed_pieces(:now)")
+  /** Marks every piece whose hold ended at or before {@code now}, and returns how many. */
+  public int runAt(Instant now) {
+    Integer marked =
+        TenantContext.callAs(
+            TenantContext.system(SystemActor.UNCLAIMED_PIECES),
+            () ->
+                transactions.execute(tx ->
+                    jdbc.sql("select app.mark_unclaimed_pieces(:now)")
                         .param("now", now.atOffset(ZoneOffset.UTC))
-                        .query(Integer.class).single()));
-        int count = marked == null ? 0 : marked;
-        if (count > 0) {
-            log.info("Marked {} pieces unclaimed", count);
-        }
-        return count;
+                        .query(Integer.class)
+                        .single()));
+    int count = marked == null ? 0 : marked;
+    if (count > 0) {
+      log.info("Marked {} pieces unclaimed", count);
     }
-
+    return count;
+  }
 }

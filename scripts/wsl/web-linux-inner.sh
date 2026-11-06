@@ -3,11 +3,13 @@
 # Usage: web-linux-inner.sh [pnpm args...]
 set -euo pipefail
 
-WORK=/tmp/sm-web-ci
-mkdir -p "$WORK"
+SHARED=/tmp/sm-web-ci
+# One work folder per checkout, so worktrees can run side by side; the pnpm store is shared
+WORK="$SHARED/checkouts/$(echo "${SM_CHECKOUT:-default}" | sha1sum | cut -c1-12)"
+mkdir -p "$WORK" "$SHARED/pnpm-store"
 # The last run's container wrote as root, so only a container can clear it
 docker run --rm -v "$WORK:/work" node:24 rm -rf /work/src
-mkdir -p "$WORK/src" "$WORK/pnpm-store"
+mkdir -p "$WORK/src"
 tar -C "$WORK/src" -xf -
 
 if [[ $# -gt 0 ]]; then
@@ -23,7 +25,7 @@ fi
 
 # corepack enable is fine here: it changes only the throwaway container
 docker run --rm -e CI=true \
-    -v "$WORK/src:/repo" -v "$WORK/pnpm-store:/pnpm-store" -w /repo node:24 \
+    -v "$WORK/src:/repo" -v "$SHARED/pnpm-store:/pnpm-store" -w /repo node:24 \
     bash -euo pipefail -c "corepack enable >/dev/null
 pnpm config set store-dir /pnpm-store >/dev/null
 pnpm install --frozen-lockfile >/dev/null

@@ -1,0 +1,38 @@
+# Versions not managed by Spring Boot's BOM. Boot-managed dependencies stay versionless in
+# build.gradle.kts.
+[versions]
+spring-boot = "4.1.2"
+spring-dependency-management = "1.1.7"
+openapi-generator = "7.26.0"
+spotless = "8.11.0"
+errorprone-plugin = "5.2.0"
+errorprone = "2.52.0"
+nullaway = "0.14.3"
+google-java-format = "2.0.0"
+spring-modulith = "2.1.1"
+opentelemetry-instrumentation = "2.33.1"
+azure-communication-email = "1.1.6"
+azure-identity = "1.18.7"
+azure-identity-extensions = "1.2.10"
+azure-storage-blob = "12.36.0"
+azure-monitor = "7.4.0"
+anthropic = "3.6.0"
+
+[libraries]
+spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+opentelemetry-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom", version.ref = "opentelemetry-instrumentation" }
+azure-communication-email = { module = "com.azure:azure-communication-email", version.ref = "azure-communication-email" }
+azure-identity = { module = "com.azure:azure-identity", version.ref = "azure-identity" }
+azure-identity-extensions = { module = "com.azure:azure-identity-extensions", version.ref = "azure-identity-extensions" }
+azure-storage-blob = { module = "com.azure:azure-storage-blob", version.ref = "azure-storage-blob" }
+azure-monitor = { module = "com.azure.spring:spring-cloud-azure-starter-monitor", version.ref = "azure-monitor" }
+anthropic = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }

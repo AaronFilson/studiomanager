@@ -12,43 +12,42 @@ import java.util.UUID;
  * an owner. A new job adds a constant here and a row in a migration.
  */
 public enum SystemActor {
+  ACTIVITY_CONSUMER("5157e000-0000-4000-8000-000000000001", "activity-consumer", StudioRole.STAFF),
+  MAINTENANCE_REMINDERS(
+      "5157e000-0000-4000-8000-000000000002", "maintenance-reminders", StudioRole.STAFF),
+  WEBHOOK_SWEEP("5157e000-0000-4000-8000-000000000003", "webhook-sweep", StudioRole.STAFF),
+  UNCLAIMED_PIECES("5157e000-0000-4000-8000-000000000004", "unclaimed-pieces", StudioRole.STAFF),
+  PHOTO_CLEANUP("5157e000-0000-4000-8000-000000000005", "photo-cleanup", StudioRole.STAFF);
 
-    ACTIVITY_CONSUMER("5157e000-0000-4000-8000-000000000001", "activity-consumer", StudioRole.STAFF),
-    MAINTENANCE_REMINDERS("5157e000-0000-4000-8000-000000000002", "maintenance-reminders", StudioRole.STAFF),
-    WEBHOOK_SWEEP("5157e000-0000-4000-8000-000000000003", "webhook-sweep", StudioRole.STAFF),
-    UNCLAIMED_PIECES("5157e000-0000-4000-8000-000000000004", "unclaimed-pieces", StudioRole.STAFF),
-    PHOTO_CLEANUP("5157e000-0000-4000-8000-000000000005", "photo-cleanup", StudioRole.STAFF);
+  /** The issuer on every system account. No identity provider issues it, so no token can match. */
+  public static final String ISSUER = "urn:studiomanager:system";
 
-    /** The issuer on every system account. No identity provider issues it, so no token can match. */
-    public static final String ISSUER = "urn:studiomanager:system";
+  private final UUID accountId;
+  private final String subject;
+  private final StudioRole ceiling;
 
-    private final UUID accountId;
-    private final String subject;
-    private final StudioRole ceiling;
-
-    SystemActor(String accountId, String subject, StudioRole ceiling) {
-        if (ceiling.includes(StudioRole.OWNER)) {
-            throw new IllegalArgumentException("A system actor can't act as an owner");
-        }
-        this.accountId = UUID.fromString(accountId);
-        this.subject = subject;
-        this.ceiling = ceiling;
+  SystemActor(String accountId, String subject, StudioRole ceiling) {
+    if (ceiling.includes(StudioRole.OWNER)) {
+      throw new IllegalArgumentException("A system actor can't act as an owner");
     }
+    this.accountId = UUID.fromString(accountId);
+    this.subject = subject;
+    this.ceiling = ceiling;
+  }
 
-    public static Optional<SystemActor> byAccountId(UUID accountId) {
-        return Arrays.stream(values()).filter(actor -> actor.accountId.equals(accountId)).findFirst();
-    }
+  public static Optional<SystemActor> byAccountId(UUID accountId) {
+    return Arrays.stream(values()).filter(actor -> actor.accountId.equals(accountId)).findFirst();
+  }
 
-    public UUID accountId() {
-        return accountId;
-    }
+  public UUID accountId() {
+    return accountId;
+  }
 
-    public String subject() {
-        return subject;
-    }
+  public String subject() {
+    return subject;
+  }
 
-    public StudioRole ceiling() {
-        return ceiling;
-    }
-
+  public StudioRole ceiling() {
+    return ceiling;
+  }
 }

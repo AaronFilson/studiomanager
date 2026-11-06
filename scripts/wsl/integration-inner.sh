@@ -4,8 +4,11 @@ set -euo pipefail
 
 SRC="$1"
 shift
-WORK=/tmp/sm-verify
-JDK="$WORK/jdk-25"
+SHARED=/tmp/sm-verify
+JDK="$SHARED/jdk-25"
+# One work folder per checkout, so worktrees can run side by side. The JDK and the Gradle home
+# are shared; Gradle locks its shared caches.
+WORK="$SHARED/checkouts/$(echo "$SRC" | sha1sum | cut -c1-12)"
 mkdir -p "$WORK"
 
 if [[ ! -x "$JDK/bin/java" ]]; then
@@ -33,7 +36,7 @@ tar -C "$SRC" --exclude=api/build --exclude=api/.gradle -cf - api | tar -C "$WOR
 cd "$WORK/api"
 # Files checked out on Windows may lack the executable bit
 chmod +x gradlew
-export JAVA_HOME="$JDK" GRADLE_USER_HOME="$WORK/gradle-home" CI=true
+export JAVA_HOME="$JDK" GRADLE_USER_HOME="$SHARED/gradle-home" CI=true
 status=0
 ./gradlew --console=plain "$@" || status=$?
 

@@ -68,6 +68,13 @@ spring:
           # The API app registration's client ID
           audiences: ${STUDIOMANAGER_AUTH_AUDIENCE}
 
+server:
+  compression:
+    # JSON compresses several-fold, which is most of what egress costs (plan 20)
+    enabled: true
+    mime-types: application/json, application/problem+json, text/csv
+    min-response-size: 2KB
+
 # OpenTelemetry (spring-cloud-azure-starter-monitor) sends to Application Insights. Off locally
 # and in tests, where there is nowhere to send it; application-azure.yaml turns it on.
 otel:

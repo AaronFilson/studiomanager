@@ -15,120 +15,149 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 @IntegrationTest
 class StudioApiTests {
 
-    @Autowired
-    MockMvcTester mvc;
+  @Autowired MockMvcTester mvc;
 
-    private final TestUser olive = TestUser.named("Olive");
+  private final TestUser olive = TestUser.named("Olive");
 
-    @Test
-    void createsAStudioWithTheCallerAsOwner() {
-        MvcTestResult result = createStudio("""
-                {"name": "  Riverside Clay  ", "unitSystem": "METRIC", "timeZone": "Europe/London", "country": "GB"}
-                """);
+  @Test
+  void createsAStudioWithTheCallerAsOwner() {
+    MvcTestResult result =
+        createStudio(
+            """
+            {"name": "  Riverside Clay  ", "unitSystem": "METRIC", "timeZone": "Europe/London", "country": "GB"}
+            """);
 
-        assertThat(result).hasStatus(HttpStatus.CREATED);
-        assertThat(result.getResponse().getHeader(HttpHeaders.LOCATION)).startsWith("/api/v1/studios/");
-        assertThat(result).bodyJson()
-                .hasPathSatisfying("$.name", name -> assertThat(name).isEqualTo("Riverside Clay"))
-                .hasPathSatisfying("$.unitSystem", units -> assertThat(units).isEqualTo("METRIC"))
-                .hasPathSatisfying("$.timeZone", zone -> assertThat(zone).isEqualTo("Europe/London"))
-                .hasPathSatisfying("$.country", country -> assertThat(country).isEqualTo("GB"))
-                .hasPathSatisfying("$.currency", currency -> assertThat(currency).isEqualTo("GBP"))
-                .hasPathSatisfying("$.myRole", role -> assertThat(role).isEqualTo("OWNER"))
-                .hasPathSatisfying("$.memberCount", count -> assertThat(count).isEqualTo(1));
-    }
+    assertThat(result).hasStatus(HttpStatus.CREATED);
+    assertThat(result.getResponse().getHeader(HttpHeaders.LOCATION)).startsWith("/api/v1/studios/");
+    assertThat(result)
+        .bodyJson()
+        .hasPathSatisfying("$.name", name -> assertThat(name).isEqualTo("Riverside Clay"))
+        .hasPathSatisfying("$.unitSystem", units -> assertThat(units).isEqualTo("METRIC"))
+        .hasPathSatisfying("$.timeZone", zone -> assertThat(zone).isEqualTo("Europe/London"))
+        .hasPathSatisfying("$.country", country -> assertThat(country).isEqualTo("GB"))
+        .hasPathSatisfying("$.currency", currency -> assertThat(currency).isEqualTo("GBP"))
+        .hasPathSatisfying("$.myRole", role -> assertThat(role).isEqualTo("OWNER"))
+        .hasPathSatisfying("$.memberCount", count -> assertThat(count).isEqualTo(1));
+  }
 
-    @Test
-    void takesACurrencyOtherThanTheCountrys() {
-        assertThat(createStudio("""
+  @Test
+  void takesACurrencyOtherThanTheCountrys() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "Border Clay", "unitSystem": "METRIC", "timeZone": "America/Toronto",
                  "country": "CA", "currency": "USD"}
                 """))
-                .hasStatus(HttpStatus.CREATED)
-                .bodyJson().extractingPath("$.currency").isEqualTo("USD");
-    }
+        .hasStatus(HttpStatus.CREATED)
+        .bodyJson()
+        .extractingPath("$.currency")
+        .isEqualTo("USD");
+  }
 
-    @Test
-    void rejectsABlankName() {
-        assertThat(createStudio("""
+  @Test
+  void rejectsABlankName() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "   ", "unitSystem": "METRIC", "timeZone": "Europe/London", "country": "GB"}
                 """))
-                .hasStatus(HttpStatus.BAD_REQUEST)
-                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .bodyJson().extractingPath("$.detail").isEqualTo("A studio needs a name.");
-    }
+        .hasStatus(HttpStatus.BAD_REQUEST)
+        .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .bodyJson()
+        .extractingPath("$.detail")
+        .isEqualTo("A studio needs a name.");
+  }
 
-    @Test
-    void rejectsAnUnknownTimeZone() {
-        assertThat(createStudio("""
+  @Test
+  void rejectsAnUnknownTimeZone() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "Riverside Clay", "unitSystem": "METRIC", "timeZone": "Mars/Olympus_Mons", "country": "GB"}
                 """))
-                .hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyJson().extractingPath("$.detail").asString().startsWith("Unknown time zone");
-    }
+        .hasStatus(HttpStatus.BAD_REQUEST)
+        .bodyJson()
+        .extractingPath("$.detail")
+        .asString()
+        .startsWith("Unknown time zone");
+  }
 
-    @Test
-    void rejectsAnUnknownCountry() {
-        assertThat(createStudio("""
+  @Test
+  void rejectsAnUnknownCountry() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "Riverside Clay", "unitSystem": "METRIC", "timeZone": "Europe/London", "country": "XX"}
                 """))
-                .hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyJson().extractingPath("$.detail").asString().startsWith("Unknown country");
-    }
+        .hasStatus(HttpStatus.BAD_REQUEST)
+        .bodyJson()
+        .extractingPath("$.detail")
+        .asString()
+        .startsWith("Unknown country");
+  }
 
-    @Test
-    void rejectsAnUnknownCurrency() {
-        assertThat(createStudio("""
+  @Test
+  void rejectsAnUnknownCurrency() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "Riverside Clay", "unitSystem": "METRIC", "timeZone": "Europe/London",
                  "country": "GB", "currency": "XYZ"}
                 """))
-                .hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyJson().extractingPath("$.detail").asString().startsWith("Unknown currency");
-    }
+        .hasStatus(HttpStatus.BAD_REQUEST)
+        .bodyJson()
+        .extractingPath("$.detail")
+        .asString()
+        .startsWith("Unknown currency");
+  }
 
-    @Test
-    void rejectsAMissingCountry() {
-        assertThat(createStudio("""
+  @Test
+  void rejectsAMissingCountry() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "Riverside Clay", "unitSystem": "METRIC", "timeZone": "Europe/London"}
                 """))
-                .hasStatus(HttpStatus.BAD_REQUEST);
-    }
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
 
-    @Test
-    void rejectsAMissingUnitSystem() {
-        assertThat(createStudio("""
+  @Test
+  void rejectsAMissingUnitSystem() {
+    assertThat(
+            createStudio(
+                """
                 {"name": "Riverside Clay", "timeZone": "Europe/London", "country": "GB"}
                 """))
-                .hasStatus(HttpStatus.BAD_REQUEST);
-    }
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
 
-    @Test
-    void rejectsAMalformedStudioId() {
-        assertThat(mvc.get().uri("/api/v1/studios/not-a-uuid").with(olive.token()))
-                .hasStatus(HttpStatus.BAD_REQUEST);
-    }
+  @Test
+  void rejectsAMalformedStudioId() {
+    assertThat(mvc.get().uri("/api/v1/studios/not-a-uuid").with(olive.token()))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
 
-    @Test
-    void requiresAnAccessToken() {
-        assertThat(mvc.get().uri("/api/v1/me"))
-                .hasStatus(HttpStatus.UNAUTHORIZED)
-                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .containsHeader(HttpHeaders.WWW_AUTHENTICATE);
-    }
+  @Test
+  void requiresAnAccessToken() {
+    assertThat(mvc.get().uri("/api/v1/me"))
+        .hasStatus(HttpStatus.UNAUTHORIZED)
+        .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .containsHeader(HttpHeaders.WWW_AUTHENTICATE);
+  }
 
-    @Test
-    void requiresTheApiScope() {
-        assertThat(mvc.get().uri("/api/v1/me").with(olive.tokenWithoutApiScope()))
-                .hasStatus(HttpStatus.FORBIDDEN)
-                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
-    }
+  @Test
+  void requiresTheApiScope() {
+    assertThat(mvc.get().uri("/api/v1/me").with(olive.tokenWithoutApiScope()))
+        .hasStatus(HttpStatus.FORBIDDEN)
+        .hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
+  }
 
-    private MvcTestResult createStudio(String json) {
-        return mvc.post().uri("/api/v1/studios")
-                .with(olive.token())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json)
-                .exchange();
-    }
-
+  private MvcTestResult createStudio(String json) {
+    return mvc.post()
+        .uri("/api/v1/studios")
+        .with(olive.token())
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json)
+        .exchange();
+  }
 }
