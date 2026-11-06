@@ -47,6 +47,12 @@ dependencies {
     implementation("org.apache.httpcomponents.client5:httpclient5")
     // Reading invoices with the studio's own Claude key (docs/planning/16-invoice-ocr-plan.md)
     implementation(libs.anthropic)
+    // MCP on the official SDK (ADR 22): the SDK handles the protocol, and Spring AI's WebMVC
+    // transport only reads requests and writes responses. Not the Spring AI starter.
+    implementation(libs.mcp)
+    implementation(libs.mcp.spring.webmvc)
+    // Rate limits for MCP tool calls and API token calls, in memory per replica (plan 20, section 6)
+    implementation(libs.bucket4j)
     // Event streaming (off unless studiomanager.stream.enabled): Modulith publishes the stream
     // contract to Kafka through the same outbox as email (ADR 15, docs/adr/0015-event-streaming-to-kafka.md)
     implementation("org.springframework.boot:spring-boot-starter-kafka")

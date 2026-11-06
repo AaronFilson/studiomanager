@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jayway.jsonpath.JsonPath;
 import io.github.aaronfilson.studiomanager.IntegrationTest;
 import io.github.aaronfilson.studiomanager.TestUser;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -14,14 +16,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** The MCP server, spoken to the way a client such as Claude does, with a personal API token. */
 @IntegrationTest
 class McpApiTests {
 
   @Autowired MockMvcTester mvc;
+
+  @Autowired JdbcClient jdbc;
+
+  @Autowired TransactionTemplate transactions;
 
   private final TestUser owner = TestUser.named("Olive");
   private UUID studioId;
@@ -139,7 +147,44 @@ class McpApiTests {
                 .content("{\"jsonrpc\": \"2.0\", \"id\": 5, \"method\": \"ping\"}"))
         .hasStatus(HttpStatus.BAD_REQUEST);
     assertThat(mvc.get().uri(path("/mcp")).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-        .hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
+        .hasStatus(HttpStatus.METHOD_NOT_ALLOWED)
+        .hasHeader(HttpHeaders.ALLOW, "POST");
+    // Not JSON at all
+    assertThat(rpc(token, "{not json")).hasStatus(HttpStatus.BAD_REQUEST);
+    // Streamable HTTP requires a client to accept both JSON and an event stream
+    assertThat(
+            mvc.post()
+                .uri(path("/mcp"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content("{\"jsonrpc\": \"2.0\", \"id\": 6, \"method\": \"ping\"}"))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void eachToolCallIsLoggedWithItsToken() {
+    assertThat(call("kilns", "{}")).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
+    // Listing tools is free, and isn't logged
+    rpc(token, "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}");
+
+    UUID ownerId =
+        UUID.fromString(
+            read(mvc.get().uri("/api/v1/me").with(owner.token()).exchange(), "$.account.id"));
+    List<String> logged =
+        TenantContext.callAs(
+            new TenantContext(ownerId, studioId, StudioRole.OWNER),
+            () ->
+                transactions.execute(tx ->
+                    jdbc.sql(
+                            """
+                            select target || ' ' || outcome || ' ' || (token_id is not null) from api_call_log
+                            where studio_id = :studioId and channel = 'MCP'
+                            """)
+                        .param("studioId", studioId)
+                        .query(String.class)
+                        .list()));
+    assertThat(logged).containsExactly("kilns OK true");
   }
 
   @Test
@@ -178,7 +223,8 @@ class McpApiTests {
         .uri(path("/mcp"))
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer)
         .contentType(MediaType.APPLICATION_JSON)
-        .accept(MediaType.APPLICATION_JSON)
+        // Streamable HTTP: a client must accept both, even from a server that only answers JSON
+        .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
         .content(message)
         .exchange();
   }

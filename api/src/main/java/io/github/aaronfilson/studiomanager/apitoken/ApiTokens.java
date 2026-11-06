@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.apitoken;
 
+import static java.util.Objects.requireNonNull;
+
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -29,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -44,6 +47,10 @@ public class ApiTokens implements ApiTokenResolver {
 
   static final int MAX_LIVE_PER_PERSON = 10;
   static final int DEFAULT_DAYS = 90;
+
+  /** A token unused this long stops working (V30). */
+  static final int UNUSED_DAYS = 90;
+
   private static final int SECRET_LENGTH = 43;
   private static final String ALPHABET =
       "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -51,10 +58,12 @@ public class ApiTokens implements ApiTokenResolver {
 
   private final JdbcClient jdbc;
   private final AccountDirectory accounts;
+  private final ApplicationEventPublisher events;
 
-  ApiTokens(JdbcClient jdbc, AccountDirectory accounts) {
+  ApiTokens(JdbcClient jdbc, AccountDirectory accounts, ApplicationEventPublisher events) {
     this.jdbc = jdbc;
     this.accounts = accounts;
+    this.events = events;
   }
 
   public record TokenView(
@@ -72,14 +81,17 @@ public class ApiTokens implements ApiTokenResolver {
   public record Created(TokenView token, String secret) {}
 
   @Override
-  public Optional<ResolvedToken> resolve(String bearer) {
+  public Optional<ResolvedToken> resolve(String bearer, String fromAddress) {
     if (!bearer.startsWith(PREFIX) || bearer.length() != PREFIX.length() + SECRET_LENGTH) {
       return Optional.empty();
     }
     return jdbc.sql(
-            "select token_id, account_id, studio_id, scopes from app.use_api_token(:hash, :now)")
+            """
+            select token_id, account_id, studio_id, scopes from app.use_api_token(:hash, :now, :from)
+            """)
         .param("hash", hash(bearer))
         .param("now", now().atOffset(ZoneOffset.UTC))
+        .param("from", fromAddress)
         .query((rs, row) ->
             new ResolvedToken(
                 rs.getObject("token_id", UUID.class),
@@ -125,8 +137,10 @@ public class ApiTokens implements ApiTokenResolver {
     Integer live =
         jdbc.sql(
                 """
-                select count(*) from api_token where account_id = :me and revoked_at is null and expires_at > :now
-                """)
+                select count(*) from api_token
+                where account_id = :me and revoked_at is null and %s > :now
+                """
+                    .formatted(EXPIRES_AT))
             .param("me", caller.accountId())
             .param("now", now().atOffset(ZoneOffset.UTC))
             .query(Integer.class)
@@ -165,10 +179,21 @@ public class ApiTokens implements ApiTokenResolver {
     if (!token.ownerAccountId().equals(caller.accountId()) && caller.role() != StudioRole.OWNER) {
       throw new AccessDeniedException("Only its owner, or the studio's owner, can revoke a token.");
     }
-    jdbc.sql("update api_token set revoked_at = coalesce(revoked_at, :now) where id = :id")
-        .param("now", now().atOffset(ZoneOffset.UTC))
-        .param("id", id)
-        .update();
+    int revoked =
+        jdbc.sql("update api_token set revoked_at = :now where id = :id and revoked_at is null")
+            .param("now", now().atOffset(ZoneOffset.UTC))
+            .param("id", id)
+            .update();
+    if (revoked > 0) {
+      // Its owner hears about it, by email after the commit (ApiTokenRevokedEmails)
+      events.publishEvent(
+          new ApiTokenRevoked(
+              token.id(),
+              requireNonNull(caller.studioId()),
+              token.ownerAccountId(),
+              token.name(),
+              caller.accountId()));
+    }
   }
 
   private TokenView get(UUID id) {
@@ -182,11 +207,21 @@ public class ApiTokens implements ApiTokenResolver {
         token, accounts.displayNames(List.of(token.ownerAccountId())).get(token.ownerAccountId()));
   }
 
+  /**
+   * When a token stops working: its set expiry, or 90 days after its last use (or its creation, if
+   * never used), whichever comes first. {@code app.use_api_token} applies the same rule.
+   */
+  private static final String EXPIRES_AT =
+      "least(expires_at, coalesce(last_used_at, created_at) + interval '%d days')"
+          .formatted(UNUSED_DAYS);
+
   private static final String SELECT =
       """
-      select id, name, account_id, scopes, last_four, created_at, expires_at, last_used_at, revoked_at
+      select id, name, account_id, scopes, last_four, created_at, %s as expires_at, last_used_at,
+             revoked_at
       from api_token
-      """;
+      """
+          .formatted(EXPIRES_AT);
 
   private static TokenView view(ResultSet rs, @Nullable String ownerName) throws SQLException {
     return new TokenView(
