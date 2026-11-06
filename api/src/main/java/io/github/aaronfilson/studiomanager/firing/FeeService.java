@@ -87,27 +87,33 @@ public class FeeService {
   }
 
   private static String ruleType(FeeRule rule) {
-    return switch (rule) {
-      case FeeRule.PerVolume _ -> "PER_VOLUME";
-      case FeeRule.PerWeight _ -> "PER_WEIGHT";
-      case FeeRule.Flat _ -> "FLAT";
-    };
+    if (rule instanceof FeeRule.PerVolume) {
+      return "PER_VOLUME";
+    }
+    if (rule instanceof FeeRule.PerWeight) {
+      return "PER_WEIGHT";
+    }
+    return "FLAT";
   }
 
   private static @Nullable String unit(FeeRule rule) {
-    return switch (rule) {
-      case FeeRule.PerVolume volume -> volume.unit().name();
-      case FeeRule.PerWeight weight -> weight.unit().name();
-      case FeeRule.Flat _ -> null;
-    };
+    if (rule instanceof FeeRule.PerVolume volume) {
+      return volume.unit().name();
+    }
+    if (rule instanceof FeeRule.PerWeight weight) {
+      return weight.unit().name();
+    }
+    return null;
   }
 
   private static String rounding(FeeRule rule) {
-    return switch (rule) {
-      case FeeRule.PerVolume volume -> volume.rounding().name();
-      case FeeRule.PerWeight weight -> weight.rounding().name();
-      case FeeRule.Flat _ -> FeeRule.DimensionRounding.NONE.name();
-    };
+    if (rule instanceof FeeRule.PerVolume volume) {
+      return volume.rounding().name();
+    }
+    if (rule instanceof FeeRule.PerWeight weight) {
+      return weight.rounding().name();
+    }
+    return FeeRule.DimensionRounding.NONE.name();
   }
 
   record Row(
