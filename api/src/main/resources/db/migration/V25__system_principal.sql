@@ -16,7 +16,11 @@ INSERT INTO account (id, issuer, subject, display_name, kind) VALUES
     ('5157e000-0000-4000-8000-000000000002', 'urn:studiomanager:system', 'maintenance-reminders',
      'System: maintenance reminders', 'SYSTEM'),
     ('5157e000-0000-4000-8000-000000000003', 'urn:studiomanager:system', 'webhook-sweep',
-     'System: webhook sweep', 'SYSTEM');
+     'System: webhook sweep', 'SYSTEM'),
+    ('5157e000-0000-4000-8000-000000000004', 'urn:studiomanager:system', 'unclaimed-pieces',
+     'System: unclaimed pieces', 'SYSTEM'),
+    ('5157e000-0000-4000-8000-000000000005', 'urn:studiomanager:system', 'photo-cleanup',
+     'System: photo cleanup', 'SYSTEM');
 
 -- System accounts are never members of a studio: a job reaches a studio by being bound to it, not
 -- by belonging to it.
@@ -111,6 +115,63 @@ BEGIN
     DELETE FROM public.webhook_event WHERE created_at < before;
     GET DIAGNOSTICS gone = ROW_COUNT;
     RETURN gone;
+END
+$$;
+
+-- Pieces whose hold ran out. The history now names the job that moved them, where it used to
+-- leave the actor empty.
+CREATE OR REPLACE FUNCTION app.mark_unclaimed_pieces(p_now timestamptz)
+    RETURNS integer
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_count integer;
+BEGIN
+    PERFORM app.require_system_principal();
+    WITH expired AS (
+        UPDATE public.piece
+        SET stage = 'UNCLAIMED', version = version + 1
+        WHERE stage = 'READY' AND hold_until <= p_now
+        RETURNING id, studio_id
+    )
+    INSERT INTO public.piece_event (id, studio_id, piece_id, from_stage, to_stage, note, actor_account_id, occurred_at)
+    SELECT uuidv7(), e.studio_id, e.id, 'READY', 'UNCLAIMED', 'Hold period ended', app.current_account_id(), p_now
+    FROM expired e;
+
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RETURN v_count;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION app.take_abandoned_photo_uploads(p_before timestamptz)
+    RETURNS TABLE (studio_id uuid, piece_id uuid, photo_id uuid)
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+    PERFORM app.require_system_principal();
+    RETURN QUERY
+        DELETE FROM public.piece_photo p
+        WHERE p.status = 'PENDING' AND p.created_at < p_before
+        RETURNING p.studio_id, p.piece_id, p.id;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION app.take_abandoned_record_photo_uploads(p_before timestamptz)
+    RETURNS TABLE (studio_id uuid, record_id uuid, photo_id uuid)
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+    PERFORM app.require_system_principal();
+    RETURN QUERY
+        DELETE FROM public.record_photo p
+        WHERE p.status = 'PENDING' AND p.created_at < p_before
+        RETURNING p.studio_id, p.record_id, p.id;
 END
 $$;
 

@@ -241,6 +241,11 @@ export type PiecePolicy = {
     holdDays: number;
 };
 
+/**
+ * Whether a person or a background job did it (ADR 16).
+ */
+export type ActorKind = 'PERSON' | 'SYSTEM';
+
 export type PieceStage = 'RECEIVED' | 'BISQUE_FIRED' | 'GLAZED' | 'READY' | 'PICKED_UP' | 'UNCLAIMED' | 'DISPOSED';
 
 /**
@@ -261,10 +266,14 @@ export type PieceEvent = {
     to: PieceStage;
     note?: string;
     /**
-     * Absent when the system made the change, such as a hold running out.
+     * The person, or the background job's own account, that made the change. Absent only on older changes a job made before jobs had accounts.
      */
     actorAccountId?: string;
+    /**
+     * For a job, its name, such as "System: unclaimed pieces".
+     */
     actorName?: string;
+    actorKind: ActorKind;
     occurredAt: string;
 };
 

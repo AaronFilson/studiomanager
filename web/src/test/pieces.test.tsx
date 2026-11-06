@@ -71,7 +71,7 @@ describe('pieces', () => {
             nextStages: ['GLAZED', 'READY'],
             timeline: [
               ...aPiece().timeline,
-              { from: 'RECEIVED', to: 'BISQUE_FIRED', note: 'Cone 04', actorName: 'Olive', actorAccountId: 'a2', occurredAt: '2026-10-20T15:00:00Z' },
+              { from: 'RECEIVED', to: 'BISQUE_FIRED', note: 'Cone 04', actorName: 'Olive', actorAccountId: 'a2', actorKind: 'PERSON', occurredAt: '2026-10-20T15:00:00Z' },
             ],
           }),
         );

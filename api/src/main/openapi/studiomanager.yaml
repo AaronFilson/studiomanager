@@ -3922,6 +3922,11 @@ components:
           maximum: 365
           description: How many days a ready piece is held before it becomes unclaimed.
 
+    ActorKind:
+      type: string
+      enum: [PERSON, SYSTEM]
+      description: Whether a person or a background job did it (ADR 16).
+
     PieceStage:
       type: string
       enum: [RECEIVED, BISQUE_FIRED, GLAZED, READY, PICKED_UP, UNCLAIMED, DISPOSED]
@@ -3944,7 +3949,7 @@ components:
 
     PieceEvent:
       type: object
-      required: [to, occurredAt]
+      required: [to, actorKind, occurredAt]
       properties:
         from:
           $ref: "#/components/schemas/PieceStage"
@@ -3955,9 +3960,14 @@ components:
         actorAccountId:
           type: string
           format: uuid
-          description: Absent when the system made the change, such as a hold running out.
+          description: >-
+            The person, or the background job's own account, that made the change. Absent only on
+            older changes a job made before jobs had accounts.
         actorName:
           type: string
+          description: 'For a job, its name, such as "System: unclaimed pieces".'
+        actorKind:
+          $ref: "#/components/schemas/ActorKind"
         occurredAt:
           type: string
           format: date-time

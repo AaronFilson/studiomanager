@@ -158,12 +158,16 @@ What changed:
 - `SystemPrincipalTests` covers the seeded rows, the refused issuer, the job-only functions, the
   membership trigger, and a job seeing only its own studio.
 
-**Left for later:**
-- The photo-upload sweeps and `mark_unclaimed_pieces` still run their definer functions with no
-  principal. They should get actors too.
-- `actorKind` in API responses and the "system" badge in the web app.
-- The ArchUnit rule. The checks in `TenantContext` cover most of what it would catch.
-- ADR 16.
+**Step 2, 2026-11-05 (done).**
+- `UnclaimedPieceSweep` acts as `UNCLAIMED_PIECES`, and both photo-upload sweeps act as
+  `PHOTO_CLEANUP`. Their definer functions now require a system principal too, so every
+  cross-tenant function a job calls checks it.
+- `mark_unclaimed_pieces` records the job's account as the actor. It used to leave it empty.
+- Piece history has `actorKind` (`PERSON` or `SYSTEM`), and the web app marks a job's step
+  "automatic". `PieceApiTests` checks that the sweep names itself.
+- [ADR 16](../adr/0016-system-principal-for-background-work.md) records the decision.
+- **Not done:** the ArchUnit rule. The checks in `TenantContext`, together with the database
+  raising for any job-only function called without an actor, cover what it would catch.
 
 ## Decisions to record
 **ADR 16: a system principal for background work.** Seeded system accounts with a `kind`, a

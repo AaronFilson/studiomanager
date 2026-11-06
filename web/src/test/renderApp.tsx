@@ -59,7 +59,7 @@ export function aPiece(overrides: Partial<Piece> = {}): Piece {
     nextStages: ['BISQUE_FIRED', 'GLAZED'],
     version: 0,
     photos: [],
-    timeline: [{ to: 'RECEIVED', actorAccountId: 'a1', actorName: 'Mo Maker', occurredAt: '2026-10-19T15:00:00Z' }],
+    timeline: [{ to: 'RECEIVED', actorAccountId: 'a1', actorName: 'Mo Maker', actorKind: 'PERSON', occurredAt: '2026-10-19T15:00:00Z' }],
     ...overrides,
   };
 }
