@@ -128,6 +128,12 @@ tasks.bootJar {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // StartupTimeTests runs only when asked: -PstartupRuns=6 (ADR 21)
+    val startupRuns = providers.gradleProperty("startupRuns").orElse("0").get()
+    systemProperty("studiomanager.startup-runs", startupRuns)
+    if (startupRuns != "0") {
+        testLogging.showStandardStreams = true
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
