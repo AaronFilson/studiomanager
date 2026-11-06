@@ -9,10 +9,10 @@ variable "location" {
   default     = "eastus2"
 }
 
-variable "github_repository" {
-  description = "owner/name of the GitHub repository whose workflows may sign in. Case-sensitive: it must match the OIDC subject claim."
+variable "github_oidc_subject_prefix" {
+  description = "Start of the subject claim in GitHub's OIDC tokens for this repository. GitHub's immutable form names the owner and repository by name and numeric id, so a rename can't hand the trust to someone else. Read it with `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` (sub_claim_prefix)."
   type        = string
-  default     = "AaronFilson/studiomanager"
+  default     = "repo:AaronFilson@14099435/studiomanager@1426092900"
 }
 
 variable "environments" {

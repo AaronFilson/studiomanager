@@ -127,7 +127,7 @@ resource "azurerm_federated_identity_credential" "deploy_environment" {
   user_assigned_identity_id = azurerm_user_assigned_identity.github_deploy.id
   issuer                    = local.github_oidc_issuer
   audience                  = local.github_oidc_audience
-  subject                   = "repo:${var.github_repository}:environment:${each.key}"
+  subject                   = "${var.github_oidc_subject_prefix}:environment:${each.key}"
 }
 
 resource "azurerm_federated_identity_credential" "plan_pull_request" {
@@ -135,7 +135,7 @@ resource "azurerm_federated_identity_credential" "plan_pull_request" {
   user_assigned_identity_id = azurerm_user_assigned_identity.github_plan.id
   issuer                    = local.github_oidc_issuer
   audience                  = local.github_oidc_audience
-  subject                   = "repo:${var.github_repository}:pull_request"
+  subject                   = "${var.github_oidc_subject_prefix}:pull_request"
 }
 
 resource "azurerm_federated_identity_credential" "plan_main" {
@@ -143,7 +143,7 @@ resource "azurerm_federated_identity_credential" "plan_main" {
   user_assigned_identity_id = azurerm_user_assigned_identity.github_plan.id
   issuer                    = local.github_oidc_issuer
   audience                  = local.github_oidc_audience
-  subject                   = "repo:${var.github_repository}:ref:refs/heads/main"
+  subject                   = "${var.github_oidc_subject_prefix}:ref:refs/heads/main"
 }
 
 resource "azurerm_role_assignment" "deploy_state" {

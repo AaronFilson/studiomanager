@@ -37,6 +37,12 @@ an hour, most of it waiting for Postgres. For background on the design, see
    terraform output        # keep this: github_variables and db_admin_groups
    ```
 
+   The GitHub identities trust tokens whose subject starts with `github_oidc_subject_prefix`.
+   GitHub's newer subject form names the owner and the repository by name and numeric id; check
+   it with `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` (`sub_claim_prefix`), and
+   set the variable if yours differs from the default. A mismatch shows up later as `AADSTS700213:
+   No matching federated identity record` in the plan or deploy job.
+
    This creates the state storage, the GitHub deploy and plan identities, `rg-studiomanager-dev`,
    and the Entra group `studiomanager-dev-db-admins` with you in it, and registers the resource
    providers. State stays local in `infra/bootstrap/terraform.tfstate` (git-ignored). Back it up.
