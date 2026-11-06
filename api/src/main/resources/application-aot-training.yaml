@@ -1,6 +1,17 @@
 # Only for the Docker build's training run, which starts the application context without a
 # database to record a JVM AOT cache (faster cold starts when scaling from zero). See api/Dockerfile.
 spring:
+  autoconfigure:
+    exclude:
+      # Spring Modulith's event publication registry. Its JDBC store asks the database for its
+      # product name while the context starts, with no setting to supply it instead, and the rest
+      # of the registry needs the store. A training run publishes no events.
+      - org.springframework.modulith.events.config.EventPublicationAutoConfiguration
+      - org.springframework.modulith.events.jdbc.JdbcEventPublicationAutoConfiguration
+  main:
+    # Build beans only when something uses them, so the code that reads the event store
+    # (CompletedEventPublications) isn't built either. Real starts stay eager.
+    lazy-initialization: true
   flyway:
     enabled: false
   jpa:
@@ -17,3 +28,8 @@ spring:
         jwt:
           issuer-uri: https://aot-training.invalid/
           audiences: aot-training
+
+studiomanager:
+  # Scheduled beans are always built at startup, even when initialization is lazy
+  scheduling:
+    enabled: false
