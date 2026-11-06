@@ -27,8 +27,18 @@ public final class KilnDtos {
         .version(kiln.version());
   }
 
+  /**
+   * With the wall clock, for modules that don't take the clock yet (the today module). Prefer
+   * {@link #toDto(FiringView, Instant)}.
+   */
   public static FiringDto toDto(FiringView firing) {
-    Instant now = Instant.now();
+    return toDto(firing, Instant.now());
+  }
+
+  /**
+   * @param now the time pieces' holds are judged against, from the application's clock
+   */
+  public static FiringDto toDto(FiringView firing, Instant now) {
     return new FiringDto()
         .id(firing.id())
         .kilnId(firing.kilnId())
