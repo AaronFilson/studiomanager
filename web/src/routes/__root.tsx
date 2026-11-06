@@ -1,3 +1,5 @@
+import { getMeOptions } from '@studiomanager/api-client';
+import { useQuery } from '@tanstack/react-query';
 import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
 
 import { useAuth } from '../auth/auth';
@@ -10,6 +12,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootLayout() {
   const auth = useAuth();
+  // Only people with the Platform.Admin app role see the admin page's link
+  const me = useQuery({ ...getMeOptions(), enabled: auth.isAuthenticated });
   return (
     <>
       <a className="skip-link" href="#main">
@@ -22,6 +26,7 @@ function RootLayout() {
           </Link>
           {auth.user && (
             <div className="header-user">
+              {me.data?.platformAdmin && <Link to="/admin">Admin</Link>}
               <span>{auth.user.name ?? auth.user.username}</span>
               <button type="button" onClick={() => void auth.signOut()}>
                 Sign out
