@@ -79,4 +79,32 @@ describe('glaze book', () => {
     expect(screen.getByText('10.5 %')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
   });
+
+  it('weighs out a batch in the unit asked for', async () => {
+    const studio = aStudio({ myRole: 'MEMBER' });
+    let asked = '';
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes/:glazeId`, () => HttpResponse.json(tenmoku)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes/:glazeId/batch`, ({ request }) => {
+        asked = new URL(request.url).search;
+        return HttpResponse.json({
+          size: '10',
+          unit: 'KILOGRAM',
+          lines: [
+            { kind: 'BASE', material: 'Custer Feldspar', weight: '10.000' },
+            { kind: 'ADDITION', material: 'Red Iron Oxide', weight: '1.050' },
+          ],
+          total: '11.050',
+        });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/glazes/g1`);
+    await user.type(await screen.findByLabelText('Dry batch size'), '10');
+
+    expect(await screen.findByText('11.050 kg')).toBeInTheDocument();
+    expect(screen.getByText('1.050 kg')).toBeInTheDocument();
+    expect(asked).toBe('?size=10&unit=KILOGRAM');
+  });
 });

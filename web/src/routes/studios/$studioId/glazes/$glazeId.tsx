@@ -1,13 +1,15 @@
 import {
   deleteGlazeMutation,
+  getGlazeBatchOptions,
   getGlazeOptions,
   getGlazeQueryKey,
   updateGlazeMutation,
   type GlazeRecipe,
+  type WeightUnit,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../../components/ErrorMessage';
 import { atmosphereLabel, GlazeForm, unitLabel } from '../../../../components/GlazeForm';
@@ -27,6 +29,8 @@ function GlazePage() {
     ...updateGlazeMutation(),
     onSuccess: (saved) => {
       queryClient.setQueryData(getGlazeQueryKey({ path }), saved);
+      // A changed recipe makes a different batch
+      void queryClient.invalidateQueries();
       setEditing(false);
     },
   });
@@ -75,6 +79,7 @@ function GlazePage() {
       ) : (
         <>
           <RecipeTable glaze={g} />
+          <BatchPanel studioId={studioId} glazeId={glazeId} />
           {g.notes && <p className="notes">{g.notes}</p>}
           {remove.isError && <ErrorMessage error={remove.error} />}
           {g.canEdit && (
@@ -117,6 +122,81 @@ function RecipeTable({ glaze }: { glaze: GlazeRecipe }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+const weightUnits: { unit: WeightUnit; label: string }[] = [
+  { unit: 'GRAM', label: 'g' },
+  { unit: 'KILOGRAM', label: 'kg' },
+  { unit: 'POUND', label: 'lb' },
+  { unit: 'OUNCE', label: 'oz' },
+];
+
+/** Weigh out a batch: the server scales the recipe, so web and phone agree to the gram. */
+function BatchPanel({ studioId, glazeId }: { studioId: string; glazeId: string }) {
+  const id = useId();
+  const [size, setSize] = useState('');
+  const [unit, setUnit] = useState<WeightUnit>('KILOGRAM');
+  const valid = /^\d{1,9}(\.\d{1,4})?$/.test(size) && Number(size) > 0;
+  const batch = useQuery({
+    ...getGlazeBatchOptions({ path: { studioId, glazeId }, query: { size, unit } }),
+    enabled: valid,
+  });
+  const label = weightUnits.find((u) => u.unit === unit)?.label ?? '';
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Mix a batch</h2>
+      <div className="row">
+        <div className="field">
+          <label htmlFor={`${id}-size`}>Dry batch size</label>
+          <input
+            id={`${id}-size`}
+            inputMode="decimal"
+            placeholder="10"
+            value={size}
+            onChange={(e) => setSize(e.target.value.trim())}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-unit`}>Unit</label>
+          <select id={`${id}-unit`} value={unit} onChange={(e) => setUnit(e.target.value as WeightUnit)}>
+            {weightUnits.map((u) => (
+              <option key={u.unit} value={u.unit}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {batch.isError && <ErrorMessage error={batch.error} />}
+      {valid && batch.data && (
+        <table>
+          <caption>Weigh out</caption>
+          <tbody>
+            {batch.data.lines.map((line, i) => (
+              <tr key={i}>
+                <td>
+                  {line.kind === 'ADDITION' && '+ '}
+                  {line.material}
+                </td>
+                <td>
+                  {line.weight} {label}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              <td>
+                {batch.data.total} {label}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+    </section>
   );
 }
 

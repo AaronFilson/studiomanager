@@ -1599,6 +1599,19 @@ export type SaveGlazeRequest = {
     version?: number;
 };
 
+export type GlazeBatch = {
+    size: Decimal;
+    unit: WeightUnit;
+    lines: Array<GlazeBatchLine>;
+    total: Decimal;
+};
+
+export type GlazeBatchLine = {
+    kind: GlazeLineKind;
+    material: string;
+    weight: Decimal;
+};
+
 /**
  * RFC 9457 problem details.
  */
@@ -6927,3 +6940,49 @@ export type UpdateGlazeResponses = {
 };
 
 export type UpdateGlazeResponse = UpdateGlazeResponses[keyof UpdateGlazeResponses];
+
+export type GetGlazeBatchData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query: {
+        size: Decimal;
+        unit: WeightUnit;
+    };
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/batch';
+};
+
+export type GetGlazeBatchErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetGlazeBatchError = GetGlazeBatchErrors[keyof GetGlazeBatchErrors];
+
+export type GetGlazeBatchResponses = {
+    /**
+     * The batch.
+     */
+    200: GlazeBatch;
+};
+
+export type GetGlazeBatchResponse = GetGlazeBatchResponses[keyof GetGlazeBatchResponses];

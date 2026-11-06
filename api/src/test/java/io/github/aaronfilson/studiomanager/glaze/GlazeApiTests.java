@@ -104,6 +104,19 @@ class GlazeApiTests {
     }
 
     @Test
+    void scalesARecipeToABucket() {
+        String id = read(post(mo, path("/glazes"), TENMOKU), "$.id");
+        MvcTestResult batch = get(mo, path("/glazes/" + id + "/batch?size=10&unit=KILOGRAM"));
+        assertThat(batch).hasStatusOk();
+        assertThat(batch).bodyJson().extractingPath("$.lines[0].weight").isEqualTo("4.500");
+        assertThat(batch).bodyJson().extractingPath("$.lines[3].weight").isEqualTo("1.050");
+        assertThat(batch).bodyJson().extractingPath("$.total").isEqualTo("11.050");
+        // Someone else's unshared recipe can't be scaled either
+        assertThat(get(pat, path("/glazes/" + id + "/batch?size=10&unit=KILOGRAM"))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(get(mo, path("/glazes/" + id + "/batch?size=0&unit=GRAM"))).hasStatus(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
     void aBaseLineIsInParts() {
         assertThat(post(mo, path("/glazes"), TENMOKU.replace("\"30\", \"unit\": \"PARTS\"", "\"30\", \"unit\": \"PERCENT\"")))
                 .hasStatus(HttpStatus.BAD_REQUEST);

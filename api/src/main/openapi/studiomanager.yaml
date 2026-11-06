@@ -3478,6 +3478,45 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/glazes/{glazeId}/batch:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    get:
+      tags: [glazes]
+      operationId: getGlazeBatch
+      summary: The recipe scaled to a dry batch, ready to weigh out
+      description: |
+        Base lines share the batch size. Percent additions go on top, as a percent of the
+        size; gram additions stay fixed. Weights are rounded for the scale: grams to 0.1,
+        kilograms and pounds to 0.001, ounces to 0.01.
+      parameters:
+        - name: size
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Decimal"
+        - name: unit
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/WeightUnit"
+      responses:
+        "200":
+          description: The batch.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeBatch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -6557,6 +6596,32 @@ components:
           type: integer
           format: int32
           description: Required on a change; the version the change was made from.
+
+    GlazeBatch:
+      type: object
+      required: [size, unit, lines, total]
+      properties:
+        size:
+          $ref: "#/components/schemas/Decimal"
+        unit:
+          $ref: "#/components/schemas/WeightUnit"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazeBatchLine"
+        total:
+          $ref: "#/components/schemas/Decimal"
+
+    GlazeBatchLine:
+      type: object
+      required: [kind, material, weight]
+      properties:
+        kind:
+          $ref: "#/components/schemas/GlazeLineKind"
+        material:
+          type: string
+        weight:
+          $ref: "#/components/schemas/Decimal"
 
     Problem:
       type: object

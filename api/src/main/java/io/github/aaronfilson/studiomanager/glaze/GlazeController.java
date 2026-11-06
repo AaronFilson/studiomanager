@@ -7,7 +7,10 @@ import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.contract.AtmosphereDto;
 import io.github.aaronfilson.studiomanager.contract.GlazeAmountUnitDto;
+import io.github.aaronfilson.studiomanager.contract.GlazeBatchDto;
+import io.github.aaronfilson.studiomanager.contract.GlazeBatchLineDto;
 import io.github.aaronfilson.studiomanager.contract.GlazeLineDto;
+import io.github.aaronfilson.studiomanager.contract.WeightUnitDto;
 import io.github.aaronfilson.studiomanager.contract.GlazeLineKindDto;
 import io.github.aaronfilson.studiomanager.contract.GlazeListFilterDto;
 import io.github.aaronfilson.studiomanager.contract.GlazeOwnerKindDto;
@@ -67,6 +70,21 @@ class GlazeController implements GlazesApi {
     public ResponseEntity<Void> deleteGlaze(UUID studioId, UUID glazeId) {
         book.delete(glazeId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+    public ResponseEntity<GlazeBatchDto> getGlazeBatch(String size, WeightUnitDto unit, UUID studioId, UUID glazeId) {
+        var batch = BatchCalculator.scale(book.get(glazeId).lines(), new BigDecimal(size),
+                BatchCalculator.WeightUnit.valueOf(unit.getValue()));
+        return ResponseEntity.ok(new GlazeBatchDto()
+                .size(batch.size().toPlainString())
+                .unit(unit)
+                .lines(batch.lines().stream().map(w -> new GlazeBatchLineDto()
+                        .kind(GlazeLineKindDto.fromValue(w.line().kind().name()))
+                        .material(w.line().material())
+                        .weight(w.weight().toPlainString())).toList())
+                .total(batch.total().toPlainString()));
     }
 
     private static GlazeBook.Draft draft(SaveGlazeRequestDto request) {
