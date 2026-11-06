@@ -44,7 +44,7 @@ run "federation_and_scopes" {
   command = plan
 
   assert {
-    condition     = azurerm_federated_identity_credential.deploy_environment["dev"].subject == "repo:AaronFilson/studiomanager:environment:dev"
+    condition     = azurerm_federated_identity_credential.deploy_environment["dev"].subject == "repo:AaronFilson@14099435/studiomanager@1426092900:environment:dev"
     error_message = "The deploy identity must trust only the protected GitHub environment."
   }
 
@@ -53,8 +53,8 @@ run "federation_and_scopes" {
       azurerm_federated_identity_credential.plan_pull_request.subject,
       azurerm_federated_identity_credential.plan_main.subject,
       ]) == toset([
-      "repo:AaronFilson/studiomanager:pull_request",
-      "repo:AaronFilson/studiomanager:ref:refs/heads/main",
+      "repo:AaronFilson@14099435/studiomanager@1426092900:pull_request",
+      "repo:AaronFilson@14099435/studiomanager@1426092900:ref:refs/heads/main",
     ])
     error_message = "Pull requests and main may only reach the read-only plan identity."
   }
