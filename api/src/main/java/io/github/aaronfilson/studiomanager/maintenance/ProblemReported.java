@@ -2,7 +2,6 @@ package io.github.aaronfilson.studiomanager.maintenance;
 
 import java.util.List;
 import java.util.UUID;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -12,6 +11,10 @@ import org.jspecify.annotations.Nullable;
  * @param assetName null for "somewhere else"
  * @param recipients the staff and technicians, leaving out whoever reported it
  */
-public record ProblemReported(UUID studioId, UUID reportId, @Nullable String assetName, String description,
-        @Nullable String reportedByName, List<UUID> recipients) {
-}
+public record ProblemReported(
+    UUID studioId,
+    UUID reportId,
+    @Nullable String assetName,
+    String description,
+    @Nullable String reportedByName,
+    List<UUID> recipients) {}

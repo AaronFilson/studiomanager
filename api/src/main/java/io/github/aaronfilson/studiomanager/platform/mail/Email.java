@@ -11,10 +11,9 @@ import java.util.Objects;
  */
 public record Email(String to, String subject, String text) {
 
-    public Email {
-        Objects.requireNonNull(to, "to");
-        Objects.requireNonNull(subject, "subject");
-        Objects.requireNonNull(text, "text");
-    }
-
+  public Email {
+    Objects.requireNonNull(to, "to");
+    Objects.requireNonNull(subject, "subject");
+    Objects.requireNonNull(text, "text");
+  }
 }

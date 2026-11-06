@@ -13,26 +13,24 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @IntegrationTest
 class RowLevelSecurityGuardTests {
 
-    @Autowired
-    RowLevelSecurityGuard guard;
+  @Autowired RowLevelSecurityGuard guard;
 
-    @Autowired
-    PostgreSQLContainer postgres;
+  @Autowired PostgreSQLContainer postgres;
 
-    @Test
-    void acceptsTheApplicationLogin() {
-        assertThatNoException().isThrownBy(guard::verify);
-    }
+  @Test
+  void acceptsTheApplicationLogin() {
+    assertThatNoException().isThrownBy(guard::verify);
+  }
 
-    @Test
-    void rejectsALoginThatWouldBypassRowLevelSecurity() {
-        // The container's superuser, which also owns the schema
-        DriverManagerDataSource owner =
-                new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+  @Test
+  void rejectsALoginThatWouldBypassRowLevelSecurity() {
+    // The container's superuser, which also owns the schema
+    DriverManagerDataSource owner =
+        new DriverManagerDataSource(
+            postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
 
-        assertThatIllegalStateException()
-                .isThrownBy(() -> new RowLevelSecurityGuard(JdbcClient.create(owner)).verify())
-                .withMessageContaining("would bypass row-level security");
-    }
-
+    assertThatIllegalStateException()
+        .isThrownBy(() -> new RowLevelSecurityGuard(JdbcClient.create(owner)).verify())
+        .withMessageContaining("would bypass row-level security");
+  }
 }

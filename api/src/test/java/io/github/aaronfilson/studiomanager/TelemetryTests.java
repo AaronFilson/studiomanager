@@ -15,28 +15,27 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
  * the exporter only logs that it couldn't send.
  */
 @IntegrationTest
-@TestPropertySource(properties = {
-        "otel.sdk.disabled=false",
-        "applicationinsights.connection.string=InstrumentationKey=00000000-0000-0000-0000-000000000000;"
-                + "IngestionEndpoint=http://127.0.0.1:9/;LiveEndpoint=http://127.0.0.1:9/" })
+@TestPropertySource(
+    properties = {
+      "otel.sdk.disabled=false",
+      "applicationinsights.connection.string=InstrumentationKey=00000000-0000-0000-0000-000000000000;"
+          + "IngestionEndpoint=http://127.0.0.1:9/;LiveEndpoint=http://127.0.0.1:9/"
+    })
 class TelemetryTests {
 
-    @Autowired
-    OpenTelemetry openTelemetry;
+  @Autowired OpenTelemetry openTelemetry;
 
-    @Autowired
-    MockMvcTester mvc;
+  @Autowired MockMvcTester mvc;
 
-    @Test
-    void recordsSpansAndStillServesRequests() {
-        Span span = openTelemetry.getTracer("test").spanBuilder("check").startSpan();
-        try {
-            // A no-op SDK hands out invalid span contexts
-            assertThat(span.getSpanContext().isValid()).isTrue();
-        } finally {
-            span.end();
-        }
-        assertThat(mvc.get().uri("/api/v1/me").with(TestUser.named("Tess").token())).hasStatusOk();
+  @Test
+  void recordsSpansAndStillServesRequests() {
+    Span span = openTelemetry.getTracer("test").spanBuilder("check").startSpan();
+    try {
+      // A no-op SDK hands out invalid span contexts
+      assertThat(span.getSpanContext().isValid()).isTrue();
+    } finally {
+      span.end();
     }
-
+    assertThat(mvc.get().uri("/api/v1/me").with(TestUser.named("Tess").token())).hasStatusOk();
+  }
 }

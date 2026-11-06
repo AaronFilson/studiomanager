@@ -2,9 +2,8 @@
 
 Studio manager: software to run your pottery studio better, so you can focus on what matters.
 
-A free studio manager that actually knows what a kiln is: piece tracking from greenware to pickup,
-firing fees, kiln loads, and supplies. See the [market survey](docs/planning/01-market-survey.md) and
-the [Wave 1 plan](docs/planning/02-wave1-plan.md).
+A studio manager that actually knows what a kiln is: piece tracking from greenware to pickup,
+firing fees, kiln loads, and supplies.
 
 **Status:** Wave 1 (M1–M5) has first versions on the API and the web. Nothing is deployed yet;
 the [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty Azure subscription to a

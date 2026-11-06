@@ -1,7 +1,6 @@
 package io.github.aaronfilson.studiomanager.platform;
 
 import java.util.List;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -14,36 +13,38 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Csv {
 
-    private final StringBuilder out = new StringBuilder();
+  private final StringBuilder out = new StringBuilder();
 
-    /** Appends one row. Each cell is text (guarded) unless it is a {@link Number}; null is empty. */
-    public Csv row(List<?> cells) {
-        for (int i = 0; i < cells.size(); i++) {
-            if (i > 0) {
-                out.append(',');
-            }
-            Object cell = cells.get(i);
-            out.append(cell instanceof Number number ? number.toString() : text(cell == null ? null : cell.toString()));
-        }
-        out.append("\r\n");
-        return this;
+  /** Appends one row. Each cell is text (guarded) unless it is a {@link Number}; null is empty. */
+  public Csv row(List<?> cells) {
+    for (int i = 0; i < cells.size(); i++) {
+      if (i > 0) {
+        out.append(',');
+      }
+      Object cell = cells.get(i);
+      out.append(
+          cell instanceof Number number
+              ? number.toString()
+              : text(cell == null ? null : cell.toString()));
     }
+    out.append("\r\n");
+    return this;
+  }
 
-    @Override
-    public String toString() {
-        return out.toString();
+  @Override
+  public String toString() {
+    return out.toString();
+  }
+
+  /** One text cell: guarded against formulas, then quoted if it needs to be. */
+  public static String text(@Nullable String value) {
+    if (value == null || value.isEmpty()) {
+      return "";
     }
-
-    /** One text cell: guarded against formulas, then quoted if it needs to be. */
-    public static String text(@Nullable String value) {
-        if (value == null || value.isEmpty()) {
-            return "";
-        }
-        String safe = "=+-@\t\r".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
-        if (safe.contains(",") || safe.contains("\"") || safe.contains("\n") || safe.contains("\r")) {
-            return '"' + safe.replace("\"", "\"\"") + '"';
-        }
-        return safe;
+    String safe = "=+-@\t\r".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
+    if (safe.contains(",") || safe.contains("\"") || safe.contains("\n") || safe.contains("\r")) {
+      return '"' + safe.replace("\"", "\"\"") + '"';
     }
-
+    return safe;
+  }
 }

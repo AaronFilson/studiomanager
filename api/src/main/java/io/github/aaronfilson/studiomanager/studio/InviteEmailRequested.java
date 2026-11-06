@@ -8,5 +8,4 @@ import java.util.UUID;
  *
  * @param requestedBy the staff member who asked for it, named in the email
  */
-public record InviteEmailRequested(UUID inviteId, UUID studioId, UUID requestedBy) {
-}
+public record InviteEmailRequested(UUID inviteId, UUID studioId, UUID requestedBy) {}
