@@ -83,6 +83,12 @@ resource "azuread_application" "web" {
   display_name     = "studiomanager-${var.environment}-web"
   sign_in_audience = "AzureADMyOrg"
 
+  # External ID tenants refuse any app registration that accepts v1 tokens, even a client
+  # that exposes no API of its own.
+  api {
+    requested_access_token_version = 2
+  }
+
   single_page_application {
     redirect_uris = local.spa_redirect_uris
   }
@@ -135,6 +141,11 @@ resource "azuread_service_principal_delegated_permission_grant" "web_to_graph" {
 resource "azuread_application" "mobile" {
   display_name     = "studiomanager-${var.environment}-mobile"
   sign_in_audience = "AzureADMyOrg"
+
+  # See the web app: External ID requires v2 tokens on every registration.
+  api {
+    requested_access_token_version = 2
+  }
 
   public_client {
     redirect_uris = [var.mobile_redirect_uri]
