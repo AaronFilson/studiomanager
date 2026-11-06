@@ -2,7 +2,9 @@
 # docs/runbooks/first-deploy.md); validation fails the plan until you do.
 
 environment             = "dev"
-location                = "eastus2"
+# West US, the subscription's region. Static Web Apps isn't offered there, and it serves from a
+# global edge anyway. The resource group stays in eastus2 (bootstrap); that's only its metadata.
+location                = "westus"
 static_web_app_location = "eastus2"
 
 # From `terraform output env_tfvars` in infra/identity
