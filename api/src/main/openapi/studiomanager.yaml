@@ -27,6 +27,10 @@ tags:
       out of a token's reach.
   - name: account
     description: The signed-in person.
+  - name: admin
+    description: |
+      Running the service: live rate limits, boosts and the history of every change. Only people
+      with the Platform.Admin app role reach it, and never with an API token.
   - name: studios
     description: Studios (tenants) and membership in them.
   - name: members
@@ -93,6 +97,172 @@ paths:
                 $ref: "#/components/schemas/Me"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/admin/rate-limits:
+    get:
+      tags: [admin]
+      operationId: getRateLimits
+      summary: The rate limits, their defaults, and any boost (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The limits.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/rate-limits/normal:
+    put:
+      tags: [admin]
+      operationId: setNormalRateLimits
+      summary: Override the configured limits, live (platform admin only)
+      description: Applies on every replica within about 15 seconds, with no restart.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelRateLimits"
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [admin]
+      operationId: resetNormalRateLimits
+      summary: Back to the configured defaults (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/rate-limits/boost:
+    put:
+      tags: [admin]
+      operationId: scheduleRateLimitBoost
+      summary: Lift the limits for a while, now or later (platform admin only)
+      description: |
+        No limits for the unlimited minutes, then 8×, 4× and 2× the normal limits over the
+        easing minutes, a third each, then normal. Replaces any boost before it. A boost lasts at
+        most 4 hours in all, so it always ends on its own.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleBoostRequest"
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [admin]
+      operationId: endRateLimitBoost
+      summary: End the boost now, back to normal limits at once (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/studios:
+    get:
+      tags: [admin]
+      operationId: listAdminStudios
+      summary: Every studio's id and name, for scoping a boost (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The studios, by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminStudio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/setting-changes:
+    get:
+      tags: [admin]
+      operationId: listSettingChanges
+      summary: Every change to the platform settings, newest first (platform admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: At most this many changes. Defaults to 50.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SettingChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/v1/studios:
     post:
@@ -3879,6 +4049,167 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    RateLimitValues:
+      type: object
+      description: One bucket's limits.
+      required: [burst, refillTokens, refillPeriodSeconds, dailyCap]
+      properties:
+        burst:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100000
+          description: Calls that can be made at once, without waiting.
+        refillTokens:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100000
+          description: Calls given back each refill period.
+        refillPeriodSeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3600
+        dailyCap:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000000
+          description: Calls a day, however they're spread.
+
+    ChannelRateLimits:
+      type: object
+      description: The limits for MCP tool calls and for API token calls.
+      required: [mcp, token]
+      properties:
+        mcp:
+          $ref: "#/components/schemas/RateLimitValues"
+        token:
+          $ref: "#/components/schemas/RateLimitValues"
+
+    BoostStep:
+      type: object
+      required: [kind, startsAt, endsAt]
+      properties:
+        kind:
+          type: string
+          enum: [UNLIMITED, EASING]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        multiplier:
+          type: integer
+          format: int32
+          description: For an easing step, how many times the normal limits apply.
+
+    RateLimitBoost:
+      type: object
+      required: [startsAt, endsAt, unlimitedMinutes, easingMinutes, steps]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        studioId:
+          type: string
+          format: uuid
+          description: The one studio it lifts. Absent when it lifts every studio.
+        studioName:
+          type: string
+          description: That studio's name.
+        unlimitedMinutes:
+          type: integer
+          format: int32
+        easingMinutes:
+          type: integer
+          format: int32
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoostStep"
+
+    RateLimitOverview:
+      type: object
+      required: [now, defaults, normal]
+      properties:
+        now:
+          type: string
+          format: date-time
+          description: The server's time, to describe the boost against.
+        defaults:
+          $ref: "#/components/schemas/ChannelRateLimits"
+        override:
+          $ref: "#/components/schemas/ChannelRateLimits"
+        normal:
+          $ref: "#/components/schemas/ChannelRateLimits"
+        boost:
+          $ref: "#/components/schemas/RateLimitBoost"
+
+    ScheduleBoostRequest:
+      type: object
+      required: [unlimitedMinutes, easingMinutes]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+          description: When it starts, up to 30 days ahead. Now if absent or past.
+        studioId:
+          type: string
+          format: uuid
+          description: Lift only this studio. Every studio if absent.
+        unlimitedMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 240
+        easingMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 240
+
+    AdminStudio:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    SettingChange:
+      type: object
+      required: [key, version, changedById, changedAt]
+      properties:
+        key:
+          type: string
+        version:
+          type: integer
+          format: int64
+        oldValue:
+          type: object
+          additionalProperties: true
+          description: Absent when there was no override.
+        newValue:
+          type: object
+          additionalProperties: true
+          description: Absent when the change went back to the default.
+        changedById:
+          type: string
+          format: uuid
+        changedByName:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
+
     Me:
       type: object
       required: [account, memberships]
@@ -3889,6 +4220,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Membership"
+        platformAdmin:
+          type: boolean
+          description: Whether this person has the Platform.Admin app role, for the admin page.
 
     Account:
       type: object

@@ -4,9 +4,115 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+/**
+ * One bucket's limits.
+ */
+export type RateLimitValues = {
+    /**
+     * Calls that can be made at once, without waiting.
+     */
+    burst: number;
+    /**
+     * Calls given back each refill period.
+     */
+    refillTokens: number;
+    refillPeriodSeconds: number;
+    /**
+     * Calls a day, however they're spread.
+     */
+    dailyCap: number;
+};
+
+/**
+ * The limits for MCP tool calls and for API token calls.
+ */
+export type ChannelRateLimits = {
+    mcp: RateLimitValues;
+    token: RateLimitValues;
+};
+
+export type BoostStep = {
+    kind: 'UNLIMITED' | 'EASING';
+    startsAt: string;
+    endsAt: string;
+    /**
+     * For an easing step, how many times the normal limits apply.
+     */
+    multiplier?: number;
+};
+
+export type RateLimitBoost = {
+    startsAt: string;
+    endsAt: string;
+    /**
+     * The one studio it lifts. Absent when it lifts every studio.
+     */
+    studioId?: string;
+    /**
+     * That studio's name.
+     */
+    studioName?: string;
+    unlimitedMinutes: number;
+    easingMinutes: number;
+    steps: Array<BoostStep>;
+};
+
+export type RateLimitOverview = {
+    /**
+     * The server's time, to describe the boost against.
+     */
+    now: string;
+    defaults: ChannelRateLimits;
+    override?: ChannelRateLimits;
+    normal: ChannelRateLimits;
+    boost?: RateLimitBoost;
+};
+
+export type ScheduleBoostRequest = {
+    /**
+     * When it starts, up to 30 days ahead. Now if absent or past.
+     */
+    startsAt?: string;
+    /**
+     * Lift only this studio. Every studio if absent.
+     */
+    studioId?: string;
+    unlimitedMinutes: number;
+    easingMinutes: number;
+};
+
+export type AdminStudio = {
+    id: string;
+    name: string;
+};
+
+export type SettingChange = {
+    key: string;
+    version: number;
+    /**
+     * Absent when there was no override.
+     */
+    oldValue?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Absent when the change went back to the default.
+     */
+    newValue?: {
+        [key: string]: unknown;
+    };
+    changedById: string;
+    changedByName?: string;
+    changedAt: string;
+};
+
 export type Me = {
     account: Account;
     memberships: Array<Membership>;
+    /**
+     * Whether this person has the Platform.Admin app role, for the admin page.
+     */
+    platformAdmin?: boolean;
 };
 
 export type Account = {
@@ -1951,6 +2057,226 @@ export type GetMeResponses = {
 };
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type GetRateLimitsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/rate-limits';
+};
+
+export type GetRateLimitsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetRateLimitsError = GetRateLimitsErrors[keyof GetRateLimitsErrors];
+
+export type GetRateLimitsResponses = {
+    /**
+     * The limits.
+     */
+    200: RateLimitOverview;
+};
+
+export type GetRateLimitsResponse = GetRateLimitsResponses[keyof GetRateLimitsResponses];
+
+export type ResetNormalRateLimitsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/rate-limits/normal';
+};
+
+export type ResetNormalRateLimitsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ResetNormalRateLimitsError = ResetNormalRateLimitsErrors[keyof ResetNormalRateLimitsErrors];
+
+export type ResetNormalRateLimitsResponses = {
+    /**
+     * The limits after the change.
+     */
+    200: RateLimitOverview;
+};
+
+export type ResetNormalRateLimitsResponse = ResetNormalRateLimitsResponses[keyof ResetNormalRateLimitsResponses];
+
+export type SetNormalRateLimitsData = {
+    body: ChannelRateLimits;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/rate-limits/normal';
+};
+
+export type SetNormalRateLimitsErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type SetNormalRateLimitsError = SetNormalRateLimitsErrors[keyof SetNormalRateLimitsErrors];
+
+export type SetNormalRateLimitsResponses = {
+    /**
+     * The limits after the change.
+     */
+    200: RateLimitOverview;
+};
+
+export type SetNormalRateLimitsResponse = SetNormalRateLimitsResponses[keyof SetNormalRateLimitsResponses];
+
+export type EndRateLimitBoostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/rate-limits/boost';
+};
+
+export type EndRateLimitBoostErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type EndRateLimitBoostError = EndRateLimitBoostErrors[keyof EndRateLimitBoostErrors];
+
+export type EndRateLimitBoostResponses = {
+    /**
+     * The limits after the change.
+     */
+    200: RateLimitOverview;
+};
+
+export type EndRateLimitBoostResponse = EndRateLimitBoostResponses[keyof EndRateLimitBoostResponses];
+
+export type ScheduleRateLimitBoostData = {
+    body: ScheduleBoostRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/rate-limits/boost';
+};
+
+export type ScheduleRateLimitBoostErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ScheduleRateLimitBoostError = ScheduleRateLimitBoostErrors[keyof ScheduleRateLimitBoostErrors];
+
+export type ScheduleRateLimitBoostResponses = {
+    /**
+     * The limits after the change.
+     */
+    200: RateLimitOverview;
+};
+
+export type ScheduleRateLimitBoostResponse = ScheduleRateLimitBoostResponses[keyof ScheduleRateLimitBoostResponses];
+
+export type ListAdminStudiosData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/studios';
+};
+
+export type ListAdminStudiosErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListAdminStudiosError = ListAdminStudiosErrors[keyof ListAdminStudiosErrors];
+
+export type ListAdminStudiosResponses = {
+    /**
+     * The studios, by name.
+     */
+    200: Array<AdminStudio>;
+};
+
+export type ListAdminStudiosResponse = ListAdminStudiosResponses[keyof ListAdminStudiosResponses];
+
+export type ListSettingChangesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * At most this many changes. Defaults to 50.
+         */
+        limit?: number;
+    };
+    url: '/api/v1/admin/setting-changes';
+};
+
+export type ListSettingChangesErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListSettingChangesError = ListSettingChangesErrors[keyof ListSettingChangesErrors];
+
+export type ListSettingChangesResponses = {
+    /**
+     * The changes.
+     */
+    200: Array<SettingChange>;
+};
+
+export type ListSettingChangesResponse = ListSettingChangesResponses[keyof ListSettingChangesResponses];
 
 export type CreateStudioData = {
     body: CreateStudioRequest;

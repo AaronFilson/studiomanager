@@ -31,6 +31,21 @@ public record TestUser(String subject, String name) {
         .authorities(new SimpleGrantedAuthority("SCOPE_access_as_user"));
   }
 
+  /** An access token that also carries the {@code Platform.Admin} app role (ADR 24). */
+  public RequestPostProcessor adminToken() {
+    return jwt()
+        .jwt(token ->
+            token
+                .issuer(ISSUER)
+                .subject(subject)
+                .claim("name", name)
+                .claim("email", email())
+                .claim("roles", java.util.List.of("Platform.Admin")))
+        .authorities(
+            new SimpleGrantedAuthority("SCOPE_access_as_user"),
+            new SimpleGrantedAuthority("APPROLE_Platform.Admin"));
+  }
+
   /** A valid token issued for some other API. */
   public RequestPostProcessor tokenWithoutApiScope() {
     return jwt()

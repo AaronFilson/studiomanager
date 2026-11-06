@@ -6,6 +6,7 @@ import io.github.aaronfilson.studiomanager.contract.MeDto;
 import io.github.aaronfilson.studiomanager.contract.MembershipDto;
 import io.github.aaronfilson.studiomanager.contract.StudioRoleDto;
 import io.github.aaronfilson.studiomanager.contract.StudioSummaryDto;
+import io.github.aaronfilson.studiomanager.platform.tenancy.PlatformAdmin;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MembershipView;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
@@ -32,8 +33,9 @@ class MeController implements AccountApi {
         new AccountDto(account.id()).displayName(account.displayName()).email(account.email());
     return ResponseEntity.ok(
         new MeDto(
-            accountDto,
-            studios.membershipsOf(accountId).stream().map(MeController::toDto).toList()));
+                accountDto,
+                studios.membershipsOf(accountId).stream().map(MeController::toDto).toList())
+            .platformAdmin(PlatformAdmin.callerHasRole()));
   }
 
   private static MembershipDto toDto(MembershipView membership) {
