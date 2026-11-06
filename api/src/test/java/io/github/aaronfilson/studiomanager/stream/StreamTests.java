@@ -9,6 +9,7 @@ import io.github.aaronfilson.studiomanager.TestUser;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -80,6 +81,8 @@ class StreamTests {
   @Autowired JsonMapper json;
 
   @Autowired KafkaTemplate<Object, Object> kafka;
+
+  @Autowired MeterRegistry meters;
 
   @Value("${spring.kafka.bootstrap-servers}")
   String bootstrapServers;
@@ -360,6 +363,16 @@ class StreamTests {
             .query(Integer.class)
             .single();
     assertThat(queued).isZero();
+  }
+
+  @Test
+  void theConsumersLagIsMeasured() {
+    // Spring Boot binds the listener's Kafka client metrics to Micrometer; lag is the one to watch
+    await()
+        .atMost(WAIT)
+        .untilAsserted(() ->
+            assertThat(meters.find("kafka.consumer.fetch.manager.records.lag.max").meters())
+                .isNotEmpty());
   }
 
   @Test

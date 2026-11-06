@@ -1,6 +1,8 @@
 package io.github.aaronfilson.studiomanager.maintenance;
 
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Duration;
@@ -26,7 +28,7 @@ import org.springframework.transaction.support.TransactionOperations;
 @ConditionalOnBooleanProperty(
     name = "studiomanager.maintenance.photo-upload-sweep",
     matchIfMissing = true)
-class RecordPhotoUploadSweep {
+class RecordPhotoUploadSweep implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(RecordPhotoUploadSweep.class);
 
@@ -35,15 +37,28 @@ class RecordPhotoUploadSweep {
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
   private final BlobStore blobs;
+  private final SweepRunner sweeps;
 
-  RecordPhotoUploadSweep(JdbcClient jdbc, TransactionOperations transactions, BlobStore blobs) {
+  RecordPhotoUploadSweep(
+      JdbcClient jdbc, TransactionOperations transactions, BlobStore blobs, SweepRunner sweeps) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.blobs = blobs;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT5M", fixedDelayString = "PT1H")
   public void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "record-photo-uploads";
+  }
+
+  @Override
+  public void sweep() {
     runAt(Instant.now());
   }
 
@@ -72,10 +87,11 @@ class RecordPhotoUploadSweep {
         blobs.delete(
             RecordPhotoService.thumbnail(photo.studioId(), photo.recordId(), photo.photoId()));
       } catch (RuntimeException e) {
-        log.warn(
-            "Couldn't delete the images of abandoned record photo {}: {}",
-            photo.photoId(),
-            e.getMessage());
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue("studioId", photo.studioId())
+            .addKeyValue("photoId", photo.photoId())
+            .log("Couldn't delete the images of abandoned record photo {}", photo.photoId());
       }
     }
     log.info("Removed {} abandoned record photo uploads", taken.size());

@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.stream;
 
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Instant;
@@ -15,18 +17,30 @@ import org.springframework.stereotype.Component;
  * left.
  */
 @Component
-class SeenEventPurge {
+class SeenEventPurge implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(SeenEventPurge.class);
 
   private final ActivityProjection projection;
+  private final SweepRunner sweeps;
 
-  SeenEventPurge(ActivityProjection projection) {
+  SeenEventPurge(ActivityProjection projection, SweepRunner sweeps) {
     this.projection = projection;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT15M", fixedDelayString = "PT24H")
   void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "stream-seen-event-purge";
+  }
+
+  @Override
+  public void sweep() {
     // Crosses studios, so it runs as the consumer's system account outside any one studio
     int forgotten =
         TenantContext.callAs(

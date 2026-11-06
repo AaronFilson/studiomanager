@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.maintenance;
 
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Instant;
@@ -27,7 +29,7 @@ import org.springframework.transaction.support.TransactionOperations;
 @ConditionalOnBooleanProperty(
     name = "studiomanager.maintenance.reminder-sweep",
     matchIfMissing = true)
-class MaintenanceReminderSweep {
+class MaintenanceReminderSweep implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(MaintenanceReminderSweep.class);
 
@@ -36,16 +38,31 @@ class MaintenanceReminderSweep {
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
   private final MaintenanceService maintenance;
+  private final SweepRunner sweeps;
 
   MaintenanceReminderSweep(
-      JdbcClient jdbc, TransactionOperations transactions, MaintenanceService maintenance) {
+      JdbcClient jdbc,
+      TransactionOperations transactions,
+      MaintenanceService maintenance,
+      SweepRunner sweeps) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.maintenance = maintenance;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT4M", fixedDelayString = "PT1H")
   public void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "maintenance-reminders";
+  }
+
+  @Override
+  public void sweep() {
     runAt(Instant.now());
   }
 
@@ -66,7 +83,10 @@ class MaintenanceReminderSweep {
             TenantContext.callAs(
                 TenantContext.system(ACTOR, studioId), () -> maintenance.remindDue(now));
       } catch (RuntimeException e) {
-        log.warn("Couldn't send maintenance reminders for studio {}: {}", studioId, e.getMessage());
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue("studioId", studioId)
+            .log("Couldn't send maintenance reminders for studio {}", studioId);
       }
     }
     if (reminded > 0) {
