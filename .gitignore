@@ -3,6 +3,8 @@
 Thumbs.db
 .idea/
 .vscode/
+# Claude Code's per-agent git worktrees
+.claude/worktrees/
 *.iml
 *.swp
 

@@ -3,4 +3,7 @@
  * metric units, and fee rules round in their own unit, so no conversion is stored and rounding is
  * always explicit.
  */
+@NullMarked
 package io.github.aaronfilson.studiomanager.platform.measure;
+
+import org.jspecify.annotations.NullMarked;

@@ -15,6 +15,7 @@ import io.github.aaronfilson.studiomanager.contract.UpdateKilnRequestDto;
 import io.github.aaronfilson.studiomanager.piece.PieceDtos;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -28,10 +29,21 @@ class KilnController implements KilnsApi {
 
   private final KilnService kilns;
   private final FiringService firings;
+  private final FiringLoads loads;
+  private final FiringTransitions transitions;
+  private final Clock clock;
 
-  KilnController(KilnService kilns, FiringService firings) {
+  KilnController(
+      KilnService kilns,
+      FiringService firings,
+      FiringLoads loads,
+      FiringTransitions transitions,
+      Clock clock) {
     this.kilns = kilns;
     this.firings = firings;
+    this.loads = loads;
+    this.transitions = transitions;
+    this.clock = clock;
   }
 
   @Override
@@ -69,9 +81,9 @@ class KilnController implements KilnsApi {
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<QueueEntryListDto> getKilnQueue(
       FiringKindDto kind, UUID studioId, UUID kilnId) {
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     Capped<QueueEntryDto> queue =
-        firings
+        loads
             .queue(kilnId, FiringKind.valueOf(kind.name()))
             .map(entry ->
                 new QueueEntryDto()
@@ -85,7 +97,7 @@ class KilnController implements KilnsApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<FiringListDto> listKilnFirings(UUID studioId, UUID kilnId) {
-    Capped<FiringDto> log = firings.listForKiln(kilnId).map(KilnController::toDto);
+    Capped<FiringDto> log = firings.listForKiln(kilnId).map(this::toDto);
     return ResponseEntity.ok(new FiringListDto(log.items(), log.truncated(), log.limit()));
   }
 
@@ -94,7 +106,7 @@ class KilnController implements KilnsApi {
   public ResponseEntity<FiringDto> loadKiln(
       UUID studioId, UUID kilnId, LoadKilnRequestDto request) {
     FiringView firing =
-        firings.load(
+        loads.load(
             kilnId,
             FiringKind.valueOf(request.getKind().name()),
             request.getCone(),
@@ -117,9 +129,9 @@ class KilnController implements KilnsApi {
     long version = request.getExpectedVersion();
     FiringView firing =
         switch (request.getTo()) {
-          case FIRING -> firings.start(firingId, version);
-          case COMPLETE -> firings.complete(firingId, request.getNotes(), version);
-          case CANCELLED -> firings.cancel(firingId, request.getNotes(), version);
+          case FIRING -> transitions.start(firingId, version);
+          case COMPLETE -> transitions.complete(firingId, request.getNotes(), version);
+          case CANCELLED -> transitions.cancel(firingId, request.getNotes(), version);
         };
     return ResponseEntity.ok(toDto(firing));
   }
@@ -136,7 +148,7 @@ class KilnController implements KilnsApi {
     return KilnDtos.toDto(kiln);
   }
 
-  private static FiringDto toDto(FiringView firing) {
-    return KilnDtos.toDto(firing);
+  private FiringDto toDto(FiringView firing) {
+    return KilnDtos.toDto(firing, clock.instant());
   }
 }

@@ -1,4 +1,9 @@
 spring:
+  jpa:
+    properties:
+      hibernate:
+        # StatementCounts reads Hibernate's statistics to catch N+1 queries (ADR 21)
+        generate_statistics: true
   security:
     oauth2:
       resourceserver:

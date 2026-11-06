@@ -291,6 +291,24 @@ public class PieceService {
   }
 
   /**
+   * The pieces with these ids, in number order, as lists show them: their first photo and no
+   * timeline. One query for the pieces however many there are, for a kiln load. Staff only.
+   */
+  @Transactional(readOnly = true)
+  public List<PieceView> listByIds(Collection<UUID> pieceIds) {
+    requireStaff(TenantContext.require(), "Only staff can see what's in a load.");
+    if (pieceIds.isEmpty()) {
+      return List.of();
+    }
+    List<PieceView> pieces =
+        jdbc.sql(SELECT_PIECE + "where id = any(:ids) order by number")
+            .param("ids", pieceIds.toArray(UUID[]::new))
+            .query(PieceService::mapPiece)
+            .list();
+    return withDetails(pieces, List.of(), false);
+  }
+
+  /**
    * Moves every piece in {@code pieceIds} from {@code from} to {@code to} after a firing, with one
    * timeline entry each. All or nothing: if any piece is no longer in {@code from}, nothing moves.
    * Returns the pieces as they are afterwards.
