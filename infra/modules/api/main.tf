@@ -38,8 +38,8 @@ locals {
 
   app_insights_secret = "appinsights-connection-string"
 
-  # Encryption keys the azure profile requires. The migration job starts the same Spring
-  # context as the app, so it needs them too. Container App secret names map to env vars.
+  # Encryption keys the azure profile requires. The migration and sweep jobs start the same
+  # Spring context as the app, so they need them too. Container App secret names map to env vars.
   encryption_secrets = {
     "webhook-secret-key"    = { env = "STUDIOMANAGER_WEBHOOK_SECRET_KEY", value = var.webhook_secret_key }
     "ai-key-encryption-key" = { env = "STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY", value = var.ai_key_encryption_key }
@@ -255,6 +255,15 @@ resource "azurerm_container_app_job" "sweep" {
     value = var.application_insights_connection_string
   }
 
+  dynamic "secret" {
+    for_each = local.encryption_secrets
+
+    content {
+      name  = secret.key
+      value = secret.value.value
+    }
+  }
+
   template {
     container {
       name   = "sweep"
@@ -274,6 +283,15 @@ resource "azurerm_container_app_job" "sweep" {
       env {
         name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         secret_name = local.app_insights_secret
+      }
+
+      dynamic "env" {
+        for_each = local.encryption_secrets
+
+        content {
+          name        = env.value.env
+          secret_name = env.key
+        }
       }
     }
   }
