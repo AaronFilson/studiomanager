@@ -126,6 +126,14 @@ proposes the lines. Staff check them, and nothing posts until they confirm.
 4. The matcher and vendor aliases. Optionally record the bill as a payable.
 5. The eval set, the scorer in CI, a live eval report, and the README numbers.
 
+**Changed by [plan 20](20-pre-production-cleanup-plan.md#invoice-readers-claude-google-and-azure-side-by-side),
+2026-11-06:**
+- **Step 3 is reworked.** Google Document AI and Azure AI Document Intelligence become
+  platform-paid readers that the admin page turns on for chosen studios, each under a monthly
+  page cap.
+- **Not a fallback any more.** Neither runs as an automatic fallback.
+- **Studio consent stays.** The studio's opt-in becomes `allow_platform_readers`.
+
 ## Status
 
 **Step 1, 2026-11-06, on `wave2-tokens-mcp` (V28): the studio's own key.**
