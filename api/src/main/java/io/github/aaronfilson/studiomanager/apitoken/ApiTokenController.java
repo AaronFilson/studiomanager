@@ -65,7 +65,7 @@ class ApiTokenController implements ApiTokensApi {
         .createdAt(utc(view.createdAt()))
         .expiresAt(utc(view.expiresAt()))
         .lastUsedAt(utcOrNull(view.lastUsedAt()))
-        // TODO(merge with wave1-m-mcp): map lastUsedFrom once api_token.last_used_from exists
+        .lastUsedFrom(view.lastUsedFrom())
         .revokedAt(utcOrNull(view.revokedAt()));
   }
 

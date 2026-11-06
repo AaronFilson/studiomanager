@@ -76,6 +76,7 @@ public class ApiTokens implements ApiTokenResolver {
       Instant createdAt,
       Instant expiresAt,
       @Nullable Instant lastUsedAt,
+      @Nullable String lastUsedFrom,
       @Nullable Instant revokedAt) {}
 
   public record Created(TokenView token, String secret) {}
@@ -218,7 +219,7 @@ public class ApiTokens implements ApiTokenResolver {
   private static final String SELECT =
       """
       select id, name, account_id, scopes, last_four, created_at, %s as expires_at, last_used_at,
-             revoked_at
+             last_used_from, revoked_at
       from api_token
       """
           .formatted(EXPIRES_AT);
@@ -234,6 +235,7 @@ public class ApiTokens implements ApiTokenResolver {
         instant(rs, "created_at"),
         instant(rs, "expires_at"),
         instantOrNull(rs, "last_used_at"),
+        rs.getString("last_used_from"),
         instantOrNull(rs, "revoked_at"));
   }
 
@@ -248,6 +250,7 @@ public class ApiTokens implements ApiTokenResolver {
         t.createdAt(),
         t.expiresAt(),
         t.lastUsedAt(),
+        t.lastUsedFrom(),
         t.revokedAt());
   }
 

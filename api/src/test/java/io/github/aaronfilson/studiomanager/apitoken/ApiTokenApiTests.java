@@ -170,6 +170,8 @@ class ApiTokenApiTests {
                     .query(String.class)
                     .single()))
         .isEqualTo("127.0.0.1");
+    assertThat((String) JsonPath.read(body(owner, path("/api-tokens")), "$[0].lastUsedFrom"))
+        .isEqualTo("127.0.0.1");
     // Refused before it reached a route, by the token's scopes, so only the two that ran are logged
     assertThat(
             asOwner(() ->
