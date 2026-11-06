@@ -75,7 +75,7 @@ public class GlazeBook {
         };
         List<Recipe> recipes = jdbc.sql(SELECT_RECIPE + " where " + where + " order by lower(r.name), r.id")
                 .param("me", caller.accountId())
-                .query((rs, row) -> recipe(rs, caller, List.of()))
+                .query((rs, row) -> recipe(rs, caller))
                 .list();
         Map<UUID, List<Line>> lines = lines(recipes.stream().map(Recipe::id).toList());
         return recipes.stream().map(r -> withLines(r, lines.getOrDefault(r.id(), List.of()))).toList();
@@ -85,7 +85,7 @@ public class GlazeBook {
     public Recipe get(UUID id) {
         TenantContext caller = TenantContext.require();
         Recipe recipe = jdbc.sql(SELECT_RECIPE + " where r.id = :id").param("id", id)
-                .query((rs, row) -> recipe(rs, caller, List.of()))
+                .query((rs, row) -> recipe(rs, caller))
                 .optional().orElseThrow(() -> new NotFoundException("No such recipe."));
         return withLines(recipe, lines(List.of(id)).getOrDefault(id, List.of()));
     }
@@ -104,7 +104,7 @@ public class GlazeBook {
     public Recipe update(UUID id, int version, Draft draft) {
         TenantContext caller = TenantContext.require();
         Recipe current = get(id);
-        requireCanEdit(caller, current);
+        requireCanEdit(current);
         Draft clean = check(current.ownerKind(), draft);
         int changed = jdbc.sql("""
                 update glaze_recipe set name = :name, notes = :notes, cone = :cone, atmosphere = :atmosphere,
@@ -134,8 +134,7 @@ public class GlazeBook {
 
     @Transactional
     public void delete(UUID id) {
-        TenantContext caller = TenantContext.require();
-        requireCanEdit(caller, get(id));
+        requireCanEdit(get(id));
         jdbc.sql("delete from glaze_recipe where id = :id").param("id", id).update();
     }
 
@@ -237,7 +236,7 @@ public class GlazeBook {
                 sg == null ? null : sg.stripTrailingZeros(), draft.sharedWithStudio(), List.copyOf(lines));
     }
 
-    private static void requireCanEdit(TenantContext caller, Recipe recipe) {
+    private static void requireCanEdit(Recipe recipe) {
         if (!recipe.canEdit()) {
             throw new AccessDeniedException(recipe.ownerKind() == OwnerKind.STUDIO
                     ? "Only staff can change a studio glaze."
@@ -287,14 +286,15 @@ public class GlazeBook {
             from glaze_recipe r left join account a on a.id = r.owner_account_id
             """;
 
-    private static Recipe recipe(ResultSet rs, TenantContext caller, List<Line> lines) throws SQLException {
+    /** A recipe row, without its lines; {@link #withLines} adds them. */
+    private static Recipe recipe(ResultSet rs, TenantContext caller) throws SQLException {
         OwnerKind kind = OwnerKind.valueOf(rs.getString("owner_kind"));
         UUID owner = rs.getObject("owner_account_id", UUID.class);
         BigDecimal sg = rs.getBigDecimal("target_sg");
         return new Recipe(rs.getObject("id", UUID.class), kind, owner, rs.getString("owner_name"),
                 rs.getString("name"), rs.getString("notes"), rs.getString("cone"), rs.getString("atmosphere"),
                 rs.getBoolean("food_surface"), sg == null ? null : sg.stripTrailingZeros(),
-                rs.getBoolean("shared_with_studio"), rs.getString("source"), lines, canEdit(caller, kind, owner),
+                rs.getBoolean("shared_with_studio"), rs.getString("source"), List.of(), canEdit(caller, kind, owner),
                 rs.getInt("version"), rs.getObject("updated_at", OffsetDateTime.class).toInstant());
     }
 
