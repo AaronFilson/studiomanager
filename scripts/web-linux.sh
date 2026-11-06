@@ -16,4 +16,5 @@ WSL_REPO="$(wsl_repo_path)"
 # `git stash create` makes a commit of the working tree without touching it; empty when clean
 tree="$(git -C "$REPO_ROOT" stash create)"
 git -C "$REPO_ROOT" archive --format=tar "${tree:-HEAD}" \
-    | MSYS_NO_PATHCONV=1 wsl.exe -d "$DISTRO" -- bash "$WSL_REPO/scripts/wsl/web-linux-inner.sh" "$@"
+    | MSYS_NO_PATHCONV=1 wsl.exe -d "$DISTRO" -- env SM_CHECKOUT="$WSL_REPO" \
+        bash "$WSL_REPO/scripts/wsl/web-linux-inner.sh" "$@"
