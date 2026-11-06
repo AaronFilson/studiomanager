@@ -31,11 +31,19 @@ an hour, most of it waiting for Postgres. For background on the design, see
    ```bash
    az login --tenant <tenant that owns the subscription>
    cd infra/bootstrap
-   cp terraform.tfvars.example terraform.tfvars   # set subscription_id
+   cp terraform.tfvars.example terraform.tfvars   # set subscription_id, and location if not westus
    terraform init
    terraform apply
    terraform output        # keep this: github_variables and db_admin_groups
    ```
+
+   **Choose the region first.** Bootstrap's `location` (default `westus`) places the state storage
+   and the resource groups, and it can't be changed later without rebuilding them. Set the
+   environment's own `location` in `infra/envs/<env>/<env>.tfvars` to match, and check that
+   Postgres is offered there for your subscription:
+   `az postgres flexible-server list-skus --location <region> -o table` must list
+   `Standard_B1ms`. Some subscriptions are refused in some regions, which shows up as `The value of
+   the 'Version' should be in: []` when Postgres is created.
 
    The GitHub identities trust tokens whose subject starts with `github_oidc_subject_prefix`.
    GitHub's newer subject form names the owner and the repository by name and numeric id; check

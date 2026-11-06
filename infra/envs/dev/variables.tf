@@ -10,13 +10,13 @@ variable "environment" {
 
 variable "location" {
   type    = string
-  default = "eastus2"
+  default = "westus"
 }
 
 variable "static_web_app_location" {
   description = "Static Web Apps is offered in fewer regions (for example westus2, centralus, eastus2, westeurope, eastasia)."
   type        = string
-  default     = "eastus2"
+  default     = "westus2"
 }
 
 variable "communication_data_location" {
