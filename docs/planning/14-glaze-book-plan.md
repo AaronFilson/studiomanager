@@ -133,6 +133,21 @@ own copy.
 - **Web:** the import wizard, the batch calculator and the mix log, with MSW.
 - **Mobile:** the batch screen and logging a mix.
 
+## Status
+
+**Step 1, 2026-11-05, on `wave2-glaze-book` (V26).** Built and green: `GlazeApiTests` in WSL, and
+the Linux web job. It differs from the design above in a few ways:
+- **V26 has only recipes and lines.** The mix, reading and photo tables come with their steps,
+  and V26 is edited in place while it's unmerged.
+- **`cone` is short free text** (up to 10 characters), like the kiln log's. There's no
+  `cone_text`. Text from an import that doesn't fit goes into the notes.
+- **The owner rule is split by command.** Reading allows studio, shared or own recipes. Writing
+  allows only studio or own recipes, so staff can read a shared recipe but the database
+  won't let them change it. Lines follow their recipe through an `EXISTS` on it.
+- **Base lines are always in parts.** Only additions can be a percent or grams.
+- **Web:** a "Glaze book" link for everyone, with Studio, Mine and Shared tabs, a recipe page
+  with edit and delete, and a shared `GlazeForm`.
+
 ## In an interview
 "Members bring recipes from two other apps I wrote, so the import treats every file as untrusted:
 it detects the format, enforces size and count limits, does a dry-run preview, then commits all or
