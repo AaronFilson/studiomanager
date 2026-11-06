@@ -18,15 +18,16 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * <p>At the start of every transaction it copies the bound {@link TenantContext} into the settings
  * {@code app.account_id} and {@code app.studio_id}, which the row-level security policies read, and
  * {@code app.principal_kind} ({@code person} or {@code system}), which the job-only functions check
- * (ADR 16). {@code set_config(..., true)} is the function form of {@code SET LOCAL}: the values
- * vanish at commit or rollback, so a pooled connection can never carry one request's tenant into
- * the next.
+ * (ADR 16), and {@code app.platform_admin} while a {@link PlatformAdmin} is bound, without which
+ * the platform settings refuse writes (ADR 24). {@code set_config(..., true)} is the function form
+ * of {@code SET LOCAL}: the values vanish at commit or rollback, so a pooled connection can never
+ * carry one request's tenant into the next.
  */
 public class TenantAwareJpaTransactionManager extends JpaTransactionManager {
 
   private static final String BIND_TENANT =
       "select set_config('app.account_id', ?, true), set_config('app.studio_id', ?, true), "
-          + "set_config('app.principal_kind', ?, true)";
+          + "set_config('app.principal_kind', ?, true), set_config('app.platform_admin', ?, true)";
 
   public TenantAwareJpaTransactionManager(EntityManagerFactory entityManagerFactory) {
     super(entityManagerFactory);
@@ -58,6 +59,7 @@ public class TenantAwareJpaTransactionManager extends JpaTransactionManager {
     String studioId =
         context == null || context.studioId() == null ? "" : context.studioId().toString();
     String kind = context == null ? "" : context.kind().name().toLowerCase(Locale.ROOT);
+    String platformAdmin = PlatformAdmin.isBound() ? "true" : "";
     entityManager
         .unwrap(Session.class)
         .doWork(connection -> {
@@ -65,6 +67,7 @@ public class TenantAwareJpaTransactionManager extends JpaTransactionManager {
             statement.setString(1, accountId);
             statement.setString(2, studioId);
             statement.setString(3, kind);
+            statement.setString(4, platformAdmin);
             statement.execute();
           }
         });
