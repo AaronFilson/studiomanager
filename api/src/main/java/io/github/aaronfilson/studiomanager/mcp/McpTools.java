@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
@@ -27,37 +26,16 @@ import tools.jackson.databind.JsonNode;
 @Component
 class McpTools {
 
-  /** One tool: its MCP definition and what it does with the arguments. */
+  /**
+   * One tool: what describes it to the client and what it does with the arguments. {@link
+   * McpToolCalls} makes it an SDK tool specification.
+   */
   record Tool(
       String name,
       String title,
       String description,
       Map<String, Object> inputSchema,
-      Function<JsonNode, Object> call) {
-
-    Map<String, Object> definition() {
-      Map<String, Object> definition = new LinkedHashMap<>();
-      definition.put("name", name);
-      definition.put("title", title);
-      definition.put("description", description);
-      definition.put("inputSchema", inputSchema);
-      // Hints for the client: nothing here changes anything, and calling twice is harmless
-      definition.put(
-          "annotations",
-          Map.of(
-              "title",
-              title,
-              "readOnlyHint",
-              true,
-              "destructiveHint",
-              false,
-              "idempotentHint",
-              true,
-              "openWorldHint",
-              false));
-      return definition;
-    }
-  }
+      Function<JsonNode, Object> call) {}
 
   private static final Map<String, Object> NO_ARGUMENTS =
       Map.of("type", "object", "properties", Map.of(), "additionalProperties", false);
@@ -171,10 +149,6 @@ class McpTools {
 
   List<Tool> list() {
     return List.copyOf(tools.values());
-  }
-
-  Optional<Tool> find(String name) {
-    return Optional.ofNullable(tools.get(name));
   }
 
   private void add(Tool tool) {

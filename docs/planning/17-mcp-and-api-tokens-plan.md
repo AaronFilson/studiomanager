@@ -185,6 +185,23 @@ personal tokens.** Built and green. It differs from the plan above in these ways
 - **How to connect:** [connect-an-ai-assistant.md](../guides/connect-an-ai-assistant.md).
 - **Step 2 (call log, rate limit, "via token") comes next,** before any write or propose tools.
 
+**Step 2 and step 1's leftovers, 2026-11-06, on `wave1-m-mcp` (V30,
+[ADR 22](../adr/0022-mcp-on-the-official-sdk.md)), with plan 20's lane M.**
+- **MCP on the official SDK** (2.1.0, with Spring AI 2.0.2's WebMVC transport). This replaces the
+  hand-written server and the "not the MCP Java SDK" note above.
+- **The call log:** `api_call_log` holds each MCP tool call and each REST token call: the token,
+  the tool or route, the arguments (cut to 2 KB), the outcome, the status and the duration. A
+  system job keeps 90 days.
+- **Rate limits** with Bucket4j, per person, studio and channel (plan 20, section 6).
+- **The revoke email** goes to the token's owner and says who revoked it.
+- **The last-used address** is stored as `api_token.last_used_from`. The contract doesn't show it
+  yet.
+- **Expiry after 90 days unused.** `app.use_api_token` refuses such a token, and the listed
+  expiry shows the earlier date.
+- **"Via token" attribution, partly done.** The call log names the token behind every call.
+  Showing "via <token name>" in histories needs `TenantContext`, `app.via_token` and contract
+  changes, so it's left for a lane that owns those.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

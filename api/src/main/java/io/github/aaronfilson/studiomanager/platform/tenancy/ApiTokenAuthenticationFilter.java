@@ -44,7 +44,7 @@ public class ApiTokenAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
     String bearer = request.getHeader(HttpHeaders.AUTHORIZATION).substring(BEARER.length()).strip();
-    var token = tokens.resolve(bearer);
+    var token = tokens.resolve(bearer, request.getRemoteAddr());
     if (token.isEmpty()) {
       SecurityContextHolder.clearContext();
       entryPoint.commence(

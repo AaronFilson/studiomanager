@@ -20,5 +20,9 @@ public interface ApiTokenResolver {
   /** An unexpired, unrevoked token: whose it is, the one studio it works in, and what it may do. */
   record ResolvedToken(UUID tokenId, UUID accountId, UUID studioId, Set<TokenScope> scopes) {}
 
-  Optional<ResolvedToken> resolve(String bearer);
+  /**
+   * The live token behind {@code bearer}, noting that it was used from {@code fromAddress} (the
+   * caller's IP address).
+   */
+  Optional<ResolvedToken> resolve(String bearer, String fromAddress);
 }

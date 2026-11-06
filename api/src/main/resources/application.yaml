@@ -130,6 +130,21 @@ studiomanager:
     # application-azure.yaml requires a real one.
     key-encryption-key: ${STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY:}
     anthropic-base-url: ${STUDIOMANAGER_ANTHROPIC_BASE_URL:https://api.anthropic.com}
+  rate-limit:
+    # Per person, per studio, per channel, in memory on each replica (plan 20, section 6). These
+    # are the defaults; the admin page can change them while the app runs. Tune from the call log.
+    mcp:
+      # MCP tools/call, however the caller signed in: a session of a few questions
+      burst: 30
+      refill-tokens: 1
+      refill-period: 10s
+      daily-cap: 500
+    token:
+      # REST calls made with a personal API token: a script's sync or batch of updates
+      burst: 200
+      refill-tokens: 2
+      refill-period: 1s
+      daily-cap: 5000
   stream:
     # Publishes StudioStreamEvents to Kafka. Off by default: there's no broker locally unless
     # compose's "stream" profile is up, and none deployed (docs/planning/11)
