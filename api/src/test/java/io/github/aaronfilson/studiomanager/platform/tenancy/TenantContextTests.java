@@ -41,4 +41,34 @@ class TenantContextTests {
         assertThatIllegalArgumentException().isThrownBy(() -> new TenantContext(UUID.randomUUID(), null, StudioRole.OWNER));
     }
 
+    @Test
+    void aJobActsOnItsOwnAccountAtItsCeiling() {
+        UUID studioId = UUID.randomUUID();
+        TenantContext job = TenantContext.system(SystemActor.WEBHOOK_SWEEP, studioId);
+        assertThat(job.isSystem()).isTrue();
+        assertThat(job.accountId()).isEqualTo(SystemActor.WEBHOOK_SWEEP.accountId());
+        assertThat(job.role()).isEqualTo(StudioRole.STAFF);
+        assertThat(caller.isSystem()).isFalse();
+    }
+
+    @Test
+    void noJobActsAsAnOwner() {
+        assertThatIllegalArgumentException().isThrownBy(() -> new TenantContext(
+                SystemActor.WEBHOOK_SWEEP.accountId(), UUID.randomUUID(), StudioRole.OWNER,
+                TenantContext.PrincipalKind.SYSTEM));
+        for (SystemActor actor : SystemActor.values()) {
+            assertThat(actor.ceiling().includes(StudioRole.OWNER)).as(actor.name()).isFalse();
+        }
+    }
+
+    @Test
+    void aJobAndAPersonCantSwapAccounts() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> TenantContext.forAccount(SystemActor.ACTIVITY_CONSUMER.accountId()));
+        assertThatIllegalArgumentException().isThrownBy(() -> new TenantContext(UUID.randomUUID(), null, null,
+                TenantContext.PrincipalKind.SYSTEM));
+        assertThatIllegalStateException().isThrownBy(() -> TenantContext.system(SystemActor.ACTIVITY_CONSUMER)
+                .inStudio(UUID.randomUUID(), StudioRole.MEMBER));
+    }
+
 }

@@ -6,8 +6,10 @@ import java.util.UUID;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
+import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +36,12 @@ class AccountService implements AccountResolver {
     @Override
     @Transactional
     public UUID resolve(Jwt token) {
-        String issuer = Objects.requireNonNull(token.getIssuer(), "The token has no issuer").toString();
+        // Read as a string: getIssuer() parses a URL, and the system issuer is a URN
+        String issuer = Objects.requireNonNull(token.getClaimAsString("iss"), "The token has no issuer");
+        if (SystemActor.ISSUER.equals(issuer)) {
+            // No identity provider issues this, but a token naming it must never become a background job
+            throw new AccessDeniedException("This account can't sign in.");
+        }
         String subject = Objects.requireNonNull(token.getSubject(), "The token has no subject");
         String displayName = token.getClaimAsString("name");
         String email = token.getClaimAsString("email");

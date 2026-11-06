@@ -2,7 +2,9 @@ package io.github.aaronfilson.studiomanager.piece;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
+import io.github.aaronfilson.studiomanager.contract.ActorKindDto;
 import io.github.aaronfilson.studiomanager.contract.MoneyDto;
 import io.github.aaronfilson.studiomanager.contract.PieceDto;
 import io.github.aaronfilson.studiomanager.contract.PieceEventDto;
@@ -10,6 +12,8 @@ import io.github.aaronfilson.studiomanager.contract.PieceFeeDto;
 import io.github.aaronfilson.studiomanager.contract.PiecePhotoDto;
 import io.github.aaronfilson.studiomanager.contract.PieceStageDto;
 import io.github.aaronfilson.studiomanager.firing.PieceSizes;
+import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
+import org.jspecify.annotations.Nullable;
 
 /** Converts pieces to the HTTP contract, for this module's controller and any other that shows pieces. */
 public final class PieceDtos {
@@ -56,8 +60,15 @@ public final class PieceDtos {
                                 .note(event.note())
                                 .actorAccountId(event.actorAccountId())
                                 .actorName(event.actorName())
+                                .actorKind(actorKind(event.actorAccountId()))
                                 .occurredAt(event.occurredAt().atOffset(ZoneOffset.UTC)))
                         .toList());
+    }
+
+    /** A job's own account, or no account at all (a job's change from before jobs had accounts). */
+    static ActorKindDto actorKind(@Nullable UUID actorAccountId) {
+        return actorAccountId == null || SystemActor.byAccountId(actorAccountId).isPresent()
+                ? ActorKindDto.SYSTEM : ActorKindDto.PERSON;
     }
 
 }

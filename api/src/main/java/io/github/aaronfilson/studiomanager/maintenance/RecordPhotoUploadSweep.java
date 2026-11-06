@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
+import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +21,8 @@ import org.springframework.transaction.support.TransactionOperations;
 /**
  * Removes record photo uploads that were started and never finished, in every studio, with any
  * images that arrived. The same as the piece module's sweep, through its own SECURITY DEFINER
- * function, {@code app.take_abandoned_record_photo_uploads} (ADR 10).
+ * function, {@code app.take_abandoned_record_photo_uploads} (ADR 10), as
+ * {@link SystemActor#PHOTO_CLEANUP} (ADR 16).
  */
 @Component
 @ConditionalOnBooleanProperty(name = "studiomanager.maintenance.photo-upload-sweep", matchIfMissing = true)
@@ -46,12 +49,13 @@ class RecordPhotoUploadSweep {
 
     /** Removes uploads started more than a day before {@code now}, and returns how many. */
     public int runAt(Instant now) {
-        List<Abandoned> taken = transactions.execute(tx -> jdbc
-                .sql("select studio_id, record_id, photo_id from app.take_abandoned_record_photo_uploads(:before)")
-                .param("before", now.minus(ABANDONED_AFTER).atOffset(ZoneOffset.UTC))
-                .query((rs, row) -> new Abandoned(rs.getObject("studio_id", UUID.class),
-                        rs.getObject("record_id", UUID.class), rs.getObject("photo_id", UUID.class)))
-                .list());
+        List<Abandoned> taken = TenantContext.callAs(TenantContext.system(SystemActor.PHOTO_CLEANUP),
+                () -> transactions.execute(tx -> jdbc
+                        .sql("select studio_id, record_id, photo_id from app.take_abandoned_record_photo_uploads(:before)")
+                        .param("before", now.minus(ABANDONED_AFTER).atOffset(ZoneOffset.UTC))
+                        .query((rs, row) -> new Abandoned(rs.getObject("studio_id", UUID.class),
+                                rs.getObject("record_id", UUID.class), rs.getObject("photo_id", UUID.class)))
+                        .list()));
         if (taken == null || taken.isEmpty()) {
             return 0;
         }

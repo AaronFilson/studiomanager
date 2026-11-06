@@ -17,7 +17,7 @@ pilot's choice wait at the bottom.
 | 2 | **CSV importer with column mapping:** members first, then balances and consigned stock | `wave2-import` | [03](03-tools-in-use.md) puts a generic CSV importer first: it covers exports from Google Sheets, Forms and Airtable. A pilot has to move its existing list in on day one. |
 | 3 | **Outbound webhooks:** piece ready, fee charged, member joined | `wave2-webhooks` | The integration owners ask for is "you cannot connect Zapier". The outbox makes it cheap, and the SSRF filter is already planned. |
 | 4 | **Kiln firing-log import:** Genesis CSV first | later | Small, and attaches to the firing log. Wave 3 in 02, but 03 says it could move into Wave 2. It needs sample files. |
-| 5 | **Glaze book:** a member imports their own Glazy YAML, and adds test-tile photos | later | Reuses photo uploads. Before seeding any data from Glazy, email them about licensing. |
+| 5 | **Glaze book:** a member imports their own recipes from glazecalcapp.com (the owner's app, repo `AaronFilson/glazecalc`), and adds test-tile photos | later | Reuses photo uploads. The owner controls the source, so there's no licensing question. Glazy import is deferred; before seeding any data from Glazy, email them about licensing. Research in [13](13-glaze-book-research.md). |
 | 6 | **Supplies inbox with invoice OCR** | later | The AI-pipeline showcase. No owner asked for it. It can be built against a stub, but it first runs for real at the deploy. |
 
 **Waiting on a pilot or the owner's accounts.** None of these can be tested against the real
@@ -135,7 +135,13 @@ Updated as each item lands.
     off, and staff are told.
   - **SSRF filter:** sends only to public addresses, and connects to the address it checked.
   - **Web:** a "Webhooks" page with a delivery log and resend.
-  - **Next:** Kafka event streaming, as an optional resume slice: in progress on `wave2-kafka`,
-    plan and status in [11](11-kafka-stream-plan.md). The kiln log import
-    (item 4) waits for a real Genesis export
-    ([09](09-kiln-log-import-research.md)).
+- **Kafka event streaming** (an optional resume slice, off by default): done 2026-11-05 (V24),
+  merged into `main` (PR #16). Plan and status in [11](11-kafka-stream-plan.md), design in
+  [ADR 15](../adr/0015-event-streaming-to-kafka.md).
+- **System principal for background jobs:** done 2026-11-05 on `wave2-system-principal` (V25),
+  PR #17. Plan in [12](12-system-principal-plan.md), design in
+  [ADR 16](../adr/0016-system-principal-for-background-work.md).
+- **Next:** the glaze book (item 5), planned in [14](14-glaze-book-plan.md): studio bucket glazes
+  with a batch calculator and mix log, private member recipes, and import from glazecalc and
+  glaze-vault. The resume review is in [15](15-resume-review.md). The kiln log import
+  (item 4) still waits for a real Genesis export ([09](09-kiln-log-import-research.md)).

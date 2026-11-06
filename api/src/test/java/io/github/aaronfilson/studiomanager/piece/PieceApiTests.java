@@ -102,7 +102,11 @@ class PieceApiTests {
                 .hasPathSatisfying("$.stage", s -> assertThat(s).isEqualTo("UNCLAIMED"))
                 .hasPathSatisfying("$.timeline[*].to", t -> assertThat(t).asArray()
                         .containsExactly("RECEIVED", "BISQUE_FIRED", "READY", "UNCLAIMED"))
-                .hasPathSatisfying("$.timeline[3].note", n -> assertThat(n).isEqualTo("Hold period ended"));
+                .hasPathSatisfying("$.timeline[3].note", n -> assertThat(n).isEqualTo("Hold period ended"))
+                // The job names itself, rather than leaving the actor empty
+                .hasPathSatisfying("$.timeline[3].actorName", n -> assertThat(n).isEqualTo("System: unclaimed pieces"))
+                .hasPathSatisfying("$.timeline[3].actorKind", k -> assertThat(k).isEqualTo("SYSTEM"))
+                .hasPathSatisfying("$.timeline[2].actorKind", k -> assertThat(k).isEqualTo("PERSON"));
     }
 
     @Test

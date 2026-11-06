@@ -3,7 +3,7 @@ package io.github.aaronfilson.studiomanager.stream;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -27,8 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Failures are retried with back-off, then sent to the dead-letter topic (see
  * {@link StreamConfiguration}), so a database restart delays events rather than losing them.
  *
- * <p>It acts as {@link #NO_ACCOUNT}, which owns nothing, so it can reach only the studio's rows. A
- * first-class system principal replaces this stand-in (docs/planning/12-system-principal-plan.md).
+ * <p>It acts as {@link SystemActor#ACTIVITY_CONSUMER}, its own system account, bound to the one
+ * studio, so row-level security fences it in like any request (ADR 16).
  */
 @Component
 @ConditionalOnBooleanProperty("studiomanager.stream.enabled")
@@ -37,9 +37,6 @@ class ActivityConsumer {
     private static final Logger log = LoggerFactory.getLogger(ActivityConsumer.class);
 
     static final String GROUP = "studiomanager-activity";
-
-    /** The account the consumer acts as: none. No row belongs to it. */
-    static final UUID NO_ACCOUNT = new UUID(0, 0);
 
     private final ActivityProjection projection;
     private final JsonMapper json;
@@ -69,8 +66,7 @@ class ActivityConsumer {
             throw new MislabelledEventException("Record key %s doesn't match the event's studioId %s"
                     .formatted(studioId, bodyStudio));
         }
-        TenantContext as = TenantContext.forAccount(NO_ACCOUNT).inStudio(studioId, StudioRole.STAFF);
-        TenantContext.callAs(as, () -> projection.apply(studioId, type, event));
+        TenantContext.callAs(TenantContext.system(SystemActor.ACTIVITY_CONSUMER, studioId), () -> projection.apply(studioId, type, event));
     }
 
     /** A record whose key and body name different studios. */

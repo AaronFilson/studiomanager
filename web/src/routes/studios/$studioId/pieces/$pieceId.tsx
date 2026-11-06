@@ -132,7 +132,7 @@ function PiecePage() {
             <li key={index}>
               <strong>{stageLabel(event.to)}</strong> · {formatDateTime(event.occurredAt)}
               {event.actorName && ` · ${event.actorName}`}
-              {!event.actorAccountId && ' · automatic'}
+              {event.actorKind === 'SYSTEM' && <span className="badge">automatic</span>}
               {event.note && <div className="badge">{event.note}</div>}
             </li>
           ))}
