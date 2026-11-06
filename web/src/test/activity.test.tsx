@@ -17,7 +17,7 @@ describe('activity', () => {
           firings: 2,
           piecesFired: 40,
           membersJoined: 1,
-          kilns: [{ kiln: 'Big Skutt', firings: 2 }],
+          kilns: [{ kilnId: 'k1', kiln: 'Big Skutt', firings: 2 }],
           fees: [{ currency: 'USD', amount: '60.00', count: 3 }],
         },
       ],

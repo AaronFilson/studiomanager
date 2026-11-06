@@ -70,8 +70,26 @@ for.
    - The tests cover the full path from the API through Kafka back to the endpoint, a duplicate
      counting once, other studios staying apart, and members getting a 403. All 207 API tests
      pass in WSL, and the Linux web job passes.
-   - **Not yet:** a dead-letter topic. Spring Kafka's default handler retries a failing event,
-     then logs and skips it.
+   - **Review fixes, 2026-11-05.** A deep review before the PR found the following, and all of
+     it is fixed:
+     - The endpoint failed for staff who belong to more than one studio. RLS let them read every
+       studio's time zone, and the code expected one row. The week is now worked out in SQL from
+       the studio's own row.
+     - Failures were retried without pauses, then skipped. They now back off over about a minute,
+       then go to `.dlt`.
+     - Types it didn't read were marked as seen, so they could never be counted later.
+     - The kiln was keyed by name, so a rename split its totals. Events now carry `kilnId`.
+     - The record key wasn't checked against the body.
+     - The locale wasn't fixed when lowercasing the kind.
+     - The seen-id table grew forever. It's now purged after 30 days, and topic retention is set
+       to 7 days.
+     - A startup could stall for 30 seconds without a broker. It now waits 5 seconds at most.
+     - The endpoint returned stale totals while streaming was off.
+     - `type` and `version` could be set wrong. They're now fixed accessors, written to JSON but
+       never read back.
+     - A test was flaky. It assumed an order, and assumed everything landed in one week.
+   - **Not taken:** the consumer's stand-in account. A real system principal is planned in
+     [12](12-system-principal-plan.md).
 
    The original plan for this step: an analytics projection, with firings per kiln per week and
    fees charged per week.

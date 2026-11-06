@@ -26,9 +26,7 @@ function ActivityPage() {
     <div className="stack">
       <h1>Activity</h1>
       <p>The last 12 weeks: firings, pieces fired, members joined and fees charged. Weeks start on Monday.</p>
-      {!streaming && (
-        <p className="badge">Event streaming is off for this server, so nothing is being counted.</p>
-      )}
+      {!streaming && <p className="badge">Event streaming is off for this server, so nothing is being counted.</p>}
       {streaming && weeks.length === 0 && <p>Nothing counted yet. Totals appear a few seconds after things happen.</p>}
       {weeks.length > 0 && (
         <table>

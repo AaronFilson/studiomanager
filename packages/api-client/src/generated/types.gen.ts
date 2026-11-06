@@ -1397,6 +1397,10 @@ export type ActivityWeek = {
     piecesFired: number;
     membersJoined: number;
     kilns: Array<{
+        kilnId: string;
+        /**
+         * The kiln's name, as of its latest firing that week.
+         */
         kiln: string;
         firings: number;
     }>;

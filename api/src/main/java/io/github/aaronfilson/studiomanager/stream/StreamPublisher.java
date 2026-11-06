@@ -2,6 +2,7 @@ package io.github.aaronfilson.studiomanager.stream;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 
 import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.piece.PieceReceived;
@@ -39,7 +40,8 @@ class StreamPublisher {
     void on(FiringCompleted firing) {
         long makers = firing.pieces().stream().map(FiringCompleted.FiredPiece::makerAccountId).distinct().count();
         events.publishEvent(new StudioStreamEvent.FiringCompleted(firing.studioId(), now(), firing.firingId(),
-                firing.kind().name().toLowerCase(), firing.kilnName(), firing.pieces().size(), (int) makers));
+                firing.kind().name().toLowerCase(Locale.ROOT), firing.kilnId(), firing.kilnName(), firing.pieces().size(),
+                (int) makers));
     }
 
     @EventListener

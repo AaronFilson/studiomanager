@@ -6120,10 +6120,14 @@ components:
           type: array
           items:
             type: object
-            required: [kiln, firings]
+            required: [kilnId, kiln, firings]
             properties:
+              kilnId:
+                type: string
+                format: uuid
               kiln:
                 type: string
+                description: The kiln's name, as of its latest firing that week.
               firings:
                 type: integer
         fees:

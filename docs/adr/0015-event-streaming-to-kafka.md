@@ -48,9 +48,19 @@ It has the same delivery problem as email and webhooks:
 - **The first consumer is an activity projection.**
   - `ActivityConsumer` writes weekly totals in its own consumer group.
   - It binds the studio from the message key, acting as no account, so it writes under
-    row-level security like any request (ADR 3).
+    row-level security like any request (ADR 3). The key must match the `studioId` in the body,
+    or the record is refused.
   - It records each event id in the same transaction as the totals, so a duplicate or a full
-    replay counts once.
+    replay counts once. It records only events it counts. A type it doesn't read yet is left
+    alone, so a later version can count it on replay.
+  - Kiln totals are keyed by the kiln's id, not its name, so renaming a kiln doesn't split them.
+  - **Failures.** A failing event is retried 6 times over about a minute, which rides out a
+    database restart. Then it goes to `studiomanager.studio-events.dlt`. Bad data goes there
+    straight away: unreadable JSON, a key that doesn't match the body, or a malformed id.
+  - **The seen-id table stays bounded.** A daily job forgets ids older than 30 days. The topic
+    keeps events for 7 days, so a replay never meets an event whose id has been forgotten.
+  - The "system" account it acts as is a stand-in for now. A real system principal is planned in
+    [12](../planning/12-system-principal-plan.md).
 - **Off by default.** `studiomanager.stream.enabled` adds the publisher, the routing, the topic
   and the consumer, and turns on Modulith externalization. With the flag off nothing is sent, no
   rows are queued, and the activity endpoint says `streaming: false`. Locally, a compose profile
@@ -58,19 +68,22 @@ It has the same delivery problem as email and webhooks:
 
 ## Consequences
 
-- No broker means no cost and no new runtime dependency. Turning the flag on adds no new failure
-  to user requests. A broker outage only grows `event_publication` until the broker is back.
+- No broker means no cost and no new runtime dependency. With the flag on, a broker outage only
+  grows `event_publication` until the broker is back. It doesn't fail any user request. The one
+  cost is at startup: creating the topics gives up after 5 seconds if the broker can't be
+  reached. It logs the failure and doesn't stop startup, but a cold start can take up to 5
+  seconds longer. At deploy the topics belong in Terraform, so the startup check can be turned
+  off.
 - **Per-studio order isn't promised,** although events share a partition. Getting order would
   need a single sender per studio, reading the registry in sequence, which costs more than the
   activity totals need.
 - **The retry limit applies.** `OutboxRetry`'s cap (8 attempts) applies here too. An event that
   keeps failing stays `FAILED` in `event_publication` for someone to look at.
-- **The consumer has no dead-letter topic.** Spring Kafka retries an event that keeps failing,
-  then logs and skips it. A dead-letter topic comes when there's a consumer that can't afford to
-  skip.
-- **What a replay rebuilds.** A new consumer group rebuilds its totals from what the topic still
-  holds. Anything older than the topic's retention is gone, so the totals table is the record,
-  not the topic.
+- **Dead letters wait for a person.** Nothing re-reads the dead-letter topic yet. Someone can
+  inspect a parked event there and re-publish it to the main topic.
+- **What a replay rebuilds.** To rebuild a studio's totals, delete its `weekly_activity` and
+  `stream_event_seen` rows together, then replay. Only what the topic still holds (7 days) comes
+  back, so the totals table is the record, not the topic.
 - **Deploying it, if ever:** Event Hubs Standard, connected with the API's managed identity over
   OAUTHBEARER, not a connection string.
 
