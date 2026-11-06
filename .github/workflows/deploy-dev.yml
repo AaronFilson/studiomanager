@@ -80,6 +80,7 @@ jobs:
       resource_group: ${{ steps.out.outputs.resource_group }}
       container_app: ${{ steps.out.outputs.container_app }}
       migration_job: ${{ steps.out.outputs.migration_job }}
+      sweep_job: ${{ steps.out.outputs.sweep_job }}
       api_url: ${{ steps.out.outputs.api_url }}
       static_web_app: ${{ steps.out.outputs.static_web_app }}
       web_build_env: ${{ steps.out.outputs.web_build_env }}
@@ -119,6 +120,7 @@ jobs:
             echo "resource_group=$(out resource_group_name)"
             echo "container_app=$(out api_container_app_name)"
             echo "migration_job=$(out migration_job_name)"
+            echo "sweep_job=$(out sweep_job_name)"
             echo "api_url=$(out api_url)"
             echo "static_web_app=$(out static_web_app_name)"
             echo "web_build_env=$(jq -c '.web_build_env.value' "$RUNNER_TEMP/outputs.json")"
@@ -148,6 +150,7 @@ jobs:
       RESOURCE_GROUP: ${{ needs.infra.outputs.resource_group }}
       CONTAINER_APP: ${{ needs.infra.outputs.container_app }}
       MIGRATION_JOB: ${{ needs.infra.outputs.migration_job }}
+      SWEEP_JOB: ${{ needs.infra.outputs.sweep_job }}
       API_URL: ${{ needs.infra.outputs.api_url }}
     steps:
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
@@ -179,6 +182,10 @@ jobs:
 
       - name: Roll out the API image
         run: az containerapp update --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" --output none
+
+      # The scheduled sweep job runs the same image as the API (ADR 23)
+      - name: Roll out the sweep job image
+        run: az containerapp job update --name "$SWEEP_JOB" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" --output none
 
       # Wakes the app from zero; the retries cover JVM cold start.
       - name: Smoke test

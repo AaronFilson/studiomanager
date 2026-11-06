@@ -17,9 +17,9 @@ variable "log_retention_days" {
 }
 
 variable "log_daily_quota_gb" {
-  description = "Log Analytics daily ingestion cap, so a noisy dev environment can't run up a bill. -1 means no cap."
+  description = "Log Analytics daily ingestion cap, so a noisy environment can't run up a bill. 0.15 GB a day stays inside the free 5 GB a month; trace sampling keeps normal days well under it. -1 means no cap."
   type        = number
-  default     = 0.5
+  default     = 0.15
 }
 
 variable "tags" {

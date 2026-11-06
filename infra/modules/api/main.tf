@@ -19,6 +19,9 @@ locals {
     STUDIOMANAGER_MAIL_SENDER           = "acs"
     STUDIOMANAGER_MAIL_ACS_ENDPOINT     = var.mail_acs_endpoint
     STUDIOMANAGER_MAIL_FROM             = var.mail_from
+    # Keep a share of traces, following the caller's decision when there is one (plan 20)
+    OTEL_TRACES_SAMPLER     = "parentbased_traceidratio"
+    OTEL_TRACES_SAMPLER_ARG = tostring(var.trace_sampling_ratio)
   }
 
   migrate_env = merge(local.common_env, {
@@ -26,6 +29,11 @@ locals {
     STUDIOMANAGER_DB_USER          = var.migrator_identity.name
     AZURE_CLIENT_ID                = var.migrator_identity.client_id
     STUDIOMANAGER_DB_API_PRINCIPAL = var.api_identity.name
+  })
+
+  # The sweep job is the API without a web server: same identity, same settings (ADR 23)
+  sweep_env = merge(local.common_env, {
+    SPRING_PROFILES_ACTIVE = "azure,sweep"
   })
 
   app_insights_secret = "appinsights-connection-string"
@@ -169,6 +177,66 @@ resource "azurerm_container_app_job" "migrate" {
   }
 
   lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+}
+
+# Runs every sweep once and exits, so retries, reminders and cleanups happen while the API is
+# scaled to zero (ADR 23). An advisory lock per sweep keeps it from overlapping a replica that is
+# up and running the same sweep on its own schedule.
+resource "azurerm_container_app_job" "sweep" {
+  name                         = "caj-${var.name}-sweep"
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  container_app_environment_id = var.container_app_environment_id
+  tags                         = var.tags
+
+  # A run takes about a minute. The next scheduled run is the retry, so a failure isn't repeated
+  # straight away.
+  replica_timeout_in_seconds = 900
+  replica_retry_limit        = 0
+
+  schedule_trigger_config {
+    cron_expression          = var.sweep_cron_expression
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [var.api_identity.id]
+  }
+
+  secret {
+    name  = local.app_insights_secret
+    value = var.application_insights_connection_string
+  }
+
+  template {
+    container {
+      name   = "sweep"
+      image  = var.image
+      cpu    = var.cpu
+      memory = var.memory
+
+      dynamic "env" {
+        for_each = local.sweep_env
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      env {
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        secret_name = local.app_insights_secret
+      }
+    }
+  }
+
+  lifecycle {
+    # CI rolls the image along with the app's (see the deploy workflow)
     ignore_changes = [template[0].container[0].image]
   }
 }

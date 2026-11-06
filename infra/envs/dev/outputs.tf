@@ -16,6 +16,10 @@ output "migration_job_name" {
   value = module.api.migration_job_name
 }
 
+output "sweep_job_name" {
+  value = module.api.sweep_job_name
+}
+
 output "static_web_app_name" {
   value = azurerm_static_web_app.web.name
 }
