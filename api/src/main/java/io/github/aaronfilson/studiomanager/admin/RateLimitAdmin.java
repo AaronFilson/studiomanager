@@ -39,7 +39,8 @@ class RateLimitAdmin {
       ChannelLimits defaults,
       @Nullable ChannelLimits override,
       ChannelLimits normal,
-      @Nullable RateLimitBoost boost) {}
+      @Nullable RateLimitBoost boost,
+      @Nullable String boostStudioName) {}
 
   private final DatabaseRateLimitSettings limits;
   private final PlatformSettings settings;
@@ -106,6 +107,11 @@ class RateLimitAdmin {
     return afterSave();
   }
 
+  /** The studios a boost can be scoped to. */
+  List<PlatformSettings.StudioChoice> studios() {
+    return settings.studios();
+  }
+
   List<PlatformSettings.Change> history(int limit) {
     return settings.history(limit);
   }
@@ -118,6 +124,7 @@ class RateLimitAdmin {
     RateLimitDefaults defaults = limits.defaults();
     StoredNormal override = snapshot.override();
     RateLimitBoost boost = snapshot.boost();
+    RateLimitBoost current = boost == null || boost.isOverAt(now) ? null : boost;
     return new Overview(
         now,
         new ChannelLimits(defaults.mcpLimits(), defaults.tokenLimits()),
@@ -125,7 +132,19 @@ class RateLimitAdmin {
             ? null
             : new ChannelLimits(override.mcp().limits(), override.token().limits()),
         new ChannelLimits(snapshot.mcp(), snapshot.token()),
-        boost == null || boost.isOverAt(now) ? null : boost);
+        current,
+        current == null ? null : studioName(current.studioId()));
+  }
+
+  private @Nullable String studioName(@Nullable UUID studioId) {
+    if (studioId == null) {
+      return null;
+    }
+    return settings.studios().stream()
+        .filter(studio -> studio.studioId().equals(studioId))
+        .map(PlatformSettings.StudioChoice::studioName)
+        .findFirst()
+        .orElse(null);
   }
 
   private static void check(Limits limits, String channel) {

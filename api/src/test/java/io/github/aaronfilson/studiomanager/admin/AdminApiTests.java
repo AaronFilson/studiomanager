@@ -232,6 +232,40 @@ class AdminApiTests {
     assertThat(seen).isEmpty();
   }
 
+  @Test
+  void anAdminPicksFromEveryStudioButNobodyElseCanListThem() {
+    UUID studioId = createStudio(owner);
+
+    MvcTestResult studios =
+        mvc.get().uri("/api/v1/admin/studios").with(admin.adminToken()).exchange();
+    assertThat(studios).hasStatusOk();
+    assertThat(read(studios, "$[?(@.id == '%s')].name".formatted(studioId))).contains("Clay Club");
+    assertThat(mvc.get().uri("/api/v1/admin/studios").with(owner.token()))
+        .hasStatus(HttpStatus.FORBIDDEN);
+    MvcTestResult boosted =
+        send(
+            admin,
+            "PUT",
+            "/api/v1/admin/rate-limits/boost",
+            "{\"studioId\": \"%s\", \"unlimitedMinutes\": 15, \"easingMinutes\": 0}"
+                .formatted(studioId));
+    assertThat(boosted).bodyJson().extractingPath("$.boost.studioName").isEqualTo("Clay Club");
+
+    UUID ownerId =
+        UUID.fromString(
+            read(mvc.get().uri("/api/v1/me").with(owner.token()).exchange(), "$.account.id"));
+    assertThatThrownBy(() ->
+            TenantContext.callAs(
+                TenantContext.forAccount(ownerId),
+                () ->
+                    transactions.execute(tx ->
+                        jdbc.sql("select studio_id from app.studios_for_platform_admin()")
+                            .query(UUID.class)
+                            .list())))
+        .rootCause()
+        .hasMessageContaining("Only a platform admin");
+  }
+
   private Integer writeSetting(UUID changedBy) {
     return transactions.execute(tx ->
         jdbc.sql(

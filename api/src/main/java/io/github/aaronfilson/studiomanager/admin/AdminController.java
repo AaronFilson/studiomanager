@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.admin;
 
 import io.github.aaronfilson.studiomanager.contract.AdminApi;
+import io.github.aaronfilson.studiomanager.contract.AdminStudioDto;
 import io.github.aaronfilson.studiomanager.contract.BoostStepDto;
 import io.github.aaronfilson.studiomanager.contract.ChannelRateLimitsDto;
 import io.github.aaronfilson.studiomanager.contract.RateLimitBoostDto;
@@ -91,6 +92,15 @@ class AdminController implements AdminApi {
             .toList());
   }
 
+  @Override
+  @PreAuthorize("hasAuthority('APPROLE_Platform.Admin')")
+  public ResponseEntity<List<AdminStudioDto>> listAdminStudios() {
+    return ResponseEntity.ok(
+        rateLimits.studios().stream()
+            .map(studio -> new AdminStudioDto(studio.studioId(), studio.studioName()))
+            .toList());
+  }
+
   private static Limits limits(RateLimitValuesDto values) {
     return new Limits(
         values.getBurst(),
@@ -107,7 +117,7 @@ class AdminController implements AdminApi {
         .defaults(dto(overview.defaults()))
         .override(override == null ? null : dto(override))
         .normal(dto(overview.normal()))
-        .boost(boost == null ? null : dto(boost));
+        .boost(boost == null ? null : dto(boost).studioName(overview.boostStudioName()));
   }
 
   private static ChannelRateLimitsDto dto(RateLimitAdmin.ChannelLimits limits) {

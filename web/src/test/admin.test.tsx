@@ -28,22 +28,37 @@ const demoBoost = {
   ],
 };
 
+const demoStudio = { id: '5d1c0000-0000-4000-8000-000000000001', name: 'Demo Clay Co.' };
+
 function asAdmin(platformAdmin = true) {
-  return http.get(`${API}/api/v1/me`, () => HttpResponse.json({ account: { id: 'a1' }, memberships: [], platformAdmin }));
+  return [
+    http.get(`${API}/api/v1/me`, () => HttpResponse.json({ account: { id: 'a1' }, memberships: [], platformAdmin })),
+    http.get(`${API}/api/v1/admin/studios`, () => HttpResponse.json([demoStudio])),
+  ];
 }
 
 describe('admin', () => {
   it('shows the Admin link only to platform admins', async () => {
-    server.use(asAdmin(false));
+    server.use(...asAdmin(false));
     renderApp('/studios');
     expect(await screen.findByText(/not in any studios yet/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
   });
 
-  it('turns away someone without the role', async () => {
-    server.use(asAdmin(false));
+  it('shows the API refusing someone without the role', async () => {
+    const refused = () =>
+      HttpResponse.json(
+        { title: 'Forbidden', status: 403, detail: 'Only platform admins.' },
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+      );
+    server.use(
+      ...asAdmin(false),
+      http.get(`${API}/api/v1/admin/rate-limits`, refused),
+      http.get(`${API}/api/v1/admin/studios`, refused),
+      http.get(`${API}/api/v1/admin/setting-changes`, refused),
+    );
     renderApp('/admin');
-    expect(await screen.findByText(/for the people who run Studio Manager/)).toBeInTheDocument();
+    expect((await screen.findAllByText('Only platform admins.')).length).toBeGreaterThan(0);
   });
 
   it('starts the demo boost and says what applies now', async () => {
@@ -51,7 +66,7 @@ describe('admin', () => {
     let current = overview();
     const changes: SettingChange[] = [];
     server.use(
-      asAdmin(),
+      ...asAdmin(),
       http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(current)),
       http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json(changes)),
       http.put(`${API}/api/v1/admin/rate-limits/boost`, async ({ request }) => {
@@ -81,10 +96,33 @@ describe('admin', () => {
     expect(screen.getByRole('button', { name: 'End now' })).toBeInTheDocument();
   });
 
+  it('scopes a boost to a studio picked by name', async () => {
+    let sent: unknown;
+    let current = overview();
+    server.use(
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(current)),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+      http.put(`${API}/api/v1/admin/rate-limits/boost`, async ({ request }) => {
+        sent = await request.json();
+        current = overview({ boost: { ...demoBoost, studioId: demoStudio.id, studioName: demoStudio.name } });
+        return HttpResponse.json(current);
+      }),
+    );
+
+    const { user } = renderApp('/admin');
+    await screen.findByRole('option', { name: 'Demo Clay Co.' });
+    await user.selectOptions(screen.getByLabelText('Which studios'), 'Demo Clay Co.');
+    await user.click(screen.getByRole('button', { name: 'Start boost' }));
+
+    expect(await screen.findByText(/Unlimited in Demo Clay Co\. for 23 more minutes/)).toBeInTheDocument();
+    expect(sent).toEqual({ unlimitedMinutes: 30, easingMinutes: 60, studioId: demoStudio.id });
+  });
+
   it('ends a boost now', async () => {
     let ended = false;
     server.use(
-      asAdmin(),
+      ...asAdmin(),
       http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview({ boost: demoBoost }))),
       http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
       http.delete(`${API}/api/v1/admin/rate-limits/boost`, () => {
@@ -105,7 +143,7 @@ describe('admin', () => {
     let sent: unknown;
     let current = overview();
     server.use(
-      asAdmin(),
+      ...asAdmin(),
       http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(current)),
       http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
       http.put(`${API}/api/v1/admin/rate-limits/normal`, async ({ request }) => {

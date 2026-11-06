@@ -105,6 +105,23 @@ class PlatformSettings {
     return changes == null ? List.of() : changes;
   }
 
+  /** One studio, as the boost's studio picker shows it. */
+  record StudioChoice(UUID studioId, String studioName) {}
+
+  /**
+   * Every studio's id and name, across tenants, through {@code app.studios_for_platform_admin()},
+   * which refuses anyone not bound as a platform admin.
+   */
+  List<StudioChoice> studios() {
+    requireAdmin();
+    List<StudioChoice> studios =
+        transactions.execute(tx ->
+            jdbc.sql("select studio_id, studio_name from app.studios_for_platform_admin()")
+                .query(StudioChoice.class)
+                .list());
+    return studios == null ? List.of() : studios;
+  }
+
   private static void requireAdmin() {
     if (!PlatformAdmin.isBound()) {
       throw new AccessDeniedException("Only a platform admin can do this.");

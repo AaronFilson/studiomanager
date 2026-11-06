@@ -41,7 +41,10 @@ The plan is [20, sections 6 and 7](../planning/20-pre-production-cleanup-plan.md
   - the normal limits per channel (MCP, token) come from `studiomanager.rate-limit.*`, or the
     saved override;
   - a boost lifts them from a start time, now or scheduled: no limits at first, then 8×, 4×
-    and 2× over the easing time, then normal. It covers one studio or all of them, lasts at
+    and 2× over the easing time, then normal. It covers one studio or all of them (the page
+    picks the studio by name, from `app.studios_for_platform_admin()`: a cross-studio function
+    in the ADR 10 style that returns only ids and names, and refuses anyone not bound as an
+    admin), lasts at
     most 4 hours, and "End now" stops it at once;
   - the revision a bucket compares is built from the stored versions and the easing step, so a
     re-read that finds nothing new never rebuilds a bucket.
@@ -58,8 +61,7 @@ The plan is [20, sections 6 and 7](../planning/20-pre-production-cleanup-plan.md
 - **Not verified yet:** that the External ID tenant puts `roles` in access tokens. Check it on the
   first deploy; until it does, nobody sees the admin page.
 - **Not done:**
-  - Choosing a studio for a boost by name: the admin can't list studios (row-level security),
-    so the page takes a studio id. The demo preset will pick the demo studio once it exists.
+  - The demo preset picking the demo studio by itself, once it exists.
   - Optimistic locking on settings: two admins saving at once both win in turn, and both
     changes are in the history.
 

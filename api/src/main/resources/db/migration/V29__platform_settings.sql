@@ -82,6 +82,25 @@ END
 $$;
 REVOKE ALL ON FUNCTION app.record_platform_setting_change() FROM PUBLIC;
 
+-- Every studio's id and name, for choosing which studio a boost lifts. Crosses tenants (ADR 10), so
+-- it refuses anyone not bound as a platform admin.
+CREATE FUNCTION app.studios_for_platform_admin()
+    RETURNS TABLE (studio_id uuid, studio_name text)
+    LANGUAGE plpgsql
+    STABLE
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+    IF NOT app.is_platform_admin() THEN
+        RAISE EXCEPTION 'Only a platform admin can list every studio' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY SELECT s.id, s.name FROM public.studio s ORDER BY s.name, s.id;
+END
+$$;
+REVOKE ALL ON FUNCTION app.studios_for_platform_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION app.studios_for_platform_admin() TO app_rw;
+
 CREATE TRIGGER platform_setting_history
     AFTER INSERT OR UPDATE ON platform_setting
     FOR EACH ROW EXECUTE FUNCTION app.record_platform_setting_change();

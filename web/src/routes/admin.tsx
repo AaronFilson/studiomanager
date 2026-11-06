@@ -1,8 +1,8 @@
 import {
   endRateLimitBoostMutation,
-  getMeOptions,
   getRateLimitsOptions,
   getRateLimitsQueryKey,
+  listAdminStudiosOptions,
   listSettingChangesOptions,
   listSettingChangesQueryKey,
   resetNormalRateLimitsMutation,
@@ -28,22 +28,8 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 });
 
+/** The API decides who may do what here; the page shows what it answers, refusals included. */
 function AdminPage() {
-  const me = useQuery(getMeOptions());
-  if (me.isPending) {
-    return <p>Loading…</p>;
-  }
-  if (me.isError) {
-    return <ErrorMessage error={me.error} />;
-  }
-  if (!me.data.platformAdmin) {
-    return (
-      <>
-        <h1>Admin</h1>
-        <p>This page is for the people who run Studio Manager.</p>
-      </>
-    );
-  }
   return (
     <div className="stack">
       <h1>Admin</h1>
@@ -182,6 +168,7 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
   const [easing, setEasing] = useState('60');
   const [startsAt, setStartsAt] = useState('');
   const [studioId, setStudioId] = useState('');
+  const studios = useQuery(listAdminStudiosOptions());
   const schedule = useMutation({ ...scheduleRateLimitBoostMutation(), onSuccess: refresh });
   const end = useMutation({ ...endRateLimitBoostMutation(), onSuccess: refresh });
 
@@ -195,7 +182,7 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
             unlimitedMinutes: Number(unlimited),
             easingMinutes: Number(easing),
             startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
-            studioId: studioId.trim() || undefined,
+            studioId: studioId || undefined,
           },
         });
       }}
@@ -256,9 +243,17 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
         <input id={`${id}-starts`} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
       </div>
       <div className="field">
-        <label htmlFor={`${id}-studio`}>Only this studio (its id; leave empty for every studio)</label>
-        <input id={`${id}-studio`} value={studioId} onChange={(e) => setStudioId(e.target.value)} />
+        <label htmlFor={`${id}-studio`}>Which studios</label>
+        <select id={`${id}-studio`} value={studioId} onChange={(e) => setStudioId(e.target.value)}>
+          <option value="">Every studio</option>
+          {studios.data?.map((studio) => (
+            <option key={studio.id} value={studio.id}>
+              {studio.name}
+            </option>
+          ))}
+        </select>
       </div>
+      {studios.isError && <ErrorMessage error={studios.error} />}
       {schedule.isError && <ErrorMessage error={schedule.error} />}
       <div>
         <button type="submit" className="primary" disabled={schedule.isPending}>
@@ -336,7 +331,7 @@ function describeLimits(overview: RateLimitOverview): string {
   if (!boost) {
     return 'Normal limits apply.';
   }
-  const where = boost.studioId ? `in studio ${boost.studioId}` : 'in every studio';
+  const where = boost.studioId ? `in ${boost.studioName ?? 'one studio'}` : 'in every studio';
   const now = new Date(overview.now).getTime();
   if (now < new Date(boost.startsAt).getTime()) {
     return `Normal limits apply. A boost ${where} starts at ${new Date(boost.startsAt).toLocaleString()}.`;

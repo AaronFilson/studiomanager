@@ -48,6 +48,10 @@ export type RateLimitBoost = {
      * The one studio it lifts. Absent when it lifts every studio.
      */
     studioId?: string;
+    /**
+     * That studio's name.
+     */
+    studioName?: string;
     unlimitedMinutes: number;
     easingMinutes: number;
     steps: Array<BoostStep>;
@@ -75,6 +79,11 @@ export type ScheduleBoostRequest = {
     studioId?: string;
     unlimitedMinutes: number;
     easingMinutes: number;
+};
+
+export type AdminStudio = {
+    id: string;
+    name: string;
 };
 
 export type SettingChange = {
@@ -2020,6 +2029,35 @@ export type ScheduleRateLimitBoostResponses = {
 };
 
 export type ScheduleRateLimitBoostResponse = ScheduleRateLimitBoostResponses[keyof ScheduleRateLimitBoostResponses];
+
+export type ListAdminStudiosData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/studios';
+};
+
+export type ListAdminStudiosErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListAdminStudiosError = ListAdminStudiosErrors[keyof ListAdminStudiosErrors];
+
+export type ListAdminStudiosResponses = {
+    /**
+     * The studios, by name.
+     */
+    200: Array<AdminStudio>;
+};
+
+export type ListAdminStudiosResponse = ListAdminStudiosResponses[keyof ListAdminStudiosResponses];
 
 export type ListSettingChangesData = {
     body?: never;
