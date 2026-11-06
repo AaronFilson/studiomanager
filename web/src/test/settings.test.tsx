@@ -14,6 +14,8 @@ function settingsHandlers(studio: Studio) {
     http.get(`${API}/api/v1/studios/:studioId/fee-schedule`, () => HttpResponse.json(noFees)),
     http.get(`${API}/api/v1/studios/:studioId/piece-policy`, () => HttpResponse.json({ holdDays: 30 })),
     http.get(`${API}/api/v1/studios/:studioId/tax-rates`, () => HttpResponse.json([])),
+    http.get(`${API}/api/v1/studios/:studioId/api-tokens`, () => HttpResponse.json([])),
+    http.get(`${API}/api/v1/studios/:studioId/ai-key`, () => new HttpResponse(null, { status: 404 })),
   ];
 }
 

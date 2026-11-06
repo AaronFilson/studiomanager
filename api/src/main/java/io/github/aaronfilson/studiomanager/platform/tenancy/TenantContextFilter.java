@@ -28,6 +28,8 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final PathPattern STUDIO_ROUTE =
             PathPatternParser.defaultInstance.parse("/api/v1/studios/{studioId}/**");
+    private static final PathPattern STUDIO_AREA =
+            PathPatternParser.defaultInstance.parse("/api/v1/studios/{studioId}/{area}/**");
 
     private final AccountResolver accounts;
     private final MembershipLookup memberships;
@@ -40,13 +42,18 @@ public class TenantContextFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        if (!(SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken authentication)) {
+        TenantContext context;
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            TenantContext caller = TenantContext.forAccount(accounts.resolve(jwt.getToken()));
+            UUID studioId = studioIdFrom(request);
+            context = studioId == null ? caller : caller.inStudio(studioId, roleIn(studioId, caller));
+        } else if (authentication instanceof ApiTokenAuthentication token) {
+            context = tokenContext(request, token.token());
+        } else {
             chain.doFilter(request, response);
             return;
         }
-        TenantContext caller = TenantContext.forAccount(accounts.resolve(authentication.getToken()));
-        UUID studioId = studioIdFrom(request);
-        TenantContext context = studioId == null ? caller : caller.inStudio(studioId, roleIn(studioId, caller));
         try {
             TenantContext.callAs(context, () -> {
                 chain.doFilter(request, response);
@@ -58,6 +65,33 @@ public class TenantContextFilter extends OncePerRequestFilter {
             // chain.doFilter declares only the exceptions above
             throw new ServletException(ex);
         }
+    }
+
+    /**
+     * A token works only in its own studio, only where {@link TokenPolicy} allows its scopes, and
+     * only while its person is still staff there: their live role is the ceiling.
+     */
+    private TenantContext tokenContext(HttpServletRequest request, ApiTokenResolver.ResolvedToken token) {
+        UUID studioId = studioIdFrom(request);
+        if (studioId != null && !studioId.equals(token.studioId())) {
+            throw new AccessDeniedException("This token works only in the studio it was made for.");
+        }
+        TokenPolicy.refusal(token.scopes(), request.getMethod(), studioId == null ? null : areaOf(request))
+                .ifPresent(why -> {
+                    throw new AccessDeniedException(why);
+                });
+        TenantContext caller = TenantContext.forAccount(token.accountId());
+        StudioRole role = roleIn(token.studioId(), caller);
+        if (!role.includes(StudioRole.STAFF)) {
+            throw new AccessDeniedException("API tokens are for staff. This token's owner isn't staff any more.");
+        }
+        return caller.inStudio(token.studioId(), role);
+    }
+
+    private static String areaOf(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        PathPattern.PathMatchInfo match = STUDIO_AREA.matchAndExtract(PathContainer.parsePath(path));
+        return match == null ? "" : match.getUriVariables().get("area");
     }
 
     private StudioRole roleIn(UUID studioId, TenantContext caller) {

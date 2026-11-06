@@ -22,6 +22,9 @@ studiomanager:
     # Key Vault (open at first deploy: docs/planning/10-webhooks-plan.md).
     secret-key: ${STUDIOMANAGER_WEBHOOK_SECRET_KEY}
     allow-private-networks: false
+  ai:
+    # No default: studios' AI keys are encrypted under this, from Key Vault (docs/planning/16)
+    key-encryption-key: ${STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY}
 
 logging:
   structured:

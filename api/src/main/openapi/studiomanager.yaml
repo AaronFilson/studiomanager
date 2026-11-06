@@ -13,7 +13,18 @@ servers:
   - url: /
 security:
   - bearerAuth: []
+  - apiToken: []
 tags:
+  - name: ai
+    description: |
+      The studio's own AI key, used to read supplier invoices. The studio's own provider account
+      pays for and governs that use. The key is stored encrypted and never returned.
+  - name: api-tokens
+    description: |
+      Personal API tokens let a script or an AI assistant act as a staff member, in one studio,
+      within the token's scopes. A token is never more than its person: if they stop being
+      staff, it stops working. Money, imports, the export, webhooks and tokens themselves are
+      out of a token's reach.
   - name: account
     description: The signed-in person.
   - name: studios
@@ -3517,6 +3528,163 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/api-tokens:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [api-tokens]
+      operationId: listApiTokens
+      summary: The caller's API tokens; an owner sees everyone's (staff only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The tokens, newest first, including revoked and expired ones.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiToken"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [api-tokens]
+      operationId: createApiToken
+      summary: Make a token that acts as the caller in this studio (staff only)
+      description: The response carries the token itself, which is never shown again.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiTokenRequest"
+      responses:
+        "201":
+          description: The token and its secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiToken"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/api-tokens/{tokenId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/TokenId"
+    delete:
+      tags: [api-tokens]
+      operationId: revokeApiToken
+      summary: Revoke a token, at once (its owner, or the studio owner)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Revoked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/ai-key:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [ai]
+      operationId: getAiKey
+      summary: The studio's own AI key, without the key itself (owner only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The key's provider, last four characters and whether it works.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [ai]
+      operationId: setAiKey
+      summary: Save the studio's own AI key, replacing any before it (owner only)
+      description: |
+        The key is stored encrypted and never returned. Saving it doesn't send anything
+        anywhere; "test" does.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAiKeyRequest"
+      responses:
+        "200":
+          description: The saved key's status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [ai]
+      operationId: deleteAiKey
+      summary: Delete the studio's AI key (owner only)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/ai-key/test:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [ai]
+      operationId: testAiKey
+      summary: Check the key with one small call to the provider (owner only)
+      description: Lists the provider's models, which spends no tokens.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The key's status after the check.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3524,6 +3692,12 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: An access token from Microsoft Entra External ID for the Studio Manager API.
+    apiToken:
+      type: http
+      scheme: bearer
+      description: |
+        A personal API token (`smpat_...`), made under Settings by a staff member. It works only
+        in its own studio and within its scopes.
 
   parameters:
     StudioId:
@@ -3641,6 +3815,13 @@ components:
         format: uuid
     EndpointId:
       name: endpointId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TokenId:
+      name: tokenId
       in: path
       required: true
       schema:
@@ -6622,6 +6803,121 @@ components:
           type: string
         weight:
           $ref: "#/components/schemas/Decimal"
+
+    AiProvider:
+      type: string
+      enum: [ANTHROPIC]
+
+    AiKeyStatus:
+      type: object
+      required: [provider, lastFour, status, allowGoogleFallback, setAt]
+      properties:
+        provider:
+          $ref: "#/components/schemas/AiProvider"
+        lastFour:
+          type: string
+        status:
+          type: string
+          enum: [UNTESTED, WORKING, REJECTED]
+        reason:
+          type: string
+          description: Why the last check didn't pass.
+        checkedAt:
+          type: string
+          format: date-time
+        allowGoogleFallback:
+          type: boolean
+          description: Whether an invoice the key can't read may be read by Google Document AI instead.
+        setAt:
+          type: string
+          format: date-time
+
+    SetAiKeyRequest:
+      type: object
+      required: [provider, apiKey]
+      properties:
+        provider:
+          $ref: "#/components/schemas/AiProvider"
+        apiKey:
+          type: string
+          minLength: 20
+          maxLength: 300
+          writeOnly: true
+        allowGoogleFallback:
+          type: boolean
+
+    TokenScope:
+      type: string
+      description: |
+        `read` reads everything a token can reach. Each `write:` scope allows changes in one
+        area. There's no scope for money.
+      enum: [read, "write:pieces", "write:kilns", "write:maintenance", "write:schedule", "write:supplies",
+             "write:glazes", "write:notices"]
+
+    ApiToken:
+      type: object
+      required: [id, name, ownerAccountId, scopes, lastFour, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: What it's for, such as "Claude desktop".
+        ownerAccountId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        lastFour:
+          type: string
+          description: The token's last four characters, to tell tokens apart.
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+
+    CreateApiTokenRequest:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        expiresInDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 365
+          description: Defaults to 90.
+
+    CreatedApiToken:
+      type: object
+      required: [token, secret]
+      properties:
+        token:
+          $ref: "#/components/schemas/ApiToken"
+        secret:
+          type: string
+          description: The token to paste into the client. Shown only this once.
 
     Problem:
       type: object

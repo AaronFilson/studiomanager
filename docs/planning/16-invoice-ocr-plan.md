@@ -126,6 +126,29 @@ proposes the lines. Staff check them, and nothing posts until they confirm.
 4. The matcher and vendor aliases. Optionally record the bill as a payable.
 5. The eval set, the scorer in CI, a live eval report, and the README numbers.
 
+## Status
+
+**Step 1, 2026-11-06, on `wave2-tokens-mcp` (V28): the studio's own key.**
+- **Storage:**
+  - `ai_provider_key` has one row per studio. The key is AES-256-GCM encrypted under
+    `studiomanager.ai.key-encryption-key`, with the studio id as associated data.
+  - Azure refuses to start without the key-encryption key. Like the webhook key, it still needs
+    wiring from Key Vault at first deploy.
+- **Rules:** only the owner can set, test or remove the key, and no API token can reach it
+  (`TokenPolicy`: `ai-key` is "never"). The key is never returned, only its last four
+  characters.
+- **"Test key"** lists models through the official Anthropic Java SDK (`anthropic-java` 3.6.0),
+  which spends no tokens. A 401 or 403 marks the key REJECTED with the reason; anything else
+  leaves it UNTESTED with a "try again". No database connection is held during the call.
+- **Settings:** the owner has an "AI for invoices" card, with the Google fallback opt-in.
+- **Only Anthropic, for now.** The plan mentioned OpenAI as a second provider. It's left out
+  until someone asks for it.
+- **To check against a real key:** which header the SDK sends the key in. The test stub accepts
+  both `x-api-key` and `Authorization: Bearer`.
+- **Next:** step 2, the inbox and the Claude reader. Use structured outputs
+  (`output_config.format`) or a `strict` tool with `tool_choice: auto`. Forced `tool_choice` is a
+  400 on Claude Opus 5.5.
+
 ## In an interview
 
 "Invoices are untrusted input sent to an LLM, so the model gets one job and one output schema,

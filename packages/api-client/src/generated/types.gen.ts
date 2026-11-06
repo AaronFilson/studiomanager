@@ -1612,6 +1612,72 @@ export type GlazeBatchLine = {
     weight: Decimal;
 };
 
+export type AiProvider = 'ANTHROPIC';
+
+export type AiKeyStatus = {
+    provider: AiProvider;
+    lastFour: string;
+    status: 'UNTESTED' | 'WORKING' | 'REJECTED';
+    /**
+     * Why the last check didn't pass.
+     */
+    reason?: string;
+    checkedAt?: string;
+    /**
+     * Whether an invoice the key can't read may be read by Google Document AI instead.
+     */
+    allowGoogleFallback: boolean;
+    setAt: string;
+};
+
+export type SetAiKeyRequest = {
+    provider: AiProvider;
+    allowGoogleFallback?: boolean;
+};
+
+/**
+ * `read` reads everything a token can reach. Each `write:` scope allows changes in one
+ * area. There's no scope for money.
+ *
+ */
+export type TokenScope = 'read' | 'write:pieces' | 'write:kilns' | 'write:maintenance' | 'write:schedule' | 'write:supplies' | 'write:glazes' | 'write:notices';
+
+export type ApiToken = {
+    id: string;
+    /**
+     * What it's for, such as "Claude desktop".
+     */
+    name: string;
+    ownerAccountId: string;
+    ownerName?: string;
+    scopes: Array<TokenScope>;
+    /**
+     * The token's last four characters, to tell tokens apart.
+     */
+    lastFour: string;
+    createdAt: string;
+    expiresAt: string;
+    lastUsedAt?: string;
+    revokedAt?: string;
+};
+
+export type CreateApiTokenRequest = {
+    name: string;
+    scopes: Array<TokenScope>;
+    /**
+     * Defaults to 90.
+     */
+    expiresInDays?: number;
+};
+
+export type CreatedApiToken = {
+    token: ApiToken;
+    /**
+     * The token to paste into the client. Shown only this once.
+     */
+    secret: string;
+};
+
 /**
  * RFC 9457 problem details.
  */
@@ -1621,6 +1687,12 @@ export type Problem = {
     status?: number;
     detail?: string;
     instance?: string;
+};
+
+export type SetAiKeyRequestWritable = {
+    provider: AiProvider;
+    apiKey: string;
+    allowGoogleFallback?: boolean;
 };
 
 /**
@@ -1659,6 +1731,8 @@ export type PayeeId = string;
 export type SaleId = string;
 
 export type EndpointId = string;
+
+export type TokenId = string;
 
 export type GlazeId = string;
 
@@ -6986,3 +7060,262 @@ export type GetGlazeBatchResponses = {
 };
 
 export type GetGlazeBatchResponse = GetGlazeBatchResponses[keyof GetGlazeBatchResponses];
+
+export type ListApiTokensData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/api-tokens';
+};
+
+export type ListApiTokensErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListApiTokensError = ListApiTokensErrors[keyof ListApiTokensErrors];
+
+export type ListApiTokensResponses = {
+    /**
+     * The tokens, newest first, including revoked and expired ones.
+     */
+    200: Array<ApiToken>;
+};
+
+export type ListApiTokensResponse = ListApiTokensResponses[keyof ListApiTokensResponses];
+
+export type CreateApiTokenData = {
+    body: CreateApiTokenRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/api-tokens';
+};
+
+export type CreateApiTokenErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type CreateApiTokenError = CreateApiTokenErrors[keyof CreateApiTokenErrors];
+
+export type CreateApiTokenResponses = {
+    /**
+     * The token and its secret.
+     */
+    201: CreatedApiToken;
+};
+
+export type CreateApiTokenResponse = CreateApiTokenResponses[keyof CreateApiTokenResponses];
+
+export type RevokeApiTokenData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        tokenId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/api-tokens/{tokenId}';
+};
+
+export type RevokeApiTokenErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type RevokeApiTokenError = RevokeApiTokenErrors[keyof RevokeApiTokenErrors];
+
+export type RevokeApiTokenResponses = {
+    /**
+     * Revoked.
+     */
+    204: void;
+};
+
+export type RevokeApiTokenResponse = RevokeApiTokenResponses[keyof RevokeApiTokenResponses];
+
+export type DeleteAiKeyData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/ai-key';
+};
+
+export type DeleteAiKeyErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type DeleteAiKeyError = DeleteAiKeyErrors[keyof DeleteAiKeyErrors];
+
+export type DeleteAiKeyResponses = {
+    /**
+     * Deleted.
+     */
+    204: void;
+};
+
+export type DeleteAiKeyResponse = DeleteAiKeyResponses[keyof DeleteAiKeyResponses];
+
+export type GetAiKeyData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/ai-key';
+};
+
+export type GetAiKeyErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetAiKeyError = GetAiKeyErrors[keyof GetAiKeyErrors];
+
+export type GetAiKeyResponses = {
+    /**
+     * The key's provider, last four characters and whether it works.
+     */
+    200: AiKeyStatus;
+};
+
+export type GetAiKeyResponse = GetAiKeyResponses[keyof GetAiKeyResponses];
+
+export type SetAiKeyData = {
+    body: SetAiKeyRequestWritable;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/ai-key';
+};
+
+export type SetAiKeyErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type SetAiKeyError = SetAiKeyErrors[keyof SetAiKeyErrors];
+
+export type SetAiKeyResponses = {
+    /**
+     * The saved key's status.
+     */
+    200: AiKeyStatus;
+};
+
+export type SetAiKeyResponse = SetAiKeyResponses[keyof SetAiKeyResponses];
+
+export type TestAiKeyData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/ai-key/test';
+};
+
+export type TestAiKeyErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type TestAiKeyError = TestAiKeyErrors[keyof TestAiKeyErrors];
+
+export type TestAiKeyResponses = {
+    /**
+     * The key's status after the check.
+     */
+    200: AiKeyStatus;
+};
+
+export type TestAiKeyResponse = TestAiKeyResponses[keyof TestAiKeyResponses];

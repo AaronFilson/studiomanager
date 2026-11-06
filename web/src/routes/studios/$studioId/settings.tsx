@@ -19,6 +19,8 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
+import { AiKeyCard } from '../../../components/AiKeyCard';
+import { ApiTokensCard } from '../../../components/ApiTokensCard';
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { feeRuleTypeLabel, feeUnitLabel, roundingLabel } from '../../../labels';
 
@@ -40,6 +42,8 @@ function SettingsPage() {
       {policy.isError && <ErrorMessage error={policy.error} />}
       {policy.isSuccess && <HoldForm key={policy.data.holdDays} studioId={studioId} holdDays={policy.data.holdDays} />}
       <TaxForm studioId={studioId} />
+      <ApiTokensCard studioId={studioId} />
+      {studio.myRole === 'OWNER' && <AiKeyCard studioId={studioId} />}
       {studio.myRole === 'OWNER' && <ExportCard studioId={studioId} />}
     </div>
   );

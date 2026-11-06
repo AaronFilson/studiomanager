@@ -1,6 +1,6 @@
 plugins {
     java
-    id("org.springframework.boot") version "4.1.1"
+    id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.openapi.generator") version "7.26.0"
 }
@@ -36,10 +36,12 @@ dependencies {
     implementation("com.azure:azure-communication-email:1.1.6")
     implementation("com.azure:azure-identity:1.18.7")
     // Piece photos: the API signs upload and read URLs; the bytes go straight to Blob Storage
-    implementation("com.azure:azure-storage-blob:12.35.2")
+    implementation("com.azure:azure-storage-blob:12.36.0")
     // Outbound webhooks: its DnsResolver hook lets the SSRF filter connect only to the addresses it
     // checked, which the JDK HttpClient can't do. The version comes from Spring Boot's BOM.
     implementation("org.apache.httpcomponents.client5:httpclient5")
+    // Reading invoices with the studio's own Claude key (docs/planning/16-invoice-ocr-plan.md)
+    implementation("com.anthropic:anthropic-java:3.6.0")
     // Event streaming (off unless studiomanager.stream.enabled): Modulith publishes the stream
     // contract to Kafka through the same outbox as email (ADR 15, docs/adr/0015-event-streaming-to-kafka.md)
     implementation("org.springframework.boot:spring-boot-starter-kafka")
@@ -70,10 +72,11 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:${property("springModulithVersion")}")
-        // The OpenTelemetry starter under spring-cloud-azure-starter-monitor 7.4.0 is 2.24.0, built on
-        // SDK 1.58. Spring Boot's BOM would raise the SDK to 1.62, whose component loader the starter
-        // can't use (the context fails to start; TelemetryTests). This keeps the SDK in step with it.
-        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.24.0")
+        // Keeps the OpenTelemetry SDK in step with the instrumentation under
+        // spring-cloud-azure-starter-monitor. Left to Spring Boot's BOM, the SDK can move ahead of
+        // the starter, and the context fails to start. TelemetryTests catches that, so check it
+        // when bumping this.
+        mavenBom("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.33.1")
     }
 }
 

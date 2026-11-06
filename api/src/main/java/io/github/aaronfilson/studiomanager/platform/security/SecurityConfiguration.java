@@ -3,6 +3,9 @@ package io.github.aaronfilson.studiomanager.platform.security;
 import java.util.List;
 
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
+import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
+import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthenticationFilter;
+import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenResolver;
 import io.github.aaronfilson.studiomanager.platform.tenancy.MembershipLookup;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContextFilter;
 import tools.jackson.databind.json.JsonMapper;
@@ -18,6 +21,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -39,13 +44,17 @@ class SecurityConfiguration {
 
     @Bean
     SecurityFilterChain apiSecurity(HttpSecurity http, AccountResolver accounts, MembershipLookup memberships,
-            JsonMapper json) {
+            ApiTokenResolver apiTokens, JsonMapper json) {
         ProblemJsonSecurityHandler problems = new ProblemJsonSecurityHandler(json);
+        DefaultBearerTokenResolver jwtBearer = new DefaultBearerTokenResolver();
         http.authorizeHttpRequests(requests -> requests
                         .requestMatchers("/actuator/health/**", "/error").permitAll()
-                        .requestMatchers("/api/**").hasAuthority(API_SCOPE)
+                        .requestMatchers("/api/**").hasAnyAuthority(API_SCOPE, ApiTokenAuthentication.AUTHORITY)
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        // Personal API tokens are opaque, not JWTs; their own filter signs them in
+                        .bearerTokenResolver(request -> ApiTokenAuthenticationFilter.isApiToken(request) ? null
+                                : jwtBearer.resolve(request))
                         .jwt(Customizer.withDefaults())
                         .authenticationEntryPoint(problems)
                         .accessDeniedHandler(problems))
@@ -56,6 +65,7 @@ class SecurityConfiguration {
                 // Tokens travel in the Authorization header, never a cookie, so there is no CSRF to defend
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
+                .addFilterBefore(new ApiTokenAuthenticationFilter(apiTokens, problems), BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new TenantContextFilter(accounts, memberships), AuthorizationFilter.class);
         return http.build();
     }
