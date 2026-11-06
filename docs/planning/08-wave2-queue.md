@@ -82,7 +82,7 @@ service without credentials, and the provider depends on the pilot:
 
 Updated as each item lands.
 
-- **1. Payables:** first version done 2026-10-21 (V21), on `wave2-payables`.
+- **1. Payables:** first version done 2026-10-21 (V21), merged into `main` (PR #8).
   - **Payees.** Each has optional consignment terms: the artist's share, and whether discounts
     come from both shares or only the studio's commission. Each also has a 1099 setting and the
     date the W-9 arrived.
@@ -100,14 +100,14 @@ Updated as each item lands.
   - **Web.** An "Artists and instructors" page. The 1099 section shows for US studios only.
   - **Not yet:** bill.com or QuickBooks bill export, and class revenue itself (see "Not in this
     slice" above).
-  - **Follow-ups, 2026-10-31 (V22), on `wave2-import`:**
+  - **Follow-ups, 2026-10-31 (V22), merged with the importer (PR #11):**
     - A payee can have a consignment period in days. Each item takes its return date from it when
       it comes in. Work kept past that date with some unsold is flagged "due back", and staff can
       list just those.
     - A member who is also a payee sees their own work, its sales and what they're owed under "My
       work for sale". They see nobody else's.
     - A payment run pays several payees at once, by one method, all or none.
-- **2. CSV importer:** first version done 2026-10-31 (V22), on `wave2-import`.
+- **2. CSV importer:** first version done 2026-10-31 (V22), merged into `main` (PR #11).
   - **How it works.** The browser reads the CSV (commas or semicolons, quoted fields), guesses which
     column is which from the headers, and lets staff change the guesses. It sends each row as
     the text in its mapped columns, so the server alone decides what "$1,234.50", "(4.00)", "60%"
@@ -126,7 +126,7 @@ Updated as each item lands.
     carry only an address), and importing supplies or class rosters. A re-imported consignment
     file adds the items again, so the preview is what catches it.
   - `MemberJoined` is also the "member joined" event that item 3's webhooks need.
-- **3. Outbound webhooks:** first version done 2026-11-02 (V23), on `wave2-webhooks`. The plan
+- **3. Outbound webhooks:** first version done 2026-11-02 (V23), merged into `main` (PR #15). The plan
   and its status are in [10](10-webhooks-plan.md), and the design is in
   [ADR 14](../adr/0014-outbound-webhooks.md).
   - **Events:** `pieces.ready`, `fee.charged` and `member.joined`, each signed the Standard
@@ -135,6 +135,7 @@ Updated as each item lands.
     off, and staff are told.
   - **SSRF filter:** sends only to public addresses, and connects to the address it checked.
   - **Web:** a "Webhooks" page with a delivery log and resend.
-  - **Next:** Kafka event streaming, as an optional resume slice (see 10). The kiln log import
+  - **Next:** Kafka event streaming, as an optional resume slice: in progress on `wave2-kafka`,
+    plan and status in [11](11-kafka-stream-plan.md). The kiln log import
     (item 4) waits for a real Genesis export
     ([09](09-kiln-log-import-research.md)).

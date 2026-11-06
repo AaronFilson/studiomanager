@@ -31,6 +31,34 @@ spring:
         published: PT15M
         processing: PT15M
         resubmitted: PT15M
+      # Kafka streaming follows studiomanager.stream.enabled
+      externalization:
+        enabled: ${studiomanager.stream.enabled}
+  kafka:
+    bootstrap-servers: ${STUDIOMANAGER_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    admin:
+      # Creating the topics at startup gives up after 5 s if the broker can't be reached (logged,
+      # not fatal), rather than holding a cold start for 30 s
+      operation-timeout: 5s
+      properties:
+        request.timeout.ms: 5000
+        default.api.timeout.ms: 5000
+    producer:
+      # Waits for every in-sync replica and never writes a duplicate on retry
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Modulith's externalizer hands over the event already serialized, as JSON bytes. A JSON
+      # serializer here would encode those bytes again, as a base64 string
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      properties:
+        enable.idempotence: true
+        interceptor.classes: io.github.aaronfilson.studiomanager.stream.DropTypeIdHeader
+    consumer:
+      # A new consumer group reads what the topic still holds (7 days). Ids it has already counted
+      # are skipped; to rebuild, clear the projection's seen ids too (ActivityProjection)
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
   security:
     oauth2:
       resourceserver:
@@ -81,3 +109,7 @@ studiomanager:
     secret-key: ${STUDIOMANAGER_WEBHOOK_SECRET_KEY:}
     # true lets webhooks reach localhost and private networks: local work and tests only
     allow-private-networks: ${STUDIOMANAGER_WEBHOOK_ALLOW_PRIVATE_NETWORKS:false}
+  stream:
+    # Publishes StudioStreamEvents to Kafka. Off by default: there's no broker locally unless
+    # compose's "stream" profile is up, and none deployed (docs/planning/11)
+    enabled: ${STUDIOMANAGER_STREAM_ENABLED:false}

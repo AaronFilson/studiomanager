@@ -165,7 +165,7 @@ public class FiringService {
                 .param("id", firing.kilnId())
                 .update();
         events.publishEvent(new FiringCompleted(TenantContext.require().studioId(), firingId, firing.kind(),
-                firing.kilnName(), moved.stream()
+                firing.kilnId(), firing.kilnName(), moved.stream()
                         .map(p -> new FiringCompleted.FiredPiece(p.id(), p.number(), p.makerAccountId(),
                                 p.description(), p.holdUntil()))
                         .toList()));
