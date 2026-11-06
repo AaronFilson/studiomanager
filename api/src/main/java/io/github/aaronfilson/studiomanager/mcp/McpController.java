@@ -8,6 +8,7 @@ import java.util.UUID;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -67,6 +68,7 @@ class McpController {
     ResponseEntity<?> post(@PathVariable UUID studioId, @RequestBody JsonNode message,
             @RequestHeader(name = HttpHeaders.ORIGIN, required = false) @Nullable String origin,
             @RequestHeader(name = "MCP-Protocol-Version", required = false) @Nullable String protocolVersion) {
+        requireBoundTo(studioId);
         // Streamable HTTP asks servers to check Origin, against DNS rebinding from a browser
         if (origin != null && !allowedOrigins.contains(origin)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -96,8 +98,20 @@ class McpController {
 
     /** No server-to-client stream: a stateless server answers each POST and keeps nothing open. */
     @GetMapping("/api/v1/studios/{studioId}/mcp")
+    @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
     ResponseEntity<Void> get(@PathVariable UUID studioId) {
+        requireBoundTo(studioId);
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).header(HttpHeaders.ALLOW, "POST").build();
+    }
+
+    /**
+     * Defence in depth: the tools act on whatever studio is bound, so make sure it's the one in the
+     * URL. The tenant filter and {@code @PreAuthorize} already ensure this.
+     */
+    private static void requireBoundTo(UUID studioId) {
+        if (!studioId.equals(TenantContext.require().studioId())) {
+            throw new AccessDeniedException("This MCP endpoint belongs to another studio.");
+        }
     }
 
     private Map<String, Object> initialize(JsonNode params) {

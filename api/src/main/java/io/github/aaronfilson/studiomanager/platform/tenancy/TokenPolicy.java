@@ -88,15 +88,18 @@ public final class TokenPolicy {
     public static Optional<String> refusal(Set<TokenScope> scopes, String method, @Nullable String area) {
         Access access = area == null ? new Never("Tokens work only inside their studio.")
                 : AREAS.getOrDefault(area, new Never("Tokens can't reach this part of the API."));
-        boolean reading = method.equals("GET") || method.equals("HEAD");
-        return switch (access) {
-            case Never never -> Optional.of(never.why());
-            case ReadOnly _ when reading -> scopes.contains(TokenScope.READ) ? Optional.empty() : noRead();
-            case ReadOnly _ -> Optional.of("Tokens can only read this.");
-            case Writable _ when reading -> scopes.contains(TokenScope.READ) ? Optional.empty() : noRead();
-            case Writable writable -> scopes.contains(writable.scope()) ? Optional.empty()
+        if (access instanceof Never never) {
+            return Optional.of(never.why());
+        }
+        // Reading anything a token can reach needs the read scope
+        if (method.equals("GET") || method.equals("HEAD")) {
+            return scopes.contains(TokenScope.READ) ? Optional.empty() : noRead();
+        }
+        if (access instanceof Writable writable) {
+            return scopes.contains(writable.scope()) ? Optional.empty()
                     : Optional.of("This token needs the %s scope.".formatted(writable.scope().wireName()));
-        };
+        }
+        return Optional.of("Tokens can only read this.");
     }
 
     private static Optional<String> noRead() {

@@ -59,7 +59,7 @@ class AiKeyCipher {
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, nonce));
             cipher.updateAAD(aad(studioId));
             byte[] sealed = cipher.doFinal(secret.getBytes(StandardCharsets.UTF_8));
-            return ByteBuffer.allocate(nonce.length + sealed.length).put(nonce).put(sealed).array();
+            return ByteBuffer.allocate(Math.addExact(NONCE_BYTES, sealed.length)).put(nonce).put(sealed).array();
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Couldn't encrypt an AI key", e);
         }
