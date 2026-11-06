@@ -39,18 +39,24 @@ run "the_app_and_the_migration_job_get_the_encryption_keys_from_secrets" {
   command = plan
 
   assert {
-    condition = alltrue(flatten([
-      for container in [
-        azurerm_container_app.api.template[0].container[0],
-        azurerm_container_app_job.migrate.template[0].container[0],
-      ] : [
-        for name, secret in {
-          STUDIOMANAGER_WEBHOOK_SECRET_KEY    = "webhook-secret-key"
-          STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY = "ai-key-encryption-key"
-        } : anytrue([for e in container.env : e.name == name && e.secret_name == secret])
-      ]
-    ]))
-    error_message = "Both start the same Spring context, which requires both keys, and they must come from secrets."
+    condition     = anytrue([for e in azurerm_container_app.api.template[0].container[0].env : e.name == "STUDIOMANAGER_WEBHOOK_SECRET_KEY" && e.secret_name == "webhook-secret-key"])
+    error_message = "The app's webhook secret key must come from a secret."
+  }
+
+  assert {
+    condition     = anytrue([for e in azurerm_container_app.api.template[0].container[0].env : e.name == "STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY" && e.secret_name == "ai-key-encryption-key"])
+    error_message = "The app's AI key encryption key must come from a secret."
+  }
+
+  # The migration job starts the same Spring context as the app, so it needs both keys too
+  assert {
+    condition     = anytrue([for e in azurerm_container_app_job.migrate.template[0].container[0].env : e.name == "STUDIOMANAGER_WEBHOOK_SECRET_KEY" && e.secret_name == "webhook-secret-key"])
+    error_message = "The migration job's webhook secret key must come from a secret."
+  }
+
+  assert {
+    condition     = anytrue([for e in azurerm_container_app_job.migrate.template[0].container[0].env : e.name == "STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY" && e.secret_name == "ai-key-encryption-key"])
+    error_message = "The migration job's AI key encryption key must come from a secret."
   }
 }
 
