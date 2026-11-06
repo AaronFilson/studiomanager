@@ -138,7 +138,10 @@ Updated as each item lands.
 - **Kafka event streaming** (an optional resume slice, off by default): done 2026-11-05 (V24),
   merged into `main` (PR #16). Plan and status in [11](11-kafka-stream-plan.md), design in
   [ADR 15](../adr/0015-event-streaming-to-kafka.md).
-- **System principal for background jobs:** in progress on `wave2-system-principal` (V25), plan
-  in [12](12-system-principal-plan.md).
-- **Next:** the glaze book (item 5), importing from glazecalcapp.com. The kiln log import
+- **System principal for background jobs:** done 2026-11-05 on `wave2-system-principal` (V25),
+  PR #17. Plan in [12](12-system-principal-plan.md), design in
+  [ADR 16](../adr/0016-system-principal-for-background-work.md).
+- **Next:** the glaze book (item 5), planned in [14](14-glaze-book-plan.md): studio bucket glazes
+  with a batch calculator and mix log, private member recipes, and import from glazecalc and
+  glaze-vault. The resume review is in [15](15-resume-review.md). The kiln log import
   (item 4) still waits for a real Genesis export ([09](09-kiln-log-import-research.md)).
