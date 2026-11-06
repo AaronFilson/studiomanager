@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadErrors, CompleteRecordPhotoUploadResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateGlazeData, CreateGlazeErrors, CreateGlazeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePayeeData, CreatePayeeErrors, CreatePayeeResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, CreateWebhookEndpointData, CreateWebhookEndpointErrors, CreateWebhookEndpointResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeleteGlazeData, DeleteGlazeErrors, DeleteGlazeResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, DeleteWebhookEndpointData, DeleteWebhookEndpointErrors, DeleteWebhookEndpointResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, ExportMaintenanceRecordsData, ExportMaintenanceRecordsErrors, ExportMaintenanceRecordsResponses, ExportNecReportData, ExportNecReportErrors, ExportNecReportResponses, ExportStudioData, ExportStudioErrors, ExportStudioResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetGlazeBatchData, GetGlazeBatchErrors, GetGlazeBatchResponses, GetGlazeData, GetGlazeErrors, GetGlazeResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetMyConsignmentData, GetMyConsignmentErrors, GetMyConsignmentResponses, GetNecReportData, GetNecReportErrors, GetNecReportResponses, GetPayeeStatementData, GetPayeeStatementErrors, GetPayeeStatementResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GetWeeklyActivityData, GetWeeklyActivityErrors, GetWeeklyActivityResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportConsignmentData, ImportConsignmentErrors, ImportConsignmentResponses, ImportMembersData, ImportMembersErrors, ImportMembersResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListConsignmentItemsData, ListConsignmentItemsErrors, ListConsignmentItemsResponses, ListConsignmentSalesData, ListConsignmentSalesErrors, ListConsignmentSalesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListGlazesData, ListGlazesErrors, ListGlazesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayeesData, ListPayeesErrors, ListPayeesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListProblemReportsData, ListProblemReportsErrors, ListProblemReportsResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListReportableAssetsData, ListReportableAssetsErrors, ListReportableAssetsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksErrors, ListSuggestedMaintenanceTasksResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, ListWebhookDeliveriesData, ListWebhookDeliveriesErrors, ListWebhookDeliveriesResponses, ListWebhookEndpointsData, ListWebhookEndpointsErrors, ListWebhookEndpointsResponses, ListWebhookEventTypesData, ListWebhookEventTypesErrors, ListWebhookEventTypesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, OfferShiftData, OfferShiftErrors, OfferShiftResponses, PayPayeeData, PayPayeeErrors, PayPayeeResponses, PayPayeesData, PayPayeesErrors, PayPayeesResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordEarningData, RecordEarningErrors, RecordEarningResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, RefundConsignmentSaleData, RefundConsignmentSaleErrors, RefundConsignmentSaleResponses, ReportProblemData, ReportProblemErrors, ReportProblemResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResendWebhookDeliveryData, ResendWebhookDeliveryErrors, ResendWebhookDeliveryResponses, ResolveProblemReportData, ResolveProblemReportErrors, ResolveProblemReportResponses, ReturnConsignmentData, ReturnConsignmentErrors, ReturnConsignmentResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RotateWebhookSecretData, RotateWebhookSecretErrors, RotateWebhookSecretResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, SellConsignmentData, SellConsignmentErrors, SellConsignmentResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, StartRecordPhotoUploadData, StartRecordPhotoUploadErrors, StartRecordPhotoUploadResponses, TakeInConsignmentData, TakeInConsignmentErrors, TakeInConsignmentResponses, TestWebhookEndpointData, TestWebhookEndpointErrors, TestWebhookEndpointResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateGlazeData, UpdateGlazeErrors, UpdateGlazeResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdatePayeeData, UpdatePayeeErrors, UpdatePayeeResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UpdateWebhookEndpointData, UpdateWebhookEndpointErrors, UpdateWebhookEndpointResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadErrors, CompleteRecordPhotoUploadResponses, CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateGlazeData, CreateGlazeErrors, CreateGlazeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePayeeData, CreatePayeeErrors, CreatePayeeResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, CreateWebhookEndpointData, CreateWebhookEndpointErrors, CreateWebhookEndpointResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeleteGlazeData, DeleteGlazeErrors, DeleteGlazeResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, DeleteWebhookEndpointData, DeleteWebhookEndpointErrors, DeleteWebhookEndpointResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, ExportMaintenanceRecordsData, ExportMaintenanceRecordsErrors, ExportMaintenanceRecordsResponses, ExportNecReportData, ExportNecReportErrors, ExportNecReportResponses, ExportStudioData, ExportStudioErrors, ExportStudioResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetGlazeBatchData, GetGlazeBatchErrors, GetGlazeBatchResponses, GetGlazeData, GetGlazeErrors, GetGlazeResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetMyConsignmentData, GetMyConsignmentErrors, GetMyConsignmentResponses, GetNecReportData, GetNecReportErrors, GetNecReportResponses, GetPayeeStatementData, GetPayeeStatementErrors, GetPayeeStatementResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GetWeeklyActivityData, GetWeeklyActivityErrors, GetWeeklyActivityResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportConsignmentData, ImportConsignmentErrors, ImportConsignmentResponses, ImportMembersData, ImportMembersErrors, ImportMembersResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListApiTokensData, ListApiTokensErrors, ListApiTokensResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListConsignmentItemsData, ListConsignmentItemsErrors, ListConsignmentItemsResponses, ListConsignmentSalesData, ListConsignmentSalesErrors, ListConsignmentSalesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListGlazesData, ListGlazesErrors, ListGlazesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayeesData, ListPayeesErrors, ListPayeesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListProblemReportsData, ListProblemReportsErrors, ListProblemReportsResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListReportableAssetsData, ListReportableAssetsErrors, ListReportableAssetsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksErrors, ListSuggestedMaintenanceTasksResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, ListWebhookDeliveriesData, ListWebhookDeliveriesErrors, ListWebhookDeliveriesResponses, ListWebhookEndpointsData, ListWebhookEndpointsErrors, ListWebhookEndpointsResponses, ListWebhookEventTypesData, ListWebhookEventTypesErrors, ListWebhookEventTypesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, OfferShiftData, OfferShiftErrors, OfferShiftResponses, PayPayeeData, PayPayeeErrors, PayPayeeResponses, PayPayeesData, PayPayeesErrors, PayPayeesResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordEarningData, RecordEarningErrors, RecordEarningResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, RefundConsignmentSaleData, RefundConsignmentSaleErrors, RefundConsignmentSaleResponses, ReportProblemData, ReportProblemErrors, ReportProblemResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResendWebhookDeliveryData, ResendWebhookDeliveryErrors, ResendWebhookDeliveryResponses, ResolveProblemReportData, ResolveProblemReportErrors, ResolveProblemReportResponses, ReturnConsignmentData, ReturnConsignmentErrors, ReturnConsignmentResponses, RevokeApiTokenData, RevokeApiTokenErrors, RevokeApiTokenResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RotateWebhookSecretData, RotateWebhookSecretErrors, RotateWebhookSecretResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, SellConsignmentData, SellConsignmentErrors, SellConsignmentResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, StartRecordPhotoUploadData, StartRecordPhotoUploadErrors, StartRecordPhotoUploadResponses, TakeInConsignmentData, TakeInConsignmentErrors, TakeInConsignmentResponses, TestWebhookEndpointData, TestWebhookEndpointErrors, TestWebhookEndpointResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateGlazeData, UpdateGlazeErrors, UpdateGlazeResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdatePayeeData, UpdatePayeeErrors, UpdatePayeeResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UpdateWebhookEndpointData, UpdateWebhookEndpointErrors, UpdateWebhookEndpointResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -26,7 +26,15 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  *
  */
 export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/me',
     ...options
 });
@@ -35,7 +43,15 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
  * Create a studio, with the caller as its owner
  */
 export const createStudio = <ThrowOnError extends boolean = false>(options: Options<CreateStudioData, ThrowOnError>): RequestResult<CreateStudioResponses, CreateStudioErrors, ThrowOnError> => (options.client ?? client).post<CreateStudioResponses, CreateStudioErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios',
     ...options,
     headers: {
@@ -48,7 +64,15 @@ export const createStudio = <ThrowOnError extends boolean = false>(options: Opti
  * A studio the caller belongs to
  */
 export const getStudio = <ThrowOnError extends boolean = false>(options: Options<GetStudioData, ThrowOnError>): RequestResult<GetStudioResponses, GetStudioErrors, ThrowOnError> => (options.client ?? client).get<GetStudioResponses, GetStudioErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}',
     ...options
 });
@@ -62,7 +86,15 @@ export const getStudio = <ThrowOnError extends boolean = false>(options: Options
  *
  */
 export const exportStudio = <ThrowOnError extends boolean = false>(options: Options<ExportStudioData, ThrowOnError>): RequestResult<ExportStudioResponses, ExportStudioErrors, ThrowOnError> => (options.client ?? client).get<ExportStudioResponses, ExportStudioErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/export',
     ...options
 });
@@ -71,7 +103,15 @@ export const exportStudio = <ThrowOnError extends boolean = false>(options: Opti
  * Everyone in the studio (staff only)
  */
 export const listMembers = <ThrowOnError extends boolean = false>(options: Options<ListMembersData, ThrowOnError>): RequestResult<ListMembersResponses, ListMembersErrors, ThrowOnError> => (options.client ?? client).get<ListMembersResponses, ListMembersErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/members',
     ...options
 });
@@ -84,7 +124,15 @@ export const listMembers = <ThrowOnError extends boolean = false>(options: Optio
  *
  */
 export const listOpenInvites = <ThrowOnError extends boolean = false>(options: Options<ListOpenInvitesData, ThrowOnError>): RequestResult<ListOpenInvitesResponses, ListOpenInvitesErrors, ThrowOnError> => (options.client ?? client).get<ListOpenInvitesResponses, ListOpenInvitesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/invites',
     ...options
 });
@@ -97,7 +145,15 @@ export const listOpenInvites = <ThrowOnError extends boolean = false>(options: O
  *
  */
 export const createInvite = <ThrowOnError extends boolean = false>(options: Options<CreateInviteData, ThrowOnError>): RequestResult<CreateInviteResponses, CreateInviteErrors, ThrowOnError> => (options.client ?? client).post<CreateInviteResponses, CreateInviteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/invites',
     ...options,
     headers: {
@@ -117,7 +173,15 @@ export const createInvite = <ThrowOnError extends boolean = false>(options: Opti
  *
  */
 export const emailInvites = <ThrowOnError extends boolean = false>(options: Options<EmailInvitesData, ThrowOnError>): RequestResult<EmailInvitesResponses, EmailInvitesErrors, ThrowOnError> => (options.client ?? client).post<EmailInvitesResponses, EmailInvitesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/invites/emails',
     ...options,
     headers: {
@@ -130,7 +194,15 @@ export const emailInvites = <ThrowOnError extends boolean = false>(options: Opti
  * Withdraw an invite that hasn't been accepted (staff only)
  */
 export const revokeInvite = <ThrowOnError extends boolean = false>(options: Options<RevokeInviteData, ThrowOnError>): RequestResult<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/invites/{inviteId}',
     ...options
 });
@@ -141,7 +213,15 @@ export const revokeInvite = <ThrowOnError extends boolean = false>(options: Opti
  * Only for emailed invites. The code in any earlier email stops working.
  */
 export const resendInvite = <ThrowOnError extends boolean = false>(options: Options<ResendInviteData, ThrowOnError>): RequestResult<ResendInviteResponses, ResendInviteErrors, ThrowOnError> => (options.client ?? client).post<ResendInviteResponses, ResendInviteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/invites/{inviteId}/resend',
     ...options
 });
@@ -150,7 +230,15 @@ export const resendInvite = <ThrowOnError extends boolean = false>(options: Opti
  * Join a studio with an invite code
  */
 export const acceptInvite = <ThrowOnError extends boolean = false>(options: Options<AcceptInviteData, ThrowOnError>): RequestResult<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError> => (options.client ?? client).post<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/invites/{code}/accept',
     ...options
 });
@@ -161,7 +249,15 @@ export const acceptInvite = <ThrowOnError extends boolean = false>(options: Opti
  * Version 0 means the studio hasn't set fees, so pieces fire free.
  */
 export const getFeeSchedule = <ThrowOnError extends boolean = false>(options: Options<GetFeeScheduleData, ThrowOnError>): RequestResult<GetFeeScheduleResponses, GetFeeScheduleErrors, ThrowOnError> => (options.client ?? client).get<GetFeeScheduleResponses, GetFeeScheduleErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/fee-schedule',
     ...options
 });
@@ -172,7 +268,15 @@ export const getFeeSchedule = <ThrowOnError extends boolean = false>(options: Op
  * Earlier versions are kept, and pieces keep the version they were priced with.
  */
 export const saveFeeSchedule = <ThrowOnError extends boolean = false>(options: Options<SaveFeeScheduleData, ThrowOnError>): RequestResult<SaveFeeScheduleResponses, SaveFeeScheduleErrors, ThrowOnError> => (options.client ?? client).put<SaveFeeScheduleResponses, SaveFeeScheduleErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/fee-schedule',
     ...options,
     headers: {
@@ -185,7 +289,15 @@ export const saveFeeSchedule = <ThrowOnError extends boolean = false>(options: O
  * Price a piece without taking it in
  */
 export const quoteFee = <ThrowOnError extends boolean = false>(options: Options<QuoteFeeData, ThrowOnError>): RequestResult<QuoteFeeResponses, QuoteFeeErrors, ThrowOnError> => (options.client ?? client).post<QuoteFeeResponses, QuoteFeeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/fee-quotes',
     ...options,
     headers: {
@@ -198,7 +310,15 @@ export const quoteFee = <ThrowOnError extends boolean = false>(options: Options<
  * How long ready pieces are held
  */
 export const getPiecePolicy = <ThrowOnError extends boolean = false>(options: Options<GetPiecePolicyData, ThrowOnError>): RequestResult<GetPiecePolicyResponses, GetPiecePolicyErrors, ThrowOnError> => (options.client ?? client).get<GetPiecePolicyResponses, GetPiecePolicyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/piece-policy',
     ...options
 });
@@ -207,7 +327,15 @@ export const getPiecePolicy = <ThrowOnError extends boolean = false>(options: Op
  * Change how long ready pieces are held (staff only)
  */
 export const savePiecePolicy = <ThrowOnError extends boolean = false>(options: Options<SavePiecePolicyData, ThrowOnError>): RequestResult<SavePiecePolicyResponses, SavePiecePolicyErrors, ThrowOnError> => (options.client ?? client).put<SavePiecePolicyResponses, SavePiecePolicyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/piece-policy',
     ...options,
     headers: {
@@ -222,7 +350,15 @@ export const savePiecePolicy = <ThrowOnError extends boolean = false>(options: O
  * Staff see every piece. Members see only their own, whatever the filter says.
  */
 export const listPieces = <ThrowOnError extends boolean = false>(options: Options<ListPiecesData, ThrowOnError>): RequestResult<ListPiecesResponses, ListPiecesErrors, ThrowOnError> => (options.client ?? client).get<ListPiecesResponses, ListPiecesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces',
     ...options
 });
@@ -235,7 +371,15 @@ export const listPieces = <ThrowOnError extends boolean = false>(options: Option
  *
  */
 export const intakePiece = <ThrowOnError extends boolean = false>(options: Options<IntakePieceData, ThrowOnError>): RequestResult<IntakePieceResponses, IntakePieceErrors, ThrowOnError> => (options.client ?? client).post<IntakePieceResponses, IntakePieceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces',
     ...options,
     headers: {
@@ -248,7 +392,15 @@ export const intakePiece = <ThrowOnError extends boolean = false>(options: Optio
  * One piece and its timeline
  */
 export const getPiece = <ThrowOnError extends boolean = false>(options: Options<GetPieceData, ThrowOnError>): RequestResult<GetPieceResponses, GetPieceErrors, ThrowOnError> => (options.client ?? client).get<GetPieceResponses, GetPieceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces/{pieceId}',
     ...options
 });
@@ -259,7 +411,15 @@ export const getPiece = <ThrowOnError extends boolean = false>(options: Options<
  * Reaching READY starts the hold period.
  */
 export const movePiece = <ThrowOnError extends boolean = false>(options: Options<MovePieceData, ThrowOnError>): RequestResult<MovePieceResponses, MovePieceErrors, ThrowOnError> => (options.client ?? client).post<MovePieceResponses, MovePieceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces/{pieceId}/moves',
     ...options,
     headers: {
@@ -281,7 +441,15 @@ export const movePiece = <ThrowOnError extends boolean = false>(options: Options
  *
  */
 export const startPhotoUpload = <ThrowOnError extends boolean = false>(options: Options<StartPhotoUploadData, ThrowOnError>): RequestResult<StartPhotoUploadResponses, StartPhotoUploadErrors, ThrowOnError> => (options.client ?? client).post<StartPhotoUploadResponses, StartPhotoUploadErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos',
     ...options
 });
@@ -295,7 +463,15 @@ export const startPhotoUpload = <ThrowOnError extends boolean = false>(options: 
  *
  */
 export const completePhotoUpload = <ThrowOnError extends boolean = false>(options: Options<CompletePhotoUploadData, ThrowOnError>): RequestResult<CompletePhotoUploadResponses, CompletePhotoUploadErrors, ThrowOnError> => (options.client ?? client).post<CompletePhotoUploadResponses, CompletePhotoUploadErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}/complete',
     ...options
 });
@@ -306,7 +482,15 @@ export const completePhotoUpload = <ThrowOnError extends boolean = false>(option
  * Anyone who can see the piece can remove its photos.
  */
 export const deletePhoto = <ThrowOnError extends boolean = false>(options: Options<DeletePhotoData, ThrowOnError>): RequestResult<DeletePhotoResponses, DeletePhotoErrors, ThrowOnError> => (options.client ?? client).delete<DeletePhotoResponses, DeletePhotoErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/pieces/{pieceId}/photos/{photoId}',
     ...options
 });
@@ -315,7 +499,15 @@ export const deletePhoto = <ThrowOnError extends boolean = false>(options: Optio
  * The studio's kilns, with availability and firing counts
  */
 export const listKilns = <ThrowOnError extends boolean = false>(options: Options<ListKilnsData, ThrowOnError>): RequestResult<ListKilnsResponses, ListKilnsErrors, ThrowOnError> => (options.client ?? client).get<ListKilnsResponses, ListKilnsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns',
     ...options
 });
@@ -324,7 +516,15 @@ export const listKilns = <ThrowOnError extends boolean = false>(options: Options
  * Add a kiln (staff only)
  */
 export const createKiln = <ThrowOnError extends boolean = false>(options: Options<CreateKilnData, ThrowOnError>): RequestResult<CreateKilnResponses, CreateKilnErrors, ThrowOnError> => (options.client ?? client).post<CreateKilnResponses, CreateKilnErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns',
     ...options,
     headers: {
@@ -337,7 +537,15 @@ export const createKiln = <ThrowOnError extends boolean = false>(options: Option
  * Change a kiln's settings (staff only)
  */
 export const updateKiln = <ThrowOnError extends boolean = false>(options: Options<UpdateKilnData, ThrowOnError>): RequestResult<UpdateKilnResponses, UpdateKilnErrors, ThrowOnError> => (options.client ?? client).put<UpdateKilnResponses, UpdateKilnErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns/{kilnId}',
     ...options,
     headers: {
@@ -350,7 +558,15 @@ export const updateKiln = <ThrowOnError extends boolean = false>(options: Option
  * Take a kiln out of service, or put it back (staff only)
  */
 export const setKilnAvailability = <ThrowOnError extends boolean = false>(options: Options<SetKilnAvailabilityData, ThrowOnError>): RequestResult<SetKilnAvailabilityResponses, SetKilnAvailabilityErrors, ThrowOnError> => (options.client ?? client).put<SetKilnAvailabilityResponses, SetKilnAvailabilityErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns/{kilnId}/availability',
     ...options,
     headers: {
@@ -365,7 +581,15 @@ export const setKilnAvailability = <ThrowOnError extends boolean = false>(option
  * Kilns are included automatically. Archived assets are left out.
  */
 export const listAssets = <ThrowOnError extends boolean = false>(options: Options<ListAssetsData, ThrowOnError>): RequestResult<ListAssetsResponses, ListAssetsErrors, ThrowOnError> => (options.client ?? client).get<ListAssetsResponses, ListAssetsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets',
     ...options
 });
@@ -376,7 +600,15 @@ export const listAssets = <ThrowOnError extends boolean = false>(options: Option
  * Kilns are added on the kilns page and appear here by themselves, so KILN isn't accepted.
  */
 export const createAsset = <ThrowOnError extends boolean = false>(options: Options<CreateAssetData, ThrowOnError>): RequestResult<CreateAssetResponses, CreateAssetErrors, ThrowOnError> => (options.client ?? client).post<CreateAssetResponses, CreateAssetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets',
     ...options,
     headers: {
@@ -391,7 +623,15 @@ export const createAsset = <ThrowOnError extends boolean = false>(options: Optio
  * Its history is kept. A kiln's asset goes when the kiln does, so it can't be archived here.
  */
 export const archiveAsset = <ThrowOnError extends boolean = false>(options: Options<ArchiveAssetData, ThrowOnError>): RequestResult<ArchiveAssetResponses, ArchiveAssetErrors, ThrowOnError> => (options.client ?? client).delete<ArchiveAssetResponses, ArchiveAssetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}',
     ...options
 });
@@ -402,7 +642,15 @@ export const archiveAsset = <ThrowOnError extends boolean = false>(options: Opti
  * A kiln asset takes its name from the kiln, so `name` is ignored for one.
  */
 export const updateAsset = <ThrowOnError extends boolean = false>(options: Options<UpdateAssetData, ThrowOnError>): RequestResult<UpdateAssetResponses, UpdateAssetErrors, ThrowOnError> => (options.client ?? client).put<UpdateAssetResponses, UpdateAssetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}',
     ...options,
     headers: {
@@ -417,7 +665,15 @@ export const updateAsset = <ThrowOnError extends boolean = false>(options: Optio
  * A kiln is marked down on the kiln itself, where it also stops loads, so a kiln asset is refused here.
  */
 export const setAssetAvailability = <ThrowOnError extends boolean = false>(options: Options<SetAssetAvailabilityData, ThrowOnError>): RequestResult<SetAssetAvailabilityResponses, SetAssetAvailabilityErrors, ThrowOnError> => (options.client ?? client).put<SetAssetAvailabilityResponses, SetAssetAvailabilityErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/availability',
     ...options,
     headers: {
@@ -434,7 +690,15 @@ export const setAssetAvailability = <ThrowOnError extends boolean = false>(optio
  *
  */
 export const createMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<CreateMaintenanceTaskData, ThrowOnError>): RequestResult<CreateMaintenanceTaskResponses, CreateMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).post<CreateMaintenanceTaskResponses, CreateMaintenanceTaskErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/tasks',
     ...options,
     headers: {
@@ -447,7 +711,15 @@ export const createMaintenanceTask = <ThrowOnError extends boolean = false>(opti
  * The asset's maintenance history, newest first (staff only)
  */
 export const listMaintenanceRecords = <ThrowOnError extends boolean = false>(options: Options<ListMaintenanceRecordsData, ThrowOnError>): RequestResult<ListMaintenanceRecordsResponses, ListMaintenanceRecordsErrors, ThrowOnError> => (options.client ?? client).get<ListMaintenanceRecordsResponses, ListMaintenanceRecordsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/records',
     ...options
 });
@@ -458,7 +730,15 @@ export const listMaintenanceRecords = <ThrowOnError extends boolean = false>(opt
  * It doesn't restart any task's clock.
  */
 export const recordRepair = <ThrowOnError extends boolean = false>(options: Options<RecordRepairData, ThrowOnError>): RequestResult<RecordRepairResponses, RecordRepairErrors, ThrowOnError> => (options.client ?? client).post<RecordRepairResponses, RecordRepairErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/records',
     ...options,
     headers: {
@@ -476,7 +756,15 @@ export const recordRepair = <ThrowOnError extends boolean = false>(options: Opti
  *
  */
 export const listSuggestedMaintenanceTasks = <ThrowOnError extends boolean = false>(options: Options<ListSuggestedMaintenanceTasksData, ThrowOnError>): RequestResult<ListSuggestedMaintenanceTasksResponses, ListSuggestedMaintenanceTasksErrors, ThrowOnError> => (options.client ?? client).get<ListSuggestedMaintenanceTasksResponses, ListSuggestedMaintenanceTasksErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/assets/{assetId}/suggested-tasks',
     ...options
 });
@@ -490,7 +778,15 @@ export const listSuggestedMaintenanceTasks = <ThrowOnError extends boolean = fal
  *
  */
 export const startRecordPhotoUpload = <ThrowOnError extends boolean = false>(options: Options<StartRecordPhotoUploadData, ThrowOnError>): RequestResult<StartRecordPhotoUploadResponses, StartRecordPhotoUploadErrors, ThrowOnError> => (options.client ?? client).post<StartRecordPhotoUploadResponses, StartRecordPhotoUploadErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/records/{recordId}/photos',
     ...options
 });
@@ -501,7 +797,15 @@ export const startRecordPhotoUpload = <ThrowOnError extends boolean = false>(opt
  * Checks both images like `completePhotoUpload`. Calling it again changes nothing.
  */
 export const completeRecordPhotoUpload = <ThrowOnError extends boolean = false>(options: Options<CompleteRecordPhotoUploadData, ThrowOnError>): RequestResult<CompleteRecordPhotoUploadResponses, CompleteRecordPhotoUploadErrors, ThrowOnError> => (options.client ?? client).post<CompleteRecordPhotoUploadResponses, CompleteRecordPhotoUploadErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/records/{recordId}/photos/{photoId}/complete',
     ...options
 });
@@ -512,7 +816,15 @@ export const completeRecordPhotoUpload = <ThrowOnError extends boolean = false>(
  * Records done on or between the two dates, in the studio's time zone, oldest first.
  */
 export const exportMaintenanceRecords = <ThrowOnError extends boolean = false>(options: Options<ExportMaintenanceRecordsData, ThrowOnError>): RequestResult<ExportMaintenanceRecordsResponses, ExportMaintenanceRecordsErrors, ThrowOnError> => (options.client ?? client).get<ExportMaintenanceRecordsResponses, ExportMaintenanceRecordsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/records/export',
     ...options
 });
@@ -523,7 +835,15 @@ export const exportMaintenanceRecords = <ThrowOnError extends boolean = false>(o
  * Records of it are kept.
  */
 export const archiveMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<ArchiveMaintenanceTaskData, ThrowOnError>): RequestResult<ArchiveMaintenanceTaskResponses, ArchiveMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).delete<ArchiveMaintenanceTaskResponses, ArchiveMaintenanceTaskErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}',
     ...options
 });
@@ -532,7 +852,15 @@ export const archiveMaintenanceTask = <ThrowOnError extends boolean = false>(opt
  * Change a task's job, interval or assignee (staff only)
  */
 export const updateMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<UpdateMaintenanceTaskData, ThrowOnError>): RequestResult<UpdateMaintenanceTaskResponses, UpdateMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).put<UpdateMaintenanceTaskResponses, UpdateMaintenanceTaskErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}',
     ...options,
     headers: {
@@ -547,7 +875,15 @@ export const updateMaintenanceTask = <ThrowOnError extends boolean = false>(opti
  * For staff, and for whoever the task is assigned to, by name or by duty.
  */
 export const completeMaintenanceTask = <ThrowOnError extends boolean = false>(options: Options<CompleteMaintenanceTaskData, ThrowOnError>): RequestResult<CompleteMaintenanceTaskResponses, CompleteMaintenanceTaskErrors, ThrowOnError> => (options.client ?? client).post<CompleteMaintenanceTaskResponses, CompleteMaintenanceTaskErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/tasks/{taskId}/completions',
     ...options,
     headers: {
@@ -560,7 +896,15 @@ export const completeMaintenanceTask = <ThrowOnError extends boolean = false>(op
  * Tasks assigned to the caller, by name or through a duty they hold, soonest due first
  */
 export const listMyMaintenanceTasks = <ThrowOnError extends boolean = false>(options: Options<ListMyMaintenanceTasksData, ThrowOnError>): RequestResult<ListMyMaintenanceTasksResponses, ListMyMaintenanceTasksErrors, ThrowOnError> => (options.client ?? client).get<ListMyMaintenanceTasksResponses, ListMyMaintenanceTasksErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/my-tasks',
     ...options
 });
@@ -569,7 +913,15 @@ export const listMyMaintenanceTasks = <ThrowOnError extends boolean = false>(opt
  * Equipment and places a member can report a problem with
  */
 export const listReportableAssets = <ThrowOnError extends boolean = false>(options: Options<ListReportableAssetsData, ThrowOnError>): RequestResult<ListReportableAssetsResponses, ListReportableAssetsErrors, ThrowOnError> => (options.client ?? client).get<ListReportableAssetsResponses, ListReportableAssetsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/reportable-assets',
     ...options
 });
@@ -580,7 +932,15 @@ export const listReportableAssets = <ThrowOnError extends boolean = false>(optio
  * Staff see every report; members see their own.
  */
 export const listProblemReports = <ThrowOnError extends boolean = false>(options: Options<ListProblemReportsData, ThrowOnError>): RequestResult<ListProblemReportsResponses, ListProblemReportsErrors, ThrowOnError> => (options.client ?? client).get<ListProblemReportsResponses, ListProblemReportsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/problem-reports',
     ...options
 });
@@ -591,7 +951,15 @@ export const listProblemReports = <ThrowOnError extends boolean = false>(options
  * Anyone in the studio can. The staff and technicians get a notice.
  */
 export const reportProblem = <ThrowOnError extends boolean = false>(options: Options<ReportProblemData, ThrowOnError>): RequestResult<ReportProblemResponses, ReportProblemErrors, ThrowOnError> => (options.client ?? client).post<ReportProblemResponses, ReportProblemErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/problem-reports',
     ...options,
     headers: {
@@ -606,7 +974,15 @@ export const reportProblem = <ThrowOnError extends boolean = false>(options: Opt
  * Log any repair on the asset as well; resolving doesn't record work.
  */
 export const resolveProblemReport = <ThrowOnError extends boolean = false>(options: Options<ResolveProblemReportData, ThrowOnError>): RequestResult<ResolveProblemReportResponses, ResolveProblemReportErrors, ThrowOnError> => (options.client ?? client).post<ResolveProblemReportResponses, ResolveProblemReportErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/maintenance/problem-reports/{reportId}/resolution',
     ...options,
     headers: {
@@ -621,7 +997,15 @@ export const resolveProblemReport = <ThrowOnError extends boolean = false>(optio
  * Each entry says whether the kiln's per-member cap lets it into the next load.
  */
 export const getKilnQueue = <ThrowOnError extends boolean = false>(options: Options<GetKilnQueueData, ThrowOnError>): RequestResult<GetKilnQueueResponses, GetKilnQueueErrors, ThrowOnError> => (options.client ?? client).get<GetKilnQueueResponses, GetKilnQueueErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns/{kilnId}/queue',
     ...options
 });
@@ -630,7 +1014,15 @@ export const getKilnQueue = <ThrowOnError extends boolean = false>(options: Opti
  * The kiln's firing log, newest first (staff only)
  */
 export const listKilnFirings = <ThrowOnError extends boolean = false>(options: Options<ListKilnFiringsData, ThrowOnError>): RequestResult<ListKilnFiringsResponses, ListKilnFiringsErrors, ThrowOnError> => (options.client ?? client).get<ListKilnFiringsResponses, ListKilnFiringsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns/{kilnId}/firings',
     ...options
 });
@@ -639,7 +1031,15 @@ export const listKilnFirings = <ThrowOnError extends boolean = false>(options: O
  * Start a load from queued pieces (staff only)
  */
 export const loadKiln = <ThrowOnError extends boolean = false>(options: Options<LoadKilnData, ThrowOnError>): RequestResult<LoadKilnResponses, LoadKilnErrors, ThrowOnError> => (options.client ?? client).post<LoadKilnResponses, LoadKilnErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/kilns/{kilnId}/firings',
     ...options,
     headers: {
@@ -652,7 +1052,15 @@ export const loadKiln = <ThrowOnError extends boolean = false>(options: Options<
  * One firing and its pieces (staff only)
  */
 export const getFiring = <ThrowOnError extends boolean = false>(options: Options<GetFiringData, ThrowOnError>): RequestResult<GetFiringResponses, GetFiringErrors, ThrowOnError> => (options.client ?? client).get<GetFiringResponses, GetFiringErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/firings/{firingId}',
     ...options
 });
@@ -666,7 +1074,15 @@ export const getFiring = <ThrowOnError extends boolean = false>(options: Options
  *
  */
 export const transitionFiring = <ThrowOnError extends boolean = false>(options: Options<TransitionFiringData, ThrowOnError>): RequestResult<TransitionFiringResponses, TransitionFiringErrors, ThrowOnError> => (options.client ?? client).post<TransitionFiringResponses, TransitionFiringErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/firings/{firingId}/transitions',
     ...options,
     headers: {
@@ -679,7 +1095,15 @@ export const transitionFiring = <ThrowOnError extends boolean = false>(options: 
  * The caller's notifications in this studio, newest first
  */
 export const listMyNotifications = <ThrowOnError extends boolean = false>(options: Options<ListMyNotificationsData, ThrowOnError>): RequestResult<ListMyNotificationsResponses, ListMyNotificationsErrors, ThrowOnError> => (options.client ?? client).get<ListMyNotificationsResponses, ListMyNotificationsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/notifications',
     ...options
 });
@@ -688,7 +1112,15 @@ export const listMyNotifications = <ThrowOnError extends boolean = false>(option
  * Mark one of the caller's notifications as read
  */
 export const markNotificationRead = <ThrowOnError extends boolean = false>(options: Options<MarkNotificationReadData, ThrowOnError>): RequestResult<MarkNotificationReadResponses, MarkNotificationReadErrors, ThrowOnError> => (options.client ?? client).post<MarkNotificationReadResponses, MarkNotificationReadErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/notifications/{notificationId}/read',
     ...options
 });
@@ -697,7 +1129,15 @@ export const markNotificationRead = <ThrowOnError extends boolean = false>(optio
  * Send every member a notice, such as a closure (staff only)
  */
 export const sendNotice = <ThrowOnError extends boolean = false>(options: Options<SendNoticeData, ThrowOnError>): RequestResult<SendNoticeResponses, SendNoticeErrors, ThrowOnError> => (options.client ?? client).post<SendNoticeResponses, SendNoticeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/notices',
     ...options,
     headers: {
@@ -710,7 +1150,15 @@ export const sendNotice = <ThrowOnError extends boolean = false>(options: Option
  * Everyone's duties (staff only)
  */
 export const listDuties = <ThrowOnError extends boolean = false>(options: Options<ListDutiesData, ThrowOnError>): RequestResult<ListDutiesResponses, ListDutiesErrors, ThrowOnError> => (options.client ?? client).get<ListDutiesResponses, ListDutiesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/duties',
     ...options
 });
@@ -719,7 +1167,15 @@ export const listDuties = <ThrowOnError extends boolean = false>(options: Option
  * Replace a member's duties (staff only)
  */
 export const setDuties = <ThrowOnError extends boolean = false>(options: Options<SetDutiesData, ThrowOnError>): RequestResult<SetDutiesResponses, SetDutiesErrors, ThrowOnError> => (options.client ?? client).put<SetDutiesResponses, SetDutiesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/members/{accountId}/duties',
     ...options,
     headers: {
@@ -732,7 +1188,15 @@ export const setDuties = <ThrowOnError extends boolean = false>(options: Options
  * The certifications this studio gives
  */
 export const listCertificationTypes = <ThrowOnError extends boolean = false>(options: Options<ListCertificationTypesData, ThrowOnError>): RequestResult<ListCertificationTypesResponses, ListCertificationTypesErrors, ThrowOnError> => (options.client ?? client).get<ListCertificationTypesResponses, ListCertificationTypesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/certification-types',
     ...options
 });
@@ -741,7 +1205,15 @@ export const listCertificationTypes = <ThrowOnError extends boolean = false>(opt
  * Add a kind of certification, such as "Kiln loading" (staff only)
  */
 export const createCertificationType = <ThrowOnError extends boolean = false>(options: Options<CreateCertificationTypeData, ThrowOnError>): RequestResult<CreateCertificationTypeResponses, CreateCertificationTypeErrors, ThrowOnError> => (options.client ?? client).post<CreateCertificationTypeResponses, CreateCertificationTypeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/certification-types',
     ...options,
     headers: {
@@ -756,7 +1228,15 @@ export const createCertificationType = <ThrowOnError extends boolean = false>(op
  * Staff see everyone's; with `accountId`, one person's. Members may ask only for their own.
  */
 export const listCertifications = <ThrowOnError extends boolean = false>(options: Options<ListCertificationsData, ThrowOnError>): RequestResult<ListCertificationsResponses, ListCertificationsErrors, ThrowOnError> => (options.client ?? client).get<ListCertificationsResponses, ListCertificationsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/certifications',
     ...options
 });
@@ -765,7 +1245,15 @@ export const listCertifications = <ThrowOnError extends boolean = false>(options
  * Withdraw a certification (staff only)
  */
 export const revokeCertification = <ThrowOnError extends boolean = false>(options: Options<RevokeCertificationData, ThrowOnError>): RequestResult<RevokeCertificationResponses, RevokeCertificationErrors, ThrowOnError> => (options.client ?? client).delete<RevokeCertificationResponses, RevokeCertificationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/certifications/{typeId}/holders/{accountId}',
     ...options
 });
@@ -774,7 +1262,15 @@ export const revokeCertification = <ThrowOnError extends boolean = false>(option
  * Grant or renew a certification (staff only)
  */
 export const grantCertification = <ThrowOnError extends boolean = false>(options: Options<GrantCertificationData, ThrowOnError>): RequestResult<GrantCertificationResponses, GrantCertificationErrors, ThrowOnError> => (options.client ?? client).put<GrantCertificationResponses, GrantCertificationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/certifications/{typeId}/holders/{accountId}',
     ...options
 });
@@ -783,7 +1279,15 @@ export const grantCertification = <ThrowOnError extends boolean = false>(options
  * What can be booked
  */
 export const listResources = <ThrowOnError extends boolean = false>(options: Options<ListResourcesData, ThrowOnError>): RequestResult<ListResourcesResponses, ListResourcesErrors, ThrowOnError> => (options.client ?? client).get<ListResourcesResponses, ListResourcesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/resources',
     ...options
 });
@@ -792,7 +1296,15 @@ export const listResources = <ThrowOnError extends boolean = false>(options: Opt
  * Add something bookable (staff only)
  */
 export const createResource = <ThrowOnError extends boolean = false>(options: Options<CreateResourceData, ThrowOnError>): RequestResult<CreateResourceResponses, CreateResourceErrors, ThrowOnError> => (options.client ?? client).post<CreateResourceResponses, CreateResourceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/resources',
     ...options,
     headers: {
@@ -807,7 +1319,15 @@ export const createResource = <ThrowOnError extends boolean = false>(options: Op
  * Members see other people's reservations only as "Reserved".
  */
 export const listBookings = <ThrowOnError extends boolean = false>(options: Options<ListBookingsData, ThrowOnError>): RequestResult<ListBookingsResponses, ListBookingsErrors, ThrowOnError> => (options.client ?? client).get<ListBookingsResponses, ListBookingsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/bookings',
     ...options
 });
@@ -821,7 +1341,15 @@ export const listBookings = <ThrowOnError extends boolean = false>(options: Opti
  *
  */
 export const createBooking = <ThrowOnError extends boolean = false>(options: Options<CreateBookingData, ThrowOnError>): RequestResult<CreateBookingResponses, CreateBookingErrors, ThrowOnError> => (options.client ?? client).post<CreateBookingResponses, CreateBookingErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/bookings',
     ...options,
     headers: {
@@ -834,7 +1362,15 @@ export const createBooking = <ThrowOnError extends boolean = false>(options: Opt
  * Cancel your reservation (staff can cancel anything)
  */
 export const cancelBooking = <ThrowOnError extends boolean = false>(options: Options<CancelBookingData, ThrowOnError>): RequestResult<CancelBookingResponses, CancelBookingErrors, ThrowOnError> => (options.client ?? client).delete<CancelBookingResponses, CancelBookingErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/bookings/{bookingId}',
     ...options
 });
@@ -843,7 +1379,15 @@ export const cancelBooking = <ThrowOnError extends boolean = false>(options: Opt
  * The roster between two times (up to 62 days)
  */
 export const listShifts = <ThrowOnError extends boolean = false>(options: Options<ListShiftsData, ThrowOnError>): RequestResult<ListShiftsResponses, ListShiftsErrors, ThrowOnError> => (options.client ?? client).get<ListShiftsResponses, ListShiftsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/shifts',
     ...options
 });
@@ -852,7 +1396,15 @@ export const listShifts = <ThrowOnError extends boolean = false>(options: Option
  * Add a weekly shift for a number of weeks (staff only)
  */
 export const createShifts = <ThrowOnError extends boolean = false>(options: Options<CreateShiftsData, ThrowOnError>): RequestResult<CreateShiftsResponses, CreateShiftsErrors, ThrowOnError> => (options.client ?? client).post<CreateShiftsResponses, CreateShiftsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/shifts',
     ...options,
     headers: {
@@ -865,7 +1417,15 @@ export const createShifts = <ThrowOnError extends boolean = false>(options: Opti
  * Take an open shift, or (staff) assign or free one
  */
 export const assignShift = <ThrowOnError extends boolean = false>(options: Options<AssignShiftData, ThrowOnError>): RequestResult<AssignShiftResponses, AssignShiftErrors, ThrowOnError> => (options.client ?? client).put<AssignShiftResponses, AssignShiftErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/shifts/{shiftId}/assignment',
     ...options,
     headers: {
@@ -883,7 +1443,15 @@ export const assignShift = <ThrowOnError extends boolean = false>(options: Optio
  *
  */
 export const offerShift = <ThrowOnError extends boolean = false>(options: Options<OfferShiftData, ThrowOnError>): RequestResult<OfferShiftResponses, OfferShiftErrors, ThrowOnError> => (options.client ?? client).put<OfferShiftResponses, OfferShiftErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/shifts/{shiftId}/offer',
     ...options,
     headers: {
@@ -896,7 +1464,15 @@ export const offerShift = <ThrowOnError extends boolean = false>(options: Option
  * Confirm a shift was worked, crediting its hours (staff only)
  */
 export const markShiftWorked = <ThrowOnError extends boolean = false>(options: Options<MarkShiftWorkedData, ThrowOnError>): RequestResult<MarkShiftWorkedResponses, MarkShiftWorkedErrors, ThrowOnError> => (options.client ?? client).post<MarkShiftWorkedResponses, MarkShiftWorkedErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/shifts/{shiftId}/worked',
     ...options,
     headers: {
@@ -909,7 +1485,15 @@ export const markShiftWorked = <ThrowOnError extends boolean = false>(options: O
  * Someone's credited hours (members see only their own)
  */
 export const getHours = <ThrowOnError extends boolean = false>(options: Options<GetHoursData, ThrowOnError>): RequestResult<GetHoursResponses, GetHoursErrors, ThrowOnError> => (options.client ?? client).get<GetHoursResponses, GetHoursErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/hours/{accountId}',
     ...options
 });
@@ -918,7 +1502,15 @@ export const getHours = <ThrowOnError extends boolean = false>(options: Options<
  * Credit or debit hours by hand, with a reason (staff only)
  */
 export const adjustHours = <ThrowOnError extends boolean = false>(options: Options<AdjustHoursData, ThrowOnError>): RequestResult<AdjustHoursResponses, AdjustHoursErrors, ThrowOnError> => (options.client ?? client).post<AdjustHoursResponses, AdjustHoursErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/hours/{accountId}',
     ...options,
     headers: {
@@ -931,7 +1523,15 @@ export const adjustHours = <ThrowOnError extends boolean = false>(options: Optio
  * What whoever runs the studio today needs to know (staff only)
  */
 export const getToday = <ThrowOnError extends boolean = false>(options: Options<GetTodayData, ThrowOnError>): RequestResult<GetTodayResponses, GetTodayErrors, ThrowOnError> => (options.client ?? client).get<GetTodayResponses, GetTodayErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/today',
     ...options
 });
@@ -940,7 +1540,15 @@ export const getToday = <ThrowOnError extends boolean = false>(options: Options<
  * Members who owe something or are in credit, largest first (staff only)
  */
 export const listBalances = <ThrowOnError extends boolean = false>(options: Options<ListBalancesData, ThrowOnError>): RequestResult<ListBalancesResponses, ListBalancesErrors, ThrowOnError> => (options.client ?? client).get<ListBalancesResponses, ListBalancesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/balances',
     ...options
 });
@@ -949,7 +1557,15 @@ export const listBalances = <ThrowOnError extends boolean = false>(options: Opti
  * What a member owes and has prepaid (members see their own)
  */
 export const getStatement = <ThrowOnError extends boolean = false>(options: Options<GetStatementData, ThrowOnError>): RequestResult<GetStatementResponses, GetStatementErrors, ThrowOnError> => (options.client ?? client).get<GetStatementResponses, GetStatementErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/members/{accountId}/statement',
     ...options
 });
@@ -958,7 +1574,15 @@ export const getStatement = <ThrowOnError extends boolean = false>(options: Opti
  * Record a member's payment against what they owe (staff only)
  */
 export const recordPayment = <ThrowOnError extends boolean = false>(options: Options<RecordPaymentData, ThrowOnError>): RequestResult<RecordPaymentResponses, RecordPaymentErrors, ThrowOnError> => (options.client ?? client).post<RecordPaymentResponses, RecordPaymentErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payments',
     ...options,
     headers: {
@@ -971,7 +1595,15 @@ export const recordPayment = <ThrowOnError extends boolean = false>(options: Opt
  * Prepaid balances with something left (staff only)
  */
 export const listStoredValues = <ThrowOnError extends boolean = false>(options: Options<ListStoredValuesData, ThrowOnError>): RequestResult<ListStoredValuesResponses, ListStoredValuesErrors, ThrowOnError> => (options.client ?? client).get<ListStoredValuesResponses, ListStoredValuesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/stored-values',
     ...options
 });
@@ -980,7 +1612,15 @@ export const listStoredValues = <ThrowOnError extends boolean = false>(options: 
  * Sell a gift card, firing card, class pack, deposit or credit (staff only)
  */
 export const sellStoredValue = <ThrowOnError extends boolean = false>(options: Options<SellStoredValueData, ThrowOnError>): RequestResult<SellStoredValueResponses, SellStoredValueErrors, ThrowOnError> => (options.client ?? client).post<SellStoredValueResponses, SellStoredValueErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/stored-values',
     ...options,
     headers: {
@@ -993,7 +1633,15 @@ export const sellStoredValue = <ThrowOnError extends boolean = false>(options: O
  * Look up a gift card by its code (staff only)
  */
 export const findGiftCard = <ThrowOnError extends boolean = false>(options: Options<FindGiftCardData, ThrowOnError>): RequestResult<FindGiftCardResponses, FindGiftCardErrors, ThrowOnError> => (options.client ?? client).get<FindGiftCardResponses, FindGiftCardErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/gift-cards/{code}',
     ...options
 });
@@ -1002,7 +1650,15 @@ export const findGiftCard = <ThrowOnError extends boolean = false>(options: Opti
  * Pay down a member's balance from a prepaid balance (staff only)
  */
 export const useStoredValue = <ThrowOnError extends boolean = false>(options: Options<UseStoredValueData, ThrowOnError>): RequestResult<UseStoredValueResponses, UseStoredValueErrors, ThrowOnError> => (options.client ?? client).post<UseStoredValueResponses, UseStoredValueErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/stored-values/{storedValueId}/uses',
     ...options,
     headers: {
@@ -1015,7 +1671,15 @@ export const useStoredValue = <ThrowOnError extends boolean = false>(options: Op
  * Write off what's left on a lapsed balance (staff only)
  */
 export const expireStoredValue = <ThrowOnError extends boolean = false>(options: Options<ExpireStoredValueData, ThrowOnError>): RequestResult<ExpireStoredValueResponses, ExpireStoredValueErrors, ThrowOnError> => (options.client ?? client).post<ExpireStoredValueResponses, ExpireStoredValueErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/stored-values/{storedValueId}/expiry',
     ...options
 });
@@ -1024,7 +1688,15 @@ export const expireStoredValue = <ThrowOnError extends boolean = false>(options:
  * Prepaid balances rolled forward over a period, by kind (staff only)
  */
 export const getStoredValueMovements = <ThrowOnError extends boolean = false>(options: Options<GetStoredValueMovementsData, ThrowOnError>): RequestResult<GetStoredValueMovementsResponses, GetStoredValueMovementsErrors, ThrowOnError> => (options.client ?? client).get<GetStoredValueMovementsResponses, GetStoredValueMovementsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/stored-value-movements',
     ...options
 });
@@ -1033,7 +1705,15 @@ export const getStoredValueMovements = <ThrowOnError extends boolean = false>(op
  * Imported payouts, newest first (staff only)
  */
 export const listPayouts = <ThrowOnError extends boolean = false>(options: Options<ListPayoutsData, ThrowOnError>): RequestResult<ListPayoutsResponses, ListPayoutsErrors, ThrowOnError> => (options.client ?? client).get<ListPayoutsResponses, ListPayoutsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payouts',
     ...options
 });
@@ -1046,7 +1726,15 @@ export const listPayouts = <ThrowOnError extends boolean = false>(options: Optio
  *
  */
 export const importPayout = <ThrowOnError extends boolean = false>(options: Options<ImportPayoutData, ThrowOnError>): RequestResult<ImportPayoutResponses, ImportPayoutErrors, ThrowOnError> => (options.client ?? client).post<ImportPayoutResponses, ImportPayoutErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payouts',
     ...options,
     headers: {
@@ -1059,7 +1747,15 @@ export const importPayout = <ThrowOnError extends boolean = false>(options: Opti
  * Money each processor has taken but not yet paid out (staff only)
  */
 export const getClearing = <ThrowOnError extends boolean = false>(options: Options<GetClearingData, ThrowOnError>): RequestResult<GetClearingResponses, GetClearingErrors, ThrowOnError> => (options.client ?? client).get<GetClearingResponses, GetClearingErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/clearing',
     ...options
 });
@@ -1068,7 +1764,15 @@ export const getClearing = <ThrowOnError extends boolean = false>(options: Optio
  * Debits and credits per day and account (staff only)
  */
 export const getLedgerSummary = <ThrowOnError extends boolean = false>(options: Options<GetLedgerSummaryData, ThrowOnError>): RequestResult<GetLedgerSummaryResponses, GetLedgerSummaryErrors, ThrowOnError> => (options.client ?? client).get<GetLedgerSummaryResponses, GetLedgerSummaryErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/ledger/summary',
     ...options
 });
@@ -1077,7 +1781,15 @@ export const getLedgerSummary = <ThrowOnError extends boolean = false>(options: 
  * The daily summary as a journal CSV for QuickBooks or Xero (staff only)
  */
 export const exportJournal = <ThrowOnError extends boolean = false>(options: Options<ExportJournalData, ThrowOnError>): RequestResult<ExportJournalResponses, ExportJournalErrors, ThrowOnError> => (options.client ?? client).get<ExportJournalResponses, ExportJournalErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/ledger/export',
     ...options
 });
@@ -1086,7 +1798,15 @@ export const exportJournal = <ThrowOnError extends boolean = false>(options: Opt
  * Sales tax rates by category and the date they start
  */
 export const listTaxRates = <ThrowOnError extends boolean = false>(options: Options<ListTaxRatesData, ThrowOnError>): RequestResult<ListTaxRatesResponses, ListTaxRatesErrors, ThrowOnError> => (options.client ?? client).get<ListTaxRatesResponses, ListTaxRatesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/tax-rates',
     ...options
 });
@@ -1095,7 +1815,15 @@ export const listTaxRates = <ThrowOnError extends boolean = false>(options: Opti
  * Set a category's rate from a date onwards (staff only)
  */
 export const setTaxRate = <ThrowOnError extends boolean = false>(options: Options<SetTaxRateData, ThrowOnError>): RequestResult<SetTaxRateResponses, SetTaxRateErrors, ThrowOnError> => (options.client ?? client).put<SetTaxRateResponses, SetTaxRateErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/tax-rates',
     ...options,
     headers: {
@@ -1108,7 +1836,15 @@ export const setTaxRate = <ThrowOnError extends boolean = false>(options: Option
  * Everyone the studio pays, with what each is owed (staff only)
  */
 export const listPayees = <ThrowOnError extends boolean = false>(options: Options<ListPayeesData, ThrowOnError>): RequestResult<ListPayeesResponses, ListPayeesErrors, ThrowOnError> => (options.client ?? client).get<ListPayeesResponses, ListPayeesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payees',
     ...options
 });
@@ -1117,7 +1853,15 @@ export const listPayees = <ThrowOnError extends boolean = false>(options: Option
  * Add an artist, instructor or anyone else the studio pays (staff only)
  */
 export const createPayee = <ThrowOnError extends boolean = false>(options: Options<CreatePayeeData, ThrowOnError>): RequestResult<CreatePayeeResponses, CreatePayeeErrors, ThrowOnError> => (options.client ?? client).post<CreatePayeeResponses, CreatePayeeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payees',
     ...options,
     headers: {
@@ -1130,7 +1874,15 @@ export const createPayee = <ThrowOnError extends boolean = false>(options: Optio
  * Change a payee's details, terms or tax status, or archive them (staff only)
  */
 export const updatePayee = <ThrowOnError extends boolean = false>(options: Options<UpdatePayeeData, ThrowOnError>): RequestResult<UpdatePayeeResponses, UpdatePayeeErrors, ThrowOnError> => (options.client ?? client).put<UpdatePayeeResponses, UpdatePayeeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payees/{payeeId}',
     ...options,
     headers: {
@@ -1143,7 +1895,15 @@ export const updatePayee = <ThrowOnError extends boolean = false>(options: Optio
  * What a payee was owed, earned and paid over a period (staff only)
  */
 export const getPayeeStatement = <ThrowOnError extends boolean = false>(options: Options<GetPayeeStatementData, ThrowOnError>): RequestResult<GetPayeeStatementResponses, GetPayeeStatementErrors, ThrowOnError> => (options.client ?? client).get<GetPayeeStatementResponses, GetPayeeStatementErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payees/{payeeId}/statement',
     ...options
 });
@@ -1152,7 +1912,15 @@ export const getPayeeStatement = <ThrowOnError extends boolean = false>(options:
  * Record a share or fee a payee has earned, such as an instructor's share of a class (staff only)
  */
 export const recordEarning = <ThrowOnError extends boolean = false>(options: Options<RecordEarningData, ThrowOnError>): RequestResult<RecordEarningResponses, RecordEarningErrors, ThrowOnError> => (options.client ?? client).post<RecordEarningResponses, RecordEarningErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payees/{payeeId}/earnings',
     ...options,
     headers: {
@@ -1165,7 +1933,15 @@ export const recordEarning = <ThrowOnError extends boolean = false>(options: Opt
  * Record money sent to a payee, up to what they're owed (staff only)
  */
 export const payPayee = <ThrowOnError extends boolean = false>(options: Options<PayPayeeData, ThrowOnError>): RequestResult<PayPayeeResponses, PayPayeeErrors, ThrowOnError> => (options.client ?? client).post<PayPayeeResponses, PayPayeeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payees/{payeeId}/payments',
     ...options,
     headers: {
@@ -1183,7 +1959,15 @@ export const payPayee = <ThrowOnError extends boolean = false>(options: Options<
  *
  */
 export const payPayees = <ThrowOnError extends boolean = false>(options: Options<PayPayeesData, ThrowOnError>): RequestResult<PayPayeesResponses, PayPayeesErrors, ThrowOnError> => (options.client ?? client).post<PayPayeesResponses, PayPayeesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payment-runs',
     ...options,
     headers: {
@@ -1196,7 +1980,15 @@ export const payPayees = <ThrowOnError extends boolean = false>(options: Options
  * The signed-in member's own work on consignment, its sales, and what they're owed
  */
 export const getMyConsignment = <ThrowOnError extends boolean = false>(options: Options<GetMyConsignmentData, ThrowOnError>): RequestResult<GetMyConsignmentResponses, GetMyConsignmentErrors, ThrowOnError> => (options.client ?? client).get<GetMyConsignmentResponses, GetMyConsignmentErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/my-consignment',
     ...options
 });
@@ -1210,7 +2002,15 @@ export const getMyConsignment = <ThrowOnError extends boolean = false>(options: 
  *
  */
 export const importMembers = <ThrowOnError extends boolean = false>(options: Options<ImportMembersData, ThrowOnError>): RequestResult<ImportMembersResponses, ImportMembersErrors, ThrowOnError> => (options.client ?? client).post<ImportMembersResponses, ImportMembersErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/imports/members',
     ...options,
     headers: {
@@ -1227,7 +2027,15 @@ export const importMembers = <ThrowOnError extends boolean = false>(options: Opt
  *
  */
 export const importConsignment = <ThrowOnError extends boolean = false>(options: Options<ImportConsignmentData, ThrowOnError>): RequestResult<ImportConsignmentResponses, ImportConsignmentErrors, ThrowOnError> => (options.client ?? client).post<ImportConsignmentResponses, ImportConsignmentErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/imports/consignment',
     ...options,
     headers: {
@@ -1240,7 +2048,15 @@ export const importConsignment = <ThrowOnError extends boolean = false>(options:
  * Consigned work, newest first (staff only)
  */
 export const listConsignmentItems = <ThrowOnError extends boolean = false>(options: Options<ListConsignmentItemsData, ThrowOnError>): RequestResult<ListConsignmentItemsResponses, ListConsignmentItemsErrors, ThrowOnError> => (options.client ?? client).get<ListConsignmentItemsResponses, ListConsignmentItemsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/consignment-items',
     ...options
 });
@@ -1249,7 +2065,15 @@ export const listConsignmentItems = <ThrowOnError extends boolean = false>(optio
  * Take in an artist's work to sell (staff only)
  */
 export const takeInConsignment = <ThrowOnError extends boolean = false>(options: Options<TakeInConsignmentData, ThrowOnError>): RequestResult<TakeInConsignmentResponses, TakeInConsignmentErrors, ThrowOnError> => (options.client ?? client).post<TakeInConsignmentResponses, TakeInConsignmentErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/consignment-items',
     ...options,
     headers: {
@@ -1262,7 +2086,15 @@ export const takeInConsignment = <ThrowOnError extends boolean = false>(options:
  * Sell consigned work; the artist's share becomes what they're owed (staff only)
  */
 export const sellConsignment = <ThrowOnError extends boolean = false>(options: Options<SellConsignmentData, ThrowOnError>): RequestResult<SellConsignmentResponses, SellConsignmentErrors, ThrowOnError> => (options.client ?? client).post<SellConsignmentResponses, SellConsignmentErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/consignment-items/{itemId}/sales',
     ...options,
     headers: {
@@ -1275,7 +2107,15 @@ export const sellConsignment = <ThrowOnError extends boolean = false>(options: O
  * Give unsold work back to the artist (staff only)
  */
 export const returnConsignment = <ThrowOnError extends boolean = false>(options: Options<ReturnConsignmentData, ThrowOnError>): RequestResult<ReturnConsignmentResponses, ReturnConsignmentErrors, ThrowOnError> => (options.client ?? client).post<ReturnConsignmentResponses, ReturnConsignmentErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/consignment-items/{itemId}/returns',
     ...options,
     headers: {
@@ -1288,7 +2128,15 @@ export const returnConsignment = <ThrowOnError extends boolean = false>(options:
  * Recent sales of consigned work, newest first (staff only)
  */
 export const listConsignmentSales = <ThrowOnError extends boolean = false>(options: Options<ListConsignmentSalesData, ThrowOnError>): RequestResult<ListConsignmentSalesResponses, ListConsignmentSalesErrors, ThrowOnError> => (options.client ?? client).get<ListConsignmentSalesResponses, ListConsignmentSalesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/consignment-sales',
     ...options
 });
@@ -1301,7 +2149,15 @@ export const listConsignmentSales = <ThrowOnError extends boolean = false>(optio
  *
  */
 export const refundConsignmentSale = <ThrowOnError extends boolean = false>(options: Options<RefundConsignmentSaleData, ThrowOnError>): RequestResult<RefundConsignmentSaleResponses, RefundConsignmentSaleErrors, ThrowOnError> => (options.client ?? client).post<RefundConsignmentSaleResponses, RefundConsignmentSaleErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/consignment-sales/{saleId}/refund',
     ...options
 });
@@ -1310,7 +2166,15 @@ export const refundConsignmentSale = <ThrowOnError extends boolean = false>(opti
  * Payments in a year to payees the studio files a 1099-NEC for (staff only)
  */
 export const getNecReport = <ThrowOnError extends boolean = false>(options: Options<GetNecReportData, ThrowOnError>): RequestResult<GetNecReportResponses, GetNecReportErrors, ThrowOnError> => (options.client ?? client).get<GetNecReportResponses, GetNecReportErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payables/1099-nec',
     ...options
 });
@@ -1319,7 +2183,15 @@ export const getNecReport = <ThrowOnError extends boolean = false>(options: Opti
  * The 1099-NEC list as CSV, for whoever files the forms (staff only)
  */
 export const exportNecReport = <ThrowOnError extends boolean = false>(options: Options<ExportNecReportData, ThrowOnError>): RequestResult<ExportNecReportResponses, ExportNecReportErrors, ThrowOnError> => (options.client ?? client).get<ExportNecReportResponses, ExportNecReportErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/payables/1099-nec/export',
     ...options
 });
@@ -1328,7 +2200,15 @@ export const exportNecReport = <ThrowOnError extends boolean = false>(options: O
  * Clay and supplies, low stock first
  */
 export const listSupplies = <ThrowOnError extends boolean = false>(options: Options<ListSuppliesData, ThrowOnError>): RequestResult<ListSuppliesResponses, ListSuppliesErrors, ThrowOnError> => (options.client ?? client).get<ListSuppliesResponses, ListSuppliesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/supplies',
     ...options
 });
@@ -1337,7 +2217,15 @@ export const listSupplies = <ThrowOnError extends boolean = false>(options: Opti
  * Add an item (staff only)
  */
 export const createSupply = <ThrowOnError extends boolean = false>(options: Options<CreateSupplyData, ThrowOnError>): RequestResult<CreateSupplyResponses, CreateSupplyErrors, ThrowOnError> => (options.client ?? client).post<CreateSupplyResponses, CreateSupplyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/supplies',
     ...options,
     headers: {
@@ -1350,7 +2238,15 @@ export const createSupply = <ThrowOnError extends boolean = false>(options: Opti
  * Change an item (staff only)
  */
 export const updateSupply = <ThrowOnError extends boolean = false>(options: Options<UpdateSupplyData, ThrowOnError>): RequestResult<UpdateSupplyResponses, UpdateSupplyErrors, ThrowOnError> => (options.client ?? client).put<UpdateSupplyResponses, UpdateSupplyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/supplies/{itemId}',
     ...options,
     headers: {
@@ -1363,7 +2259,15 @@ export const updateSupply = <ThrowOnError extends boolean = false>(options: Opti
  * The item's stock history, newest first (staff only)
  */
 export const listStockMovements = <ThrowOnError extends boolean = false>(options: Options<ListStockMovementsData, ThrowOnError>): RequestResult<ListStockMovementsResponses, ListStockMovementsErrors, ThrowOnError> => (options.client ?? client).get<ListStockMovementsResponses, ListStockMovementsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/supplies/{itemId}/movements',
     ...options
 });
@@ -1374,7 +2278,15 @@ export const listStockMovements = <ThrowOnError extends boolean = false>(options
  * For a count, give what is on the shelf; the difference from the books is recorded.
  */
 export const recordStockMovement = <ThrowOnError extends boolean = false>(options: Options<RecordStockMovementData, ThrowOnError>): RequestResult<RecordStockMovementResponses, RecordStockMovementErrors, ThrowOnError> => (options.client ?? client).post<RecordStockMovementResponses, RecordStockMovementErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/supplies/{itemId}/movements',
     ...options,
     headers: {
@@ -1387,7 +2299,15 @@ export const recordStockMovement = <ThrowOnError extends boolean = false>(option
  * Sell an item to a member, on their balance (staff only)
  */
 export const sellSupply = <ThrowOnError extends boolean = false>(options: Options<SellSupplyData, ThrowOnError>): RequestResult<SellSupplyResponses, SellSupplyErrors, ThrowOnError> => (options.client ?? client).post<SellSupplyResponses, SellSupplyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/supplies/{itemId}/sales',
     ...options,
     headers: {
@@ -1400,7 +2320,15 @@ export const sellSupply = <ThrowOnError extends boolean = false>(options: Option
  * Open purchase requests, oldest first (staff only)
  */
 export const listPurchaseRequests = <ThrowOnError extends boolean = false>(options: Options<ListPurchaseRequestsData, ThrowOnError>): RequestResult<ListPurchaseRequestsResponses, ListPurchaseRequestsErrors, ThrowOnError> => (options.client ?? client).get<ListPurchaseRequestsResponses, ListPurchaseRequestsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/purchase-requests',
     ...options
 });
@@ -1409,7 +2337,15 @@ export const listPurchaseRequests = <ThrowOnError extends boolean = false>(optio
  * Ask for more of an item (staff only)
  */
 export const createPurchaseRequest = <ThrowOnError extends boolean = false>(options: Options<CreatePurchaseRequestData, ThrowOnError>): RequestResult<CreatePurchaseRequestResponses, CreatePurchaseRequestErrors, ThrowOnError> => (options.client ?? client).post<CreatePurchaseRequestResponses, CreatePurchaseRequestErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/purchase-requests',
     ...options,
     headers: {
@@ -1424,7 +2360,15 @@ export const createPurchaseRequest = <ThrowOnError extends boolean = false>(opti
  * Received puts the quantity into stock.
  */
 export const decidePurchaseRequest = <ThrowOnError extends boolean = false>(options: Options<DecidePurchaseRequestData, ThrowOnError>): RequestResult<DecidePurchaseRequestResponses, DecidePurchaseRequestErrors, ThrowOnError> => (options.client ?? client).put<DecidePurchaseRequestResponses, DecidePurchaseRequestErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/purchase-requests/{requestId}/status',
     ...options,
     headers: {
@@ -1440,7 +2384,15 @@ export const decidePurchaseRequest = <ThrowOnError extends boolean = false>(opti
  *
  */
 export const getWeeklyActivity = <ThrowOnError extends boolean = false>(options: Options<GetWeeklyActivityData, ThrowOnError>): RequestResult<GetWeeklyActivityResponses, GetWeeklyActivityErrors, ThrowOnError> => (options.client ?? client).get<GetWeeklyActivityResponses, GetWeeklyActivityErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/activity/weekly',
     ...options
 });
@@ -1449,7 +2401,15 @@ export const getWeeklyActivity = <ThrowOnError extends boolean = false>(options:
  * The events an endpoint can subscribe to, each with an example payload (staff only)
  */
 export const listWebhookEventTypes = <ThrowOnError extends boolean = false>(options: Options<ListWebhookEventTypesData, ThrowOnError>): RequestResult<ListWebhookEventTypesResponses, ListWebhookEventTypesErrors, ThrowOnError> => (options.client ?? client).get<ListWebhookEventTypesResponses, ListWebhookEventTypesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/event-types',
     ...options
 });
@@ -1458,7 +2418,15 @@ export const listWebhookEventTypes = <ThrowOnError extends boolean = false>(opti
  * Where the studio's webhooks go (staff only)
  */
 export const listWebhookEndpoints = <ThrowOnError extends boolean = false>(options: Options<ListWebhookEndpointsData, ThrowOnError>): RequestResult<ListWebhookEndpointsResponses, ListWebhookEndpointsErrors, ThrowOnError> => (options.client ?? client).get<ListWebhookEndpointsResponses, ListWebhookEndpointsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints',
     ...options
 });
@@ -1471,7 +2439,15 @@ export const listWebhookEndpoints = <ThrowOnError extends boolean = false>(optio
  *
  */
 export const createWebhookEndpoint = <ThrowOnError extends boolean = false>(options: Options<CreateWebhookEndpointData, ThrowOnError>): RequestResult<CreateWebhookEndpointResponses, CreateWebhookEndpointErrors, ThrowOnError> => (options.client ?? client).post<CreateWebhookEndpointResponses, CreateWebhookEndpointErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints',
     ...options,
     headers: {
@@ -1484,7 +2460,15 @@ export const createWebhookEndpoint = <ThrowOnError extends boolean = false>(opti
  * Delete an endpoint and its delivery log (staff only)
  */
 export const deleteWebhookEndpoint = <ThrowOnError extends boolean = false>(options: Options<DeleteWebhookEndpointData, ThrowOnError>): RequestResult<DeleteWebhookEndpointResponses, DeleteWebhookEndpointErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWebhookEndpointResponses, DeleteWebhookEndpointErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}',
     ...options
 });
@@ -1495,7 +2479,15 @@ export const deleteWebhookEndpoint = <ThrowOnError extends boolean = false>(opti
  * Turning an endpoint back on clears its failures. Events missed while it was off aren't replayed.
  */
 export const updateWebhookEndpoint = <ThrowOnError extends boolean = false>(options: Options<UpdateWebhookEndpointData, ThrowOnError>): RequestResult<UpdateWebhookEndpointResponses, UpdateWebhookEndpointErrors, ThrowOnError> => (options.client ?? client).patch<UpdateWebhookEndpointResponses, UpdateWebhookEndpointErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}',
     ...options,
     headers: {
@@ -1510,7 +2502,15 @@ export const updateWebhookEndpoint = <ThrowOnError extends boolean = false>(opti
  * The old secret keeps signing, alongside the new one, for 24 hours.
  */
 export const rotateWebhookSecret = <ThrowOnError extends boolean = false>(options: Options<RotateWebhookSecretData, ThrowOnError>): RequestResult<RotateWebhookSecretResponses, RotateWebhookSecretErrors, ThrowOnError> => (options.client ?? client).post<RotateWebhookSecretResponses, RotateWebhookSecretErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/rotate-secret',
     ...options
 });
@@ -1519,7 +2519,15 @@ export const rotateWebhookSecret = <ThrowOnError extends boolean = false>(option
  * Send a ping now and return how it went (staff only)
  */
 export const testWebhookEndpoint = <ThrowOnError extends boolean = false>(options: Options<TestWebhookEndpointData, ThrowOnError>): RequestResult<TestWebhookEndpointResponses, TestWebhookEndpointErrors, ThrowOnError> => (options.client ?? client).post<TestWebhookEndpointResponses, TestWebhookEndpointErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/test',
     ...options
 });
@@ -1528,7 +2536,15 @@ export const testWebhookEndpoint = <ThrowOnError extends boolean = false>(option
  * The last 30 days of deliveries to an endpoint, newest first (staff only)
  */
 export const listWebhookDeliveries = <ThrowOnError extends boolean = false>(options: Options<ListWebhookDeliveriesData, ThrowOnError>): RequestResult<ListWebhookDeliveriesResponses, ListWebhookDeliveriesErrors, ThrowOnError> => (options.client ?? client).get<ListWebhookDeliveriesResponses, ListWebhookDeliveriesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/endpoints/{endpointId}/deliveries',
     ...options
 });
@@ -1539,7 +2555,15 @@ export const listWebhookDeliveries = <ThrowOnError extends boolean = false>(opti
  * A new delivery with the same event id, so a receiver that saw it already can drop it.
  */
 export const resendWebhookDelivery = <ThrowOnError extends boolean = false>(options: Options<ResendWebhookDeliveryData, ThrowOnError>): RequestResult<ResendWebhookDeliveryResponses, ResendWebhookDeliveryErrors, ThrowOnError> => (options.client ?? client).post<ResendWebhookDeliveryResponses, ResendWebhookDeliveryErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/webhooks/deliveries/{deliveryId}/resend',
     ...options
 });
@@ -1552,7 +2576,15 @@ export const resendWebhookDelivery = <ThrowOnError extends boolean = false>(opti
  *
  */
 export const listGlazes = <ThrowOnError extends boolean = false>(options: Options<ListGlazesData, ThrowOnError>): RequestResult<ListGlazesResponses, ListGlazesErrors, ThrowOnError> => (options.client ?? client).get<ListGlazesResponses, ListGlazesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/glazes',
     ...options
 });
@@ -1563,7 +2595,15 @@ export const listGlazes = <ThrowOnError extends boolean = false>(options: Option
  * Anyone can add their own recipe. Only staff can add a studio glaze.
  */
 export const createGlaze = <ThrowOnError extends boolean = false>(options: Options<CreateGlazeData, ThrowOnError>): RequestResult<CreateGlazeResponses, CreateGlazeErrors, ThrowOnError> => (options.client ?? client).post<CreateGlazeResponses, CreateGlazeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/glazes',
     ...options,
     headers: {
@@ -1576,7 +2616,15 @@ export const createGlaze = <ThrowOnError extends boolean = false>(options: Optio
  * Delete a recipe (its owner, or staff for a studio glaze)
  */
 export const deleteGlaze = <ThrowOnError extends boolean = false>(options: Options<DeleteGlazeData, ThrowOnError>): RequestResult<DeleteGlazeResponses, DeleteGlazeErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGlazeResponses, DeleteGlazeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/glazes/{glazeId}',
     ...options
 });
@@ -1585,7 +2633,15 @@ export const deleteGlaze = <ThrowOnError extends boolean = false>(options: Optio
  * One recipe
  */
 export const getGlaze = <ThrowOnError extends boolean = false>(options: Options<GetGlazeData, ThrowOnError>): RequestResult<GetGlazeResponses, GetGlazeErrors, ThrowOnError> => (options.client ?? client).get<GetGlazeResponses, GetGlazeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/glazes/{glazeId}',
     ...options
 });
@@ -1596,7 +2652,15 @@ export const getGlaze = <ThrowOnError extends boolean = false>(options: Options<
  * Replaces the recipe and its lines. The owner kind can't change.
  */
 export const updateGlaze = <ThrowOnError extends boolean = false>(options: Options<UpdateGlazeData, ThrowOnError>): RequestResult<UpdateGlazeResponses, UpdateGlazeErrors, ThrowOnError> => (options.client ?? client).put<UpdateGlazeResponses, UpdateGlazeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/glazes/{glazeId}',
     ...options,
     headers: {
@@ -1614,7 +2678,60 @@ export const updateGlaze = <ThrowOnError extends boolean = false>(options: Optio
  *
  */
 export const getGlazeBatch = <ThrowOnError extends boolean = false>(options: Options<GetGlazeBatchData, ThrowOnError>): RequestResult<GetGlazeBatchResponses, GetGlazeBatchErrors, ThrowOnError> => (options.client ?? client).get<GetGlazeBatchResponses, GetGlazeBatchErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/api/v1/studios/{studioId}/glazes/{glazeId}/batch',
+    ...options
+});
+
+/**
+ * The caller's API tokens; an owner sees everyone's (staff only)
+ */
+export const listApiTokens = <ThrowOnError extends boolean = false>(options: Options<ListApiTokensData, ThrowOnError>): RequestResult<ListApiTokensResponses, ListApiTokensErrors, ThrowOnError> => (options.client ?? client).get<ListApiTokensResponses, ListApiTokensErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/api-tokens',
+    ...options
+});
+
+/**
+ * Make a token that acts as the caller in this studio (staff only)
+ *
+ * The response carries the token itself, which is never shown again.
+ */
+export const createApiToken = <ThrowOnError extends boolean = false>(options: Options<CreateApiTokenData, ThrowOnError>): RequestResult<CreateApiTokenResponses, CreateApiTokenErrors, ThrowOnError> => (options.client ?? client).post<CreateApiTokenResponses, CreateApiTokenErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/api-tokens',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke a token, at once (its owner, or the studio owner)
+ */
+export const revokeApiToken = <ThrowOnError extends boolean = false>(options: Options<RevokeApiTokenData, ThrowOnError>): RequestResult<RevokeApiTokenResponses, RevokeApiTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeApiTokenResponses, RevokeApiTokenErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/api-tokens/{tokenId}',
     ...options
 });
