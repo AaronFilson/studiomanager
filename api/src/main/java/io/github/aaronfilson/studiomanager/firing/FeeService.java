@@ -63,10 +63,10 @@ public class FeeService {
           .param("id", Uuids.v7())
           .param("studioId", caller.studioId())
           .param("version", next.version())
-          .param("ruleType", ruleType(rule))
+          .param("ruleType", rule.ruleType())
           .param("rate", rule.rate())
-          .param("unit", unit(rule))
-          .param("rounding", rounding(rule))
+          .param("unit", rule.unitName())
+          .param("rounding", rule.rounding().name())
           .param("minimum", minimum)
           .param("taxCategory", next.taxCategory())
           .param("createdBy", caller.accountId())
@@ -84,36 +84,6 @@ public class FeeService {
   public FeeQuote quote(PieceSize size) {
     Currency currency = studios.current().currency();
     return FeeCalculator.quote(current(), size, currency);
-  }
-
-  private static String ruleType(FeeRule rule) {
-    if (rule instanceof FeeRule.PerVolume) {
-      return "PER_VOLUME";
-    }
-    if (rule instanceof FeeRule.PerWeight) {
-      return "PER_WEIGHT";
-    }
-    return "FLAT";
-  }
-
-  private static @Nullable String unit(FeeRule rule) {
-    if (rule instanceof FeeRule.PerVolume volume) {
-      return volume.unit().name();
-    }
-    if (rule instanceof FeeRule.PerWeight weight) {
-      return weight.unit().name();
-    }
-    return null;
-  }
-
-  private static String rounding(FeeRule rule) {
-    if (rule instanceof FeeRule.PerVolume volume) {
-      return volume.rounding().name();
-    }
-    if (rule instanceof FeeRule.PerWeight weight) {
-      return weight.rounding().name();
-    }
-    return FeeRule.DimensionRounding.NONE.name();
   }
 
   record Row(

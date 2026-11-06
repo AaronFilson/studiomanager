@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.measure.LengthUnit;
 import io.github.aaronfilson.studiomanager.platform.measure.WeightUnit;
 import java.math.BigDecimal;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * How a studio prices one piece. Rates are in the studio's currency, per one unit of the rule. The
@@ -14,6 +15,15 @@ public sealed interface FeeRule {
 
   BigDecimal rate();
 
+  /** The stored name of this kind of rule, such as {@code PER_VOLUME}. */
+  String ruleType();
+
+  /** The stored name of the rule's unit, or null when the rule has no unit. */
+  @Nullable String unitName();
+
+  /** How measurements are rounded before pricing. */
+  DimensionRounding rounding();
+
   /** Priced on the piece's bounding box, each dimension rounded up first in the rule's own unit. */
   record PerVolume(BigDecimal rate, VolumeUnit unit, DimensionRounding rounding)
       implements FeeRule {
@@ -21,6 +31,16 @@ public sealed interface FeeRule {
       requireRate(rate);
       Objects.requireNonNull(unit, "unit");
       Objects.requireNonNull(rounding, "rounding");
+    }
+
+    @Override
+    public String ruleType() {
+      return "PER_VOLUME";
+    }
+
+    @Override
+    public String unitName() {
+      return unit.name();
     }
   }
 
@@ -35,12 +55,39 @@ public sealed interface FeeRule {
         throw new IllegalArgumentException("Weight rates are per pound or per kilogram");
       }
     }
+
+    @Override
+    public String ruleType() {
+      return "PER_WEIGHT";
+    }
+
+    @Override
+    public String unitName() {
+      return unit.name();
+    }
   }
 
   /** The same price for every piece. */
   record Flat(BigDecimal rate) implements FeeRule {
     public Flat {
       requireRate(rate);
+    }
+
+    @Override
+    public String ruleType() {
+      return "FLAT";
+    }
+
+    /** A flat fee isn't measured, so it has no unit. */
+    @Override
+    public @Nullable String unitName() {
+      return null;
+    }
+
+    /** A flat fee isn't measured, so nothing is rounded. */
+    @Override
+    public DimensionRounding rounding() {
+      return DimensionRounding.NONE;
     }
   }
 
