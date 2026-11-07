@@ -1,130 +1,222 @@
 # studiomanager
 
-Studio manager: software to run your pottery studio better, so you can focus on what matters.
+[![CI](https://github.com/AaronFilson/studiomanager/actions/workflows/ci.yml/badge.svg)](https://github.com/AaronFilson/studiomanager/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/AaronFilson/studiomanager/actions/workflows/codeql.yml/badge.svg)](https://github.com/AaronFilson/studiomanager/actions/workflows/codeql.yml)
+[![Deploy dev](https://github.com/AaronFilson/studiomanager/actions/workflows/deploy-dev.yml/badge.svg)](https://github.com/AaronFilson/studiomanager/actions/workflows/deploy-dev.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A studio manager that actually knows what a kiln is: piece tracking from greenware to pickup,
-firing fees, kiln loads, and supplies.
+Studiomanager runs a community pottery studio. It tracks pieces from greenware to pickup, loads
+kilns, charges firing fees, keeps the books, and watches supplies and equipment. It is built to
+help a studio manager, or to stand in for one: an AI assistant can read the studio's data and
+propose changes over MCP, and staff approve them. The backend is a Spring Boot modular monolith
+on Java 25 and PostgreSQL. The clients are a React web app and an Expo mobile app.
 
-**Status:** Wave 1 (M1–M5) has first versions on the API and the web. Nothing is deployed yet;
-the [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty Azure subscription to a
-running environment. The milestones:
+**Status:** not deployed yet. The [first-deploy runbook](docs/runbooks/first-deploy.md) takes an
+empty Azure subscription to a running environment. The current plan is the
+[pre-production cleanup](docs/planning/20-pre-production-cleanup-plan.md).
 
-- **M1:** studios, invites, the fee engine, and the piece tracker with a hold period.
-- **M2:** kilns, queues with per-member caps, the firing log, and one "ready" notice per batch.
-- **M3:** duties, expiring certifications, the bookable calendar, rosters with credited hours,
-  and the "studio today" view.
-- **M4:** the double-entry ledger: balances, stored value, payouts from any provider, tax by date,
-  and the journal export.
-- **M5:** clay and supplies, with par levels, purchase requests and sales to members.
+## Feature tour
 
-Since then, from the [pilot-readiness plan](docs/planning/04-pilot-readiness-plan.md):
+- **Today.** One page with what's in the kilns, who's on duty, and what needs doing.
+- **Pieces.** Each piece moves from greenware through bisque and glaze to pickup, with photos and
+  a hold period for unclaimed work.
+- **Kilns.** Queues with per-member caps, kiln loads, a firing log, and one "ready" notice per
+  batch.
+- **Money.** A double-entry ledger: member balances, stored value, firing fees, tax by date,
+  consignment sales, payables to artists and instructors, and a journal export.
+- **Supplies.** Clay and supplies with par levels, purchase requests and sales to members.
+- **Schedule.** Duties, expiring certifications, a bookable calendar and rosters with credited
+  hours.
+- **Maintenance.** Recurring tasks for kilns, equipment and the building, counted in days or
+  firings, with reminders and problem reports from a phone.
+- **Glaze book.** The studio's glaze recipes, line by line.
+- **Imports.** Members and consignment items from a CSV file.
+- **Invoices.** Upload a supplier invoice and a reader pulls out the lines for review. Three
+  readers are available: Claude (with the studio's own key), Google Document AI and Azure Document
+  Intelligence. "Compare readers" shows their answers side by side.
+- **Assistant.** Personal API tokens let an assistant connect over MCP. It reads freely, but
+  changes arrive as suggestions that staff approve or reject.
+- **Webhooks and events.** Signed outbound webhooks to a studio's own tools, and an optional Kafka
+  event stream.
+- **Platform admin.** Per-studio limits on the platform-paid invoice readers, with temporary boosts.
+- **Demo studio.** "Demo Clay Co.", seeded with members, kilns, pieces and more, to try the app on.
 
-- notices emailed through a transactional outbox;
-- bulk invites by email;
-- the Expo mobile app;
-- piece photos, uploaded straight to Blob Storage;
-- the [pilot kit](docs/pilot/README.md);
-- a per-studio data export, CodeQL, Dependabot, and OpenTelemetry to Application Insights.
+## Architecture
 
-The first Wave 2 feature is also in: [maintenance](docs/planning/06-wave2-maintenance-plan.md) of
-kilns, other equipment and the building. It has recurring tasks counted in days or firings, and
-reminder emails once per cycle. It suggests tasks from the kiln maker's and safety schedules, and
-records parts from supplies and photos. Members can report problems from their phone, and a down
-asset can't be booked. Wave 1's leftovers are done too: firings on the calendar, "use this
-instead" notices when a supply runs out, and asking for shift cover.
+```mermaid
+flowchart LR
+  subgraph Clients
+    web["Web<br/>React 19, Vite, TanStack"]
+    mobile["Mobile<br/>Expo / React Native"]
+    assistant["AI assistant<br/>(MCP client)"]
+  end
 
-The second Wave 2 feature is **payables**. A studio takes in artists' work on consignment and sells
-it. The artist's share becomes what the studio owes them, and the commission is revenue. Staff
-record instructors' shares of a class, record payments by cheque, bank transfer, PayPal or studio
-credit, and print a statement for any period. A 1099-NEC list counts only the payments a 1099-NEC
-covers.
+  subgraph Identity
+    entra["Microsoft Entra<br/>External ID"]
+    bridge["GitHub sign-in bridge<br/>(auth/, optional)"]
+  end
 
-The order of the work, and what's still open, is in the [Wave 2 queue](docs/planning/08-wave2-queue.md)
-(after the [earlier queue](docs/planning/07-next-wave-queue.md)).
+  subgraph API["API: Spring Boot 4.1, Java 25, Spring Modulith (Azure Container Apps)"]
+    direction TB
+    rest["REST, generated from OpenAPI"]
+    mcp["MCP endpoint<br/>personal API tokens"]
+    modules["Modules: studio, access, piece, kiln, schedule,<br/>ledger, supplies, maintenance, glaze, invoice,<br/>proposal, notify, webhook, apitoken, admin, demo"]
+    outbox["Event publication registry<br/>(transactional outbox)"]
+    rest --> modules
+    mcp --> modules
+    modules --> outbox
+  end
+
+  pg[("PostgreSQL 18<br/>row-level security<br/>+ Hibernate @TenantId")]
+  blob[("Azure Blob Storage<br/>photos, invoices")]
+  kafka[["Kafka<br/>(off by default)"]]
+
+  subgraph External["External services"]
+    acs["Azure Communication<br/>Services email"]
+    hooks["Studio webhooks"]
+    claude["Claude API"]
+    gdai["Google Document AI"]
+    adi["Azure Document<br/>Intelligence"]
+    appi["Application Insights"]
+  end
+
+  web --> rest
+  mobile --> rest
+  assistant --> mcp
+  web -. sign in .-> entra
+  mobile -. sign in .-> entra
+  entra -. GitHub .-> bridge
+  web -. upload / read by signed URL .-> blob
+  modules --> pg
+  outbox --> pg
+  modules --> blob
+  outbox --> acs
+  outbox --> hooks
+  outbox --> kafka
+  modules --> claude
+  modules --> gdai
+  modules --> adi
+  API -. OpenTelemetry .-> appi
+
+  subgraph Deploy["Deploy path"]
+    gha["GitHub Actions"]
+    ghcr["GHCR images"]
+    tf["Terraform"]
+    gha --> ghcr
+    gha -- OIDC, no secrets --> tf
+  end
+  tf --> API
+  ghcr --> API
+  gha -- migration job, then rollout --> API
+  gha -- Static Web Apps --> web
+```
+
+### In more detail
+
+- **One deployable, many modules.** Spring Modulith verifies the module boundaries in a test
+  ([ADR 2](docs/adr/0002-modular-monolith.md)). That test also writes Modulith's generated module
+  diagrams (PlantUML) to `api/build/spring-modulith-docs/`.
+- **Tenant isolation in two layers.** PostgreSQL row-level security sits under every
+  studio-owned table. The tenant is bound per transaction from a Java 25 `ScopedValue`, and the
+  app refuses to start if its database login could bypass RLS
+  ([ADR 3](docs/adr/0003-tenant-isolation-with-row-level-security.md)). On the write side,
+  Hibernate's `@TenantId` fills in and filters the studio too
+  ([ADR 21](docs/adr/0021-hibernate-with-tenant-id-for-the-write-side.md)).
+- **OpenAPI first.** The server interfaces and the TypeScript client are generated from
+  [`studiomanager.yaml`](api/src/main/openapi/studiomanager.yaml). Drift fails the build
+  ([ADR 4](docs/adr/0004-openapi-first-contract.md)).
+- **Money is double-entry,** and the database refuses unbalanced entries
+  ([ADR 9](docs/adr/0009-double-entry-ledger.md)).
+- **Outbox for side effects.** Email, webhooks and the Kafka stream go through Spring Modulith's
+  event publication registry, so nothing is sent for work that rolled back and nothing is lost
+  when a send fails ([ADR 11](docs/adr/0011-transactional-outbox-for-email.md),
+  [14](docs/adr/0014-outbound-webhooks.md), [15](docs/adr/0015-event-streaming-to-kafka.md)).
+- **MCP with propose and approve.** The MCP endpoint runs on the official MCP Java SDK
+  ([ADR 22](docs/adr/0022-mcp-on-the-official-sdk.md)). Assistants sign in with personal API
+  tokens ([ADR 19](docs/adr/0019-personal-api-tokens.md)). A change an assistant proposes waits as
+  a pending action, and approving it runs the normal service call as the person who approved.
+- **Invoice readers** sit behind one interface: Claude, Google Document AI and Azure Document
+  Intelligence. Google is reached keylessly from Azure by workload identity federation
+  ([ADR 18](docs/adr/0018-invoice-readers.md), [24](docs/adr/0024-platform-admin-and-live-settings.md)).
+- **Identity** comes from Microsoft Entra External ID; the API is a plain OAuth resource server
+  ([ADR 7](docs/adr/0007-identity-with-entra-external-id.md)). A small bridge app adds GitHub
+  sign-in ([ADR 20](docs/adr/0020-github-sign-in-bridge.md)).
+- **No stored secrets.** The API reaches Postgres through its managed identity, and migrations run
+  as a separate job under a separate identity
+  ([ADR 5](docs/adr/0005-passwordless-database-and-migration-job.md)). GitHub Actions signs in to
+  Azure through OIDC federation and applies Terraform
+  ([ADR 6](docs/adr/0006-terraform-and-keyless-ci.md)).
+- **Azure Container Apps** run the API and scale to zero. A JVM AOT cache trained in the image
+  build shortens cold starts ([ADR 8](docs/adr/0008-jvm-aot-cache-for-cold-starts.md)).
+
+## Engineering practices
+
+- **NullAway** runs through **Error Prone** on every compile, in JSpecify mode. Error Prone's
+  other checks are not on yet.
+- **Spotless** with google-java-format; the Gradle build checks it.
+- **Testcontainers integration tests** against real PostgreSQL and Kafka, run in CI.
+- **CodeQL** on pushes, pull requests and weekly; **Dependabot** for updates.
+- **Terraform** is checked in CI (fmt, validate, `terraform test`, TFLint) and planned on PRs.
+- **ADRs** record each decision: [docs/adr](docs/adr).
+- **Web and mobile:** CI type-checks, lints, tests and builds them, and fails if the generated
+  client is out of date. The web tests use Vitest, Testing Library and MSW.
 
 ## Repository layout
 
 | Path | What |
 |---|---|
-| [`api/`](api) | Spring Boot 4.1 on Java 25: a modular monolith (Spring Modulith), PostgreSQL 18 with row-level security, Flyway |
-| [`api/src/main/openapi/studiomanager.yaml`](api/src/main/openapi/studiomanager.yaml) | The HTTP contract. Server interfaces and the TypeScript client are generated from it |
-| [`packages/api-client/`](packages/api-client) | Generated TypeScript client and TanStack Query options, shared by web and mobile |
-| [`web/`](web) | React 19, Vite 8, TanStack Router and Query, MSAL for Entra External ID |
-| [`mobile/`](mobile) | Expo SDK 58 (React Native 0.88), Expo Router, sign-in with PKCE in the system browser |
-| [`infra/`](infra) | Terraform: bootstrap, identity, and the `dev` environment on Azure Container Apps |
-| [`.github/workflows/`](.github/workflows) | CI (build, test, drift and Terraform checks, plan on PRs) and deploy-on-merge, keyless via OIDC |
-| [`docs/adr/`](docs/adr) | Architecture decision records |
-| [`docs/runbooks/`](docs/runbooks) | Operational checklists |
+| [`api/`](api) | Spring Boot 4.1 on Java 25: Spring Modulith, PostgreSQL 18, Flyway, Hibernate |
+| [`auth/`](auth) | The GitHub sign-in bridge |
+| [`packages/api-client/`](packages/api-client) | Generated TypeScript client and TanStack Query options |
+| [`web/`](web) | React 19, Vite, TanStack Router and Query, MSAL |
+| [`mobile/`](mobile) | Expo and React Native |
+| [`infra/`](infra) | Terraform for Azure (and the Google Document AI project) |
+| [`.github/workflows/`](.github/workflows) | CI, CodeQL, and deploy on merge |
+| [`docs/`](docs) | ADRs, plans, runbooks and the pilot kit |
 
-## Architecture in brief
+## Running locally
 
-- **One deployable, many modules.** The modules are studio, account, access, firing, piece,
-  kiln, notify, schedule, ledger, supplies and today. Their boundaries are verified by a test
-  ([ADR 2](docs/adr/0002-modular-monolith.md)).
-- **Money is double-entry,** and the database refuses unbalanced entries
-  ([ADR 9](docs/adr/0009-double-entry-ledger.md)).
-- **The two cross-tenant operations** (accepting an invite, the unclaimed sweep) are narrow
-  security-definer functions ([ADR 10](docs/adr/0010-security-definer-functions-for-cross-tenant-work.md)).
-- **Tenant isolation in two layers.** Application checks come first, and PostgreSQL row-level
-  security sits underneath them. The tenant is bound per transaction from a Java 25
-  `ScopedValue`, and the app refuses to start if its database login could bypass RLS
-  ([ADR 3](docs/adr/0003-tenant-isolation-with-row-level-security.md)).
-- **OpenAPI-first.** Contract drift fails the build ([ADR 4](docs/adr/0004-openapi-first-contract.md)).
-- **No secrets.** The API gets passwordless Postgres access through its managed identity, with
-  migrations in a separate job under a separate identity
-  ([ADR 5](docs/adr/0005-passwordless-database-and-migration-job.md)). GitHub Actions signs in to
-  Azure through OIDC federation ([ADR 6](docs/adr/0006-terraform-and-keyless-ci.md)).
-- **Identity** comes from Microsoft Entra External ID; the API is a plain OAuth resource server
-  ([ADR 7](docs/adr/0007-identity-with-entra-external-id.md)).
-- **Cold starts.** Scale to zero, with a JVM AOT cache trained in the image build
-  ([ADR 8](docs/adr/0008-jvm-aot-cache-for-cold-starts.md)).
-
-## Local development
-
-You need JDK 25, Node 24, and Docker (for the database and the integration tests).
+You need JDK 25, Node 24, and Docker for the database and the integration tests. In this repo,
+builds and tests run through the scripts in [`scripts/`](scripts), from the repo root:
 
 ```sh
-docker compose up -d                       # PostgreSQL 18 with the app's database roles
-
-cd api
-export STUDIOMANAGER_AUTH_ISSUER_URI=https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0
-export STUDIOMANAGER_AUTH_AUDIENCE=<api-app-client-id>
-./gradlew bootRun                          # http://localhost:8080; migrates on startup
-
-cd ..
-corepack pnpm@12.14.0 install
-cp web/.env.example web/.env.local         # fill in the Entra values
-corepack pnpm@12.14.0 --filter @studiomanager/web dev   # http://localhost:5173, proxies /api
+bash scripts/check.sh                  # everything: API, generated client, web
+bash scripts/api.sh                    # API build and tests
+bash scripts/api.sh bootRun            # any Gradle task, e.g. run the API on :8080
+bash scripts/js.sh -r run test         # API client and web tests
+bash scripts/integration.sh test       # API with Docker integration tests, inside WSL
+bash scripts/web-linux.sh              # the CI web job in a node:24 container
 ```
 
-Signing in needs an Entra External ID tenant and the two app registrations. Steps 1–4 of the
-[runbook](docs/runbooks/first-deploy.md) set them up; the free tier is enough.
+The scripts find a JDK 25 and run the pinned pnpm. `docker compose up -d` starts PostgreSQL 18
+with the app's database roles. Signing in needs an Entra External ID tenant and two app
+registrations; steps 1 to 4 of the [first-deploy runbook](docs/runbooks/first-deploy.md) set them
+up, and the free tier is enough. Copy `web/.env.example` to `web/.env.local` for the web app.
 
-### Tests
+After changing the API contract, regenerate the client with
+`bash scripts/js.sh --filter @studiomanager/api-client run generate` and commit the result.
 
-```sh
-bash scripts/check.sh                  # everything: API build and tests, generated client, web
-bash scripts/api.sh                    # API: unit, architecture and Testcontainers integration tests
-bash scripts/js.sh -r run test         # API client and web (Vitest, Testing Library, MSW)
-bash scripts/integration.sh test       # API in WSL with Docker, when Docker isn't on Windows
-```
+## Screenshots
 
-The scripts find a JDK 25 (`STUDIOMANAGER_JDK`, a `JAVA_HOME` that is already 25 or later, or
-IntelliJ's bundled JBR) and run the pinned pnpm through corepack.
+Not captured yet. The planned screens and file names are listed in
+[docs/screenshots](docs/screenshots/README.md).
 
-Integration tests need Docker. Where Docker is missing they're skipped, except in CI, where a
-missing Docker fails the build. If Docker runs only inside WSL, run the Gradle build from WSL.
+<!--
+When the images exist, replace this section with:
+![Today at Demo Clay Co.](docs/screenshots/today.png)
+![Pieces](docs/screenshots/pieces.png)
+![Kiln load](docs/screenshots/kiln-load.png)
+![Invoice review, comparing readers](docs/screenshots/invoice-compare-readers.png)
+![Admin: reader limits and boosts](docs/screenshots/admin-limits.png)
+![Assistant suggestions](docs/screenshots/assistant-suggestions.png)
+-->
 
-### Changing the API
+## Further reading
 
-1. Edit the contract in `api/src/main/openapi/studiomanager.yaml`.
-2. Implement it: `./gradlew compileJava` regenerates the server interfaces, and the compiler
-   shows what's missing.
-3. Regenerate the client with `corepack pnpm@12.14.0 --filter @studiomanager/api-client run generate`,
-   and commit the result.
-4. For a new studio-owned table, the migration needs a `studio_id`, `ENABLE ROW LEVEL SECURITY`,
-   policies, and explicit grants to `app_rw`. Copy the pattern in
-   `V1__tenancy_foundation.sql`.
+- [Architecture decision records](docs/adr)
+- [Plans and research](docs/planning), including the
+  [pre-production cleanup plan](docs/planning/20-pre-production-cleanup-plan.md)
+- [Runbooks](docs/runbooks)
 
 ## License
 
