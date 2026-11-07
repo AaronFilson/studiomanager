@@ -87,6 +87,10 @@ public final class SupplyModel {
       @Nullable String note,
       Instant createdAt) {}
 
+  /**
+   * @param requestedViaToken the personal API token the request was made through, if any
+   * @param decidedViaToken the personal API token the decision was made through, if any
+   */
   public record PurchaseRequest(
       UUID id,
       UUID itemId,
@@ -96,7 +100,9 @@ public final class SupplyModel {
       RequestStatus status,
       UUID requestedBy,
       @Nullable String requestedByName,
+      @Nullable String requestedViaToken,
       Instant requestedAt,
       @Nullable String decidedByName,
+      @Nullable String decidedViaToken,
       long version) {}
 }

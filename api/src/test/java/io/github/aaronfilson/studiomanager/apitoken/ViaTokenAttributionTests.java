@@ -49,7 +49,7 @@ class ViaTokenAttributionTests {
                 owner,
                 path("/api-tokens"),
                 """
-                {"name": "Sync script", "scopes": ["read", "write:pieces", "write:maintenance"]}
+                {"name": "Sync script", "scopes": ["read", "write:pieces", "write:maintenance", "write:supplies"]}
                 """),
             "$.secret");
   }
@@ -103,6 +103,46 @@ class ViaTokenAttributionTests {
     assertThat(byApp.get("viaToken")).isNull();
     assertThat(JsonPath.<String>read(history, "$.items[1].doneByName")).isEqualTo("Olive");
     assertThat(JsonPath.<String>read(history, "$.items[1].viaToken")).isEqualTo("Sync script");
+  }
+
+  @Test
+  void aPurchaseRequestNamesTheTokenItWasAskedAndDecidedThrough() {
+    String clay =
+        read(
+            post(
+                owner,
+                path("/supplies"),
+                """
+                {"name": "B-Mix 5", "category": "CLAY", "unit": "25 lb bag", "supplier": "Laguna",
+                 "leadTimeDays": 7, "parLevel": "5", "reorderQuantity": "10"}
+                """),
+            "$.id");
+    MvcTestResult asked =
+        postWithToken(
+            syncScript, path("/purchase-requests"), "{\"itemId\": \"%s\"}".formatted(clay));
+    assertThat(asked).hasStatus(HttpStatus.CREATED);
+    assertThat(asked).bodyJson().extractingPath("$.requestedByName").isEqualTo("Olive");
+    assertThat(asked).bodyJson().extractingPath("$.requestedViaToken").isEqualTo("Sync script");
+    String requestId = read(asked, "$.id");
+
+    MvcTestResult approved =
+        mvc.put()
+            .uri(path("/purchase-requests/" + requestId + "/status"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + syncScript)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"to\": \"APPROVED\", \"expectedVersion\": 0}")
+            .exchange();
+    assertThat(approved).hasStatusOk();
+    assertThat(approved).bodyJson().extractingPath("$.decidedByName").isEqualTo("Olive");
+    assertThat(approved).bodyJson().extractingPath("$.decidedViaToken").isEqualTo("Sync script");
+
+    // Asked for in the app: no token on either side
+    MvcTestResult inApp =
+        post(owner, path("/purchase-requests"), "{\"itemId\": \"%s\"}".formatted(clay));
+    Map<String, Object> made = JsonPath.read(body(inApp), "$");
+    assertThat(made).containsEntry("requestedByName", "Olive");
+    assertThat(made.get("requestedViaToken")).isNull();
+    assertThat(made.get("decidedViaToken")).isNull();
   }
 
   private MvcTestResult postWithToken(String secret, String uri, String body) {

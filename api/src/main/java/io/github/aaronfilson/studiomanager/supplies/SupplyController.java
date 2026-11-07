@@ -164,8 +164,10 @@ class SupplyController implements SuppliesApi {
         .status(PurchaseRequestStatusDto.fromValue(r.status().name()))
         .requestedBy(r.requestedBy())
         .requestedByName(r.requestedByName())
+        .requestedViaToken(r.requestedViaToken())
         .requestedAt(r.requestedAt().atOffset(ZoneOffset.UTC))
         .decidedByName(r.decidedByName())
+        .decidedViaToken(r.decidedViaToken())
         .version(r.version());
   }
 }

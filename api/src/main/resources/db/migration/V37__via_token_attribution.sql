@@ -7,3 +7,9 @@
 
 ALTER TABLE piece_event ADD COLUMN via_token_id uuid REFERENCES api_token (id);
 ALTER TABLE maintenance_record ADD COLUMN via_token_id uuid REFERENCES api_token (id);
+
+-- A purchase request names two people, the one who asked and the owner who decided, so each
+-- gets its own token.
+ALTER TABLE purchase_request
+    ADD COLUMN requested_via_token_id uuid REFERENCES api_token (id),
+    ADD COLUMN decided_via_token_id   uuid REFERENCES api_token (id);

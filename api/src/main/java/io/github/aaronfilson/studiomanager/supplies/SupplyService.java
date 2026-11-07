@@ -271,9 +271,11 @@ public class SupplyService {
     UUID id = Uuids.v7();
     jdbc.sql(
             """
-            insert into purchase_request (id, studio_id, item_id, quantity, note, status, requested_by, requested_at, version)
-            values (:id, :studioId, :item, :quantity, :note, 'REQUESTED', :by, :now, 0)
+            insert into purchase_request (id, studio_id, item_id, quantity, note, status, requested_by,
+                                          requested_via_token_id, requested_at, version)
+            values (:id, :studioId, :item, :quantity, :note, 'REQUESTED', :by, :viaToken, :now, 0)
             """)
+        .param("viaToken", caller.viaTokenId())
         .param("id", id)
         .param("studioId", caller.studioId())
         .param("item", itemId)
@@ -317,12 +319,14 @@ public class SupplyService {
                 """
                 update purchase_request set status = :to, version = version + 1,
                        decided_by = case when :decision then :me else decided_by end,
+                       decided_via_token_id = case when :decision then :viaToken else decided_via_token_id end,
                        decided_at = case when :decision then :now else decided_at end
                 where id = :id and version = :version
                 """)
             .param("to", to.name())
             .param("decision", decision)
             .param("me", caller.accountId())
+            .param("viaToken", caller.viaTokenId())
             .param("now", utc(now()))
             .param("id", requestId)
             .param("version", expectedVersion)
@@ -362,8 +366,11 @@ public class SupplyService {
         jdbc.sql(
             """
             select r.id, r.item_id, i.name as item_name, r.quantity, r.note, r.status, r.requested_by, r.requested_at,
-                   r.decided_by, r.version
+                   r.decided_by, r.version, requested_via.name as requested_via_token,
+                   decided_via.name as decided_via_token
             from purchase_request r join supply_item i on i.id = r.item_id
+            left join api_token requested_via on requested_via.id = r.requested_via_token_id
+            left join api_token decided_via on decided_via.id = r.decided_via_token_id
             """
                 + where);
     for (var param : params.entrySet()) {
@@ -383,8 +390,10 @@ public class SupplyService {
                       RequestStatus.valueOf(rs.getString("status")),
                       rs.getObject("requested_by", UUID.class),
                       null,
+                      rs.getString("requested_via_token"),
                       instant(rs, "requested_at"),
                       null,
+                      rs.getString("decided_via_token"),
                       rs.getLong("version"));
                 })
             .list();
@@ -405,8 +414,10 @@ public class SupplyService {
               r.status(),
               r.requestedBy(),
               names.get(r.requestedBy()),
+              r.requestedViaToken(),
               r.requestedAt(),
               decider == null ? null : names.get(decider),
+              r.decidedViaToken(),
               r.version()));
     }
     return named;

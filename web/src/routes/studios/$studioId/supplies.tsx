@@ -145,7 +145,20 @@ function Requests({ studioId, canApprove }: { studioId: string; canApprove: bool
           <li key={r.id}>
             <span>
               {r.quantity} × {r.itemName} · {r.status.toLowerCase()}
-              {r.requestedByName && <span className="badge"> · asked by {r.requestedByName}</span>}
+              {r.requestedByName && (
+                <span className="badge">
+                  {' '}
+                  · asked by {r.requestedByName}
+                  {r.requestedViaToken && ` via ${r.requestedViaToken}`}
+                </span>
+              )}
+              {r.decidedByName && (
+                <span className="badge">
+                  {' '}
+                  · decided by {r.decidedByName}
+                  {r.decidedViaToken && ` via ${r.decidedViaToken}`}
+                </span>
+              )}
             </span>
             <span className="row">
               {r.status === 'REQUESTED' && canApprove && (

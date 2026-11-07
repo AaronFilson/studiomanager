@@ -210,6 +210,9 @@ personal tokens.** Built and green. It differs from the plan above in these ways
   still shows it, and the contract adds an optional `viaToken` on `PieceEvent` and
   `MaintenanceRecord`. Web and mobile show "Olive via Sync script", and the maintenance CSV's
   "Done by" column does the same.
+- Purchase requests too, at the owner's call: `requested_via_token_id` and
+  `decided_via_token_id`, shown as `requestedViaToken` and `decidedViaToken`. Problem reports stay
+  out. MCP writes are lane F2's.
 - **No `app.via_token` setting.** The app writes these histories itself, with no triggers, so the
   id goes in the insert like the actor does. Add the setting if a trigger ever writes history.
 - Every MCP tool still only reads, so no MCP call makes history yet. The MCP test checks the tool

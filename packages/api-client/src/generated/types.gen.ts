@@ -1104,8 +1104,16 @@ export type PurchaseRequest = {
     status: PurchaseRequestStatus;
     requestedBy: string;
     requestedByName?: string;
+    /**
+     * The name of the personal API token the request was made through, so it reads "Olive via Sync script". Absent when it was made in the app. A revoked token still shows its name.
+     */
+    requestedViaToken?: string;
     requestedAt: string;
     decidedByName?: string;
+    /**
+     * The name of the personal API token the approval or rejection came through.
+     */
+    decidedViaToken?: string;
     version: number;
 };
 

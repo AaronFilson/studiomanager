@@ -5972,11 +5972,20 @@ components:
           format: uuid
         requestedByName:
           type: string
+        requestedViaToken:
+          type: string
+          description: >-
+            The name of the personal API token the request was made through, so it reads "Olive
+            via Sync script". Absent when it was made in the app. A revoked token still shows its
+            name.
         requestedAt:
           type: string
           format: date-time
         decidedByName:
           type: string
+        decidedViaToken:
+          type: string
+          description: The name of the personal API token the approval or rejection came through.
         version:
           type: integer
           format: int64
