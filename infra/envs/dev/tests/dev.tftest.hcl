@@ -39,7 +39,8 @@ mock_provider "azurerm" {
 
   mock_resource "azurerm_container_app_environment" {
     defaults = {
-      id = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.App/managedEnvironments/cae-mock"
+      id             = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.App/managedEnvironments/cae-mock"
+      default_domain = "happy-sea-123.westus.azurecontainerapps.io"
     }
   }
 
@@ -59,7 +60,8 @@ mock_provider "azurerm" {
 
   mock_resource "azurerm_key_vault" {
     defaults = {
-      id = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.KeyVault/vaults/kv-mock"
+      id        = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.KeyVault/vaults/kv-mock"
+      vault_uri = "https://kv-mock.vault.azure.net/"
     }
   }
 
@@ -133,6 +135,51 @@ run "wires_the_environment" {
     condition     = azurerm_role_assignment.api_blob.principal_type == "ServicePrincipal" && azurerm_role_assignment.api_key_vault.principal_type == "ServicePrincipal"
     error_message = "principal_type is required by the deploy identity's role-assignment condition."
   }
+}
+
+run "the_github_bridge_is_off_by_default" {
+  command = apply
+
+  assert {
+    condition     = length(module.github_bridge) == 0 && output.bridge_issuer == ""
+    error_message = "Merging the bridge must not change dev until github_sign_in is turned on."
+  }
+}
+
+run "the_github_bridge_turns_on_with_entras_callbacks" {
+  command = apply
+
+  variables {
+    github_sign_in = {
+      enabled          = true
+      github_client_id = "Ov23liTestClientId"
+    }
+  }
+
+  assert {
+    condition     = output.bridge_issuer == "https://ca-studiomanager-dev-auth.happy-sea-123.westus.azurecontainerapps.io"
+    error_message = "The bridge's issuer is its own Container App host."
+  }
+
+  assert {
+    condition = module.github_bridge[0].settings["STUDIOMANAGER_BRIDGE_ENTRA_REDIRECT_URIS"] == join(",", [
+      "https://studiomanagerdev.ciamlogin.com/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/federation/oauth2",
+      "https://studiomanagerdev.ciamlogin.com/studiomanagerdev.onmicrosoft.com/federation/oauth2",
+    ])
+    error_message = "The bridge accepts exactly Entra's two federation callbacks."
+  }
+}
+
+run "the_github_bridge_needs_a_github_client_id" {
+  command = plan
+
+  variables {
+    github_sign_in = {
+      enabled = true
+    }
+  }
+
+  expect_failures = [var.github_sign_in]
 }
 
 run "rejects_unfilled_placeholders" {

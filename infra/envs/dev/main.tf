@@ -154,6 +154,31 @@ module "api" {
   tags                                   = local.tags
 }
 
+# --- GitHub sign-in bridge (ADR 20) -------------------------------------------------------
+# Off until var.github_sign_in.enabled; see docs/runbooks/github-sign-in.md.
+
+module "github_bridge" {
+  source = "../../modules/github_bridge"
+  count  = var.github_sign_in.enabled ? 1 : 0
+
+  name                                     = local.name
+  resource_group_name                      = data.azurerm_resource_group.env.name
+  location                                 = var.location
+  container_app_environment_id             = module.platform.container_app_environment_id
+  container_app_environment_default_domain = module.platform.container_app_environment_default_domain
+  image                                    = var.bridge_image
+  key_vault_id                             = module.key_vault.id
+  key_vault_uri                            = module.key_vault.vault_uri
+  github_client_id                         = var.github_sign_in.github_client_id
+  entra_client_id                          = var.github_sign_in.entra_client_id
+  # Entra External ID's federation callbacks, by tenant ID and by initial domain
+  entra_redirect_uris = [
+    "https://${var.entra_external_tenant_subdomain}.ciamlogin.com/${var.entra_external_tenant_id}/federation/oauth2",
+    "https://${var.entra_external_tenant_subdomain}.ciamlogin.com/${var.entra_external_tenant_subdomain}.onmicrosoft.com/federation/oauth2",
+  ]
+  tags = local.tags
+}
+
 # --- Data-plane access for the API identity -----------------------------------------------
 # principal_type must be set: the deploy identity's role-assignment rights are conditioned on
 # it (see infra/bootstrap), and the condition can't match an assignment that omits it.
