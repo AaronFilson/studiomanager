@@ -41,19 +41,25 @@ class Consignments {
   private final ConsignmentSaleRepository sales;
   private final PayeeRepository payeeRepository;
   private final PayablesService payees;
-  private final LedgerService ledger;
+  private final Journal journal;
+  private final TaxRates taxRates;
+  private final StudioBooks books;
 
   Consignments(
       ConsignmentItemRepository items,
       ConsignmentSaleRepository sales,
       PayeeRepository payeeRepository,
       PayablesService payees,
-      LedgerService ledger) {
+      Journal journal,
+      TaxRates taxRates,
+      StudioBooks books) {
     this.items = items;
     this.sales = sales;
     this.payeeRepository = payeeRepository;
     this.payees = payees;
-    this.ledger = ledger;
+    this.journal = journal;
+    this.taxRates = taxRates;
+    this.books = books;
   }
 
   /**
@@ -100,7 +106,7 @@ class Consignments {
       UUID itemId, int quantity, @Nullable BigDecimal price, Provider provider) {
     requireStaff();
     ConsignmentItemEntity entity = lockItem(itemId);
-    LocalDate day = ledger.today();
+    LocalDate day = books.today();
     ConsignmentItem item = entity.toView(day);
     if (quantity < 1) {
       throw new InvalidInputException("Sell at least one.");
@@ -110,15 +116,15 @@ class Consignments {
     }
     BigDecimal retail = item.retailPrice().multiply(BigDecimal.valueOf(quantity));
     BigDecimal paid = price == null ? retail : price;
-    requireMoney(paid, ledger.currency());
+    requireMoney(paid, books.currency());
     BigDecimal consignorAmount =
         PayablesService.consignorAmount(
-            item, retail, paid, ledger.currency().getDefaultFractionDigits());
-    BigDecimal tax = ledger.taxOn(paid, PayablesService.RETAIL, day, ledger.currency());
+            item, retail, paid, books.currency().getDefaultFractionDigits());
+    BigDecimal tax = taxRates.taxOn(paid, PayablesService.RETAIL, day, books.currency());
 
     UUID saleId = Uuids.v7();
     UUID entryId =
-        ledger.post(
+        journal.post(
             EntryKind.CONSIGNMENT_SALE,
             day,
             truncate("Sold %d × %s (%s)".formatted(quantity, item.description(), item.payeeName())),
@@ -161,9 +167,9 @@ class Consignments {
         lines.add(line.reversed());
       }
     }
-    LocalDate day = ledger.today();
+    LocalDate day = books.today();
     UUID entryId =
-        ledger.post(
+        journal.post(
             EntryKind.CONSIGNMENT_REFUND,
             day,
             truncate(
@@ -188,7 +194,7 @@ class Consignments {
     }
     item.giveBack(quantity);
     items.flush();
-    return item.toView(ledger.today());
+    return item.toView(books.today());
   }
 
   /** Sales of a payee's work, or of everyone's, newest first. */
@@ -200,7 +206,7 @@ class Consignments {
 
   private Capped<ConsignmentItem> items(
       @Nullable UUID payeeId, boolean inStockOnly, boolean dueBackOnly) {
-    LocalDate today = ledger.today();
+    LocalDate today = books.today();
     Limit limit = Limit.of(Capped.fetchSize(CONSIGNMENT_ITEMS_LIMIT));
     List<ConsignmentItemEntity> found =
         dueBackOnly

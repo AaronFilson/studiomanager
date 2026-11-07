@@ -55,7 +55,7 @@ public class PayablesService {
   private final PayeeRepository payees;
   private final ConsignmentItemRepository items;
   private final PayablesQueries queries;
-  private final LedgerService ledger;
+  private final StudioBooks books;
   private final StudioMembers members;
   private final AccountDirectory accounts;
   private final Clock clock;
@@ -64,14 +64,14 @@ public class PayablesService {
       PayeeRepository payees,
       ConsignmentItemRepository items,
       PayablesQueries queries,
-      LedgerService ledger,
+      StudioBooks books,
       StudioMembers members,
       AccountDirectory accounts,
       Clock clock) {
     this.payees = payees;
     this.items = items;
     this.queries = queries;
-    this.ledger = ledger;
+    this.books = books;
     this.members = members;
     this.accounts = accounts;
     this.clock = clock;
@@ -133,7 +133,7 @@ public class PayablesService {
     if (text.isEmpty() || text.length() > 120) {
       throw new InvalidInputException("Describe the work in 1 to 120 characters.");
     }
-    requireMoney(retailPrice, ledger.currency());
+    requireMoney(retailPrice, books.currency());
     if (quantity < 1 || quantity > 10_000) {
       throw new InvalidInputException("Take in from 1 to 10,000 of it.");
     }
@@ -142,7 +142,7 @@ public class PayablesService {
       throw new InvalidInputException("Set the artist's share, here or on the payee.");
     }
     requireShare(share);
-    LocalDate today = ledger.today();
+    LocalDate today = books.today();
     LocalDate received = receivedOn == null ? today : notInFuture(receivedOn, today);
     Integer days = payee.consignmentDays();
     LocalDate returnBy = days == null ? null : received.plusDays(days);
@@ -245,7 +245,7 @@ public class PayablesService {
     }
     LocalDate w9 = changes.w9ReceivedOn();
     if (w9 != null) {
-      notInFuture(w9, ledger.today());
+      notInFuture(w9, books.today());
     }
     Integer days = changes.consignmentDays();
     if (days != null && (days < 1 || days > 3650)) {

@@ -42,7 +42,8 @@ class PayeePayments {
   private final PayeeEarningRepository earnings;
   private final PayeePaymentRepository payments;
   private final PayablesService payees;
-  private final LedgerService ledger;
+  private final Journal journal;
+  private final StudioBooks books;
   private final StudioMembers members;
 
   PayeePayments(
@@ -50,13 +51,15 @@ class PayeePayments {
       PayeeEarningRepository earnings,
       PayeePaymentRepository payments,
       PayablesService payees,
-      LedgerService ledger,
+      Journal journal,
+      StudioBooks books,
       StudioMembers members) {
     this.payeeRepository = payeeRepository;
     this.earnings = earnings;
     this.payments = payments;
     this.payees = payees;
-    this.ledger = ledger;
+    this.journal = journal;
+    this.books = books;
     this.members = members;
   }
 
@@ -80,18 +83,18 @@ class PayeePayments {
     if (text.isEmpty() || text.length() > 120) {
       throw new InvalidInputException("Describe what it's for in 1 to 120 characters.");
     }
-    int digits = ledger.currency().getDefaultFractionDigits();
+    int digits = books.currency().getDefaultFractionDigits();
     BigDecimal earned;
     if (gross != null || share != null) {
       if (gross == null || share == null || amount != null) {
         throw new InvalidInputException(
             "Give the amount, or what the class took and the share, not both.");
       }
-      requireMoney(gross, ledger.currency());
+      requireMoney(gross, books.currency());
       requireShare(share);
       earned = gross.multiply(share).setScale(digits, RoundingMode.HALF_UP);
     } else if (amount != null) {
-      requireScale(amount, ledger.currency());
+      requireScale(amount, books.currency());
       earned = amount;
     } else {
       throw new InvalidInputException("Give the amount, or what the class took and the share.");
@@ -102,7 +105,7 @@ class PayeePayments {
     if (earned.signum() < 0 && kind != EarningKind.ADJUSTMENT) {
       throw new InvalidInputException("Only an adjustment can take money back.");
     }
-    LocalDate today = ledger.today();
+    LocalDate today = books.today();
     LocalDate day = earnedOn == null ? today : notInFuture(earnedOn, today);
     UUID id = Uuids.v7();
     List<Line> lines =
@@ -110,7 +113,7 @@ class PayeePayments {
             Line.debit(LedgerAccount.CONTRACT_SERVICES, earned),
             Line.credit(LedgerAccount.PAYEES_PAYABLE, earned).payee(payeeId));
     UUID entryId =
-        ledger.post(EntryKind.PAYEE_EARNING, day, truncate(text), id, "payee-earning:" + id, lines);
+        journal.post(EntryKind.PAYEE_EARNING, day, truncate(text), id, "payee-earning:" + id, lines);
     earnings.saveAndFlush(
         new PayeeEarning(id, payeeId, kind, text, day, gross, share, earned, entryId));
     return new Earning(id, payeeId, kind, text, day, gross, share, earned);
@@ -134,7 +137,7 @@ class PayeePayments {
             .findForUpdate(payeeId)
             .orElseThrow(() -> new NotFoundException("No such payee."));
     Payee payee = payees.view(locked);
-    requireMoney(amount, ledger.currency());
+    requireMoney(amount, books.currency());
     if (amount.compareTo(payee.owed()) > 0) {
       throw new InvalidInputException(
           "Only %s is owed to %s.".formatted(payee.owed().toPlainString(), payee.name()));
@@ -149,7 +152,7 @@ class PayeePayments {
     if (ref != null && ref.length() > 80) {
       throw new InvalidInputException("Keep the reference to 80 characters.");
     }
-    LocalDate today = ledger.today();
+    LocalDate today = books.today();
     LocalDate day = paidOn == null ? today : notInFuture(paidOn, today);
     UUID id = Uuids.v7();
     List<Line> lines =
@@ -157,7 +160,7 @@ class PayeePayments {
             Line.debit(LedgerAccount.PAYEES_PAYABLE, amount).payee(payeeId),
             source(method, amount, memberAccount));
     UUID entryId =
-        ledger.post(
+        journal.post(
             EntryKind.PAYEE_PAYMENT,
             day,
             truncate(

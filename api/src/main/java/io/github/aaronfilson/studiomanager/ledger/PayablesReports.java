@@ -23,12 +23,12 @@ class PayablesReports {
 
   private final PayablesService payees;
   private final PayablesQueries queries;
-  private final LedgerService ledger;
+  private final StudioBooks books;
 
-  PayablesReports(PayablesService payees, PayablesQueries queries, LedgerService ledger) {
+  PayablesReports(PayablesService payees, PayablesQueries queries, StudioBooks books) {
     this.payees = payees;
     this.queries = queries;
-    this.ledger = ledger;
+    this.books = books;
   }
 
   /**
@@ -56,7 +56,7 @@ class PayablesReports {
   @Transactional(readOnly = true)
   public NecReport necReport(int year) {
     requireStaff();
-    if (year < 2000 || year > ledger.today().getYear()) {
+    if (year < 2000 || year > books.today().getYear()) {
       throw new InvalidInputException("Ask for a year that has started.");
     }
     BigDecimal threshold = PayablesService.necThreshold(year);
