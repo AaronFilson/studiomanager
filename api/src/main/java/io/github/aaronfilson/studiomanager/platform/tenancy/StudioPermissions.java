@@ -15,6 +15,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class StudioPermissions {
 
+  /**
+   * Whether a member with {@code role} in the bound studio holds {@code permission}: for choosing
+   * other people, such as who is told about a problem, rather than checking the caller. From the
+   * code defaults until a studio's roles are stored (plan 21, lane R4), which changes it here.
+   */
+  public static boolean roleHolds(StudioRole role, Permission permission) {
+    return Permission.defaultsFor(role).contains(permission);
+  }
+
   /** Whether the caller holds {@code permission} in the studio the call is bound to. */
   public boolean has(Permission permission) {
     return TenantContext.current().map(context -> context.holds(permission)).orElse(false);
@@ -36,8 +45,20 @@ public class StudioPermissions {
    * @throws AccessDeniedException when they don't, which the API answers with a 403
    */
   public void require(Permission permission) {
-    if (!has(permission)) {
-      throw new AccessDeniedException("You don't have permission to do that in this studio.");
+    require(permission, "You don't have permission to do that in this studio.");
+  }
+
+  /**
+   * Refuses the call unless the caller holds {@code permission}, saying why in {@code message}, and
+   * otherwise returns the caller's context.
+   *
+   * @throws AccessDeniedException when they don't, which the API answers with a 403
+   */
+  public TenantContext require(Permission permission, String message) {
+    TenantContext caller = TenantContext.current().orElse(null);
+    if (caller == null || !caller.holds(permission)) {
+      throw new AccessDeniedException(message);
     }
+    return caller;
   }
 }

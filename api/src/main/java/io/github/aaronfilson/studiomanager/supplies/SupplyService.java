@@ -5,8 +5,8 @@ import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Movement;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Limit;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +54,7 @@ public class SupplyService {
   private final StockMovements stock;
   private final AccountDirectory accounts;
   private final ApiTokens tokens;
+  private final StudioPermissions permissions;
 
   SupplyService(
       SupplyItemRepository itemRepository,
@@ -62,7 +62,9 @@ public class SupplyService {
       PurchaseRequestRepository requestRepository,
       StockMovements stock,
       AccountDirectory accounts,
-      ApiTokens tokens) {
+      ApiTokens tokens,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.itemRepository = itemRepository;
     this.movementRepository = movementRepository;
     this.requestRepository = requestRepository;
@@ -104,7 +106,7 @@ public class SupplyService {
   @Transactional
   public Item recordMovement(
       UUID itemId, MovementKind kind, BigDecimal quantity, @Nullable String note) {
-    requireStaff();
+    permissions.require(Permission.SUPPLIES_MANAGE, ONLY_STAFF);
     stock.adjust(itemId, kind, quantity, note);
     return item(itemId);
   }
@@ -112,7 +114,7 @@ public class SupplyService {
   /** An item's movements, newest first, with the names of members who bought. */
   @Transactional(readOnly = true)
   public Capped<Movement> movements(UUID itemId) {
-    requireStaff();
+    permissions.require(Permission.SUPPLIES_MANAGE, ONLY_STAFF);
     if (!itemRepository.existsById(itemId)) {
       throw new NotFoundException("No such item.");
     }
@@ -132,7 +134,7 @@ public class SupplyService {
   /** Open requests (requested, approved, ordered), oldest first. */
   @Transactional(readOnly = true)
   public List<PurchaseRequest> openRequests() {
-    requireStaff();
+    permissions.require(Permission.SUPPLIES_PURCHASE_REQUEST, ONLY_STAFF);
     return views(requestRepository.findWithItemByStatusIn(OPEN));
   }
 
@@ -178,15 +180,8 @@ public class SupplyService {
 
   // ---- Shared by this package's services
 
-  /** The bound caller, if they're staff or the owner. */
-  static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff can do this.");
-    }
-    return caller;
-  }
+  /** Why a change only staff may make was refused. */
+  static final String ONLY_STAFF = "Only staff can do this.";
 
   static BigDecimal positive(BigDecimal quantity) {
     if (quantity.signum() <= 0) {

@@ -427,6 +427,7 @@ paths:
     get:
       tags: [studios]
       operationId: getStudio
+      x-permission: studio.read
       summary: A studio the caller belongs to
       responses:
         "200":
@@ -446,6 +447,7 @@ paths:
     get:
       tags: [export]
       operationId: exportStudio
+      x-permission: studio.export
       summary: Everything the studio holds, as a ZIP of CSV files (owner only)
       description: |
         One CSV per table, with a header row, plus `members.csv` with each member's name and
@@ -470,6 +472,7 @@ paths:
     get:
       tags: [members]
       operationId: listMembers
+      x-permission: members.read
       summary: Everyone in the studio (staff only)
       responses:
         "200":
@@ -491,6 +494,7 @@ paths:
     get:
       tags: [members]
       operationId: listOpenInvites
+      x-permission: members.invite
       summary: Invites not yet accepted, newest first (staff only)
       description: |
         Both emailed invites and link invites. Expired ones are included, so staff can see who
@@ -511,6 +515,7 @@ paths:
     post:
       tags: [members]
       operationId: createInvite
+      x-permission: members.invite
       summary: Invite someone into the studio (staff only)
       description: |
         Returns a one-time code, valid for 14 days. Nobody can invite to a role above their own.
@@ -541,6 +546,7 @@ paths:
     post:
       tags: [members]
       operationId: emailInvites
+      x-permission: members.invite
       summary: Email an invite to each address in a pasted list (staff only)
       description: |
         Takes text as pasted from a spreadsheet, a mailing list or an email's To line, and finds
@@ -575,6 +581,7 @@ paths:
     delete:
       tags: [members]
       operationId: revokeInvite
+      x-permission: members.invite
       summary: Withdraw an invite that hasn't been accepted (staff only)
       responses:
         "204":
@@ -593,6 +600,7 @@ paths:
     post:
       tags: [members]
       operationId: resendInvite
+      x-permission: members.invite
       summary: Email an invite again, with a new code and a fresh 14 days (staff only)
       description: Only for emailed invites. The code in any earlier email stops working.
       responses:
@@ -642,6 +650,7 @@ paths:
     get:
       tags: [fees]
       operationId: getFeeSchedule
+      x-permission: fees.read
       summary: The current firing-fee schedule
       description: Version 0 means the studio hasn't set fees, so pieces fire free.
       responses:
@@ -658,6 +667,7 @@ paths:
     put:
       tags: [fees]
       operationId: saveFeeSchedule
+      x-permission: fees.edit
       summary: Save the fees as a new version (staff only)
       description: Earlier versions are kept, and pieces keep the version they were priced with.
       requestBody:
@@ -688,6 +698,7 @@ paths:
     post:
       tags: [fees]
       operationId: quoteFee
+      x-permission: fees.read
       summary: Price a piece without taking it in
       requestBody:
         required: true
@@ -715,6 +726,7 @@ paths:
     get:
       tags: [pieces]
       operationId: getPiecePolicy
+      x-permission: pieces.read
       summary: How long ready pieces are held
       responses:
         "200":
@@ -730,6 +742,7 @@ paths:
     put:
       tags: [pieces]
       operationId: savePiecePolicy
+      x-permission: pieces.policy.edit
       summary: Change how long ready pieces are held (staff only)
       requestBody:
         required: true
@@ -757,6 +770,7 @@ paths:
     get:
       tags: [pieces]
       operationId: listPieces
+      x-permission: pieces.read
       summary: Pieces, newest first
       description: Staff see every piece. Members see only their own, whatever the filter says.
       parameters:
@@ -785,6 +799,7 @@ paths:
     post:
       tags: [pieces]
       operationId: intakePiece
+      x-permission: pieces.intake_own
       summary: Take in a piece
       description: |
         Numbers the piece and prices it with the current fee schedule. The fee is a snapshot:
@@ -816,6 +831,7 @@ paths:
     get:
       tags: [pieces]
       operationId: getPiece
+      x-permission: pieces.read
       summary: One piece and its timeline
       responses:
         "200":
@@ -838,6 +854,7 @@ paths:
     post:
       tags: [pieces]
       operationId: movePiece
+      x-permission: pieces.move
       summary: Move a piece to its next stage (staff only)
       description: Reaching READY starts the hold period.
       requestBody:
@@ -871,6 +888,7 @@ paths:
     post:
       tags: [pieces]
       operationId: startPhotoUpload
+      x-permission: pieces.intake_own
       summary: Start adding a photo to a piece
       description: |
         Returns two signed URLs, one for the photo and one for its thumbnail. Upload each as a
@@ -904,6 +922,7 @@ paths:
     post:
       tags: [pieces]
       operationId: completePhotoUpload
+      x-permission: pieces.intake_own
       summary: Finish adding a photo, once both images are uploaded
       description: |
         Checks that both images arrived, are JPEGs and are within the size limits, then shows
@@ -935,6 +954,7 @@ paths:
     delete:
       tags: [pieces]
       operationId: deletePhoto
+      x-permission: pieces.intake_own
       summary: Remove a photo from a piece
       description: Anyone who can see the piece can remove its photos.
       responses:
@@ -953,6 +973,7 @@ paths:
     get:
       tags: [kilns]
       operationId: listKilns
+      x-permission: kilns.read
       summary: The studio's kilns, with availability and firing counts
       responses:
         "200":
@@ -970,6 +991,7 @@ paths:
     post:
       tags: [kilns]
       operationId: createKiln
+      x-permission: kilns.manage
       summary: Add a kiln (staff only)
       requestBody:
         required: true
@@ -998,6 +1020,7 @@ paths:
     put:
       tags: [kilns]
       operationId: updateKiln
+      x-permission: kilns.manage
       summary: Change a kiln's settings (staff only)
       requestBody:
         required: true
@@ -1030,6 +1053,7 @@ paths:
     put:
       tags: [kilns]
       operationId: setKilnAvailability
+      x-permission: kilns.manage
       summary: Take a kiln out of service, or put it back (staff only)
       requestBody:
         required: true
@@ -1061,6 +1085,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: listAssets
+      x-permission: maintenance.manage
       summary: Everything the studio maintains, with each one's tasks and when they fall due (staff only)
       description: Kilns are included automatically. Archived assets are left out.
       responses:
@@ -1079,6 +1104,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: createAsset
+      x-permission: maintenance.manage
       summary: Add something to maintain, such as a pug mill, the clay trap or the roof (staff only)
       description: Kilns are added on the kilns page and appear here by themselves, so KILN isn't accepted.
       requestBody:
@@ -1108,6 +1134,7 @@ paths:
     put:
       tags: [maintenance]
       operationId: updateAsset
+      x-permission: maintenance.manage
       summary: Rename an asset or change its location and notes (staff only)
       description: A kiln asset takes its name from the kiln, so `name` is ignored for one.
       requestBody:
@@ -1136,6 +1163,7 @@ paths:
     delete:
       tags: [maintenance]
       operationId: archiveAsset
+      x-permission: maintenance.manage
       summary: Stop tracking an asset (staff only)
       description: Its history is kept. A kiln's asset goes when the kiln does, so it can't be archived here.
       responses:
@@ -1157,6 +1185,7 @@ paths:
     put:
       tags: [maintenance]
       operationId: setAssetAvailability
+      x-permission: maintenance.manage
       summary: Mark an asset out of service with a reason, or back in service (staff only)
       description: A kiln is marked down on the kiln itself, where it also stops loads, so a kiln asset is refused here.
       requestBody:
@@ -1190,6 +1219,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: createMaintenanceTask
+      x-permission: maintenance.manage
       summary: Add a recurring job to an asset (staff only)
       description: |
         It falls due every N days, every N firings (kilns only), or whichever comes first. Its
@@ -1223,6 +1253,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: listMaintenanceRecords
+      x-permission: maintenance.manage
       summary: The asset's maintenance history, newest first (staff only)
       responses:
         "200":
@@ -1240,6 +1271,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: recordRepair
+      x-permission: maintenance.manage
       summary: Log work done outside any task, such as a repair (staff only)
       description: It doesn't restart any task's clock.
       requestBody:
@@ -1271,6 +1303,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: listSuggestedMaintenanceTasks
+      x-permission: maintenance.manage
       summary: Common tasks for this kind of asset, with their sources (staff only)
       description: |
         Starting points, such as a kiln maker's every-10-firings check or the monthly extinguisher
@@ -1299,6 +1332,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: startRecordPhotoUpload
+      x-permission: maintenance.manage
       summary: Start adding a photo to a maintenance record (staff only)
       description: |
         Works like `startPhotoUpload` for pieces: upload both JPEGs to the signed URLs, then call
@@ -1328,6 +1362,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: completeRecordPhotoUpload
+      x-permission: maintenance.manage
       summary: Finish adding a photo to a record, once both images are uploaded (staff only)
       description: Checks both images like `completePhotoUpload`. Calling it again changes nothing.
       responses:
@@ -1350,6 +1385,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: exportMaintenanceRecords
+      x-permission: maintenance.manage
       summary: Every asset's maintenance history as CSV, for an insurer or landlord (staff only)
       description: Records done on or between the two dates, in the studio's time zone, oldest first.
       parameters:
@@ -1376,6 +1412,7 @@ paths:
     put:
       tags: [maintenance]
       operationId: updateMaintenanceTask
+      x-permission: maintenance.manage
       summary: Change a task's job, interval or assignee (staff only)
       requestBody:
         required: true
@@ -1403,6 +1440,7 @@ paths:
     delete:
       tags: [maintenance]
       operationId: archiveMaintenanceTask
+      x-permission: maintenance.manage
       summary: Stop a recurring task (staff only)
       description: Records of it are kept.
       responses:
@@ -1422,6 +1460,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: completeMaintenanceTask
+      x-permission: maintenance.read
       summary: Record that a task was done, which restarts its clock and no other's
       description: For staff, and for whoever the task is assigned to, by name or by duty.
       requestBody:
@@ -1452,6 +1491,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: listMyMaintenanceTasks
+      x-permission: maintenance.read
       summary: Tasks assigned to the caller, by name or through a duty they hold, soonest due first
       responses:
         "200":
@@ -1473,6 +1513,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: listReportableAssets
+      x-permission: maintenance.read
       summary: Equipment and places a member can report a problem with
       responses:
         "200":
@@ -1494,6 +1535,7 @@ paths:
     get:
       tags: [maintenance]
       operationId: listProblemReports
+      x-permission: maintenance.read
       summary: Problem reports, newest first
       description: Staff see every report; members see their own.
       parameters:
@@ -1518,6 +1560,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: reportProblem
+      x-permission: maintenance.report_problem
       summary: Report a problem with equipment or the building
       description: Anyone in the studio can. The staff and technicians get a notice.
       requestBody:
@@ -1549,6 +1592,7 @@ paths:
     post:
       tags: [maintenance]
       operationId: resolveProblemReport
+      x-permission: maintenance.read
       summary: Close a report, saying what was done (staff only)
       description: Log any repair on the asset as well; resolving doesn't record work.
       requestBody:
@@ -1582,6 +1626,7 @@ paths:
     get:
       tags: [kilns]
       operationId: getKilnQueue
+      x-permission: firings.manage
       summary: Pieces waiting for a firing in this kiln, longest-waiting first (staff only)
       description: Each entry says whether the kiln's per-member cap lets it into the next load.
       parameters:
@@ -1611,6 +1656,7 @@ paths:
     get:
       tags: [kilns]
       operationId: listKilnFirings
+      x-permission: firings.manage
       summary: The kiln's firing log, newest first (staff only)
       responses:
         "200":
@@ -1629,6 +1675,7 @@ paths:
     post:
       tags: [kilns]
       operationId: loadKiln
+      x-permission: firings.manage
       summary: Start a load from queued pieces (staff only)
       requestBody:
         required: true
@@ -1661,6 +1708,7 @@ paths:
     get:
       tags: [kilns]
       operationId: getFiring
+      x-permission: firings.manage
       summary: One firing and its pieces (staff only)
       responses:
         "200":
@@ -1683,6 +1731,7 @@ paths:
     post:
       tags: [kilns]
       operationId: transitionFiring
+      x-permission: firings.manage
       summary: Start, unload or cancel a firing (staff only)
       description: |
         COMPLETE (unloading) moves every piece on (bisque → bisque fired; glaze → ready, which
@@ -1718,6 +1767,7 @@ paths:
     get:
       tags: [notifications]
       operationId: listMyNotifications
+      x-permission: notices.read
       summary: The caller's notifications in this studio, newest first
       responses:
         "200":
@@ -1743,6 +1793,7 @@ paths:
     post:
       tags: [notifications]
       operationId: markNotificationRead
+      x-permission: notices.read
       summary: Mark one of the caller's notifications as read
       responses:
         "204":
@@ -1760,6 +1811,7 @@ paths:
     post:
       tags: [notifications]
       operationId: sendNotice
+      x-permission: notices.send
       summary: Send every member a notice, such as a closure (staff only)
       requestBody:
         required: true
@@ -1810,6 +1862,7 @@ paths:
     get:
       tags: [access]
       operationId: listDuties
+      x-permission: members.duties.manage
       summary: Everyone's duties (staff only)
       responses:
         "200":
@@ -1832,6 +1885,7 @@ paths:
     put:
       tags: [access]
       operationId: setDuties
+      x-permission: members.duties.manage
       summary: Replace a member's duties (staff only)
       requestBody:
         required: true
@@ -1859,6 +1913,7 @@ paths:
     get:
       tags: [access]
       operationId: listCertificationTypes
+      x-permission: studio.read
       summary: The certifications this studio gives
       responses:
         "200":
@@ -1876,6 +1931,7 @@ paths:
     post:
       tags: [access]
       operationId: createCertificationType
+      x-permission: members.certify
       summary: Add a kind of certification, such as "Kiln loading" (staff only)
       requestBody:
         required: true
@@ -1903,6 +1959,7 @@ paths:
     get:
       tags: [access]
       operationId: listCertifications
+      x-permission: studio.read
       summary: Certifications held
       description: Staff see everyone's; with `accountId`, one person's. Members may ask only for their own.
       parameters:
@@ -1939,6 +1996,7 @@ paths:
     put:
       tags: [access]
       operationId: grantCertification
+      x-permission: members.certify
       summary: Grant or renew a certification (staff only)
       responses:
         "200":
@@ -1958,6 +2016,7 @@ paths:
     delete:
       tags: [access]
       operationId: revokeCertification
+      x-permission: members.certify
       summary: Withdraw a certification (staff only)
       responses:
         "204":
@@ -1973,6 +2032,7 @@ paths:
     get:
       tags: [schedule]
       operationId: listResources
+      x-permission: schedule.read
       summary: What can be booked
       responses:
         "200":
@@ -1990,6 +2050,7 @@ paths:
     post:
       tags: [schedule]
       operationId: createResource
+      x-permission: schedule.manage
       summary: Add something bookable (staff only)
       requestBody:
         required: true
@@ -2017,6 +2078,7 @@ paths:
     get:
       tags: [schedule]
       operationId: listBookings
+      x-permission: schedule.read
       summary: The calendar between two times (up to 62 days)
       description: Members see other people's reservations only as "Reserved".
       parameters:
@@ -2038,6 +2100,7 @@ paths:
     post:
       tags: [schedule]
       operationId: createBooking
+      x-permission: schedule.book_own
       summary: Book a resource
       description: |
         Members can reserve a place for themselves, if they hold the resource's required
@@ -2079,6 +2142,7 @@ paths:
     delete:
       tags: [schedule]
       operationId: cancelBooking
+      x-permission: schedule.book_own
       summary: Cancel your reservation (staff can cancel anything)
       responses:
         "204":
@@ -2096,6 +2160,7 @@ paths:
     get:
       tags: [schedule]
       operationId: listShifts
+      x-permission: schedule.read
       summary: The roster between two times (up to 62 days)
       parameters:
         - $ref: "#/components/parameters/From"
@@ -2116,6 +2181,7 @@ paths:
     post:
       tags: [schedule]
       operationId: createShifts
+      x-permission: schedule.manage
       summary: Add a weekly shift for a number of weeks (staff only)
       requestBody:
         required: true
@@ -2146,6 +2212,7 @@ paths:
     put:
       tags: [schedule]
       operationId: assignShift
+      x-permission: schedule.shifts.take_open
       summary: Take an open shift, or (staff) assign or free one
       requestBody:
         required: true
@@ -2178,6 +2245,7 @@ paths:
     put:
       tags: [schedule]
       operationId: offerShift
+      x-permission: schedule.shifts.take_open
       summary: Ask for cover for your shift, or stop asking
       description: |
         Whoever has the shift (or staff) can. They keep it until someone takes it with
@@ -2214,6 +2282,7 @@ paths:
     post:
       tags: [schedule]
       operationId: markShiftWorked
+      x-permission: schedule.hours.manage
       summary: Confirm a shift was worked, crediting its hours (staff only)
       requestBody:
         required: true
@@ -2246,6 +2315,7 @@ paths:
     get:
       tags: [schedule]
       operationId: getHours
+      x-permission: schedule.read
       summary: Someone's credited hours (members see only their own)
       responses:
         "200":
@@ -2261,6 +2331,7 @@ paths:
     post:
       tags: [schedule]
       operationId: adjustHours
+      x-permission: schedule.hours.manage
       summary: Credit or debit hours by hand, with a reason (staff only)
       requestBody:
         required: true
@@ -2288,6 +2359,7 @@ paths:
     get:
       tags: [today]
       operationId: getToday
+      x-permission: today.read
       summary: What whoever runs the studio today needs to know (staff only)
       responses:
         "200":
@@ -2307,6 +2379,7 @@ paths:
     get:
       tags: [ledger]
       operationId: listBalances
+      x-permission: money.read
       summary: Members who owe something or are in credit, largest first (staff only)
       responses:
         "200":
@@ -2329,6 +2402,7 @@ paths:
     get:
       tags: [ledger]
       operationId: getStatement
+      x-permission: money.own.read
       summary: What a member owes and has prepaid (members see their own)
       responses:
         "200":
@@ -2348,6 +2422,7 @@ paths:
     post:
       tags: [ledger]
       operationId: recordPayment
+      x-permission: money.take_payment
       summary: Record a member's payment against what they owe (staff only)
       requestBody:
         required: true
@@ -2375,6 +2450,7 @@ paths:
     get:
       tags: [ledger]
       operationId: listStoredValues
+      x-permission: money.stored_value.manage
       summary: Prepaid balances with something left (staff only)
       responses:
         "200":
@@ -2390,6 +2466,7 @@ paths:
     post:
       tags: [ledger]
       operationId: sellStoredValue
+      x-permission: money.stored_value.manage
       summary: Sell a gift card, firing card, class pack, deposit or credit (staff only)
       requestBody:
         required: true
@@ -2423,6 +2500,7 @@ paths:
     get:
       tags: [ledger]
       operationId: findGiftCard
+      x-permission: money.stored_value.manage
       summary: Look up a gift card by its code (staff only)
       responses:
         "200":
@@ -2445,6 +2523,7 @@ paths:
     post:
       tags: [ledger]
       operationId: useStoredValue
+      x-permission: money.stored_value.manage
       summary: Pay down a member's balance from a prepaid balance (staff only)
       requestBody:
         required: true
@@ -2475,6 +2554,7 @@ paths:
     post:
       tags: [ledger]
       operationId: expireStoredValue
+      x-permission: money.stored_value.manage
       summary: Write off what's left on a lapsed balance (staff only)
       responses:
         "200":
@@ -2498,6 +2578,7 @@ paths:
     get:
       tags: [ledger]
       operationId: getStoredValueMovements
+      x-permission: money.read
       summary: Prepaid balances rolled forward over a period, by kind (staff only)
       parameters:
         - $ref: "#/components/parameters/FromDate"
@@ -2524,6 +2605,7 @@ paths:
     get:
       tags: [ledger]
       operationId: listPayouts
+      x-permission: money.payouts
       summary: Imported payouts, newest first (staff only)
       responses:
         "200":
@@ -2539,6 +2621,7 @@ paths:
     post:
       tags: [ledger]
       operationId: importPayout
+      x-permission: money.payouts
       summary: Import a processor payout (staff only)
       description: |
         From any provider: Stripe, Square, Shopify, PayPal or other. Importing the same payout
@@ -2571,6 +2654,7 @@ paths:
     get:
       tags: [ledger]
       operationId: getClearing
+      x-permission: money.payouts
       summary: Money each processor has taken but not yet paid out (staff only)
       responses:
         "200":
@@ -2592,6 +2676,7 @@ paths:
     get:
       tags: [ledger]
       operationId: getLedgerSummary
+      x-permission: money.read
       summary: Debits and credits per day and account (staff only)
       parameters:
         - $ref: "#/components/parameters/FromDate"
@@ -2618,6 +2703,7 @@ paths:
     get:
       tags: [ledger]
       operationId: exportJournal
+      x-permission: money.read
       summary: The daily summary as a journal CSV for QuickBooks or Xero (staff only)
       parameters:
         - $ref: "#/components/parameters/FromDate"
@@ -2642,6 +2728,7 @@ paths:
     get:
       tags: [ledger]
       operationId: listTaxRates
+      x-permission: studio.read
       summary: Sales tax rates by category and the date they start
       responses:
         "200":
@@ -2659,6 +2746,7 @@ paths:
     put:
       tags: [ledger]
       operationId: setTaxRate
+      x-permission: money.tax_rates.edit
       summary: Set a category's rate from a date onwards (staff only)
       requestBody:
         required: true
@@ -2686,6 +2774,7 @@ paths:
     get:
       tags: [payables]
       operationId: listPayees
+      x-permission: money.payables.manage
       summary: Everyone the studio pays, with what each is owed (staff only)
       responses:
         "200":
@@ -2702,6 +2791,7 @@ paths:
     post:
       tags: [payables]
       operationId: createPayee
+      x-permission: money.payables.manage
       summary: Add an artist, instructor or anyone else the studio pays (staff only)
       requestBody:
         required: true
@@ -2732,6 +2822,7 @@ paths:
     put:
       tags: [payables]
       operationId: updatePayee
+      x-permission: money.payables.manage
       summary: Change a payee's details, terms or tax status, or archive them (staff only)
       requestBody:
         required: true
@@ -2764,6 +2855,7 @@ paths:
     get:
       tags: [payables]
       operationId: getPayeeStatement
+      x-permission: money.payables.manage
       summary: What a payee was owed, earned and paid over a period (staff only)
       parameters:
         - $ref: "#/components/parameters/FromDate"
@@ -2791,6 +2883,7 @@ paths:
     post:
       tags: [payables]
       operationId: recordEarning
+      x-permission: money.payables.manage
       summary: Record a share or fee a payee has earned, such as an instructor's share of a class (staff only)
       requestBody:
         required: true
@@ -2821,6 +2914,7 @@ paths:
     post:
       tags: [payables]
       operationId: payPayee
+      x-permission: money.payables.manage
       summary: Record money sent to a payee, up to what they're owed (staff only)
       requestBody:
         required: true
@@ -2850,6 +2944,7 @@ paths:
     post:
       tags: [payables]
       operationId: payPayees
+      x-permission: money.payables.manage
       summary: Pay several payees at once, all or none (staff only)
       description: |
         Records one payment per line by the same method and date, such as the month's
@@ -2885,6 +2980,7 @@ paths:
     get:
       tags: [payables]
       operationId: getMyConsignment
+      x-permission: money.own.read
       summary: The signed-in member's own work on consignment, its sales, and what they're owed
       responses:
         "200":
@@ -2906,6 +3002,7 @@ paths:
     post:
       tags: [imports]
       operationId: importMembers
+      x-permission: imports.run
       summary: Invite members from a spreadsheet, with what each owed (staff only)
       description: |
         Each row is the text from the mapped columns. New addresses are invited as members;
@@ -2937,6 +3034,7 @@ paths:
     post:
       tags: [imports]
       operationId: importConsignment
+      x-permission: imports.run
       summary: Take in artists' work from a spreadsheet (staff only)
       description: |
         Each row is one item. Its artist is matched by email, then by name, and created if
@@ -2967,6 +3065,7 @@ paths:
     get:
       tags: [payables]
       operationId: listConsignmentItems
+      x-permission: money.payables.manage
       summary: Consigned work, newest first (staff only)
       parameters:
         - name: dueBack
@@ -3003,6 +3102,7 @@ paths:
     post:
       tags: [payables]
       operationId: takeInConsignment
+      x-permission: money.payables.manage
       summary: Take in an artist's work to sell (staff only)
       requestBody:
         required: true
@@ -3033,6 +3133,7 @@ paths:
     post:
       tags: [payables]
       operationId: sellConsignment
+      x-permission: money.take_payment
       summary: Sell consigned work; the artist's share becomes what they're owed (staff only)
       requestBody:
         required: true
@@ -3063,6 +3164,7 @@ paths:
     post:
       tags: [payables]
       operationId: returnConsignment
+      x-permission: money.payables.manage
       summary: Give unsold work back to the artist (staff only)
       requestBody:
         required: true
@@ -3092,6 +3194,7 @@ paths:
     get:
       tags: [payables]
       operationId: listConsignmentSales
+      x-permission: money.payables.manage
       summary: Recent sales of consigned work, newest first (staff only)
       parameters:
         - name: payeeId
@@ -3119,6 +3222,7 @@ paths:
     post:
       tags: [payables]
       operationId: refundConsignmentSale
+      x-permission: money.refund_and_adjust
       summary: Refund a sale in full and put the work back on the shelf (staff only)
       description: |
         Reverses the artist's share, the commission and the tax. If the artist was already
@@ -3145,6 +3249,7 @@ paths:
     get:
       tags: [payables]
       operationId: getNecReport
+      x-permission: money.payables.manage
       summary: Payments in a year to payees the studio files a 1099-NEC for (staff only)
       parameters:
         - $ref: "#/components/parameters/Year"
@@ -3168,6 +3273,7 @@ paths:
     get:
       tags: [payables]
       operationId: exportNecReport
+      x-permission: money.payables.manage
       summary: The 1099-NEC list as CSV, for whoever files the forms (staff only)
       parameters:
         - $ref: "#/components/parameters/Year"
@@ -3191,6 +3297,7 @@ paths:
     get:
       tags: [supplies]
       operationId: listSupplies
+      x-permission: supplies.read
       summary: Clay and supplies, low stock first
       responses:
         "200":
@@ -3208,6 +3315,7 @@ paths:
     post:
       tags: [supplies]
       operationId: createSupply
+      x-permission: supplies.manage
       summary: Add an item (staff only)
       requestBody:
         required: true
@@ -3236,6 +3344,7 @@ paths:
     put:
       tags: [supplies]
       operationId: updateSupply
+      x-permission: supplies.manage
       summary: Change an item (staff only)
       requestBody:
         required: true
@@ -3268,6 +3377,7 @@ paths:
     get:
       tags: [supplies]
       operationId: listStockMovements
+      x-permission: supplies.manage
       summary: The item's stock history, newest first (staff only)
       responses:
         "200":
@@ -3285,6 +3395,7 @@ paths:
     post:
       tags: [supplies]
       operationId: recordStockMovement
+      x-permission: supplies.manage
       summary: Record stock received, used, or counted (staff only)
       description: For a count, give what is on the shelf; the difference from the books is recorded.
       requestBody:
@@ -3316,6 +3427,7 @@ paths:
     post:
       tags: [supplies]
       operationId: sellSupply
+      x-permission: supplies.sell
       summary: Sell an item to a member, on their balance (staff only)
       requestBody:
         required: true
@@ -3345,6 +3457,7 @@ paths:
     get:
       tags: [supplies]
       operationId: listPurchaseRequests
+      x-permission: supplies.purchase.request
       summary: Open purchase requests, oldest first (staff only)
       responses:
         "200":
@@ -3362,6 +3475,7 @@ paths:
     post:
       tags: [supplies]
       operationId: createPurchaseRequest
+      x-permission: supplies.purchase.request
       summary: Ask for more of an item (staff only)
       requestBody:
         required: true
@@ -3397,6 +3511,7 @@ paths:
     put:
       tags: [supplies]
       operationId: decidePurchaseRequest
+      x-permission: supplies.purchase.request
       summary: Approve or reject (owner), or mark ordered or received (staff)
       description: Received puts the quantity into stock.
       requestBody:
@@ -3429,6 +3544,7 @@ paths:
     get:
       tags: [activity]
       operationId: getWeeklyActivity
+      x-permission: activity.read
       summary: Weekly totals built from the event stream, newest week first (staff only)
       description: >
         Firings by kiln, pieces fired, members joined and fees charged, per week starting Monday in
@@ -3461,6 +3577,7 @@ paths:
     get:
       tags: [webhooks]
       operationId: listWebhookEventTypes
+      x-permission: webhooks.manage
       summary: The events an endpoint can subscribe to, each with an example payload (staff only)
       responses:
         "200":
@@ -3482,6 +3599,7 @@ paths:
     get:
       tags: [webhooks]
       operationId: listWebhookEndpoints
+      x-permission: webhooks.manage
       summary: Where the studio's webhooks go (staff only)
       responses:
         "200":
@@ -3499,6 +3617,7 @@ paths:
     post:
       tags: [webhooks]
       operationId: createWebhookEndpoint
+      x-permission: webhooks.manage
       summary: Add an endpoint (staff only)
       description: |
         The URL must be https and resolve only to public addresses. The response carries the
@@ -3530,6 +3649,7 @@ paths:
     patch:
       tags: [webhooks]
       operationId: updateWebhookEndpoint
+      x-permission: webhooks.manage
       summary: Change an endpoint, or turn it off or back on (staff only)
       description: Turning an endpoint back on clears its failures. Events missed while it was off aren't replayed.
       requestBody:
@@ -3556,6 +3676,7 @@ paths:
     delete:
       tags: [webhooks]
       operationId: deleteWebhookEndpoint
+      x-permission: webhooks.manage
       summary: Delete an endpoint and its delivery log (staff only)
       responses:
         "204":
@@ -3574,6 +3695,7 @@ paths:
     post:
       tags: [webhooks]
       operationId: rotateWebhookSecret
+      x-permission: webhooks.manage
       summary: A new signing secret (staff only)
       description: The old secret keeps signing, alongside the new one, for 24 hours.
       responses:
@@ -3597,6 +3719,7 @@ paths:
     post:
       tags: [webhooks]
       operationId: testWebhookEndpoint
+      x-permission: webhooks.manage
       summary: Send a ping now and return how it went (staff only)
       responses:
         "200":
@@ -3621,6 +3744,7 @@ paths:
     get:
       tags: [webhooks]
       operationId: listWebhookDeliveries
+      x-permission: webhooks.manage
       summary: The last 30 days of deliveries to an endpoint, newest first (staff only)
       responses:
         "200":
@@ -3650,6 +3774,7 @@ paths:
     post:
       tags: [webhooks]
       operationId: resendWebhookDelivery
+      x-permission: webhooks.manage
       summary: Send the same event again, now (staff only)
       description: A new delivery with the same event id, so a receiver that saw it already can drop it.
       responses:
@@ -3674,6 +3799,7 @@ paths:
     get:
       tags: [glazes]
       operationId: listGlazes
+      x-permission: glazes.read
       summary: The glaze book
       description: |
         Studio glazes, the caller's own recipes, or recipes other members have shared. A
@@ -3700,6 +3826,7 @@ paths:
     post:
       tags: [glazes]
       operationId: createGlaze
+      x-permission: glazes.own.edit
       summary: Add a recipe
       description: Anyone can add their own recipe. Only staff can add a studio glaze.
       requestBody:
@@ -3729,6 +3856,7 @@ paths:
     get:
       tags: [glazes]
       operationId: getGlaze
+      x-permission: glazes.read
       summary: One recipe
       responses:
         "200":
@@ -3746,6 +3874,7 @@ paths:
     put:
       tags: [glazes]
       operationId: updateGlaze
+      x-permission: glazes.own.edit
       summary: Change a recipe (its owner, or staff for a studio glaze)
       description: Replaces the recipe and its lines. The owner kind can't change.
       requestBody:
@@ -3774,6 +3903,7 @@ paths:
     delete:
       tags: [glazes]
       operationId: deleteGlaze
+      x-permission: glazes.own.edit
       summary: Delete a recipe (its owner, or staff for a studio glaze)
       responses:
         "204":
@@ -3792,6 +3922,7 @@ paths:
     get:
       tags: [glazes]
       operationId: getGlazeBatch
+      x-permission: glazes.read
       summary: The recipe scaled to a dry batch, ready to weigh out
       description: |
         Base lines share the batch size. Percent additions go on top, as a percent of the
@@ -3830,6 +3961,7 @@ paths:
     get:
       tags: [api-tokens]
       operationId: listApiTokens
+      x-permission: api_tokens.own
       summary: The caller's API tokens; an owner sees everyone's (staff only)
       security:
         - bearerAuth: []
@@ -3849,6 +3981,7 @@ paths:
     post:
       tags: [api-tokens]
       operationId: createApiToken
+      x-permission: api_tokens.own
       summary: Make a token that acts as the caller in this studio (staff only)
       description: The response carries the token itself, which is never shown again.
       security:
@@ -3880,6 +4013,7 @@ paths:
     delete:
       tags: [api-tokens]
       operationId: revokeApiToken
+      x-permission: api_tokens.own
       summary: Revoke a token, at once (its owner, or the studio owner)
       security:
         - bearerAuth: []
@@ -3899,6 +4033,7 @@ paths:
     get:
       tags: [pending-actions]
       operationId: listPendingActions
+      x-permission: proposals.review
       summary: Assistant suggestions waiting for a decision, oldest first (staff only)
       security:
         - bearerAuth: []
@@ -3926,6 +4061,7 @@ paths:
     put:
       tags: [pending-actions]
       operationId: decidePendingAction
+      x-permission: proposals.review
       summary: Approve or reject a suggestion (staff only)
       description: |
         Approving makes the change as the caller, with the same checks as making it by hand. If
@@ -3962,6 +4098,7 @@ paths:
     get:
       tags: [ai]
       operationId: getAiKey
+      x-permission: studio.ai_key.manage
       summary: The studio's own AI key, without the key itself (owner only)
       security:
         - bearerAuth: []
@@ -3981,6 +4118,7 @@ paths:
     put:
       tags: [ai]
       operationId: setAiKey
+      x-permission: studio.ai_key.manage
       summary: Save the studio's own AI key, replacing any before it (owner only)
       description: |
         The key is stored encrypted and never returned. Saving it doesn't send anything
@@ -4009,6 +4147,7 @@ paths:
     delete:
       tags: [ai]
       operationId: deleteAiKey
+      x-permission: studio.ai_key.manage
       summary: Delete the studio's AI key (owner only)
       security:
         - bearerAuth: []
@@ -4026,6 +4165,7 @@ paths:
     post:
       tags: [ai]
       operationId: testAiKey
+      x-permission: studio.ai_key.manage
       summary: Check the key with one small call to the provider (owner only)
       description: Lists the provider's models, which spends no tokens.
       security:
@@ -4050,6 +4190,7 @@ paths:
     get:
       tags: [invoices]
       operationId: listInvoices
+      x-permission: invoices.manage
       summary: The supplies inbox, newest first (staff)
       security:
         - bearerAuth: []
@@ -4067,6 +4208,7 @@ paths:
     post:
       tags: [invoices]
       operationId: startInvoiceUpload
+      x-permission: invoices.manage
       summary: Start an invoice and get a URL to upload its file to (staff)
       description: |
         PUT the file to `uploadUrl` with `x-ms-blob-type: BlockBlob`, then call `complete`. The
@@ -4105,6 +4247,7 @@ paths:
     get:
       tags: [invoices]
       operationId: getInvoice
+      x-permission: invoices.manage
       summary: An invoice's draft, its checks, and a link to its file (staff)
       security:
         - bearerAuth: []
@@ -4124,6 +4267,7 @@ paths:
     put:
       tags: [invoices]
       operationId: saveInvoiceDraft
+      x-permission: invoices.manage
       summary: Replace the draft with staff's corrections (staff)
       security:
         - bearerAuth: []
@@ -4153,6 +4297,7 @@ paths:
     delete:
       tags: [invoices]
       operationId: discardInvoice
+      x-permission: invoices.manage
       summary: Throw away an invoice that hasn't been confirmed, and its file (staff)
       security:
         - bearerAuth: []
@@ -4180,6 +4325,7 @@ paths:
     post:
       tags: [invoices]
       operationId: completeInvoiceUpload
+      x-permission: invoices.manage
       summary: Check the uploaded file and have it read (staff)
       description: |
         The file is read in the background, so the invoice comes back `READING`. Poll it until it's
@@ -4214,6 +4360,7 @@ paths:
     post:
       tags: [invoices]
       operationId: compareInvoiceReaders
+      x-permission: studio.ai_key.manage
       summary: Read the invoice with every reader allowed for the studio, side by side (owner)
       description: |
         Runs each reader the studio may use now, one after another, and returns what each read,
@@ -4249,6 +4396,7 @@ paths:
     post:
       tags: [invoices]
       operationId: confirmInvoice
+      x-permission: invoices.manage
       summary: Receive the invoice's stock (staff)
       description: |
         Each line with a supply item is received into stock at its quantity, and what the vendor's

@@ -44,7 +44,7 @@ class InvoiceController implements InvoicesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<InvoiceListDto> listInvoices(UUID studioId) {
     Capped<InvoiceSummaryDto> listed = inbox.list(studioId).map(InvoiceController::toDto);
     return ResponseEntity.ok(
@@ -52,7 +52,7 @@ class InvoiceController implements InvoicesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<InvoiceUploadDto> startInvoiceUpload(
       UUID studioId, StartInvoiceUploadRequestDto request) {
     InvoiceInbox.Upload upload =
@@ -68,21 +68,21 @@ class InvoiceController implements InvoicesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<InvoiceDto> completeInvoiceUpload(UUID studioId, UUID invoiceId) {
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(toDto(inbox.completeUpload(studioId, invoiceId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<InvoiceDto> getInvoice(UUID studioId, UUID invoiceId) {
     InvoiceInbox.Opened opened = inbox.open(studioId, invoiceId);
     return ResponseEntity.ok(toDto(opened.invoice()).fileUrl(opened.fileUrl()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<InvoiceDto> saveInvoiceDraft(
       UUID studioId, UUID invoiceId, SaveInvoiceDraftRequestDto request) {
     List<InvoiceReview.ReviewedLine> lines =
@@ -113,7 +113,7 @@ class InvoiceController implements InvoicesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<InvoiceDto> confirmInvoice(
       UUID studioId, UUID invoiceId, ConfirmInvoiceRequestDto request) {
     return ResponseEntity.ok(
@@ -121,14 +121,14 @@ class InvoiceController implements InvoicesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
   public ResponseEntity<Void> discardInvoice(UUID studioId, UUID invoiceId) {
     inbox.discard(studioId, invoiceId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_AI_KEY_MANAGE')")
   public ResponseEntity<ReaderComparisonDto> compareInvoiceReaders(UUID studioId, UUID invoiceId) {
     return ResponseEntity.ok(
         new ReaderComparisonDto()

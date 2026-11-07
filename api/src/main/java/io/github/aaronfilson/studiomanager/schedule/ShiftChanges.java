@@ -4,6 +4,8 @@ import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Shift;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
@@ -39,6 +41,7 @@ class ShiftChanges {
   private final StudioMembers members;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   ShiftChanges(
       RosterShiftRepository shifts,
@@ -47,7 +50,9 @@ class ShiftChanges {
       AccessService access,
       StudioMembers members,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.shifts = shifts;
     this.reads = reads;
     this.hours = hours;
@@ -64,7 +69,7 @@ class ShiftChanges {
   @Transactional
   public List<Shift> createWeeklyShifts(
       @Nullable String title, @Nullable Duty duty, Instant firstStart, int minutes, int weeks) {
-    ScheduleService.requireStaff();
+    permissions.require(Permission.SCHEDULE_MANAGE, ScheduleService.ONLY_STAFF);
     String cleaned = title == null ? "" : title.strip();
     if (cleaned.isEmpty() || cleaned.length() > 120) {
       throw new InvalidInputException("Give the shift a title of 1 to 120 characters.");
@@ -95,7 +100,7 @@ class ShiftChanges {
     if (before.workedAt() != null) {
       throw new InvalidInputException("This shift has already been worked.");
     }
-    if (!ScheduleService.isStaff(caller)) {
+    if (!caller.holds(Permission.SCHEDULE_MANAGE)) {
       boolean takeable =
           before.open() || (before.offered() && !caller.accountId().equals(before.accountId()));
       if (accountId == null || !accountId.equals(caller.accountId()) || !takeable) {
@@ -147,7 +152,7 @@ class ShiftChanges {
       throw new InvalidInputException(
           "Nobody has this shift; it's already open for anyone to take.");
     }
-    if (!ScheduleService.isStaff(caller) && !caller.accountId().equals(holder)) {
+    if (!caller.holds(Permission.SCHEDULE_MANAGE) && !caller.accountId().equals(holder)) {
       throw new AccessDeniedException("Only whoever has this shift can ask for cover.");
     }
     Instant now = clock.instant();
@@ -175,7 +180,8 @@ class ShiftChanges {
   /** Staff confirm a shift was worked, which credits its hours to the person who worked it. */
   @Transactional
   public Shift markWorked(UUID shiftId, long expectedVersion) {
-    TenantContext caller = ScheduleService.requireStaff();
+    TenantContext caller =
+        permissions.require(Permission.SCHEDULE_HOURS_MANAGE, ScheduleService.ONLY_STAFF);
     RosterShift shift = reads.findShift(shiftId);
     Shift before = reads.shiftView(shift);
     UUID holder = before.accountId();

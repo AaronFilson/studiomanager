@@ -6,7 +6,8 @@ import com.anthropic.errors.PermissionDeniedException;
 import com.anthropic.errors.UnauthorizedException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
 import java.time.Instant;
@@ -14,7 +15,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
@@ -61,6 +61,7 @@ public class AiKeys {
   private final AiKeyCipher cipher;
   private final ClaudeClients claude;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   AiKeys(
       AiProviderKeyRepository keys,
@@ -68,13 +69,15 @@ public class AiKeys {
       TransactionOperations transactions,
       AiKeyCipher cipher,
       ClaudeClients claude,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.keys = keys;
     this.queries = queries;
     this.transactions = transactions;
     this.cipher = cipher;
     this.claude = claude;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   public Optional<KeyStatus> status() {
@@ -201,11 +204,8 @@ public class AiKeys {
             }));
   }
 
-  private static TenantContext requireOwner() {
-    TenantContext caller = TenantContext.require();
-    if (caller.role() != StudioRole.OWNER) {
-      throw new AccessDeniedException("Only the studio's owner can manage its AI key.");
-    }
-    return caller;
+  private TenantContext requireOwner() {
+    return permissions.require(
+        Permission.STUDIO_AI_KEY_MANAGE, "Only the studio's owner can manage its AI key.");
   }
 }

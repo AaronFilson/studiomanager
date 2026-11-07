@@ -1,6 +1,8 @@
 package io.github.aaronfilson.studiomanager.schedule;
 
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.HoursLedger;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
@@ -19,19 +21,26 @@ class CreditedHours {
   private final ScheduleService reads;
   private final StudioMembers members;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   CreditedHours(
-      HoursCreditRepository hours, ScheduleService reads, StudioMembers members, Clock clock) {
+      HoursCreditRepository hours,
+      ScheduleService reads,
+      StudioMembers members,
+      Clock clock,
+      StudioPermissions permissions) {
     this.hours = hours;
     this.reads = reads;
     this.members = members;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   /** A manual correction to someone's hours, positive or negative. */
   @Transactional
   public HoursLedger adjustHours(UUID accountId, int minutes, @Nullable String note) {
-    TenantContext caller = ScheduleService.requireStaff();
+    TenantContext caller =
+        permissions.require(Permission.SCHEDULE_HOURS_MANAGE, ScheduleService.ONLY_STAFF);
     if (minutes == 0 || Math.abs(minutes) > 6000) {
       throw new InvalidInputException("Adjust by up to 100 hours either way.");
     }

@@ -478,6 +478,44 @@ Choices R1 made that the Decisions don't cover:
 - Not yet: duty grants in the response's `permissions` (R4 adds them to the context). Until then,
   a duty doesn't change what the apps show.
 
+**R2 done (2026-11-07), branch `rbac-r2`.** No behaviour change, no migration.
+- Every studio endpoint checks `@studioAuthz.can(#studioId, '...')`; `hasRole` and `isMember`
+  are left only as the reference `StudioPermissionsTests` compares against.
+- Every service check uses `StudioPermissions.require(permission, message)` (new overload: keeps
+  each area's old message and returns the caller) or `TenantContext.holds` for row rules ("your
+  own", "staff see everyone's"). The private `requireStaff`/`isStaff`/`requireOwner` copies are
+  gone. Service checks stay alongside the annotations, since MCP tools, proposals and jobs call
+  the services without one.
+- Choosing other people by role (problem and webhook alerts, maintenance reminders, the token
+  owner's live check) uses `StudioPermissions.roleHolds(role, permission)`, from code defaults;
+  R4 changes it in that one place.
+- "Can't invite above your own role" is now "the invited role's permissions must all be yours",
+  the §7 rule, equal to the rank rule on day one.
+- `mcp.use` in `McpRequestFilter` and `api_tokens.own` in `TenantContextFilter` (R5's two
+  swaps) are done here too, as one-for-one replacements; R5 keeps the token ∩ scopes work.
+- Contract: `x-permission` on all 148 studio operations; `PermissionContractTests` ratchet at 0.
+  A new test checks each endpoint's `can` matches its operation's `x-permission`, and another
+  that every studio endpoint checks `can`.
+- `PermissionArchitectureTests`' list is now `ASSIGNS_A_ROLE`: classes that name a role only to
+  give it (creator becomes owner, imports invite members, contexts bound for after-commit work,
+  the demo seed). Code that only assigns a role is exempt; nothing on the list decides access.
+- Shadow mode was skipped: the default sets equal the role checks by construction (and by
+  `StudioPermissionsTests`), so the switch is direct. R4 still runs shadow mode when stored sets
+  arrive.
+
+Mappings that weren't one-for-one (all equal to the old role on day one):
+- Seeing everyone's pieces: `pieces.move` (no read-all permission in the catalogue).
+- Kiln queue and load contents: `firings.manage`. Staff's view of reservations: `schedule.manage`.
+- Member endpoints whose row rule is in the service (complete a task, resolve a report) use
+  `maintenance.read`; offering a shift uses `schedule.shifts.take_open`; piece photos use
+  `pieces.intake_own`.
+- Certification types, certifications and tax rates for members: `studio.read`.
+- Own notifications: `notices.read` (MEMBER, not the floor); own statement and consignment:
+  `money.own.read`.
+- Comparing invoice readers (owner only): `studio.ai_key.manage`. Deleting a studio (owner only,
+  demo reset): `owners.manage`. Opening balances: `money.refund_and_adjust`.
+- Consignment sale: `money.take_payment`; its refund: `money.refund_and_adjust`.
+
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
 queue.

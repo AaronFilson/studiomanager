@@ -3,7 +3,8 @@ package io.github.aaronfilson.studiomanager.maintenance;
 import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
@@ -69,7 +70,8 @@ class MaintenanceReminders {
     Map<UUID, Set<Duty>> duties = access.allDuties();
     List<UUID> staff =
         members.list().stream()
-            .filter(member -> member.role().includes(StudioRole.STAFF))
+            .filter(
+                member -> StudioPermissions.roleHolds(member.role(), Permission.MAINTENANCE_MANAGE))
             .map(MemberView::accountId)
             .toList();
     // Nothing here is changed through Hibernate, but the claim is SQL: flush by the rule (ADR 21)

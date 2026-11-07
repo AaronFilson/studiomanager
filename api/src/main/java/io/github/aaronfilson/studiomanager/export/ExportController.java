@@ -25,7 +25,7 @@ class ExportController implements ExportApi {
 
   /** Owner only: it holds every member's email address and the studio's books. */
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_EXPORT')")
   public ResponseEntity<Resource> exportStudio(UUID studioId) {
     Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     String filename = "studio-export-%s.zip".formatted(now.atOffset(ZoneOffset.UTC).toLocalDate());

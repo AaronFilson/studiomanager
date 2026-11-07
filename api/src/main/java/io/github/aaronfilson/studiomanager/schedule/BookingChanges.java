@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Booking;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.BookingKind;
@@ -63,7 +64,7 @@ class BookingChanges {
       Instant endsAt,
       @Nullable UUID forAccount) {
     TenantContext caller = TenantContext.require();
-    boolean staff = ScheduleService.isStaff(caller);
+    boolean staff = caller.holds(Permission.SCHEDULE_BOOK_FOR_OTHERS);
     UUID person =
         forAccount == null
             ? (kind == BookingKind.RESERVATION ? caller.accountId() : null)
@@ -117,7 +118,8 @@ class BookingChanges {
         bookings
             .findById(bookingId)
             .filter(found ->
-                ScheduleService.isStaff(caller) || caller.accountId().equals(found.accountId()))
+                caller.holds(Permission.SCHEDULE_BOOK_FOR_OTHERS)
+                    || caller.accountId().equals(found.accountId()))
             .orElseThrow(
                 () -> new NotFoundException("No such booking, or not one you can cancel."));
     bookings.delete(booking);

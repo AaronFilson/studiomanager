@@ -4,7 +4,6 @@ import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.blankToN
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.notInFuture;
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireMoney;
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireShare;
-import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireStaff;
 
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentItem;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.DiscountsFrom;
@@ -16,6 +15,8 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -59,6 +60,7 @@ public class PayablesService {
   private final StudioMembers members;
   private final AccountDirectory accounts;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   PayablesService(
       PayeeRepository payees,
@@ -67,7 +69,9 @@ public class PayablesService {
       StudioBooks books,
       StudioMembers members,
       AccountDirectory accounts,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.payees = payees;
     this.items = items;
     this.queries = queries;
@@ -81,7 +85,7 @@ public class PayablesService {
 
   @Transactional(readOnly = true)
   public Capped<Payee> payees() {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     Capped<PayeeEntity> found =
         Capped.fromFetched(
             payees.findInOrder(Limit.of(Capped.fetchSize(PAYEES_LIMIT))), PAYEES_LIMIT);
@@ -90,13 +94,13 @@ public class PayablesService {
 
   @Transactional(readOnly = true)
   public Payee payee(UUID payeeId) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     return view(find(payeeId));
   }
 
   @Transactional
   public Payee createPayee(PayeeChanges changes) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     PayeeEntity payee = new PayeeEntity(validate(changes));
     saveTaken(payee);
     return view(payee);
@@ -104,7 +108,7 @@ public class PayablesService {
 
   @Transactional
   public Payee updatePayee(UUID payeeId, PayeeChanges changes) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     PayeeChanges checked = validate(changes);
     PayeeEntity payee = find(payeeId);
     payee.change(checked, clock.instant());
@@ -127,7 +131,7 @@ public class PayablesService {
       int quantity,
       @Nullable BigDecimal consignorShare,
       @Nullable LocalDate receivedOn) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     PayeeEntity payee = requireActive(payeeId);
     String text = description == null ? "" : description.strip();
     if (text.isEmpty() || text.length() > 120) {

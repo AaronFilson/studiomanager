@@ -11,7 +11,7 @@ import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.Csv;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
@@ -307,8 +307,7 @@ public class MaintenanceRecords {
 
   private void requireMayComplete(MaintenanceTask task) {
     TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role != null && role.includes(StudioRole.STAFF)) {
+    if (caller.holds(Permission.MAINTENANCE_COMPLETE_ANY)) {
       return;
     }
     Duty duty = task.assignedDuty();

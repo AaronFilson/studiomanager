@@ -23,7 +23,7 @@ class ImportController implements ImportsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'IMPORTS_RUN')")
   public ResponseEntity<ImportResultDto> importMembers(
       UUID studioId, ImportMembersRequestDto request) {
     var rows =
@@ -37,7 +37,7 @@ class ImportController implements ImportsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'IMPORTS_RUN')")
   public ResponseEntity<ImportResultDto> importConsignment(
       UUID studioId, ImportConsignmentRequestDto request) {
     var rows =

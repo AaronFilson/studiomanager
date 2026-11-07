@@ -21,14 +21,14 @@ class AiKeyController implements AiApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_AI_KEY_MANAGE')")
   public ResponseEntity<AiKeyStatusDto> getAiKey(UUID studioId) {
     return ResponseEntity.ok(
         dto(keys.status().orElseThrow(() -> new NotFoundException("The studio has no AI key."))));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_AI_KEY_MANAGE')")
   public ResponseEntity<AiKeyStatusDto> setAiKey(UUID studioId, SetAiKeyRequestDto request) {
     return ResponseEntity.ok(
         dto(
@@ -39,14 +39,14 @@ class AiKeyController implements AiApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_AI_KEY_MANAGE')")
   public ResponseEntity<Void> deleteAiKey(UUID studioId) {
     keys.remove();
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_AI_KEY_MANAGE')")
   public ResponseEntity<AiKeyStatusDto> testAiKey(UUID studioId) {
     return ResponseEntity.ok(dto(keys.test()));
   }

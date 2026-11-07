@@ -5,7 +5,6 @@ import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.notInFut
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireMoney;
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireScale;
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireShare;
-import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireStaff;
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.truncate;
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
@@ -20,6 +19,8 @@ import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentRunLine;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -45,6 +46,7 @@ class PayeePayments {
   private final Journal journal;
   private final StudioBooks books;
   private final StudioMembers members;
+  private final StudioPermissions permissions;
 
   PayeePayments(
       PayeeRepository payeeRepository,
@@ -53,7 +55,9 @@ class PayeePayments {
       PayablesService payees,
       Journal journal,
       StudioBooks books,
-      StudioMembers members) {
+      StudioMembers members,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.payeeRepository = payeeRepository;
     this.earnings = earnings;
     this.payments = payments;
@@ -77,7 +81,7 @@ class PayeePayments {
       @Nullable BigDecimal amount,
       @Nullable BigDecimal gross,
       @Nullable BigDecimal share) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     payees.requireActive(payeeId);
     String text = description == null ? "" : description.strip();
     if (text.isEmpty() || text.length() > 120) {
@@ -131,7 +135,7 @@ class PayeePayments {
       PaymentMethod method,
       @Nullable String reference,
       @Nullable LocalDate paidOn) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     // Lock the payee so two payments at once can't both pay the same balance
     PayeeEntity locked =
         payeeRepository
@@ -182,7 +186,7 @@ class PayeePayments {
   @Transactional
   public List<Payment> payRun(
       List<PaymentRunLine> lines, PaymentMethod method, @Nullable LocalDate paidOn) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     if (lines.isEmpty() || lines.size() > 200) {
       throw new InvalidInputException("Pay from 1 to 200 payees at once.");
     }

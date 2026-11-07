@@ -1,6 +1,8 @@
 package io.github.aaronfilson.studiomanager.supplies;
 
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
@@ -25,6 +27,7 @@ public class SupplySales {
   private final StudioService studios;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   SupplySales(
       StockMovements stock,
@@ -32,7 +35,9 @@ public class SupplySales {
       StudioMembers members,
       StudioService studios,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.stock = stock;
     this.supplies = supplies;
     this.members = members;
@@ -43,7 +48,7 @@ public class SupplySales {
 
   @Transactional
   public Item sell(UUID itemId, UUID memberId, BigDecimal quantity) {
-    SupplyService.requireStaff();
+    permissions.require(Permission.SUPPLIES_SELL, SupplyService.ONLY_STAFF);
     SupplyItem item = stock.lock(itemId);
     BigDecimal price = item.salePrice();
     if (price == null) {

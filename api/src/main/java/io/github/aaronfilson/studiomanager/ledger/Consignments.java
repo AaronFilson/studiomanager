@@ -1,7 +1,6 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireMoney;
-import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireStaff;
 import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.truncate;
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
@@ -16,6 +15,8 @@ import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,6 +45,7 @@ class Consignments {
   private final Journal journal;
   private final TaxRates taxRates;
   private final StudioBooks books;
+  private final StudioPermissions permissions;
 
   Consignments(
       ConsignmentItemRepository items,
@@ -52,7 +54,9 @@ class Consignments {
       PayablesService payees,
       Journal journal,
       TaxRates taxRates,
-      StudioBooks books) {
+      StudioBooks books,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.items = items;
     this.sales = sales;
     this.payeeRepository = payeeRepository;
@@ -70,7 +74,7 @@ class Consignments {
   @Transactional(readOnly = true)
   public Capped<ConsignmentItem> consignmentItems(
       @Nullable UUID payeeId, boolean inStockOnly, boolean dueBackOnly) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     return items(payeeId, inStockOnly, dueBackOnly);
   }
 
@@ -104,7 +108,7 @@ class Consignments {
   @Transactional
   public ConsignmentSale sell(
       UUID itemId, int quantity, @Nullable BigDecimal price, Provider provider) {
-    requireStaff();
+    permissions.require(Permission.MONEY_TAKE_PAYMENT, LedgerService.ONLY_STAFF);
     ConsignmentItemEntity entity = lockItem(itemId);
     LocalDate day = books.today();
     ConsignmentItem item = entity.toView(day);
@@ -150,7 +154,7 @@ class Consignments {
    */
   @Transactional
   public ConsignmentSale refund(UUID saleId) {
-    requireStaff();
+    permissions.require(Permission.MONEY_REFUND_AND_ADJUST, LedgerService.ONLY_STAFF);
     ConsignmentSaleEntity sale =
         sales.findForUpdate(saleId).orElseThrow(() -> new NotFoundException("No such sale."));
     if (sale.refunded()) {
@@ -187,7 +191,7 @@ class Consignments {
   /** Gives unsold work back to the artist. */
   @Transactional
   public ConsignmentItem returnToArtist(UUID itemId, int quantity) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     ConsignmentItemEntity item = lockItem(itemId);
     if (quantity < 1 || quantity > item.inStock()) {
       throw new InvalidInputException("Return from 1 to %d.".formatted(item.inStock()));
@@ -200,7 +204,7 @@ class Consignments {
   /** Sales of a payee's work, or of everyone's, newest first. */
   @Transactional(readOnly = true)
   public Capped<ConsignmentSale> consignmentSales(@Nullable UUID payeeId) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     return sales(payeeId);
   }
 

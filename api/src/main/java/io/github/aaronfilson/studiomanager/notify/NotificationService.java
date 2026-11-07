@@ -3,7 +3,8 @@ package io.github.aaronfilson.studiomanager.notify;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
@@ -11,7 +12,6 @@ import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Limit;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,13 +30,19 @@ public class NotificationService {
   private final Notices notices;
   private final StudioMembers members;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   NotificationService(
-      NotificationRepository notifications, Notices notices, StudioMembers members, Clock clock) {
+      NotificationRepository notifications,
+      Notices notices,
+      StudioMembers members,
+      Clock clock,
+      StudioPermissions permissions) {
     this.notifications = notifications;
     this.notices = notices;
     this.members = members;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   /** The caller's notifications in the bound studio, newest first. */
@@ -64,11 +70,7 @@ public class NotificationService {
    */
   @Transactional
   public int broadcast(String title, String body) {
-    TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff can send studio notices.");
-    }
+    permissions.require(Permission.NOTICES_SEND, "Only staff can send studio notices.");
     String cleanTitle = title.strip();
     String cleanBody = body.strip();
     if (cleanTitle.isEmpty() || cleanTitle.length() > 120 || cleanBody.length() > 2000) {

@@ -7,7 +7,8 @@ import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.proposal.PendingActionView.Status;
 import io.github.aaronfilson.studiomanager.supplies.PurchaseRequests;
@@ -19,7 +20,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Limit;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +42,7 @@ class PendingActionReview {
   private final AccountDirectory accounts;
   private final ApiTokens tokens;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   PendingActionReview(
       PendingActionRepository pendingActions,
@@ -49,19 +50,21 @@ class PendingActionReview {
       TaskChanges taskChanges,
       AccountDirectory accounts,
       ApiTokens tokens,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.pendingActions = pendingActions;
     this.purchaseRequests = purchaseRequests;
     this.taskChanges = taskChanges;
     this.accounts = accounts;
     this.tokens = tokens;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   /** Suggestions waiting for a decision, oldest first. */
   @Transactional(readOnly = true)
   public Capped<PendingActionView> waiting() {
-    requireStaff();
+    requireReview();
     List<PendingAction> fetched =
         pendingActions.findByStatusOrderByCreatedAtAscIdAsc(
             Status.PENDING, Limit.of(Capped.fetchSize(QUEUE_LIMIT)));
@@ -72,7 +75,7 @@ class PendingActionReview {
   /** Approves a suggestion: makes the change it describes, as the caller. */
   @Transactional
   public PendingActionView approve(UUID actionId, long expectedVersion) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireReview();
     PendingAction action = findAtVersion(actionId, expectedVersion);
     // Before making anything, so a decided suggestion is never applied twice
     action.requirePending();
@@ -105,7 +108,7 @@ class PendingActionReview {
   /** Turns a suggestion down, with an optional note why. Nothing else changes. */
   @Transactional
   public PendingActionView reject(UUID actionId, long expectedVersion, @Nullable String note) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireReview();
     PendingAction action = findAtVersion(actionId, expectedVersion);
     action.reject(caller.accountId(), clock.instant(), note);
     pendingActions.flush();
@@ -144,12 +147,8 @@ class PendingActionReview {
     return action;
   }
 
-  private static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff review assistant suggestions.");
-    }
-    return caller;
+  private TenantContext requireReview() {
+    return permissions.require(
+        Permission.PROPOSALS_REVIEW, "Only staff review assistant suggestions.");
   }
 }

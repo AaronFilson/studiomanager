@@ -22,7 +22,7 @@ class TodayController implements TodayApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'TODAY_READ')")
   public ResponseEntity<TodayDto> getToday(UUID studioId) {
     TodayService.Today t = today.today(Instant.now());
     return ResponseEntity.ok(

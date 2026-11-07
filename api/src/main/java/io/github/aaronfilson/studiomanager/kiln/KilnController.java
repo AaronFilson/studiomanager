@@ -47,13 +47,13 @@ class KilnController implements KilnsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'KILNS_READ')")
   public ResponseEntity<List<KilnDto>> listKilns(UUID studioId) {
     return ResponseEntity.ok(kilns.list().stream().map(KilnController::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'KILNS_MANAGE')")
   public ResponseEntity<KilnDto> createKiln(UUID studioId, SaveKilnRequestDto request) {
     KilnView kiln = kilns.create(settings(request));
     return ResponseEntity.created(
@@ -62,7 +62,7 @@ class KilnController implements KilnsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'KILNS_MANAGE')")
   public ResponseEntity<KilnDto> updateKiln(
       UUID studioId, UUID kilnId, UpdateKilnRequestDto request) {
     return ResponseEntity.ok(
@@ -70,7 +70,7 @@ class KilnController implements KilnsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'KILNS_MANAGE')")
   public ResponseEntity<KilnDto> setKilnAvailability(
       UUID studioId, UUID kilnId, KilnAvailabilityRequestDto request) {
     return ResponseEntity.ok(
@@ -78,7 +78,7 @@ class KilnController implements KilnsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
   public ResponseEntity<QueueEntryListDto> getKilnQueue(
       FiringKindDto kind, UUID studioId, UUID kilnId) {
     Instant now = clock.instant();
@@ -95,14 +95,14 @@ class KilnController implements KilnsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
   public ResponseEntity<FiringListDto> listKilnFirings(UUID studioId, UUID kilnId) {
     Capped<FiringDto> log = firings.listForKiln(kilnId).map(this::toDto);
     return ResponseEntity.ok(new FiringListDto(log.items(), log.truncated(), log.limit()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
   public ResponseEntity<FiringDto> loadKiln(
       UUID studioId, UUID kilnId, LoadKilnRequestDto request) {
     FiringView firing =
@@ -117,13 +117,13 @@ class KilnController implements KilnsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
   public ResponseEntity<FiringDto> getFiring(UUID studioId, UUID firingId) {
     return ResponseEntity.ok(toDto(firings.get(firingId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
   public ResponseEntity<FiringDto> transitionFiring(
       UUID studioId, UUID firingId, FiringTransitionRequestDto request) {
     long version = request.getExpectedVersion();

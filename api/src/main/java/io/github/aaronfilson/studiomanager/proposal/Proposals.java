@@ -3,7 +3,8 @@ package io.github.aaronfilson.studiomanager.proposal;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
 import io.github.aaronfilson.studiomanager.supplies.SupplyService;
@@ -12,7 +13,6 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,16 +34,19 @@ public class Proposals {
   private final SupplyService supplies;
   private final MaintenanceService maintenance;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   Proposals(
       PendingActionRepository pendingActions,
       SupplyService supplies,
       MaintenanceService maintenance,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.pendingActions = pendingActions;
     this.supplies = supplies;
     this.maintenance = maintenance;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   /**
@@ -53,7 +56,7 @@ public class Proposals {
   @Transactional
   public PendingActionView proposePurchaseRequest(
       UUID itemId, @Nullable BigDecimal quantity, @Nullable String note, @Nullable String reason) {
-    requireStaff();
+    requireCanPropose();
     Item item = supplies.item(itemId);
     BigDecimal amount = quantity != null ? quantity : item.reorderQuantity();
     if (amount == null) {
@@ -79,7 +82,7 @@ public class Proposals {
       @Nullable Integer everyDays,
       @Nullable Integer everyFirings,
       @Nullable String reason) {
-    requireStaff();
+    requireCanPropose();
     Asset asset = maintenance.asset(assetId, clock.instant());
     String cleanTitle = title.strip();
     if (cleanTitle.isEmpty() || cleanTitle.length() > 120) {
@@ -113,10 +116,7 @@ public class Proposals {
     return TenantContext.require().viaTokenId();
   }
 
-  private static void requireStaff() {
-    StudioRole role = TenantContext.require().role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff can propose changes.");
-    }
+  private void requireCanPropose() {
+    permissions.require(Permission.PROPOSALS_CREATE, "Only staff can propose changes.");
   }
 }

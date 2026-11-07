@@ -5,6 +5,8 @@ import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Resource;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.ResourceKind;
 import java.time.Clock;
@@ -23,18 +25,21 @@ class ResourceChanges {
   private final AccessService access;
   private final MaintenanceService maintenance;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   ResourceChanges(
       BookableResourceRepository resources,
       ScheduleService reads,
       AccessService access,
       MaintenanceService maintenance,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.resources = resources;
     this.reads = reads;
     this.access = access;
     this.maintenance = maintenance;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   /**
@@ -48,7 +53,7 @@ class ResourceChanges {
       int capacity,
       @Nullable UUID requiredCertification,
       @Nullable UUID assetId) {
-    ScheduleService.requireStaff();
+    permissions.require(Permission.SCHEDULE_MANAGE, ScheduleService.ONLY_STAFF);
     String cleaned = validName(name);
     if (capacity < 1 || capacity > 200) {
       throw new InvalidInputException("Capacity is 1 to 200.");

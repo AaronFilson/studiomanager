@@ -6,7 +6,8 @@ import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.http.SafeHttpClient;
 import io.github.aaronfilson.studiomanager.platform.http.SafeHttpClient.UnsafeUrlException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import jakarta.persistence.EntityManager;
@@ -24,7 +25,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Limit;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionOperations;
@@ -50,6 +50,7 @@ public class WebhookEndpoints {
   private final WebhookSender sender;
   private final StudioService studios;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   WebhookEndpoints(
       WebhookEndpointRepository endpoints,
@@ -61,7 +62,8 @@ public class WebhookEndpoints {
       WebhookEvents events,
       WebhookSender sender,
       StudioService studios,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.endpoints = endpoints;
     this.deliveryLog = deliveryLog;
     this.entityManager = entityManager;
@@ -72,6 +74,7 @@ public class WebhookEndpoints {
     this.sender = sender;
     this.studios = studios;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   public record EndpointView(
@@ -110,14 +113,14 @@ public class WebhookEndpoints {
 
   @Transactional(readOnly = true)
   public List<EndpointView> list() {
-    requireStaff();
+    requireManage();
     Instant now = clock.instant();
     return endpoints.findAllInOrder().stream().map(endpoint -> endpoint.toView(now)).toList();
   }
 
   @Transactional
   public CreatedEndpoint create(String url, @Nullable String description, List<String> eventTypes) {
-    requireStaff();
+    requireManage();
     if (endpoints.count() >= MAX_ENDPOINTS) {
       throw new InvalidInputException(
           "A studio can have up to %d webhook endpoints. Delete one first."
@@ -148,7 +151,7 @@ public class WebhookEndpoints {
       @Nullable String description,
       @Nullable List<String> eventTypes,
       @Nullable Boolean enabled) {
-    requireStaff();
+    requireManage();
     WebhookEndpoint endpoint = find(id);
     endpoint.change(
         url == null ? endpoint.url() : checkUrl(url),
@@ -161,14 +164,14 @@ public class WebhookEndpoints {
 
   @Transactional
   public void delete(UUID id) {
-    requireStaff();
+    requireManage();
     endpoints.delete(find(id));
   }
 
   /** A new secret. The old one still signs, alongside it, for {@link #ROTATION_OVERLAP}. */
   @Transactional
   public RotatedSecret rotateSecret(UUID id) {
-    requireStaff();
+    requireManage();
     WebhookEndpoint endpoint =
         endpoints
             .findAndLock(id)
@@ -181,7 +184,7 @@ public class WebhookEndpoints {
 
   /** Sends a {@code ping} now, even to a disabled endpoint's URL, and returns how it went. */
   public DeliveryView test(UUID id) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireManage();
     UUID deliveryId =
         Objects.requireNonNull(
             transactions.execute(tx -> {
@@ -207,7 +210,7 @@ public class WebhookEndpoints {
   /** The last 30 days of deliveries to an endpoint, newest first. */
   @Transactional(readOnly = true)
   public Capped<DeliveryView> deliveries(UUID endpointId) {
-    requireStaff();
+    requireManage();
     find(endpointId);
     Capped<WebhookDelivery> found =
         Capped.fromFetched(
@@ -223,7 +226,7 @@ public class WebhookEndpoints {
    * The same event again, as a new delivery, sent now. Receivers see the same {@code webhook-id}.
    */
   public DeliveryView resend(UUID deliveryId) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireManage();
     UUID newId =
         Objects.requireNonNull(
             transactions.execute(tx -> {
@@ -311,12 +314,7 @@ public class WebhookEndpoints {
     return List.copyOf(unique);
   }
 
-  private static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff can manage webhooks.");
-    }
-    return caller;
+  private TenantContext requireManage() {
+    return permissions.require(Permission.WEBHOOKS_MANAGE, "Only staff can manage webhooks.");
   }
 }

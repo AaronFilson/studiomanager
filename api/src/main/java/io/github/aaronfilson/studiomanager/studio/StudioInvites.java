@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.studio;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
@@ -163,10 +164,13 @@ public class StudioInvites {
         .orElseThrow(() -> new NotFoundException("No such invite, or it has been accepted."));
   }
 
+  /**
+   * Nobody can invite someone to a role that holds more than they do (plan 21 §7): the role's
+   * permissions must all be the caller's own. On day one that is today's rank rule exactly.
+   */
   private static TenantContext requireCanInvite(StudioRole role) {
     TenantContext caller = TenantContext.require();
-    StudioRole callerRole = caller.role();
-    if (callerRole == null || !callerRole.includes(role)) {
+    if (!caller.permissions().containsAll(Permission.defaultsFor(role))) {
       throw new AccessDeniedException("You can't invite someone to a role above your own.");
     }
     return caller;

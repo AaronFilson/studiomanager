@@ -36,7 +36,7 @@ class MemberController implements MembersApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_READ')")
   public ResponseEntity<List<MemberDto>> listMembers(UUID studioId) {
     return ResponseEntity.ok(
         members.list().stream()
@@ -50,7 +50,7 @@ class MemberController implements MembersApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<InviteDto> createInvite(UUID studioId, CreateInviteRequestDto request) {
     InviteView invite = invites.invite(StudioRole.valueOf(request.getRole().name()));
     return ResponseEntity.created(URI.create("/api/v1/invites/" + invite.code() + "/accept"))
@@ -63,7 +63,7 @@ class MemberController implements MembersApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<List<OpenInviteDto>> listOpenInvites(UUID studioId) {
     Instant now = clock.instant();
     return ResponseEntity.ok(
@@ -71,7 +71,7 @@ class MemberController implements MembersApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<EmailInvitesResultDto> emailInvites(
       UUID studioId, EmailInvitesRequestDto request) {
     EmailInvitesResult result =
@@ -90,14 +90,14 @@ class MemberController implements MembersApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<Void> revokeInvite(UUID studioId, UUID inviteId) {
     invites.revoke(inviteId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<OpenInviteDto> resendInvite(UUID studioId, UUID inviteId) {
     return ResponseEntity.ok(toDto(invites.resend(inviteId), clock.instant()));
   }
