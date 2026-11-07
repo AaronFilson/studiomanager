@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionOperations;
@@ -108,6 +109,24 @@ public class StudioService {
       throw new IllegalStateException("The request is not bound to a studio");
     }
     return get(studioId);
+  }
+
+  /**
+   * Deletes the bound studio and everything in it: every studio-owned table cascades from {@code
+   * studio}. Only an owner can, and nothing in the app offers it yet; the demo studio's reset is
+   * the one caller.
+   */
+  @Transactional
+  public void deleteCurrent() {
+    TenantContext caller = TenantContext.require();
+    UUID studioId = caller.requireStudioId();
+    if (caller.role() != StudioRole.OWNER) {
+      throw new AccessDeniedException("Only an owner can delete a studio.");
+    }
+    Studio studio =
+        studios.findById(studioId).orElseThrow(() -> new NotFoundException("No such studio."));
+    studios.delete(studio);
+    studios.flush();
   }
 
   @Transactional(readOnly = true)

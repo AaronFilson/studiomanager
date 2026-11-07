@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * read and write through {@code JdbcClient}, which can't see unflushed changes (ADR 21).
  */
 @Service
-class FiringTransitions {
+public class FiringTransitions {
 
   private final FiringRepository firings;
   private final FiringService reads;

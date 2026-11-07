@@ -39,6 +39,11 @@ tags:
     description: |
       Running the service: live rate limits, boosts and the history of every change. Only people
       with the Platform.Admin app role reach it, and never with an API token.
+  - name: demo
+    description: |
+      The demo studio, Demo Clay Co.: resetting it to its seeded data, and a short-lived read
+      token for connecting an assistant during a demo. Platform admins only, and never with an
+      API token. Nothing here touches any other studio.
   - name: studios
     description: Studios (tenants) and membership in them.
   - name: members
@@ -271,6 +276,55 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/demo-studio/reset:
+    post:
+      tags: [demo]
+      operationId: resetDemoStudio
+      summary: Wipe the demo studio and seed it again (platform admin only)
+      description: |
+        Deletes Demo Clay Co. and everything in it, then seeds it again through the normal
+        services: kilns, pieces at every stage, firings, glazes, maintenance, supplies and a
+        ledger. The admin who resets it becomes one of its owners, so it shows in their studio
+        list. Only the studio the demo accounts own is ever deleted.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The new demo studio.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStudio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/demo-studio/tokens:
+    post:
+      tags: [demo]
+      operationId: createDemoToken
+      summary: A read-only API token for the demo studio, valid for one day (platform admin only)
+      description: |
+        For connecting an assistant during a demo. The token belongs to the demo studio's
+        seeded owner, can only read, and stops working after a day or when the studio is reset.
+        The secret is shown only this once.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: The token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoToken"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/studios:
     post:
@@ -4454,6 +4508,25 @@ components:
           format: uuid
         name:
           type: string
+
+    DemoToken:
+      type: object
+      required: [studioId, studioName, name, secret, expiresAt]
+      properties:
+        studioId:
+          type: string
+          format: uuid
+        studioName:
+          type: string
+        name:
+          type: string
+          description: The token's name, as the demo studio's token list shows it.
+        secret:
+          type: string
+          description: The token to paste into the assistant. Shown only this once.
+        expiresAt:
+          type: string
+          format: date-time
 
     SettingChange:
       type: object

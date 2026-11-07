@@ -49,7 +49,15 @@ The plan is [20, sections 6 and 7](../planning/20-pre-production-cleanup-plan.md
   - the revision a bucket compares is built from the stored versions and the easing step, so a
     re-read that finds nothing new never rebuilds a bucket.
 - **The web app** shows "Admin" to people whose `/me` says `platformAdmin`, and the `/admin` page
-  has Limits and History. Usage follows once the call log exists; the demo studio comes later.
+  has Limits and History. Usage follows once the call log exists.
+- **The demo studio** (the `demo` module) is on the same page: "Reset the demo studio" deletes
+  Demo Clay Co. and seeds it again through the modules' own services, and "Make a demo token"
+  creates a read-only token for it, valid for a day. Its people are accounts made the way a first
+  sign-in makes them, under the issuer `urn:studiomanager:demo`, which no identity provider
+  issues, so nobody can sign in as them. The demo studio is the one its seeded owner owns, so a
+  reset can't reach any other. The admin who resets it becomes an owner too, so it's in their
+  studio list for a screen-shared demo. "Warm for an hour" (`.github/workflows/warm-api.yml`)
+  keeps one API replica up through the deploy identity, outside the app.
 
 ## Consequences
 

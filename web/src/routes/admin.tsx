@@ -1,14 +1,17 @@
 import {
+  createDemoTokenMutation,
   endRateLimitBoostMutation,
   getRateLimitsOptions,
   getRateLimitsQueryKey,
   listAdminStudiosOptions,
   listSettingChangesOptions,
   listSettingChangesQueryKey,
+  resetDemoStudioMutation,
   resetNormalRateLimitsMutation,
   scheduleRateLimitBoostMutation,
   setNormalRateLimitsMutation,
   type ChannelRateLimits,
+  type DemoToken,
   type RateLimitBoost,
   type RateLimitOverview,
   type RateLimitValues,
@@ -34,6 +37,7 @@ function AdminPage() {
     <div className="stack">
       <h1>Admin</h1>
       <Limits />
+      <DemoStudio />
       <History />
     </div>
   );
@@ -261,6 +265,61 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/** Re-seeding Demo Clay Co., and a read-only token for an assistant during a demo. */
+function DemoStudio() {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState<DemoToken | null>(null);
+  const reset = useMutation({
+    ...resetDemoStudioMutation(),
+    onSuccess: () => {
+      // The old studio and its tokens are gone; studio lists everywhere need reading again
+      setToken(null);
+      void queryClient.invalidateQueries();
+    },
+  });
+  const makeToken = useMutation({ ...createDemoTokenMutation(), onSuccess: setToken });
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Demo studio</h2>
+      <p>
+        Demo Clay Co. has kilns, pieces at every stage, firings, glazes, maintenance, supplies and a ledger. Resetting
+        deletes it and seeds it again, and makes you one of its owners. No other studio is touched.
+      </p>
+      <div>
+        <button
+          type="button"
+          className="danger"
+          disabled={reset.isPending}
+          onClick={() => {
+            if (window.confirm('Delete Demo Clay Co. and seed it again?')) {
+              reset.mutate({});
+            }
+          }}
+        >
+          {reset.isPending ? 'Resetting…' : 'Reset the demo studio'}
+        </button>{' '}
+        <button type="button" disabled={makeToken.isPending} onClick={() => makeToken.mutate({})}>
+          Make a demo token
+        </button>
+      </div>
+      {reset.isSuccess && <p role="status">{reset.data.name} is fresh.</p>}
+      {reset.isError && <ErrorMessage error={reset.error} />}
+      {makeToken.isError && <ErrorMessage error={makeToken.error} />}
+      {token && (
+        <div className="stack" role="status">
+          <p>
+            A read-only token for {token.studioName}, valid until {new Date(token.expiresAt).toLocaleString()}. Copy it
+            now: it won’t be shown again.
+          </p>
+          <code aria-label="Demo token">{token.secret}</code>
+        </div>
+      )}
+    </section>
   );
 }
 
