@@ -2,7 +2,7 @@ import type { Studio } from '@studiomanager/api-client';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
-import { permissionsFor } from './permissions';
+import { assignableFor, permissionsFor } from './permissions';
 
 /** API origin the tests point the client at; MSW handlers match on it. */
 export const API = 'http://api.test';
@@ -28,6 +28,15 @@ const background = [
     }
     const { myRole } = (await studio.json()) as Studio;
     return HttpResponse.json(permissionsFor(myRole));
+  }),
+  // The roles a caller may give, likewise by the studio's role: the built-in ones they hold
+  http.get(`${API}/api/v1/studios/:studioId/roles/assignable`, async ({ request, params }) => {
+    const studio = await fetch(`${API}/api/v1/studios/${String(params.studioId)}`, { headers: request.headers });
+    if (!studio.ok) {
+      return new HttpResponse(null, { status: studio.status });
+    }
+    const { myRole } = (await studio.json()) as Studio;
+    return HttpResponse.json(assignableFor(myRole));
   }),
   http.get(`${API}/api/v1/studios/:studioId/notifications`, () => HttpResponse.json(capped([]))),
   http.get(`${API}/api/v1/studios/:studioId/maintenance/my-tasks`, () => HttpResponse.json([])),

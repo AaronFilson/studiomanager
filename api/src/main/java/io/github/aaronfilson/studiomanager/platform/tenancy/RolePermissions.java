@@ -12,9 +12,11 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -56,7 +58,7 @@ public class RolePermissions {
   private final DutyGrantLookup duties;
   private final PermissionSettings.Mode mode;
   private final MeterRegistry meters;
-  private final Cache<StudioRoleKey, Optional<Set<Permission>>> cache;
+  private final Cache<RoleKey, Optional<Set<Permission>>> cache;
 
   /**
    * Duties come from the access module. A module test that starts without it (Spring Modulith's
@@ -99,19 +101,30 @@ public class RolePermissions {
       return Collections.unmodifiableSet(EnumSet.allOf(Permission.class));
     }
     UUID studioId = TenantContext.require().requireStudioId();
-    Set<Permission> defaults = Permission.defaultsFor(role);
     Set<Permission> fromStore =
         cache
-            .get(new StudioRoleKey(studioId, role), key -> stored.of(key.role()))
+            .get(new RoleKey(studioId, role, null), this::load)
             .map(RolePermissions::effective)
-            .orElse(defaults);
-    return switch (mode) {
-      case ENFORCING -> fromStore;
-      case SHADOW -> {
-        compare(role, defaults, fromStore);
-        yield defaults;
-      }
-    };
+            .orElse(Permission.defaultsFor(role));
+    return decide(role, fromStore);
+  }
+
+  /**
+   * What the role row a member holds gives them in the bound studio, without their duties (lane
+   * R7): a custom role's own set, or the system role's. A row that has gone is read as its base's
+   * system role.
+   */
+  public Set<Permission> ofMemberRole(MemberRole role) {
+    if (role.base() == StudioRole.OWNER) {
+      return ofRole(StudioRole.OWNER);
+    }
+    UUID studioId = TenantContext.require().requireStudioId();
+    Optional<Set<Permission>> fromRow =
+        cache.get(new RoleKey(studioId, null, role.roleId()), this::load);
+    if (fromRow.isEmpty()) {
+      return ofRole(role.base());
+    }
+    return decide(role.base(), effective(fromRow.get()));
   }
 
   /** Whether {@code role} holds {@code permission} in the bound studio: for choosing people. */
@@ -120,17 +133,46 @@ public class RolePermissions {
   }
 
   /**
-   * The person {@code caller}, bound to a studio with their role, with what they hold there: their
-   * role's set and what their duties grant.
+   * Whether a member holding {@code role} holds {@code permission} by it in the bound studio, for
+   * choosing people: a custom role's set counts, duties don't.
+   */
+  public boolean memberHolds(MemberRole role, Permission permission) {
+    return ofMemberRole(role).contains(permission);
+  }
+
+  /**
+   * The person {@code caller}, bound to a studio with their system role, with what they hold there:
+   * that role's set and what their duties grant.
    */
   public TenantContext resolve(TenantContext caller) {
+    StudioRole role = requirePersonInStudio(caller);
+    return withDuties(caller, role, ofRole(role));
+  }
+
+  /**
+   * The person {@code caller}, bound to a studio at {@code role}'s base, with what they hold there:
+   * the role row's set (a custom role's own) and what their duties grant.
+   */
+  public TenantContext resolve(TenantContext caller, MemberRole role) {
+    if (requirePersonInStudio(caller) != role.base()) {
+      throw new IllegalArgumentException("Bind the caller at their role's base");
+    }
+    return withDuties(caller, role.base(), ofMemberRole(role));
+  }
+
+  private static StudioRole requirePersonInStudio(TenantContext caller) {
     StudioRole role = caller.role();
     if (role == null || caller.isSystem()) {
       throw new IllegalArgumentException("Resolve a person bound to a studio");
     }
+    return role;
+  }
+
+  private TenantContext withDuties(
+      TenantContext caller, StudioRole base, Set<Permission> fromRole) {
     EnumSet<Permission> held = EnumSet.noneOf(Permission.class);
-    held.addAll(ofRole(role));
-    if (role != StudioRole.OWNER) {
+    held.addAll(fromRole);
+    if (base != StudioRole.OWNER) {
       duties.grantedTo(caller.accountId()).stream()
           .filter(permission -> !permission.isOwnerOnly())
           .forEach(held::add);
@@ -138,15 +180,39 @@ public class RolePermissions {
     return caller.withPermissions(held);
   }
 
+  /** Reads a cached entry: a role row by its id, or else a system role by its base. */
+  private Optional<Set<Permission>> load(RoleKey key) {
+    UUID roleId = key.roleId();
+    if (roleId != null) {
+      return stored.ofRoleId(roleId);
+    }
+    return stored.of(Objects.requireNonNull(key.base(), "base"));
+  }
+
+  private Set<Permission> decide(StudioRole base, Set<Permission> fromStore) {
+    Set<Permission> defaults = Permission.defaultsFor(base);
+    return switch (mode) {
+      case ENFORCING -> fromStore;
+      case SHADOW -> {
+        compare(base, defaults, fromStore);
+        yield defaults;
+      }
+    };
+  }
+
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   void onChange(RolePermissionsChanged change) {
     forget(change.studioId());
   }
 
-  /** Drops the studio's cached sets, so the next request reads them again. */
+  /** Drops the studio's cached sets, system and custom, so the next request reads them again. */
   public void forget(UUID studioId) {
-    Arrays.stream(StudioRole.values())
-        .forEach(role -> cache.invalidate(new StudioRoleKey(studioId, role)));
+    cache.asMap().keySet().removeIf(key -> key.studioId().equals(studioId));
+  }
+
+  /** Whether a custom role may sit at {@code base}: STAFF or MEMBER, never OWNER (decision 5). */
+  public static boolean mayBaseACustomRole(StudioRole base) {
+    return base != StudioRole.OWNER;
   }
 
   /**
@@ -238,5 +304,6 @@ public class RolePermissions {
         removed);
   }
 
-  private record StudioRoleKey(UUID studioId, StudioRole role) {}
+  /** A system role by its base, or any role row by its id. */
+  private record RoleKey(UUID studioId, @Nullable StudioRole base, @Nullable UUID roleId) {}
 }

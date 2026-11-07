@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.studio;
 import io.github.aaronfilson.studiomanager.contract.AccessChangeDto;
 import io.github.aaronfilson.studiomanager.contract.AccessChangeKindDto;
 import io.github.aaronfilson.studiomanager.contract.AccessChangeListDto;
+import io.github.aaronfilson.studiomanager.contract.CreateCustomRoleRequestDto;
 import io.github.aaronfilson.studiomanager.contract.PermissionAreaDto;
 import io.github.aaronfilson.studiomanager.contract.PermissionInfoDto;
 import io.github.aaronfilson.studiomanager.contract.PermissionLockDto;
@@ -11,11 +12,13 @@ import io.github.aaronfilson.studiomanager.contract.RoleDto;
 import io.github.aaronfilson.studiomanager.contract.RolesApi;
 import io.github.aaronfilson.studiomanager.contract.SetRolePermissionsRequestDto;
 import io.github.aaronfilson.studiomanager.contract.StudioRoleDto;
+import io.github.aaronfilson.studiomanager.contract.UpdateCustomRoleRequestDto;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.PermissionCatalogue;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import java.net.URI;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -63,6 +66,45 @@ class RoleController implements RolesApi {
     StudioRole chosen = StudioRole.valueOf(role.name());
     roles.resetPermissions(chosen);
     return ResponseEntity.ok(toDto(roles.view(studioId, chosen)));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
+  public ResponseEntity<List<RoleDto>> listAssignableRoles(UUID studioId) {
+    return ResponseEntity.ok(
+        roles.assignable(studioId).stream().map(RoleController::toDto).toList());
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_ROLES_MANAGE')")
+  public ResponseEntity<RoleDto> createCustomRole(
+      UUID studioId, CreateCustomRoleRequestDto request) {
+    StudioRoles.RoleView made =
+        roles.createCustom(
+            studioId,
+            request.getName(),
+            StudioRole.valueOf(request.getBase().name()),
+            known(request.getPermissions()));
+    return ResponseEntity.created(
+            URI.create("/api/v1/studios/" + studioId + "/roles/custom/" + made.id()))
+        .body(toDto(made));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_ROLES_MANAGE')")
+  public ResponseEntity<RoleDto> updateCustomRole(
+      UUID studioId, UUID roleId, UpdateCustomRoleRequestDto request) {
+    return ResponseEntity.ok(
+        toDto(
+            roles.updateCustom(
+                studioId, roleId, request.getName(), known(request.getPermissions()))));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_ROLES_MANAGE')")
+  public ResponseEntity<Void> deleteCustomRole(UUID studioId, UUID roleId) {
+    roles.deleteCustom(studioId, roleId);
+    return ResponseEntity.noContent().build();
   }
 
   @Override
@@ -122,10 +164,13 @@ class RoleController implements RolesApi {
 
   private static RoleDto toDto(StudioRoles.RoleView role) {
     return new RoleDto()
+        .id(role.id())
+        .key(role.key())
         .role(StudioRoleDto.valueOf(role.role().name()))
         .name(role.name())
         .permissions(role.permissions().stream().map(Permission::key).sorted().toList())
         .editable(role.editable())
+        .custom(role.custom())
         .memberCount(role.memberCount());
   }
 
@@ -136,6 +181,9 @@ class RoleController implements RolesApi {
           case MEMBER_ROLE -> true;
           case ROLE_PERMISSIONS -> false;
           case BILLING_CONTACT -> false;
+          case ROLE_CREATED -> false;
+          case ROLE_RENAMED -> false;
+          case ROLE_DELETED -> false;
         };
     return new AccessChangeDto()
         .id(entry.id())

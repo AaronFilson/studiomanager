@@ -79,6 +79,39 @@ Owners edit roles on the roles page, through `GET /roles`, `PUT /roles/{role}/pe
 - **Tokens never reach it.** `TokenPolicy` lists `roles` as an admin area, and no scope allows
   `studio.roles.manage`.
 
+## Custom roles (lane R7)
+
+Owners make named roles such as "Kiln tech" or "Board" (`POST`, `PUT` and `DELETE
+/roles/custom[/{roleId}]`, all `studio.roles.manage`), and anyone with `members.role.assign` puts
+members in them (`PUT /members/{accountId}/role`). The rules:
+
+- **A custom role has a base of STAFF or MEMBER, never OWNER.** The base is what everything still
+  keyed on a `StudioRole` sees: `TenantContext.role`, jobs' ceilings, `studio_membership.role`. What
+  its people hold is the role's own set, plus the floor and their duties, never an owner-only
+  permission (the API, `TenantContext` and V39's database check each refuse one; V41 adds a check
+  that only the system OWNER role is OWNER-based). Its base can't change later; make another role.
+- **Memberships point at a role row.** `studio_membership.role_id` names the system or custom role;
+  `role` stays and always equals that row's base, kept in step by a V41 trigger, so R8's last-owner
+  trigger and every query on `role` still work. The last-owner trigger now also fires on a change
+  to `role_id` alone.
+- **Resolved per request, cached per role row.** `TenantContextFilter` reads the membership's role
+  row and base; `RolePermissions` holds each row's set for a minute, keyed by studio and row, and
+  drops the studio's entries when any role changes on this instance.
+- **Nobody gives more than they hold.** Assigning, and inviting, need the role's permissions (as
+  the studio has set them, not code defaults) to be all the caller's own, and moving someone needs
+  their current role to be too. Owners are made and unmade only with R8's owner endpoints, so
+  neither side of an assignment may be OWNER. `GET /roles/assignable` lists what the caller may
+  give.
+- **Invites can name a custom role** (`roleId` with `role` as its base); `app.accept_invite` puts
+  the new member in that row.
+- **A role in use can't be deleted.** The API refuses with 409 ("give them another role first"),
+  and a deferred foreign key from `studio_membership.role_id` refuses at commit whatever made the
+  change. Deleting withdraws the role's open invites. We chose refusing over moving members as
+  part of the delete, so nobody's access changes as a side effect of tidying roles.
+- **Everything is logged:** `ROLE_CREATED`, `ROLE_RENAMED`, `ROLE_DELETED` (target the role's key,
+  values its names), `ROLE_PERMISSIONS` for a custom role's set, and `MEMBER_ROLE` naming built-in
+  roles as `STAFF` and custom ones by key.
+
 ## Consequences
 
 - One readable list says what can be granted, and the owner-only list is explicit.

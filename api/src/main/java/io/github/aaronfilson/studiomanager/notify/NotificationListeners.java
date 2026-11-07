@@ -206,7 +206,8 @@ class NotificationListeners {
   void onWebhookEndpointDisabled(WebhookEndpointDisabled disabled) {
     List<UUID> staff =
         members.list().stream()
-            .filter(member -> rolePermissions.roleHolds(member.role(), Permission.WEBHOOKS_MANAGE))
+            .filter(member ->
+                rolePermissions.memberHolds(member.memberRole(), Permission.WEBHOOKS_MANAGE))
             .map(MemberView::accountId)
             .toList();
     String body =
@@ -237,7 +238,8 @@ class NotificationListeners {
     List<MemberView> everyone = members.list();
     Set<UUID> recipients = new LinkedHashSet<>();
     everyone.stream()
-        .filter(member -> rolePermissions.roleHolds(member.role(), Permission.OWNERS_MANAGE))
+        .filter(
+            member -> rolePermissions.memberHolds(member.memberRole(), Permission.OWNERS_MANAGE))
         .map(MemberView::accountId)
         .forEach(recipients::add);
     recipients.add(changed.accountId());

@@ -1,8 +1,17 @@
-import type { EmailInvitesRequest, Member, OpenInvite, SetBillingContactRequest } from '@studiomanager/api-client';
+import type {
+  CreateInviteRequest,
+  EmailInvitesRequest,
+  Member,
+  OpenInvite,
+  Role,
+  SetBillingContactRequest,
+  SetMemberRoleRequest,
+} from '@studiomanager/api-client';
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
+import { systemRoles } from './permissions';
 import { aStudio, renderApp } from './renderApp';
 import { API, server } from './server';
 
@@ -72,10 +81,97 @@ describe('members', () => {
     await expect.poll(() => calls).toEqual(['resend i1', 'revoke i1']);
   });
 
+  describe('custom roles', () => {
+    const kilnTech: Role = {
+      id: 'r-kiln',
+      key: 'kiln_tech',
+      role: 'MEMBER',
+      name: 'Kiln tech',
+      permissions: ['money.own.read'],
+      editable: true,
+      custom: true,
+      memberCount: 0,
+    };
+    const jo: Member = {
+      accountId: 'a2',
+      displayName: 'Jo',
+      role: 'MEMBER',
+      roleId: 'r-member',
+      roleName: 'Member',
+      joinedAt: '2026-10-02T12:00:00Z',
+    };
+
+    function serveCustomRoles(calls: string[]) {
+      server.use(
+        http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+        http.get(`${API}/api/v1/studios/:studioId/members`, () => HttpResponse.json([jo])),
+        http.get(`${API}/api/v1/studios/:studioId/invites`, () => HttpResponse.json([])),
+        http.get(`${API}/api/v1/studios/:studioId/duties`, () => HttpResponse.json([])),
+        http.get(`${API}/api/v1/studios/:studioId/certification-types`, () => HttpResponse.json([])),
+        http.get(`${API}/api/v1/studios/:studioId/certifications`, () => HttpResponse.json([])),
+        http.get(`${API}/api/v1/studios/:studioId/roles/assignable`, () =>
+          HttpResponse.json([...systemRoles, kilnTech]),
+        ),
+        http.put(`${API}/api/v1/studios/:studioId/members/:accountId/role`, async ({ params, request }) => {
+          const body = (await request.json()) as SetMemberRoleRequest;
+          calls.push(`role ${String(params.accountId)} ${body.roleId}`);
+          return new HttpResponse(null, { status: 204 });
+        }),
+        http.post(`${API}/api/v1/studios/:studioId/invites`, async ({ request }) => {
+          const body = (await request.json()) as CreateInviteRequest;
+          calls.push(`invite ${body.role} ${body.roleId ?? '-'}`);
+          return HttpResponse.json(
+            { id: 'i9', code: 'c0de', role: body.role, roleId: 'r-kiln', roleName: 'Kiln tech', expiresAt: '2026-11-21T12:00:00Z' },
+            { status: 201 },
+          );
+        }),
+      );
+    }
+
+    it("chooses a member's role among the built-in and custom roles, never owner", async () => {
+      const calls: string[] = [];
+      serveCustomRoles(calls);
+
+      const { user } = renderApp(`/studios/${studio.id}/members`);
+      const picker = await screen.findByLabelText("Jo's role");
+      expect(within(picker).queryByRole('option', { name: 'Owner' })).not.toBeInTheDocument();
+      await user.selectOptions(picker, 'Kiln tech');
+
+      await expect.poll(() => calls).toEqual(['role a2 r-kiln']);
+    });
+
+    it('invites with a custom role by its id and base', async () => {
+      const calls: string[] = [];
+      serveCustomRoles(calls);
+
+      const { user } = renderApp(`/studios/${studio.id}/members`);
+      const link = await screen.findByRole('region', { name: 'Invite with a link' });
+      await within(link).findByRole('option', { name: 'Kiln tech' });
+      await user.selectOptions(within(link).getByLabelText('As'), 'Kiln tech');
+      await user.click(within(link).getByRole('button', { name: 'Create an invite link' }));
+
+      await expect.poll(() => calls).toEqual(['invite MEMBER r-kiln']);
+    });
+  });
+
   describe('co-owners', () => {
     // The signed-in account is a1 (see server.ts)
-    const mara: Member = { accountId: 'a1', displayName: 'Mara', role: 'OWNER', joinedAt: '2026-10-01T12:00:00Z' };
-    const jo: Member = { accountId: 'a2', displayName: 'Jo', role: 'STAFF', joinedAt: '2026-10-02T12:00:00Z' };
+    const mara: Member = {
+      accountId: 'a1',
+      displayName: 'Mara',
+      role: 'OWNER',
+      roleId: 'r-owner',
+      roleName: 'Owner',
+      joinedAt: '2026-10-01T12:00:00Z',
+    };
+    const jo: Member = {
+      accountId: 'a2',
+      displayName: 'Jo',
+      role: 'STAFF',
+      roleId: 'r-staff',
+      roleName: 'Staff',
+      joinedAt: '2026-10-02T12:00:00Z',
+    };
     const owners = [mara, jo];
 
     function serveMembers(members: Member[], calls: string[]) {

@@ -1,4 +1,4 @@
-import type { MyPermissions, PermissionKey, StudioRole } from '@studiomanager/api-client';
+import type { MyPermissions, PermissionKey, Role, StudioRole } from '@studiomanager/api-client';
 
 /**
  * The default grants of the keys the app checks, as the API's `Permission.defaultsFor` gives them
@@ -11,7 +11,9 @@ const staffDefaults: PermissionKey[] = [
   'imports.run',
   'kilns.manage',
   'maintenance.manage',
+  'members.invite',
   'members.read',
+  'members.role.assign',
   'money.payables.manage',
   'money.read',
   'notices.send',
@@ -44,6 +46,24 @@ function keysFor(role: StudioRole): PermissionKey[] {
     case 'MEMBER':
       return [];
   }
+}
+
+/** The built-in roles as the roles API lists them, for pickers. */
+export const systemRoles: Role[] = (['OWNER', 'STAFF', 'MEMBER'] as const).map((role) => ({
+  id: `r-${role.toLowerCase()}`,
+  key: role.toLowerCase(),
+  role,
+  name: roleNames[role],
+  permissions: keysFor(role),
+  editable: role !== 'OWNER',
+  custom: false,
+  memberCount: 0,
+}));
+
+/** The roles someone in `role` may give: those holding nothing more than they do. */
+export function assignableFor(role: StudioRole): Role[] {
+  const held = new Set<string>(keysFor(role));
+  return systemRoles.filter((candidate) => candidate.permissions.every((key) => held.has(key)));
 }
 
 export function permissionsFor(role: StudioRole): MyPermissions {

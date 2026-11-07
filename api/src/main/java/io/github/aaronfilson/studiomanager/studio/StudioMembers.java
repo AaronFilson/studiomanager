@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,12 +24,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class StudioMembers {
 
   private final StudioMembershipRepository memberships;
+  private final StoredRoleRepository roles;
   private final StudioInvites invites;
   private final AccountDirectory accounts;
 
   StudioMembers(
-      StudioMembershipRepository memberships, StudioInvites invites, AccountDirectory accounts) {
+      StudioMembershipRepository memberships,
+      StoredRoleRepository roles,
+      StudioInvites invites,
+      AccountDirectory accounts) {
     this.memberships = memberships;
+    this.roles = roles;
     this.invites = invites;
     this.accounts = accounts;
   }
@@ -45,10 +51,17 @@ public class StudioMembers {
     List<StudioMembership> rows = memberships.findByStudioId(boundStudio());
     Map<UUID, String> names =
         accounts.displayNames(rows.stream().map(StudioMembership::accountId).toList());
+    Map<UUID, String> roleNames =
+        roles.findAll().stream().collect(Collectors.toMap(StoredRole::id, StoredRole::name));
     return rows.stream()
         .map(row ->
             new MemberView(
-                row.accountId(), names.get(row.accountId()), row.role(), row.createdAt()))
+                row.accountId(),
+                names.get(row.accountId()),
+                row.role(),
+                row.roleId(),
+                roleNames.getOrDefault(row.roleId(), row.role().name()),
+                row.createdAt()))
         .sorted(
             Comparator.comparing(MemberView::role, Comparator.reverseOrder())
                 .thenComparing(
@@ -63,16 +76,37 @@ public class StudioMembers {
   }
 
   /**
+   * The name of the role {@code accountId} holds in the bound studio, such as {@code Staff} or a
+   * custom role's {@code Kiln tech}, if they belong to it.
+   */
+  @Transactional(readOnly = true)
+  public Optional<String> roleNameOf(UUID accountId) {
+    return memberships
+        .findMemberRole(boundStudio(), accountId)
+        .flatMap(role -> roles.findById(role.roleId()))
+        .map(StoredRole::name);
+  }
+
+  /**
    * Emails an invite to each address found in {@code text}. Addresses of members, and those with an
    * unexpired invite, are skipped. The emails go out after this commits.
    */
   @Transactional
   public EmailInvitesResult emailInvites(String text, StudioRole role) {
+    return emailInvites(text, role, null);
+  }
+
+  /**
+   * As {@link #emailInvites(String, StudioRole)}, into the role row {@code roleId} (a custom role)
+   * when it is given; {@code role} must then be its base.
+   */
+  @Transactional
+  public EmailInvitesResult emailInvites(String text, StudioRole role, @Nullable UUID roleId) {
     Set<String> memberAddresses =
         accounts.emails(list().stream().map(MemberView::accountId).toList()).values().stream()
             .map(address -> address.toLowerCase(Locale.ROOT))
             .collect(Collectors.toSet());
-    return invites.emailInvites(text, role, memberAddresses);
+    return invites.emailInvites(text, role, roleId, memberAddresses);
   }
 
   /** Each member's email address, lower-cased, to their account. For matching imported rows. */

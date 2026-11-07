@@ -209,6 +209,14 @@ export type Member = {
     accountId: string;
     displayName?: string;
     role: StudioRole;
+    /**
+     * The role they hold, built-in or custom. `role` is its base.
+     */
+    roleId: string;
+    /**
+     * That role's name in the studio, such as `Staff` or `Kiln tech`.
+     */
+    roleName: string;
     joinedAt: string;
 };
 
@@ -230,8 +238,19 @@ export type SetBillingContactRequest = {
     accountId: string;
 };
 
+export type SetMemberRoleRequest = {
+    /**
+     * A built-in STAFF or MEMBER role, or a custom role.
+     */
+    roleId: string;
+};
+
 export type CreateInviteRequest = {
     role: StudioRole;
+    /**
+     * A custom role to invite them as. `role` must then be its base.
+     */
+    roleId?: string;
 };
 
 export type Invite = {
@@ -241,6 +260,14 @@ export type Invite = {
      */
     code: string;
     role: StudioRole;
+    /**
+     * The role they join in, built-in or custom.
+     */
+    roleId: string;
+    /**
+     * That role's name, such as `Kiln tech`.
+     */
+    roleName: string;
     expiresAt: string;
 };
 
@@ -251,6 +278,14 @@ export type OpenInvite = {
      */
     email?: string;
     role: StudioRole;
+    /**
+     * The role they join in. Absent on invites made before custom roles.
+     */
+    roleId?: string;
+    /**
+     * That role's name, such as `Kiln tech`. Absent when `roleId` is.
+     */
+    roleName?: string;
     createdAt: string;
     expiresAt: string;
     expired: boolean;
@@ -266,6 +301,10 @@ export type EmailInvitesRequest = {
      */
     text: string;
     role: StudioRole;
+    /**
+     * A custom role to invite them as. `role` must then be its base.
+     */
+    roleId?: string;
 };
 
 export type EmailInvitesResult = {
@@ -904,11 +943,24 @@ export type PermissionInfo = {
 export type PermissionLock = 'OWNER_ONLY' | 'FLOOR';
 
 export type Role = {
+    id: string;
+    /**
+     * A stable name: `owner`, `staff` or `member` for the built-in roles, a slug of the name
+     * (such as `kiln_tech`) for a custom role. The access log names roles by it.
+     *
+     */
+    key: string;
     role: StudioRole;
     /**
-     * The role's name in this studio, such as `Staff`.
+     * The role's name in this studio, such as `Staff` or `Kiln tech`.
      */
     name: string;
+    /**
+     * True for a role the owners made. `role` is then its base, what the rest of the system
+     * treats its members as; it may be renamed and deleted.
+     *
+     */
+    custom: boolean;
     /**
      * Permission keys the role holds, sorted. Duties may add more for a person.
      */
@@ -930,15 +982,35 @@ export type SetRolePermissionsRequest = {
     permissions: Array<string>;
 };
 
+export type CreateCustomRoleRequest = {
+    /**
+     * Unique in the studio, ignoring case. No commas.
+     */
+    name: string;
+    base: StudioRole;
+    /**
+     * The permission keys the role should hold. The floor is added anyway.
+     */
+    permissions: Array<string>;
+};
+
+export type UpdateCustomRoleRequest = {
+    name: string;
+    permissions: Array<string>;
+};
+
 /**
  * What changed.
  * - `ROLE_PERMISSIONS`: a role's permissions; the target is the role's key, such as `staff`.
  * - `MEMBER_DUTIES`: a member's duties; the target is their account.
- * - `MEMBER_ROLE`: a member's role; the target is their account.
+ * - `MEMBER_ROLE`: a member's role; the target is their account. Built-in roles are named
+ * `OWNER`, `STAFF` or `MEMBER`, custom roles by key.
  * - `BILLING_CONTACT`: the studio's billing contact; added and removed are accounts.
+ * - `ROLE_CREATED`, `ROLE_RENAMED`, `ROLE_DELETED`: a custom role; the target is its key,
+ * added and removed are its names.
  *
  */
-export type AccessChangeKind = 'ROLE_PERMISSIONS' | 'MEMBER_DUTIES' | 'MEMBER_ROLE' | 'BILLING_CONTACT';
+export type AccessChangeKind = 'ROLE_PERMISSIONS' | 'MEMBER_DUTIES' | 'MEMBER_ROLE' | 'BILLING_CONTACT' | 'ROLE_CREATED' | 'ROLE_RENAMED' | 'ROLE_DELETED';
 
 export type AccessChange = {
     id: string;
@@ -2582,6 +2654,8 @@ export type AccountId = string;
 
 export type RoleName = StudioRole;
 
+export type RoleId = string;
+
 export type ShiftId = string;
 
 export type ItemId = string;
@@ -3218,6 +3292,53 @@ export type AddOwnerResponses = {
 };
 
 export type AddOwnerResponse = AddOwnerResponses[keyof AddOwnerResponses];
+
+export type SetMemberRoleData = {
+    body: SetMemberRoleRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/members/{accountId}/role';
+};
+
+export type SetMemberRoleErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type SetMemberRoleError = SetMemberRoleErrors[keyof SetMemberRoleErrors];
+
+export type SetMemberRoleResponses = {
+    /**
+     * They hold the role.
+     */
+    204: void;
+};
+
+export type SetMemberRoleResponse = SetMemberRoleResponses[keyof SetMemberRoleResponses];
 
 export type GetBillingContactData = {
     body?: never;
@@ -5495,6 +5616,176 @@ export type ListAccessChangesResponses = {
 };
 
 export type ListAccessChangesResponse = ListAccessChangesResponses[keyof ListAccessChangesResponses];
+
+export type ListAssignableRolesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/roles/assignable';
+};
+
+export type ListAssignableRolesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListAssignableRolesError = ListAssignableRolesErrors[keyof ListAssignableRolesErrors];
+
+export type ListAssignableRolesResponses = {
+    /**
+     * The roles, built-in first, then custom roles by name.
+     */
+    200: Array<Role>;
+};
+
+export type ListAssignableRolesResponse = ListAssignableRolesResponses[keyof ListAssignableRolesResponses];
+
+export type CreateCustomRoleData = {
+    body: CreateCustomRoleRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/roles/custom';
+};
+
+export type CreateCustomRoleErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CreateCustomRoleError = CreateCustomRoleErrors[keyof CreateCustomRoleErrors];
+
+export type CreateCustomRoleResponses = {
+    /**
+     * The new role.
+     */
+    201: Role;
+};
+
+export type CreateCustomRoleResponse = CreateCustomRoleResponses[keyof CreateCustomRoleResponses];
+
+export type DeleteCustomRoleData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        roleId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/roles/custom/{roleId}';
+};
+
+export type DeleteCustomRoleErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type DeleteCustomRoleError = DeleteCustomRoleErrors[keyof DeleteCustomRoleErrors];
+
+export type DeleteCustomRoleResponses = {
+    /**
+     * Deleted.
+     */
+    204: void;
+};
+
+export type DeleteCustomRoleResponse = DeleteCustomRoleResponses[keyof DeleteCustomRoleResponses];
+
+export type UpdateCustomRoleData = {
+    body: UpdateCustomRoleRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        roleId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/roles/custom/{roleId}';
+};
+
+export type UpdateCustomRoleErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type UpdateCustomRoleError = UpdateCustomRoleErrors[keyof UpdateCustomRoleErrors];
+
+export type UpdateCustomRoleResponses = {
+    /**
+     * The role afterwards.
+     */
+    200: Role;
+};
+
+export type UpdateCustomRoleResponse = UpdateCustomRoleResponses[keyof UpdateCustomRoleResponses];
 
 export type ListDutiesData = {
     body?: never;

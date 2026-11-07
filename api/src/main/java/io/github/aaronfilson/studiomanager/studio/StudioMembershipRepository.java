@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.MemberRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import jakarta.persistence.LockModeType;
 import java.util.List;
@@ -19,9 +20,17 @@ interface StudioMembershipRepository extends JpaRepository<StudioMembership, UUI
       "select m.role from StudioMembership m where m.studioId = :studioId and m.accountId = :accountId")
   Optional<StudioRole> findRole(UUID studioId, UUID accountId);
 
+  /** The role row a member holds, with its base. */
+  @Query(
+      """
+      select new io.github.aaronfilson.studiomanager.platform.tenancy.MemberRole(m.role, m.roleId)
+      from StudioMembership m where m.studioId = :studioId and m.accountId = :accountId
+      """)
+  Optional<MemberRole> findMemberRole(UUID studioId, UUID accountId);
+
   int countByStudioId(UUID studioId);
 
-  int countByStudioIdAndRole(UUID studioId, StudioRole role);
+  int countByStudioIdAndRoleId(UUID studioId, UUID roleId);
 
   Optional<StudioMembership> findByStudioIdAndAccountId(UUID studioId, UUID accountId);
 

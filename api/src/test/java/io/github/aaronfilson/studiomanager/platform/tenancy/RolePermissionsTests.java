@@ -12,6 +12,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +26,7 @@ class RolePermissionsTests {
   private final UUID studioId = UUID.randomUUID();
   private final UUID accountId = UUID.randomUUID();
   private final Map<StudioRole, Set<Permission>> stored = new EnumMap<>(StudioRole.class);
+  private final Map<UUID, Set<Permission>> customRoles = new HashMap<>();
   private final Set<Permission> dutyGrants = EnumSet.noneOf(Permission.class);
   private final AtomicInteger storeReads = new AtomicInteger();
   private final SteppingClock clock = new SteppingClock();
@@ -32,9 +34,18 @@ class RolePermissionsTests {
 
   private RolePermissions rolePermissions(PermissionSettings.Mode mode) {
     StoredRolePermissions store =
-        role -> {
-          storeReads.incrementAndGet();
-          return Optional.ofNullable(stored.get(role));
+        new StoredRolePermissions() {
+          @Override
+          public Optional<Set<Permission>> of(StudioRole role) {
+            storeReads.incrementAndGet();
+            return Optional.ofNullable(stored.get(role));
+          }
+
+          @Override
+          public Optional<Set<Permission>> ofRoleId(UUID roleId) {
+            storeReads.incrementAndGet();
+            return Optional.ofNullable(customRoles.get(roleId));
+          }
         };
     return new RolePermissions(
         store, ignoredAccount -> dutyGrants, new PermissionSettings(mode), meters, clock);
@@ -90,6 +101,67 @@ class RolePermissionsTests {
     assertThat(member.permissions())
         .containsExactlyInAnyOrder(
             Permission.STUDIO_READ, Permission.MONEY_OWN_READ, Permission.PIECES_INTAKE_FOR_OTHERS);
+  }
+
+  @Test
+  void aCustomRoleHoldsItsOwnSetWithTheFloorAndDuties() {
+    UUID kilnTech = UUID.randomUUID();
+    stored.put(StudioRole.MEMBER, Set.of(Permission.STUDIO_READ, Permission.PIECES_READ));
+    customRoles.put(kilnTech, Set.of(Permission.KILNS_READ, Permission.FIRINGS_MANAGE));
+    dutyGrants.add(Permission.SCHEDULE_SHIFTS_TAKE_DUTY);
+    RolePermissions rolePermissions = rolePermissions(PermissionSettings.Mode.ENFORCING);
+    TenantContext person = new TenantContext(accountId, studioId, StudioRole.MEMBER);
+
+    TenantContext resolved =
+        TenantContext.callAs(
+            person,
+            () -> rolePermissions.resolve(person, new MemberRole(StudioRole.MEMBER, kilnTech)));
+
+    assertThat(resolved.role()).isEqualTo(StudioRole.MEMBER);
+    assertThat(resolved.permissions())
+        .containsExactlyInAnyOrder(
+            Permission.KILNS_READ,
+            Permission.FIRINGS_MANAGE,
+            Permission.MONEY_OWN_READ,
+            Permission.SCHEDULE_SHIFTS_TAKE_DUTY);
+  }
+
+  @Test
+  void aCustomRoleNeverHoldsAnOwnerOnlyPermission() {
+    UUID board = UUID.randomUUID();
+    customRoles.put(board, Set.of(Permission.STUDIO_EXPORT, Permission.MONEY_READ));
+    RolePermissions rolePermissions = rolePermissions(PermissionSettings.Mode.ENFORCING);
+    Set<Permission> held =
+        inStudio(
+            StudioRole.STAFF,
+            () -> rolePermissions.ofMemberRole(new MemberRole(StudioRole.STAFF, board)));
+    assertThat(held).contains(Permission.MONEY_READ).doesNotContain(Permission.STUDIO_EXPORT);
+    assertThat(RolePermissions.mayBaseACustomRole(StudioRole.OWNER)).isFalse();
+    assertThat(RolePermissions.mayBaseACustomRole(StudioRole.MEMBER)).isTrue();
+  }
+
+  @Test
+  void aCustomRoleIsCachedAndForgottenWithItsStudio() {
+    UUID kilnTech = UUID.randomUUID();
+    customRoles.put(kilnTech, Set.of(Permission.KILNS_READ));
+    RolePermissions rolePermissions = rolePermissions(PermissionSettings.Mode.ENFORCING);
+    MemberRole role = new MemberRole(StudioRole.MEMBER, kilnTech);
+    inStudio(StudioRole.MEMBER, () -> rolePermissions.ofMemberRole(role));
+    customRoles.put(kilnTech, Set.of(Permission.KILNS_MANAGE));
+
+    assertThat(
+            inStudio(
+                StudioRole.MEMBER, () -> rolePermissions.memberHolds(role, Permission.KILNS_READ)))
+        .isTrue();
+    assertThat(storeReads).hasValue(1);
+
+    rolePermissions.onChange(new RolePermissionsChanged(studioId));
+    assertThat(
+            inStudio(
+                StudioRole.MEMBER,
+                () -> rolePermissions.memberHolds(role, Permission.KILNS_MANAGE)))
+        .isTrue();
+    assertThat(storeReads).hasValue(2);
   }
 
   @Test

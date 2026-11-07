@@ -22,6 +22,10 @@ interface StudioInviteRepository extends JpaRepository<StudioInvite, UUID> {
       """)
   Optional<StudioInvite> findOpenEmailed(UUID inviteId);
 
+  /** Open invites into one role row. */
+  @Query("select i from StudioInvite i where i.roleId = :roleId and i.acceptedAt is null")
+  List<StudioInvite> findOpenTo(UUID roleId);
+
   @Query("select i from StudioInvite i where i.acceptedAt is null order by i.createdAt desc")
   List<StudioInvite> findOpenNewestFirst();
 

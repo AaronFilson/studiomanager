@@ -6,6 +6,8 @@ owner can set who and how things work." This is a plan only. No code changes wit
 _Revised 2026-11-07 with the owner's answers: several co-owners, money split, MEMBER editable,
 every lane before the pilot. See "Decisions (2026-11-07)"._
 
+_Complete 2026-11-07: lanes R1 to R8 are all built; see §8 "Status" for each._
+
 ## Decisions (2026-11-07)
 
 1. **Several co-owners.** A studio has one or more owners. It always has at least one (§7).
@@ -647,6 +649,46 @@ clear result instead. Revisit if the SDK gains a per-request tool list.
 - No optimistic version check: the plan doesn't call for one (last write wins; both are logged).
 - ADR 25 has an "Editing roles" section.
 - Tests: `RolesApiTests` (integration), `PermissionCatalogueTests`, web `roles.test.tsx`.
+
+**R7 done (2026-11-07), branch `rbac-r7`.** Migration V41; custom roles. With R7, every lane
+(R1 to R8) is built, so the plan is complete apart from the two "not done" items noted under R5
+and R8 (per-caller MCP tool lists, the mobile owner picker).
+- Schema (V41): `studio_role` may now hold custom roles (`is_system = false`), with a check that
+  only system roles are OWNER-based, names unique per studio ignoring case, and `DELETE` granted.
+  `studio_membership.role_id` (not null, deferred FK to `studio_role`), back-filled from `role`; a
+  `BEFORE` trigger keeps `role` equal to the row's base (setting `role_id` sets `role`; changing
+  `role` alone moves `role_id` to that base's system role; an insert without `role_id` gets the
+  system role). R8's last-owner constraint trigger now also fires on `role_id`.
+  `studio_invite.role_id` (nullable; `ON DELETE SET NULL`), and `app.accept_invite` replaced to
+  insert it. `role_change_log` gains `ROLE_CREATED`, `ROLE_RENAMED`, `ROLE_DELETED`.
+- Endpoints: `POST /roles/custom` (`createCustomRole`), `PUT` and `DELETE /roles/custom/{roleId}`
+  (`updateCustomRole`, `deleteCustomRole`), all `studio.roles.manage`; `GET /roles/assignable`
+  (`listAssignableRoles`, `members.invite`); `PUT /members/{accountId}/role` (`setMemberRole`,
+  `members.role.assign`). `Role` gains `id`, `key` and `custom`; `Member` gains `roleId` and
+  `roleName`; invite requests take an optional `roleId` (with `role` as its base), and invites
+  answer `roleId` and `roleName`. `/me/permissions` answers a custom role's name. No new
+  `TokenPolicy` area: `roles` is already admin (never), and `members` read-only.
+- Resolution: `MembershipLookup` returns a `MemberRole` (base and role row); `TenantContext.role`
+  is the base; `RolePermissions.resolve(caller, role)` gives the row's stored set plus the floor
+  and duty grants, cached per studio and row for a minute (`forget` drops all a studio's entries).
+  Choosing people (problem, webhook, owner and maintenance notices) uses
+  `RolePermissions.memberHolds(member.memberRole(), …)`, so a custom role's set counts.
+- Rules: a custom role sits at STAFF or MEMBER; owner-only permissions refused; nobody gives or
+  invites to a role holding more than they do, or moves someone who does (now against the
+  studio's stored sets, not code defaults); neither side of `setMemberRole` may be OWNER (R8's
+  owner endpoints keep the last-owner lock). **Delete is refused while anyone holds the role**
+  (409, "give them another role first"; the deferred FK backs it), and withdraws the role's open
+  invites. Chosen over moving members as part of the delete, so tidying roles never changes
+  anyone's access.
+- Web: the roles page has a "Make a role" form (name and "Treated as" Member or Staff, starting
+  from that role's set), and each custom role's form adds a name field and Delete (disabled, with
+  why, while people hold it) instead of Reset; the history describes the new kinds. The members
+  page shows each member's role name, a role picker (built-in and custom roles the caller may
+  give, never Owner) behind `members.role.assign`, and both invite forms choose among the
+  assignable roles.
+- ADR 25 has a "Custom roles" section.
+- Tests: `CustomRolesTests` (integration), `CustomRoleMigrationTests`, new cases in
+  `RolePermissionsTests`, web `roles.test.tsx` and `members.test.tsx`.
 
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
