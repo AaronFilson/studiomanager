@@ -17,9 +17,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Inviting people into the bound studio, and accepting an invite. */
+/**
+ * Inviting people into the bound studio, and accepting an invite. Public: other modules' tests (and
+ * the demo seed) bring members into a studio the way people do.
+ */
 @Service
-class StudioInvites {
+public class StudioInvites {
 
   static final int MAX_EMAILED_INVITES = 200;
 

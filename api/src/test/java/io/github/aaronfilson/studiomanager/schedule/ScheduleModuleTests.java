@@ -9,7 +9,7 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Shift;
-import io.github.aaronfilson.studiomanager.studio.StudioMembers;
+import io.github.aaronfilson.studiomanager.studio.StudioInvites;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.UnitSystem;
 import java.time.Instant;
@@ -46,7 +46,7 @@ class ScheduleModuleTests {
 
   @Autowired AccountResolver accounts;
   @Autowired StudioService studios;
-  @Autowired StudioMembers members;
+  @Autowired StudioInvites invites;
   @Autowired ShiftChanges shiftChanges;
 
   private TenantContext owner;
@@ -62,9 +62,9 @@ class ScheduleModuleTests {
                     studios.create("Module Roster", UnitSystem.METRIC, "Europe/London", "GB", null))
             .id();
     owner = signedIn.inStudio(studioId, StudioRole.OWNER);
-    String code = as(owner, () -> members.invite(StudioRole.MEMBER).code());
+    String code = as(owner, () -> invites.invite(StudioRole.MEMBER).code());
     TenantContext joining = TenantContext.forAccount(account(TestUser.named("Pim")));
-    TenantContext.callAs(joining, () -> members.accept(code));
+    TenantContext.callAs(joining, () -> invites.accept(code));
     member = joining.inStudio(studioId, StudioRole.MEMBER);
   }
 
