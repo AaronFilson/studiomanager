@@ -41,9 +41,16 @@ import org.springframework.web.bind.annotation.RestController;
 class LedgerController implements LedgerApi {
 
   private final LedgerService ledger;
+  private final StoredValues storedValues;
+  private final Payouts payouts;
+  private final TaxRates taxRates;
 
-  LedgerController(LedgerService ledger) {
+  LedgerController(
+      LedgerService ledger, StoredValues storedValues, Payouts payouts, TaxRates taxRates) {
     this.ledger = ledger;
+    this.storedValues = storedValues;
+    this.payouts = payouts;
+    this.taxRates = taxRates;
   }
 
   @Override
@@ -61,7 +68,9 @@ class LedgerController implements LedgerApi {
             .memberId(accountId)
             .owed(balance.owed().toPlainString())
             .storedValues(
-                ledger.storedValuesOf(accountId).stream().map(LedgerController::toDto).toList()));
+                storedValues.storedValuesOf(accountId).stream()
+                    .map(LedgerController::toDto)
+                    .toList()));
   }
 
   @Override
@@ -80,7 +89,7 @@ class LedgerController implements LedgerApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<StoredValueListDto> listStoredValues(UUID studioId) {
-    Capped<StoredValueDto> balances = ledger.storedValues().map(LedgerController::toDto);
+    Capped<StoredValueDto> balances = storedValues.storedValues().map(LedgerController::toDto);
     return ResponseEntity.ok(
         new StoredValueListDto(balances.items(), balances.truncated(), balances.limit()));
   }
@@ -90,7 +99,7 @@ class LedgerController implements LedgerApi {
   public ResponseEntity<StoredValueDto> sellStoredValue(
       UUID studioId, SellStoredValueRequestDto request) {
     StoredValueBalance sold =
-        ledger.sellStoredValue(
+        storedValues.sellStoredValue(
             StoredValueKind.valueOf(request.getKind().getValue()),
             request.getHolder(),
             request.getLabel(),
@@ -103,7 +112,7 @@ class LedgerController implements LedgerApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<StoredValueDto> findGiftCard(UUID studioId, String code) {
-    return ResponseEntity.ok(toDto(ledger.giftCard(code)));
+    return ResponseEntity.ok(toDto(storedValues.giftCard(code)));
   }
 
   @Override
@@ -112,14 +121,14 @@ class LedgerController implements LedgerApi {
       UUID studioId, UUID storedValueId, UseStoredValueRequestDto request) {
     return ResponseEntity.ok(
         toDto(
-            ledger.useStoredValue(
+            storedValues.useStoredValue(
                 storedValueId, request.getMemberId(), new BigDecimal(request.getAmount()))));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<StoredValueDto> expireStoredValue(UUID studioId, UUID storedValueId) {
-    return ResponseEntity.ok(toDto(ledger.expireStoredValue(storedValueId)));
+    return ResponseEntity.ok(toDto(storedValues.expireStoredValue(storedValueId)));
   }
 
   @Override
@@ -127,7 +136,7 @@ class LedgerController implements LedgerApi {
   public ResponseEntity<List<StoredValueMovementDto>> getStoredValueMovements(
       LocalDate from, LocalDate to, UUID studioId) {
     return ResponseEntity.ok(
-        ledger.storedValueMovements(from, to).stream()
+        storedValues.storedValueMovements(from, to).stream()
             .map(m ->
                 new StoredValueMovementDto()
                     .kind(StoredValueKindDto.fromValue(m.kind().name()))
@@ -142,9 +151,8 @@ class LedgerController implements LedgerApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<PayoutListDto> listPayouts(UUID studioId) {
-    Capped<PayoutDto> payouts = ledger.payouts().map(LedgerController::toDto);
-    return ResponseEntity.ok(
-        new PayoutListDto(payouts.items(), payouts.truncated(), payouts.limit()));
+    Capped<PayoutDto> listed = payouts.payouts().map(LedgerController::toDto);
+    return ResponseEntity.ok(new PayoutListDto(listed.items(), listed.truncated(), listed.limit()));
   }
 
   @Override
@@ -152,7 +160,7 @@ class LedgerController implements LedgerApi {
   public ResponseEntity<PayoutDto> importPayout(UUID studioId, ImportPayoutRequestDto request) {
     return ResponseEntity.ok(
         toDto(
-            ledger.importPayout(
+            payouts.importPayout(
                 Provider.valueOf(request.getProvider().getValue()),
                 request.getExternalId(),
                 request.getArrivalOn(),
@@ -167,7 +175,7 @@ class LedgerController implements LedgerApi {
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<List<ClearingBalanceDto>> getClearing(UUID studioId) {
     return ResponseEntity.ok(
-        ledger.clearing().stream()
+        payouts.clearing().stream()
             .map(c ->
                 new ClearingBalanceDto()
                     .provider(ProviderDto.fromValue(c.provider().name()))
@@ -205,7 +213,7 @@ class LedgerController implements LedgerApi {
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<List<TaxRateDto>> listTaxRates(UUID studioId) {
-    return ResponseEntity.ok(ledger.taxRates().stream().map(LedgerController::toDto).toList());
+    return ResponseEntity.ok(taxRates.taxRates().stream().map(LedgerController::toDto).toList());
   }
 
   @Override
@@ -213,7 +221,7 @@ class LedgerController implements LedgerApi {
   public ResponseEntity<TaxRateDto> setTaxRate(UUID studioId, SetTaxRateRequestDto request) {
     return ResponseEntity.ok(
         toDto(
-            ledger.setTaxRate(
+            taxRates.setTaxRate(
                 request.getTaxCategory(),
                 new BigDecimal(request.getRate()),
                 request.getEffectiveFrom())));

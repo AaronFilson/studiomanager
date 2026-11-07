@@ -5,12 +5,13 @@ import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.Currency;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -28,14 +29,17 @@ public class StudioService {
   private final StudioRepository studios;
   private final StudioMembershipRepository memberships;
   private final TransactionOperations transactions;
+  private final Clock clock;
 
   StudioService(
       StudioRepository studios,
       StudioMembershipRepository memberships,
-      TransactionOperations transactions) {
+      TransactionOperations transactions,
+      Clock clock) {
     this.studios = studios;
     this.memberships = memberships;
     this.transactions = transactions;
+    this.clock = clock;
   }
 
   /**
@@ -59,26 +63,28 @@ public class StudioService {
     UUID studioId = Uuids.v7();
     // Bind the new studio before the transaction begins, so row-level security sees these
     // inserts as happening inside the studio they create.
-    return TenantContext.callAs(
-        caller.inStudio(studioId, StudioRole.OWNER),
-        () ->
-            transactions.execute(tx -> {
-              Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-              Studio studio =
-                  studios.save(
-                      new Studio(
-                          studioId,
-                          trimmedName,
-                          unitSystem,
-                          zone,
-                          countryCode,
-                          studioCurrency,
-                          now));
-              memberships.save(
-                  new StudioMembership(
-                      Uuids.v7(), studioId, caller.accountId(), StudioRole.OWNER, now));
-              return StudioView.of(studio, StudioRole.OWNER, 1);
-            }));
+    StudioView created =
+        TenantContext.callAs(
+            caller.inStudio(studioId, StudioRole.OWNER),
+            () ->
+                transactions.execute(tx -> {
+                  Instant now = clock.instant();
+                  Studio studio =
+                      studios.save(
+                          new Studio(
+                              studioId,
+                              trimmedName,
+                              unitSystem,
+                              zone,
+                              countryCode,
+                              studioCurrency,
+                              now));
+                  memberships.save(
+                      new StudioMembership(
+                          Uuids.v7(), studioId, caller.accountId(), StudioRole.OWNER, now));
+                  return StudioView.of(studio, StudioRole.OWNER, 1);
+                }));
+    return Objects.requireNonNull(created, "Creating a studio returns it");
   }
 
   /** The studio the current request is bound to. Membership is checked before this runs. */

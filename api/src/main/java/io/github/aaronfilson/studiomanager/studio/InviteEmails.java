@@ -7,16 +7,16 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -41,23 +41,29 @@ class InviteEmails {
   private static final DateTimeFormatter DATE =
       DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
 
-  private final JdbcClient jdbc;
+  private final StudioInviteRepository invites;
+  private final StudioRepository studios;
   private final TransactionOperations transactions;
   private final AccountDirectory accounts;
   private final EmailSender sender;
   private final URI webOrigin;
+  private final Clock clock;
 
   InviteEmails(
-      JdbcClient jdbc,
+      StudioInviteRepository invites,
+      StudioRepository studios,
       TransactionOperations transactions,
       AccountDirectory accounts,
       EmailSender sender,
-      MailProperties mail) {
-    this.jdbc = jdbc;
+      MailProperties mail,
+      Clock clock) {
+    this.invites = invites;
+    this.studios = studios;
     this.transactions = transactions;
     this.accounts = accounts;
     this.sender = sender;
     this.webOrigin = mail.webOrigin();
+    this.clock = clock;
   }
 
   @Async
@@ -70,41 +76,35 @@ class InviteEmails {
             .inStudio(request.studioId(), StudioRole.STAFF);
     TenantContext.callAs(
         requester,
-        () ->
-            transactions.execute(tx -> {
-              send(request);
-              return null;
-            }));
+        () -> {
+          transactions.executeWithoutResult(tx -> send(request));
+          return request;
+        });
   }
 
   private void send(InviteEmailRequested request) {
-    String code = StudioMembers.newCode();
-    Instant now = StudioMembers.now();
-    Instant expiresAt = now.plus(StudioMembers.INVITE_LIFETIME);
-    Sending invite =
-        jdbc.sql(
-                """
-                update studio_invite i set code_hash = :codeHash, expires_at = :expiresAt, last_sent_at = :now
-                from studio s
-                where i.id = :id and i.accepted_at is null and i.email is not null and s.id = i.studio_id
-                returning i.email, i.role, s.name as studio_name, s.time_zone
-                """)
-            .param("codeHash", StudioMembers.sha256(code))
-            .param("expiresAt", expiresAt.atOffset(ZoneOffset.UTC))
-            .param("now", now.atOffset(ZoneOffset.UTC))
-            .param("id", request.inviteId())
-            .query(Sending.class)
-            .optional()
-            .orElse(null);
-    if (invite == null) {
+    Optional<StudioInvite> open = invites.findOpenEmailed(request.inviteId());
+    if (open.isEmpty()) {
       // Accepted or revoked since it was asked for: nothing to send
       log.debug("Invite {} is no longer open; not emailing it", request.inviteId());
       return;
     }
+    StudioInvite invite = open.get();
+    Studio studio =
+        studios
+            .findById(request.studioId())
+            .orElseThrow(() -> new IllegalStateException("The invite's studio is gone"));
+    String code = InviteCodes.newCode();
+    Instant now = clock.instant();
+    invite.resend(code, now);
+    // Written before the email goes out, so a failed write never leaves a code nobody can use
+    invites.flush();
+
+    String address = Objects.requireNonNull(invite.email(), "Only emailed invites are found");
     String inviter =
         accounts.displayNames(List.of(request.requestedBy())).get(request.requestedBy());
     String link = webOrigin.resolve("/invites/" + code).toString();
-    String until = DATE.format(OffsetDateTime.ofInstant(expiresAt, ZoneId.of(invite.timeZone())));
+    String until = DATE.format(OffsetDateTime.ofInstant(invite.expiresAt(), studio.timeZone()));
     String text =
         """
         %s invited you to join %s as %s.
@@ -115,11 +115,11 @@ class InviteEmails {
         """
             .formatted(
                 inviter == null ? "Someone at the studio" : inviter,
-                invite.studioName(),
-                roleName(StudioRole.valueOf(invite.role())),
+                studio.name(),
+                roleName(invite.role()),
                 link,
                 until);
-    sender.send(new Email(invite.email(), "You're invited to join " + invite.studioName(), text));
+    sender.send(new Email(address, "You're invited to join " + studio.name(), text));
   }
 
   private static String roleName(StudioRole role) {
@@ -129,6 +129,4 @@ class InviteEmails {
       case MEMBER -> "a member";
     };
   }
-
-  record Sending(String email, String role, String studioName, String timeZone) {}
 }

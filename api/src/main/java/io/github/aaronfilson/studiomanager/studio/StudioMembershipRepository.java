@@ -7,6 +7,10 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+/**
+ * Memberships. They carry no {@code @TenantId}, and a second row-level security policy lets anyone
+ * read their own memberships in every studio, so each query here names its studio.
+ */
 interface StudioMembershipRepository extends JpaRepository<StudioMembership, UUID> {
 
   @Query(
@@ -14,6 +18,8 @@ interface StudioMembershipRepository extends JpaRepository<StudioMembership, UUI
   Optional<StudioRole> findRole(UUID studioId, UUID accountId);
 
   int countByStudioId(UUID studioId);
+
+  List<StudioMembership> findByStudioId(UUID studioId);
 
   @Query(
       """
