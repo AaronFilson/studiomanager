@@ -68,7 +68,9 @@ class LedgerController implements LedgerApi {
             .memberId(accountId)
             .owed(balance.owed().toPlainString())
             .storedValues(
-                storedValues.storedValuesOf(accountId).stream().map(LedgerController::toDto).toList()));
+                storedValues.storedValuesOf(accountId).stream()
+                    .map(LedgerController::toDto)
+                    .toList()));
   }
 
   @Override

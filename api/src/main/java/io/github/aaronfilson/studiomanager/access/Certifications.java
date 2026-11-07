@@ -82,7 +82,9 @@ class Certifications {
     Instant now = clock.instant();
     Integer validMonths = type.validMonths();
     Instant expiresAt =
-        validMonths == null ? null : AccessService.expiry(now, validMonths, studios.current().timeZone());
+        validMonths == null
+            ? null
+            : AccessService.expiry(now, validMonths, studios.current().timeZone());
     queries.grant(caller.requireStudioId(), typeId, accountId, caller.accountId(), now, expiresAt);
     return certifications(accountId).stream()
         .filter(c -> c.typeId().equals(typeId))

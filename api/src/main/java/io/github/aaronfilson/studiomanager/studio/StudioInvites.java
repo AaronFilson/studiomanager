@@ -57,7 +57,8 @@ class StudioInvites {
    * (lower-cased) and addresses with an unexpired invite. The emails go out after this commits.
    */
   @Transactional
-  public EmailInvitesResult emailInvites(String text, StudioRole role, Set<String> memberAddresses) {
+  public EmailInvitesResult emailInvites(
+      String text, StudioRole role, Set<String> memberAddresses) {
     TenantContext caller = requireCanInvite(role);
     List<String> addresses = EmailAddresses.extract(text);
     if (addresses.isEmpty()) {

@@ -113,7 +113,8 @@ class PayeePayments {
             Line.debit(LedgerAccount.CONTRACT_SERVICES, earned),
             Line.credit(LedgerAccount.PAYEES_PAYABLE, earned).payee(payeeId));
     UUID entryId =
-        journal.post(EntryKind.PAYEE_EARNING, day, truncate(text), id, "payee-earning:" + id, lines);
+        journal.post(
+            EntryKind.PAYEE_EARNING, day, truncate(text), id, "payee-earning:" + id, lines);
     earnings.saveAndFlush(
         new PayeeEarning(id, payeeId, kind, text, day, gross, share, earned, entryId));
     return new Earning(id, payeeId, kind, text, day, gross, share, earned);

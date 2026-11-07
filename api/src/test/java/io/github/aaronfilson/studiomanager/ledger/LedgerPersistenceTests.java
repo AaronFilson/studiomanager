@@ -96,7 +96,8 @@ class LedgerPersistenceTests {
   }
 
   private <T> T inStudio(ScopedValue.CallableOp<T, Exception> work) throws Exception {
-    return TenantContext.callAs(new TenantContext(ownerAccountId, studioId, StudioRole.OWNER), work);
+    return TenantContext.callAs(
+        new TenantContext(ownerAccountId, studioId, StudioRole.OWNER), work);
   }
 
   private TenantContext inStudio() {

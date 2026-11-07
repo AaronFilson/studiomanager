@@ -12,9 +12,9 @@ import org.hibernate.annotations.TenantId;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The latest grant of one certification to one member. Granting again renews it, which is an
- * upsert in {@link AccessQueries}; this entity reads and removes grants. Named for its table;
- * {@link AccessService.Certification} is the view of it.
+ * The latest grant of one certification to one member. Granting again renews it, which is an upsert
+ * in {@link AccessQueries}; this entity reads and removes grants. Named for its table; {@link
+ * AccessService.Certification} is the view of it.
  */
 @Entity
 @Table(name = "certification")

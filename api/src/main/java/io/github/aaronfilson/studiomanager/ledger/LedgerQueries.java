@@ -8,10 +8,10 @@ import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueBalance
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.SummaryLine;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -89,7 +89,8 @@ class LedgerQueries {
             order by sum(amount) desc
             """)
         .query((rs, row) ->
-            new MemberBalance(rs.getObject("member_id", UUID.class), null, rs.getBigDecimal("owed")))
+            new MemberBalance(
+                rs.getObject("member_id", UUID.class), null, rs.getBigDecimal("owed")))
         .list();
   }
 

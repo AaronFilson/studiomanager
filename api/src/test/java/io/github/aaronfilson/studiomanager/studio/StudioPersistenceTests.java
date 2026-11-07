@@ -78,7 +78,8 @@ class StudioPersistenceTests {
     TenantContext theirs = new TenantContext(accountOf(stranger), theirStudio, StudioRole.OWNER);
 
     assertThat(TenantContext.callAs(theirs, () -> findInvite(ours))).isFalse();
-    assertThat(TenantContext.callAs(TenantContext.forAccount(ownerAccountId), () -> findInvite(ours)))
+    assertThat(
+            TenantContext.callAs(TenantContext.forAccount(ownerAccountId), () -> findInvite(ours)))
         .isFalse();
     assertThat(TenantContext.callAs(inStudio(), () -> findInvite(ours))).isTrue();
   }

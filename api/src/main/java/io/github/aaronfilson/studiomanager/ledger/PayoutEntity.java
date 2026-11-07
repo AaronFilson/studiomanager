@@ -19,8 +19,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
- * A processor's deposit into the studio's bank, with the journal entry that posted it. Written once.
- * Named for its table; {@link Payout} is the view of it.
+ * A processor's deposit into the studio's bank, with the journal entry that posted it. Written
+ * once. Named for its table; {@link Payout} is the view of it.
  */
 @Entity
 @Table(name = "payout")

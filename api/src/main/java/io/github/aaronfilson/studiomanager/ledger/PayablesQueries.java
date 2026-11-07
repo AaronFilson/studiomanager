@@ -28,8 +28,8 @@ class PayablesQueries {
   }
 
   /**
-   * What the studio owes each of these payees now, from their {@code PAYEES_PAYABLE} lines.
-   * Payees with no lines are left out: they're owed nothing.
+   * What the studio owes each of these payees now, from their {@code PAYEES_PAYABLE} lines. Payees
+   * with no lines are left out: they're owed nothing.
    */
   Map<UUID, BigDecimal> owed(Collection<UUID> payeeIds) {
     Map<UUID, BigDecimal> owed = new HashMap<>();
@@ -85,8 +85,8 @@ class PayablesQueries {
   }
 
   /**
-   * Payments in [{@code start}, {@code end}) to each payee the studio files a 1099-NEC for, split by
-   * whether the method is {@code reportable}.
+   * Payments in [{@code start}, {@code end}) to each payee the studio files a 1099-NEC for, split
+   * by whether the method is {@code reportable}.
    */
   List<NecLine> necLines(
       LocalDate start, LocalDate end, List<String> reportable, BigDecimal threshold) {

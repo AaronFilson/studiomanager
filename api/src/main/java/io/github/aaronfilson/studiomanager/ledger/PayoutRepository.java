@@ -14,7 +14,6 @@ interface PayoutRepository extends JpaRepository<PayoutEntity, UUID> {
   @Query("select p from PayoutEntity p order by p.arrivalOn desc, p.importedAt desc")
   List<PayoutEntity> findNewestFirst(Limit limit);
 
-  @Query(
-      "select p from PayoutEntity p where p.provider = :provider and p.externalId = :externalId")
+  @Query("select p from PayoutEntity p where p.provider = :provider and p.externalId = :externalId")
   Optional<PayoutEntity> findImported(Provider provider, String externalId);
 }

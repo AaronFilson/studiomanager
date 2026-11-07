@@ -68,22 +68,22 @@ public class StudioService {
             caller.inStudio(studioId, StudioRole.OWNER),
             () ->
                 transactions.execute(tx -> {
-              Instant now = clock.instant();
-              Studio studio =
-                  studios.save(
-                      new Studio(
-                          studioId,
-                          trimmedName,
-                          unitSystem,
-                          zone,
-                          countryCode,
-                          studioCurrency,
-                          now));
-              memberships.save(
-                  new StudioMembership(
-                      Uuids.v7(), studioId, caller.accountId(), StudioRole.OWNER, now));
-              return StudioView.of(studio, StudioRole.OWNER, 1);
-            }));
+                  Instant now = clock.instant();
+                  Studio studio =
+                      studios.save(
+                          new Studio(
+                              studioId,
+                              trimmedName,
+                              unitSystem,
+                              zone,
+                              countryCode,
+                              studioCurrency,
+                              now));
+                  memberships.save(
+                      new StudioMembership(
+                          Uuids.v7(), studioId, caller.accountId(), StudioRole.OWNER, now));
+                  return StudioView.of(studio, StudioRole.OWNER, 1);
+                }));
     return Objects.requireNonNull(created, "Creating a studio returns it");
   }
 

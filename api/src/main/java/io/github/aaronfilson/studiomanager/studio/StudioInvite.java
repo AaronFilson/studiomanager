@@ -52,8 +52,7 @@ class StudioInvite {
   protected StudioInvite() {}
 
   /** A new invite, open for {@link #LIFETIME} from {@code now}; {@code email} null for a link. */
-  StudioInvite(
-      String code, StudioRole role, UUID createdBy, @Nullable String email, Instant now) {
+  StudioInvite(String code, StudioRole role, UUID createdBy, @Nullable String email, Instant now) {
     this.id = Uuids.v7();
     this.codeHash = InviteCodes.sha256(code);
     this.role = role;
@@ -79,7 +78,9 @@ class StudioInvite {
     return expiresAt;
   }
 
-  /** Replaces the code with a new one, open for a fresh {@link #LIFETIME}, as its email goes out. */
+  /**
+   * Replaces the code with a new one, open for a fresh {@link #LIFETIME}, as its email goes out.
+   */
   void resend(String code, Instant now) {
     this.codeHash = InviteCodes.sha256(code);
     this.expiresAt = now.plus(LIFETIME);

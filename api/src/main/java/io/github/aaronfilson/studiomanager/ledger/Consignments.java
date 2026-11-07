@@ -85,8 +85,8 @@ class Consignments {
         payees.view(
             payeeRepository
                 .findByAccount(caller.accountId())
-                .orElseThrow(() ->
-                    new NotFoundException("You don't have work on consignment here.")));
+                .orElseThrow(
+                    () -> new NotFoundException("You don't have work on consignment here.")));
     return new MyConsignment(
         payee.id(),
         payee.name(),
