@@ -53,7 +53,8 @@ output "web_build_env" {
   description = "Build-time settings for the web app (VITE_* variables are public by design)."
   value = {
     VITE_ENTRA_CLIENT_ID = var.entra_web_client_id
-    VITE_ENTRA_AUTHORITY = "https://${var.entra_external_tenant_subdomain}.ciamlogin.com/"
+    # The tenant id must be in the path: External ID serves no OpenID metadata at the bare host
+    VITE_ENTRA_AUTHORITY = "https://${var.entra_external_tenant_subdomain}.ciamlogin.com/${var.entra_external_tenant_id}/"
     VITE_API_SCOPES      = "api://${var.entra_api_client_id}/access_as_user"
     VITE_API_BASE_URL    = module.api.url
   }
