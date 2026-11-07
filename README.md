@@ -11,8 +11,9 @@ help a studio manager, or to stand in for one: an AI assistant can read the stud
 propose changes over MCP, and staff approve them. The backend is a Spring Boot modular monolith
 on Java 25 and PostgreSQL. The clients are a React web app and an Expo mobile app.
 
-**Status:** not deployed yet. The [first-deploy runbook](docs/runbooks/first-deploy.md) takes an
-empty Azure subscription to a running environment. The current plan is the
+**Status:** a dev environment runs on Azure (West US), deployed by CI on every merge to `main`.
+No studio uses it yet. The [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty
+Azure subscription to a running environment. The current plan is the
 [pre-production cleanup](docs/planning/20-pre-production-cleanup-plan.md).
 
 ## Feature tour
