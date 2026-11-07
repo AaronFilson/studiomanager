@@ -96,7 +96,9 @@ class ClaudeInvoiceReader implements InvoiceReader {
       return readWith(client, file);
     } catch (InvoiceReadException e) {
       if (e.failure() == InvoiceReadException.Failure.REFUSED_CREDENTIALS) {
-        keys.markRefused(e.getMessage());
+        keys.markRefused(
+            "Anthropic refused the key while reading an invoice. Check it's active and has API"
+                + " access.");
       }
       throw e;
     } finally {
