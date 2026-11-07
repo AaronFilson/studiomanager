@@ -488,6 +488,94 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/studios/{studioId}/members/{accountId}/owner:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AccountId"
+    put:
+      tags: [members]
+      operationId: addOwner
+      x-permission: owners.manage
+      summary: Make a member one of the studio's owners (owners only)
+      description: |
+        A studio can have several co-owners, and each holds every owner-only permission. Every
+        owner is told. Making an owner an owner again changes nothing.
+      responses:
+        "204":
+          description: They are an owner.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [members]
+      operationId: removeOwner
+      x-permission: owners.manage
+      summary: Make an owner staff instead, or step down yourself (owners only)
+      description: |
+        A studio always keeps at least one owner: removing the last is refused with "Add another
+        owner first". If they were the billing contact, the studio has none until the remaining
+        owners pick one. Every owner is told.
+      responses:
+        "204":
+          description: They are staff now.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/members/billing-contact:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [members]
+      operationId: getBillingContact
+      x-permission: owners.manage
+      summary: The owner the platform bills (owners only)
+      responses:
+        "200":
+          description: The billing contact, or none while the owners choose one.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingContact"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [members]
+      operationId: setBillingContact
+      x-permission: owners.manage
+      summary: Choose the owner the platform bills (owners only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetBillingContactRequest"
+      responses:
+        "200":
+          description: The billing contact afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingContact"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/invites:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -4968,6 +5056,27 @@ components:
           type: string
           format: date-time
 
+    BillingContact:
+      type: object
+      required: [chooseNeeded]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: The owner the platform bills. Absent while the owners choose one.
+        chooseNeeded:
+          type: boolean
+          description: True when the billing contact stopped being an owner and none is chosen yet.
+
+    SetBillingContactRequest:
+      type: object
+      required: [accountId]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: An owner of the studio.
+
     CreateInviteRequest:
       type: object
       required: [role]
@@ -5959,7 +6068,7 @@ components:
 
     NotificationKind:
       type: string
-      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED, SHIFT_COVER, WEBHOOK_DISABLED]
+      enum: [PIECES_READY, STUDIO_NOTICE, MAINTENANCE_DUE, PROBLEM_REPORTED, SHIFT_COVER, WEBHOOK_DISABLED, OWNERS_CHANGED]
 
     Notification:
       type: object

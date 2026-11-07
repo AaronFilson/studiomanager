@@ -1,8 +1,12 @@
 import {
+  addOwnerMutation,
   createCertificationTypeMutation,
   createInviteMutation,
   type Duty,
   emailInvitesMutation,
+  getBillingContactOptions,
+  getBillingContactQueryKey,
+  getMeOptions,
   grantCertificationMutation,
   listCertificationsOptions,
   listCertificationTypesOptions,
@@ -11,8 +15,10 @@ import {
   listOpenInvitesOptions,
   listOpenInvitesQueryKey,
   type Member,
+  removeOwnerMutation,
   resendInviteMutation,
   revokeInviteMutation,
+  setBillingContactMutation,
   setDutiesMutation,
   type SkippedEmail,
   type StudioRole,
@@ -35,11 +41,13 @@ function MembersPage() {
   const { studioId } = Route.useParams();
   const { can } = useCan(studioId);
   const members = useQuery(listMembersOptions({ path: { studioId } }));
-  const roles = rolesFor(can('owners.manage'));
+  const managesOwners = can('owners.manage');
+  const roles = rolesFor(managesOwners);
 
   return (
     <div className="stack">
       <h1>Members</h1>
+      {managesOwners && members.isSuccess && <BillingContactCard studioId={studioId} members={members.data} />}
       <EmailInviteForm studioId={studioId} roles={roles} />
       <InviteForm studioId={studioId} roles={roles} />
       <OpenInvites studioId={studioId} />
@@ -48,7 +56,13 @@ function MembersPage() {
       {members.isSuccess && (
         <ul className="studio-list">
           {members.data.map((member) => (
-            <MemberRow key={member.accountId} studioId={studioId} member={member} />
+            <MemberRow
+              key={member.accountId}
+              studioId={studioId}
+              member={member}
+              managesOwners={managesOwners}
+              ownerCount={members.data.filter((m) => m.role === 'OWNER').length}
+            />
           ))}
         </ul>
       )}
@@ -57,7 +71,97 @@ function MembersPage() {
   );
 }
 
-function MemberRow({ studioId, member }: { studioId: string; member: Member }) {
+/**
+ * The one owner the platform bills. When that person stops being an owner the studio has none, and
+ * the remaining owners are asked here to pick another.
+ */
+function BillingContactCard({ studioId, members }: { studioId: string; members: Member[] }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const contact = useQuery(getBillingContactOptions({ path: { studioId } }));
+  const choose = useMutation({
+    ...setBillingContactMutation(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getBillingContactQueryKey({ path: { studioId } }) }),
+  });
+  const owners = members.filter((m) => m.role === 'OWNER');
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Billing contact</h2>
+      {contact.isError && <ErrorMessage error={contact.error} />}
+      {contact.data?.chooseNeeded && (
+        <p className="badge warning" role="status">
+          The billing contact is no longer an owner. Pick one of the owners; until then, billing notices go to every
+          owner.
+        </p>
+      )}
+      {contact.isSuccess && (
+        <div className="field">
+          <label htmlFor={`${id}-owner`}>Owner the studio is billed through</label>
+          <select
+            id={`${id}-owner`}
+            value={contact.data.accountId ?? ''}
+            disabled={choose.isPending}
+            onChange={(e) => {
+              if (e.target.value) choose.mutate({ path: { studioId }, body: { accountId: e.target.value } });
+            }}
+          >
+            {!contact.data.accountId && <option value="">Choose an owner</option>}
+            {owners.map((owner) => (
+              <option key={owner.accountId} value={owner.accountId}>
+                {owner.displayName ?? 'Unnamed owner'}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {choose.isError && <ErrorMessage error={choose.error} />}
+    </section>
+  );
+}
+
+/** Make a member an owner, or an owner staff; refused for the last owner, so not offered. */
+function OwnerControls({ studioId, member, ownerCount }: { studioId: string; member: Member; ownerCount: number }) {
+  const queryClient = useQueryClient();
+  const me = useQuery(getMeOptions());
+  const onSuccess = () => queryClient.invalidateQueries();
+  const add = useMutation({ ...addOwnerMutation(), onSuccess });
+  const remove = useMutation({ ...removeOwnerMutation(), onSuccess });
+  const name = member.displayName ?? 'this member';
+  const isMe = me.data?.account.id === member.accountId;
+  const path = { studioId, accountId: member.accountId };
+
+  return (
+    <div className="row">
+      {member.role !== 'OWNER' && (
+        <button type="button" disabled={add.isPending} onClick={() => add.mutate({ path })}>
+          Make {name} an owner
+        </button>
+      )}
+      {member.role === 'OWNER' && ownerCount > 1 && (
+        <button type="button" disabled={remove.isPending} onClick={() => remove.mutate({ path })}>
+          {isMe ? 'Step down as owner' : `Remove ${name} as owner`}
+        </button>
+      )}
+      {member.role === 'OWNER' && ownerCount <= 1 && (
+        <span className="badge">The only owner. Add another owner before they can step down.</span>
+      )}
+      {(add.error ?? remove.error) && <ErrorMessage error={add.error ?? remove.error} />}
+    </div>
+  );
+}
+
+function MemberRow({
+  studioId,
+  member,
+  managesOwners,
+  ownerCount,
+}: {
+  studioId: string;
+  member: Member;
+  managesOwners: boolean;
+  ownerCount: number;
+}) {
   const queryClient = useQueryClient();
   const duties = useQuery(listDutiesOptions({ path: { studioId } }));
   const types = useQuery(listCertificationTypesOptions({ path: { studioId } }));
@@ -84,6 +188,7 @@ function MemberRow({ studioId, member }: { studioId: string; member: Member }) {
             {roleLabel(member.role)} · joined {formatDate(member.joinedAt)}
           </span>
         </div>
+        {managesOwners && <OwnerControls studioId={studioId} member={member} ownerCount={ownerCount} />}
         <div className="row" role="group" aria-label={`${member.displayName ?? 'Member'}'s duties`}>
           {allDuties.map((duty) => (
             <label key={duty} className="choice">

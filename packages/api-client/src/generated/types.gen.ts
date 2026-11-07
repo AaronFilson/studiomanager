@@ -212,6 +212,24 @@ export type Member = {
     joinedAt: string;
 };
 
+export type BillingContact = {
+    /**
+     * The owner the platform bills. Absent while the owners choose one.
+     */
+    accountId?: string;
+    /**
+     * True when the billing contact stopped being an owner and none is chosen yet.
+     */
+    chooseNeeded: boolean;
+};
+
+export type SetBillingContactRequest = {
+    /**
+     * An owner of the studio.
+     */
+    accountId: string;
+};
+
 export type CreateInviteRequest = {
     role: StudioRole;
 };
@@ -800,7 +818,7 @@ export type FiringTransitionRequest = {
     expectedVersion: number;
 };
 
-export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED' | 'SHIFT_COVER' | 'WEBHOOK_DISABLED';
+export type NotificationKind = 'PIECES_READY' | 'STUDIO_NOTICE' | 'MAINTENANCE_DUE' | 'PROBLEM_REPORTED' | 'SHIFT_COVER' | 'WEBHOOK_DISABLED' | 'OWNERS_CHANGED';
 
 export type Notification = {
     id: string;
@@ -2995,6 +3013,164 @@ export type ListMembersResponses = {
 };
 
 export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
+
+export type RemoveOwnerData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/members/{accountId}/owner';
+};
+
+export type RemoveOwnerErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type RemoveOwnerError = RemoveOwnerErrors[keyof RemoveOwnerErrors];
+
+export type RemoveOwnerResponses = {
+    /**
+     * They are staff now.
+     */
+    204: void;
+};
+
+export type RemoveOwnerResponse = RemoveOwnerResponses[keyof RemoveOwnerResponses];
+
+export type AddOwnerData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/members/{accountId}/owner';
+};
+
+export type AddOwnerErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type AddOwnerError = AddOwnerErrors[keyof AddOwnerErrors];
+
+export type AddOwnerResponses = {
+    /**
+     * They are an owner.
+     */
+    204: void;
+};
+
+export type AddOwnerResponse = AddOwnerResponses[keyof AddOwnerResponses];
+
+export type GetBillingContactData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/members/billing-contact';
+};
+
+export type GetBillingContactErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetBillingContactError = GetBillingContactErrors[keyof GetBillingContactErrors];
+
+export type GetBillingContactResponses = {
+    /**
+     * The billing contact, or none while the owners choose one.
+     */
+    200: BillingContact;
+};
+
+export type GetBillingContactResponse = GetBillingContactResponses[keyof GetBillingContactResponses];
+
+export type SetBillingContactData = {
+    body: SetBillingContactRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/members/billing-contact';
+};
+
+export type SetBillingContactErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type SetBillingContactError = SetBillingContactErrors[keyof SetBillingContactErrors];
+
+export type SetBillingContactResponses = {
+    /**
+     * The billing contact afterwards.
+     */
+    200: BillingContact;
+};
+
+export type SetBillingContactResponse = SetBillingContactResponses[keyof SetBillingContactResponses];
 
 export type ListOpenInvitesData = {
     body?: never;

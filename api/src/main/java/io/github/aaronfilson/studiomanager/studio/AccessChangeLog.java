@@ -21,7 +21,13 @@ public class AccessChangeLog {
     /** A role's permission set; the target is the role's key. */
     ROLE_PERMISSIONS,
     /** A member's duties; the target is their account id. */
-    MEMBER_DUTIES
+    MEMBER_DUTIES,
+    /**
+     * A member's role, such as becoming or ceasing to be an owner; the target is their account id.
+     */
+    MEMBER_ROLE,
+    /** The studio's billing contact; the target is "studio", the values account ids. */
+    BILLING_CONTACT
   }
 
   private final AccessChangeRepository changes;

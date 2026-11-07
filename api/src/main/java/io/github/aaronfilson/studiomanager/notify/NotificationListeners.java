@@ -10,6 +10,7 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.RolePermissions;
 import io.github.aaronfilson.studiomanager.schedule.ShiftCovered;
 import io.github.aaronfilson.studiomanager.schedule.ShiftOffered;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
+import io.github.aaronfilson.studiomanager.studio.OwnersChanged;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.supplies.SupplyRanOut;
@@ -19,10 +20,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -221,6 +224,50 @@ class NotificationListeners {
         NotificationView.Kind.WEBHOOK_DISABLED,
         "A webhook was turned off",
         clip(body, 2000));
+  }
+
+  /**
+   * Tells every owner, and the person concerned, when someone becomes or stops being an owner, so a
+   * co-owner can't be added quietly (plan 21 §7). Owners are found by the owner-only {@code
+   * owners.manage}, which no other role can hold. If the billing contact went with it, the owners
+   * are asked to pick another.
+   */
+  @EventListener
+  void onOwnersChanged(OwnersChanged changed) {
+    List<MemberView> everyone = members.list();
+    Set<UUID> recipients = new LinkedHashSet<>();
+    everyone.stream()
+        .filter(member -> rolePermissions.roleHolds(member.role(), Permission.OWNERS_MANAGE))
+        .map(MemberView::accountId)
+        .forEach(recipients::add);
+    recipients.add(changed.accountId());
+    String name =
+        everyone.stream()
+            .filter(member -> member.accountId().equals(changed.accountId()))
+            .map(MemberView::displayName)
+            .filter(Objects::nonNull)
+            .findFirst()
+            .orElse("A member");
+    String title = ownersChangedTitle(changed.change(), name);
+    StringBuilder body = new StringBuilder(title).append('.');
+    if (changed.billingContactCleared()) {
+      body.append(
+          "\n\nThey were the studio's billing contact. Pick another owner as the billing contact"
+              + " on the Members page; until then, billing notices go to every owner.");
+    }
+    body.append("\n\nSee who the owners are on the Members page.");
+    notices.send(
+        recipients,
+        NotificationView.Kind.OWNERS_CHANGED,
+        clip(title, 120),
+        clip(body.toString(), 2000));
+  }
+
+  private static String ownersChangedTitle(OwnersChanged.Change change, String name) {
+    return switch (change) {
+      case ADDED -> name + " is now an owner";
+      case REMOVED -> name + " is no longer an owner";
+    };
   }
 
   /** "Tue 3 Nov 2026, 6:00 pm–9:00 pm" in the studio's time zone. */

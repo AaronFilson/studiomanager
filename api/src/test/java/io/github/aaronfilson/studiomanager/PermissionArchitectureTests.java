@@ -50,7 +50,8 @@ class PermissionArchitectureTests {
    * R2):
    *
    * <ul>
-   *   <li>{@code studio.StudioService}: a studio's creator becomes its owner.
+   *   <li>{@code studio.StudioService}: a studio's creator becomes its owner, and co-owners are
+   *       made and unmade (lane R8; who may do that is {@code owners.manage}, a Permission).
    *   <li>{@code importer.ImportService}: imported people are invited as members.
    *   <li>{@code studio.InviteEmails}, {@code webhook.WebhookFanOut}, {@code
    *       ledger.OpeningBalances}: bind a context in a role to do work after a commit.

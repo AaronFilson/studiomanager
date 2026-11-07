@@ -14,6 +14,7 @@ public record NotificationView(
     MAINTENANCE_DUE,
     PROBLEM_REPORTED,
     SHIFT_COVER,
-    WEBHOOK_DISABLED
+    WEBHOOK_DISABLED,
+    OWNERS_CHANGED
   }
 }
