@@ -1,0 +1,422 @@
+# 21. Owner-configurable roles and permissions
+
+_Planned 2026-11-06, from the owner's note: "I will need RBAC system for the future so a studio
+owner can set who and how things work." This is a plan only. No code changes with it._
+
+## Summary
+
+- Keep the three roles (OWNER, STAFF, MEMBER). Behind them, put a catalogue of named permissions.
+- Each studio gets one editable permission set per role, seeded so day one behaves exactly as
+  today. The owner can then add custom roles built from the same catalogue.
+- Duties stay what they are: jobs that grant a few narrow permissions, on top of a role.
+- Every action checks one permission in one place in the API. RLS stays tenant-only.
+- API tokens are capped by the person's live permissions and their own scopes. The web and mobile
+  apps ask `GET /me/permissions` instead of comparing role names.
+
+## 1. Today
+
+### How it works
+
+- `StudioRole` is a ranked enum: MEMBER(1) < STAFF(2) < OWNER(3). `includes(minimum)` compares
+  ranks. One role per person per studio, stored on `studio_membership.role`.
+- `TenantContext` carries `accountId`, `studioId`, `role`, `kind` (person or system) and
+  `viaTokenId`. It's bound in a `ScopedValue` by `TenantContextFilter`.
+- Controllers check with `@PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")` or
+  `isMember(...)` (155 annotations across 24 controllers).
+- Most services check again with a private `requireStaff()` that throws `AccessDeniedException`.
+  There are at least nine copies (`AccessService`, `LedgerService`, `PayablesChecks`,
+  `ScheduleService`, `SupplyService`, `WebhookEndpoints`, `ApiTokens`, `Proposals`,
+  `PendingActionReview`, `ImportService`, `PieceService`, plus `isStaff` helpers in
+  `GlazeBook`, `ProblemReportService`).
+- **Duties** (`access.Duty`: TECHNICIAN, MONITOR, WORK_EXCHANGE, VOLUNTEER_OFFICER, INSTRUCTOR)
+  are held per member in `member_duty`. They gate a few member actions: taking a duty shift,
+  completing a maintenance task assigned to a duty, and who gets problem-report alerts.
+- **Certifications** gate booking a resource that needs one (`BookableResource.requiredCertification`).
+  They are a fact about a person, not a permission.
+- **System actors** (ADR 16) run at a role ceiling, all STAFF today.
+- **API tokens** (ADR 19): `TokenPolicy` maps each route area to read-only, writable with a scope,
+  or never. `TokenScope` has `read`, seven `write:*` scopes and `propose`. A token also needs its
+  person to be staff, checked live on each call.
+- **MCP** (ADR 22): `McpRequestFilter` requires staff; propose tools also need the `propose` scope.
+- **Platform admin** (ADR 24): the Entra app role `Platform.Admin`, seen as
+  `APPROLE_Platform.Admin`. It's outside any studio and out of scope here.
+- **RLS** (ADR 3) is by studio only: policies compare `studio_id` to `app.current_studio_id()`.
+  Postgres never sees the role. The only role use in SQL is V14, which finds a studio's OWNER for
+  reminders. `app.principal_kind` and `app.platform_admin` are the other session settings.
+- **Web and mobile** hide things with `isStaff(myRole)` (`web/src/labels.ts`,
+  `mobile/src/labels.ts`) and `myRole === 'OWNER'` in four places.
+
+### Inventory of checks
+
+"Member" means any role in the studio. "Self" means the row must be the caller's own.
+
+| Area | Where | What it guards | Role |
+|---|---|---|---|
+| Studio | `StudioController` | Read the studio | Member |
+| Studio | `StudioService` | Creator becomes owner | (sets OWNER) |
+| Members | `MemberController` (6) | List members, invite, email invites, change role, remove | Staff |
+| Members | `StudioInvites` | Can't invite above your own role | Caller's role ≥ invited role |
+| Members | web `members.tsx` | Only an owner offers "Owner" in the role picker | Owner |
+| Duties, certifications | `AccessController`, `AccessService`, `Certifications` | Grant duties, certification types, certify members | Staff |
+| Duties, certifications | `AccessController`, `Certifications` | Read your own duties and certifications | Member, self |
+| Pieces | `PieceController`, `PieceService` | Take in your own piece, read pieces | Member |
+| Pieces | `PieceService` | Take in for someone else, move stages, kiln queue, load contents, hold policy | Staff |
+| Kilns, firings | `KilnController` (9) | Read kilns; create and edit kilns, firings, loads | Member read; staff write |
+| Fees | `FeeController` | Read fee schedule, quote; edit fee schedule | Member; staff |
+| Maintenance | `MaintenanceController` (20) | Tasks, records, parts | Staff; member reads and reports |
+| Maintenance | `MaintenanceRecords.requireMayComplete` | Complete a task | Staff, assignee, or holder of the task's duty |
+| Maintenance | `ProblemReportService` | Resolve a problem report; who is alerted | Staff; staff + TECHNICIAN duty alerted |
+| Schedule | `ScheduleController` (12), `ScheduleService` | Resources, shifts, credited hours | Staff write; member read |
+| Schedule | `BookingChanges` | Book a resource | Member, self only; certification if required |
+| Schedule | `ShiftChanges.assign` | Take an open or offered shift | Member, self, must hold the shift's duty |
+| Schedule | `ShiftChanges` | Offer your shift for cover | Holder of the shift |
+| Schedule | `ScheduleService` | Read hours | Staff, or self |
+| Supplies | `SupplyController` (9), `SupplyService`, `SupplyItems`, `SupplySales` | Catalogue, stock, sales | Member read; staff write |
+| Supplies | `PurchaseRequests`, `PurchaseRequestEntity` | Request a purchase; approve one | Staff; **owner only** to approve |
+| Invoices | `InvoiceController` (7) | Read and confirm supplier invoices | Staff |
+| Glazes | `GlazeController`, `GlazeEdits`, `GlazeBook` | Studio glazes; members' own recipes | Staff for studio; owner of a member recipe |
+| Money | `LedgerController` (16), `LedgerService`, `StoredValues`, `Payouts`, `OpeningBalances` | Payments, balances, gift cards, payouts, tax rates | Staff; member reads own balance |
+| Money | `PayablesController` (16), `PayablesChecks`, `Consignments`, `PayeePayments`, `PayablesReports` | Payees, consignment, payment runs | Staff; member reads own consignment |
+| Notices | `NotificationController`, `NotificationService` | Read notifications; send a studio notice | Member; staff |
+| Today | `TodayController`, `TodayService` | Studio overview | Staff |
+| Activity | `ActivityController` | Activity stream | Staff |
+| Import | `ImportController`, `ImportService` | Import members and data | Staff |
+| Export | `ExportController` | Download the studio's data | **Owner** |
+| Webhooks | `WebhookController` (9), `WebhookEndpoints` | Manage webhooks | Staff |
+| API tokens | `ApiTokenController`, `ApiTokens` | Make, list, revoke tokens | Staff; owner lists and revokes anyone's |
+| AI key | `AiKeyController`, `AiKeys` | The studio's AI key | **Owner** |
+| Proposals | `Proposals`, `PendingActionReview`, `PendingActionController` | Propose changes; approve suggestions | Staff |
+| MCP | `McpRequestFilter`, `McpToolCalls` | Use the MCP server | Staff; `propose` scope for propose tools |
+| Tokens | `TenantContextFilter.tokenContext` | Token's person must still be staff | Staff (live) |
+| Jobs | `SystemActor` | Background jobs' ceiling | Staff |
+| Platform | `AdminController` (7), `PlatformSettings` | Platform admin page | `Platform.Admin` app role |
+
+Web and mobile: `isStaff` gates the notice form, glaze editing, calendar editing, supplies,
+roster, piece stage moves, intake for others, and the staff home. `myRole === 'OWNER'` gates
+purchase approval, the AI key card and the export card.
+
+### What this means
+
+- Two layers check the same thing (annotation and service). They agree today only because both
+  say "staff".
+- Nothing between "staff" and "owner" can be expressed. A studio can't let a monitor check people
+  in without also letting them refund payments.
+- The owner-only actions are scattered literals, not a list anyone can read.
+
+## 2. Goals and non-goals
+
+**Goals**
+- The owner decides who can do what in their studio, from the app.
+- Day one changes nothing: every studio behaves exactly as now until the owner edits something.
+- One check per action, in one place, named for the action.
+- A token, MCP session or job can never do more than its person (or its ceiling).
+- The apps show what the person can do, without knowing role names.
+- Every change to access is recorded.
+- The owner can't lock themselves, or the studio, out.
+
+**Non-goals**
+- Per-row sharing (this piece, that kiln). Ownership rules like "your own recipe" stay in code.
+- Attribute-based policy languages (Cedar, OPA, Rego) or a relationship engine (Zanzibar,
+  OpenFGA). Too much machinery for three to twenty people per studio.
+- Changing RLS to know roles.
+- Platform admin roles. ADR 24 stands.
+- Cross-studio roles (one person, many studios, already works: one membership each).
+
+## 3. Options for the model
+
+| Option | What the owner edits | Fits a small studio | Cost |
+|---|---|---|---|
+| A. Fixed roles, fixed permissions (today) | Who has which role | Yes, but too coarse | None |
+| B. Fixed roles, owner-editable permission sets | Which permissions STAFF and MEMBER have | Yes | Small |
+| C. B plus custom roles | Also new roles ("Monitor", "Bookkeeper") from the catalogue | Yes | Medium |
+| D. Per-member overrides (grant/deny per person) | Single permissions per person | Hard to reason about | Medium, plus confusion |
+| E. Relationship or policy engine | Rules and relations | No | Large |
+
+How comparable products do it:
+- **GitHub** organizations: fixed base roles, plus custom roles built from a list of
+  fine-grained permissions on top of a base role
+  ([docs](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/about-custom-organization-roles)).
+- **Shopify** staff: the owner ticks permissions per staff member, and since 2024 saves them as
+  reusable roles ([docs](https://help.shopify.com/en/manual/your-account/users/roles)).
+- **Square** Team: permission sets the owner edits and assigns to team members; the account
+  owner always has everything ([docs](https://squareup.com/help/us/en/article/5822-employee-permissions)).
+- Studio software (Mindbody, Momence) uses staff permission levels the owner edits, the same
+  shape as B and C.
+
+The common pattern is named roles built from a fixed permission list, with an owner who always
+has everything. Per-person overrides are rare and mostly replaced by "make another role".
+
+**Recommendation: C, built in two steps (B first).** Why:
+- B alone answers most studios: "let staff do X but not Y". It needs no new UI concept.
+- C adds roles for the real jobs the research found (monitor, technician, bookkeeper) without
+  per-person exceptions.
+- No D. If a person needs something special, the owner makes a role for it. One place to look.
+- Duties stay separate from roles. A duty says what job someone does on a shift or task; it
+  also grants a few narrow permissions, fixed in code (below). Owners can't edit what a duty
+  grants in the first version (open question 4).
+- Certifications stay facts, checked by the action (booking), not permissions.
+
+### How roles, duties and certifications combine
+
+- A person's permissions = their role's permission set ∪ what their duties grant.
+- Duty grants are small and fixed:
+
+| Duty | Grants |
+|---|---|
+| TECHNICIAN | `maintenance.complete_assigned`, `maintenance.reports.resolve`, gets problem alerts |
+| MONITOR | `schedule.shifts.take_duty`, `pieces.intake_for_others` (proposed; open question 4) |
+| WORK_EXCHANGE | `schedule.shifts.take_duty`, `schedule.hours.log_own` |
+| VOLUNTEER_OFFICER | `schedule.shifts.take_duty` |
+| INSTRUCTOR | `schedule.shifts.take_duty` |
+
+- "Take duty shift" still checks the shift's specific duty, as now.
+
+## 4. Permission catalogue
+
+Names are `area.action`. "Own" variants mean the row must be the caller's. Each lists the
+default (S = staff, M = member, O = owner-only). Owner always has every permission.
+
+| Area | Permission | Default |
+|---|---|---|
+| Studio | `studio.read` | M |
+| Studio | `studio.settings.edit` (name, units, piece policy) | S |
+| Studio | `studio.export` | O |
+| Studio | `studio.ai_key.manage` | O |
+| Studio | `studio.roles.manage` (edit roles and permission sets) | O |
+| Members | `members.read` | S |
+| Members | `members.invite` (up to roles the caller can grant; see §6) | S |
+| Members | `members.role.assign` | S |
+| Members | `members.remove` | S |
+| Members | `members.duties.manage`, `members.certify` | S |
+| Pieces | `pieces.intake_own`, `pieces.read` | M |
+| Pieces | `pieces.intake_for_others`, `pieces.move`, `pieces.policy.edit` | S |
+| Kilns | `kilns.read` | M |
+| Kilns | `kilns.manage`, `firings.manage` | S |
+| Fees | `fees.read` | M |
+| Fees | `fees.edit` | S |
+| Maintenance | `maintenance.read`, `maintenance.report_problem` | M |
+| Maintenance | `maintenance.manage`, `maintenance.complete_any`, `maintenance.reports.resolve` | S |
+| Schedule | `schedule.read`, `schedule.book_own`, `schedule.shifts.take_open` | M |
+| Schedule | `schedule.manage` (resources, shifts), `schedule.hours.manage`, `schedule.book_for_others` | S |
+| Supplies | `supplies.read` | M |
+| Supplies | `supplies.manage`, `supplies.sell`, `supplies.purchase.request`, `invoices.manage` | S |
+| Supplies | `supplies.purchase.approve` | O |
+| Glazes | `glazes.read`, `glazes.own.edit` | M |
+| Glazes | `glazes.studio.edit` | S |
+| Money | `money.own.read` (own balance, own consignment) | M |
+| Money | `money.read` (ledger, reports) | S |
+| Money | `money.take_payment`, `money.stored_value.manage` | S |
+| Money | `money.refund_and_adjust`, `money.payouts`, `money.payables.manage`, `money.tax_rates.edit` | S (open question 3) |
+| Notices | `notices.read` | M |
+| Notices | `notices.send` | S |
+| Overview | `today.read`, `activity.read` | S |
+| Integrations | `imports.run`, `webhooks.manage` | S |
+| Integrations | `api_tokens.own` (make and revoke your own) | S |
+| Integrations | `api_tokens.manage_all` | O |
+| Integrations | `mcp.use`, `proposals.create`, `proposals.review` | S |
+
+About 55 permissions. Defaults reproduce today's checks one for one, so seeding is mechanical.
+The catalogue is code (a Java enum), not data: adding one is a migration plus a code change, and
+the owner only chooses among them.
+
+## 5. Enforcement
+
+### One check per action
+
+- A `Permission` enum in `platform.tenancy`, and a `StudioPermissions` bean:
+  `require(Permission)` and `has(Permission)`, reading the bound `TenantContext`.
+- Controllers keep `@PreAuthorize`, with a permission instead of a role:
+  `@PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_MOVE')")`. That's Spring Security's
+  supported method-security pattern
+  ([docs](https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html)).
+- Services drop their private `requireStaff()` copies and call `permissions.require(...)` only
+  where the check depends on the row (own vs other's, duty match, purchase approval). The
+  annotation is the gate; the service check is for row rules. No action checks twice.
+- An ArchUnit test fails the build on a new `StudioRole.` comparison outside `platform.tenancy`
+  and on a studio controller method with no `@PreAuthorize`.
+- A test walks every operation in `studiomanager.yaml` and asserts it names a permission (the
+  same idea as `TokenPolicy`'s every-area test).
+
+### TenantContext
+
+- Add `Set<Permission> permissions` (an `EnumSet`) resolved once per request in
+  `TenantContextFilter`: role set ∪ duty grants, capped for tokens (below).
+- Keep `role` for display and for the jobs' ceiling. Code stops branching on it.
+
+### RLS stays studio-coarse
+
+- RLS answers "which studio's rows", and should keep doing only that. Permission checks are
+  per action and often per row rule; putting them in policies would split each rule between Java
+  and SQL, slow every query, and make tests harder.
+- The tenant boundary, the risk RLS was chosen for (ADR 3), doesn't change.
+- Exception kept as is: SECURITY DEFINER functions (ADR 10) check `app.principal_kind`. If one
+  later needs a permission, set `app.permissions` as a text array in the same `set_config` call
+  and check it there. Not needed now.
+- V14 (find the owner for reminders) stays: there is always exactly one OWNER-flag holder (§6).
+
+### Caching
+
+- Resolve permissions once per request (one query joining membership, role permission set and
+  duties). That's the same cost as today's role lookup plus one indexed join.
+- A Caffeine cache keyed by `(studioId, roleId)` holds role permission sets for 60 seconds, and
+  is evicted on any change made by this instance. With one API replica that's instant; with more,
+  a 60-second delay is acceptable and stated in the UI ("changes apply within a minute").
+- Duties are per person and read with the membership row. No cache.
+
+### API tokens
+
+- A token's effective permissions = (person's live permissions) ∩ (what its scopes allow).
+  Token ≤ person, always, checked on every call as now.
+- `TokenPolicy` stays the scope gate by area. Its `Never` areas (money, admin, invites, export,
+  tokens, invoices, pending actions) stay never, whatever the role.
+- Drop "the person must be STAFF" and replace it with "the person must have `api_tokens.own`".
+  Same result on day one.
+- Scopes don't become permissions. Scopes are coarse on purpose, so a person can reason about a
+  token in one screen.
+
+### MCP
+
+- `McpRequestFilter` checks `mcp.use` instead of STAFF.
+- Each tool declares the permission its REST twin needs. `McpToolCalls` checks it before
+  running, so a tool can't reach what the person couldn't reach by REST. Propose tools need
+  `proposals.create` and the `propose` scope.
+- Tool listing hides tools the caller can't run.
+
+### How the apps know what to show
+
+- New `GET /api/v1/studios/{studioId}/me/permissions` returns
+  `{ role, roleName, permissions: ["pieces.move", ...], duties: [...] }`.
+- The web and mobile apps replace `isStaff(myRole)` and `myRole === 'OWNER'` with
+  `can('pieces.move')`, from one React Query hook cached for the session and refetched on focus.
+- Hiding is convenience only; the API is the authority.
+- `StudioView.myRole` stays for display.
+
+## 6. Data model and migration
+
+### Tables
+
+```
+studio_role            (id, studio_id, key, name, base, is_system, created_at, updated_at)
+  key: 'owner' | 'staff' | 'member' | custom slug; base: OWNER | STAFF | MEMBER
+studio_role_permission (studio_id, role_id, permission)        -- PK all three
+studio_membership      + role_id  (FK studio_role)             -- role column kept for a release
+role_change_log        (id, studio_id, actor_account_id, via_token_id, kind, target, before, after, at)
+```
+
+- All tenant tables, with the usual `studio_id` RLS policy and `@TenantId`.
+- `base` is the rank a custom role sits at, for two rules: who may assign it, and the job
+  ceiling. A custom role's permissions must be a subset of what its base's defaults could hold;
+  owner-only permissions (`studio.roles.manage`, `studio.export`, `studio.ai_key.manage`,
+  `api_tokens.manage_all`) can't be given to any role except OWNER (open question 2).
+- The OWNER role is a system role with every permission, not editable.
+
+### Migration, no behaviour change
+
+1. **Migration V38:** create the tables. For every studio, insert the three system roles and
+   seed STAFF and MEMBER with exactly the defaults in §4. Set `role_id` from `role`.
+2. **Dual-write release:** membership writes set both `role` and `role_id`. Permission checks run
+   in **shadow mode**: the old role check decides, the new permission check runs too, and a
+   mismatch logs a warning and a metric. Tests assert zero mismatches for every endpoint and
+   role.
+3. **Switch:** the permission check decides. The old checks are deleted.
+4. **Owner UI** opens: editing STAFF and MEMBER sets.
+5. **Custom roles** open.
+6. A later migration drops `studio_membership.role` once nothing reads it.
+
+New studios get the same seed from `StudioService` when created.
+
+## 7. Audit, lock-out, safe defaults
+
+### Audit
+
+- Every change to a role, a permission set, a membership's role or a duty writes a
+  `role_change_log` row in the same transaction, with before and after, and "via token" when
+  relevant.
+- Each also publishes a Modulith event, so the activity stream and webhooks (plan 10) can show it.
+- The owner sees the log on the roles page. Kept for the life of the studio.
+
+### Can't lock out
+
+- Exactly one person holds OWNER, as now. Owner transfer is a separate, explicit action that
+  demotes the old owner to STAFF in the same transaction (open question 1).
+- The OWNER role always has every permission; no UI or API can edit it.
+- `studio.roles.manage` is owner-only, so no one else can change permissions, including their own.
+- Nobody can assign a role they couldn't hold themselves (today's "can't invite above your own
+  role", generalised: the assigned role's permissions must be a subset of the caller's).
+- A role in use can't be deleted until its members are moved.
+- Removing a permission from STAFF that the caller is using takes effect on the next request;
+  the UI warns which members lose what before saving ("3 people lose: refund payments").
+
+### Safe defaults
+
+- New permissions added in later releases default to **off** for every non-owner role, unless
+  the migration that adds them says otherwise and says why (usually: splitting an existing
+  permission, which copies the old one's grants).
+- Unknown permission in the database is ignored and logged, not granted.
+- A request with no resolvable role is refused, as now.
+- Jobs keep the STAFF ceiling, resolved against the code defaults, not the studio's edited
+  STAFF set, so an owner can't break reminders by trimming staff.
+
+## 8. Build plan
+
+| Lane | What | Size | Depends on |
+|---|---|---|---|
+| R1 | `Permission` enum, `StudioPermissions`, `@studioAuthz.can`, TenantContext gets permissions resolved from role defaults in code (no tables yet). ArchUnit and contract-coverage tests | M | none |
+| R2 | Replace every `hasRole`, `requireStaff`, `isStaff` and `== OWNER` with permissions, in shadow mode, module by module (can split per module) | L | R1 |
+| R3 | `GET /me/permissions`, generated client, web and mobile `can()` hook; remove `isStaff` | M | R1 |
+| R4 | Tables, V38 seed, dual-write, cache, role_change_log, switch from shadow to enforcing | M | R2 |
+| R5 | Tokens and MCP: token = person ∩ scopes; `mcp.use`; per-tool permissions; tool listing filter | S | R2 |
+| R6 | Owner UI: roles page, edit STAFF and MEMBER sets, diff warning, audit log view; ADR 25 | M | R3, R4 |
+| R7 | Custom roles: create, rename, delete, assign; invites by role | M | R6 |
+| R8 | Owner transfer flow, if the owner wants it (open question 1) | S | R4 |
+
+R1 to R5 change no behaviour and can ship before any studio needs custom permissions. R6 and R7
+are the features the owner asked for. Sizes: S ≈ a day, M ≈ two to four days, L ≈ a week.
+
+## 9. Open questions for the owner
+
+1. **One owner or several?** Today exactly one OWNER per studio.
+   - (a) Keep one, add a "transfer ownership" action. (b) Allow several co-owners.
+   - **Recommend (a).** Simple lock-out rules and one person accountable for billing and the AI
+     key. Co-op studios can give a "Board" custom role nearly everything except the owner-only
+     four.
+2. **Can any role besides the owner get the owner-only permissions** (export, AI key, manage
+   roles, everyone's tokens)?
+   - (a) Never. (b) The owner may grant them to a custom role.
+   - **Recommend (a)** for the first version. Revisit with (1) if co-ops ask.
+3. **How finely to split money?** One `money.*` for staff today.
+   - (a) One permission for all money. (b) Split take-payment from refund/adjust/payout.
+     (c) Split further per screen.
+   - **Recommend (b).** "Front desk can take payments but not refund" is the most common ask in
+     studio and retail software. Default both on for STAFF so nothing changes.
+4. **Should owners edit what a duty grants?**
+   - (a) No, duties grant fixed permissions in code. (b) Yes, each duty gets an editable set like
+     a role.
+   - **Recommend (a)** now. Custom roles cover the rest. Confirm the proposed MONITOR grants
+     (intake for others), or leave MONITOR granting only shift-taking.
+5. **Per-person overrides?**
+   - (a) None; make a role. (b) Allow grant/deny per person.
+   - **Recommend (a).** One place to look when asking "why can Sam do this?".
+6. **Should members' defaults be editable too** (for example, stop members booking, or let them
+   see the member list)?
+   - (a) Yes, MEMBER is an editable set like STAFF. (b) No, only staff and custom roles.
+   - **Recommend (a),** with the self-service floor fixed: a member can always read their own
+     pieces, balance and bookings.
+7. **API tokens and MCP for non-staff?** Today only staff can make tokens or use MCP.
+   - (a) Keep staff-only by default, but as a permission the owner can give to any role.
+     (b) Open to members by default.
+   - **Recommend (a).** Members using an assistant on their own pieces is a good later feature,
+     but the token policy needs a "members" review first.
+8. **How quickly must a change take effect?**
+   - (a) Within a minute (cache), (b) instantly (no cache, one more query per request).
+   - **Recommend (a)** while there's one replica it is effectively instant anyway.
+9. **When does this ship?** Before the pilot, or after?
+   - **Recommend** R1 to R5 before the pilot (cleanup with no behaviour change, and it fits plan
+     20's "clean before production"), and R6 to R7 when a pilot studio asks.
+
+## References
+
+- ADR 3 (RLS), ADR 10 (security definer), ADR 16 (system principal), ADR 19 (API tokens),
+  ADR 22 (MCP), ADR 24 (platform admin).
+- Plans 17 (MCP and tokens) and 20 (pre-production cleanup).
+- GitHub custom organization roles, Shopify staff roles, Square team permissions (links above).
