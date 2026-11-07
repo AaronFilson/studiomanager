@@ -6,7 +6,7 @@ import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
 import io.github.aaronfilson.studiomanager.maintenance.ProblemReported;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
+import io.github.aaronfilson.studiomanager.platform.tenancy.RolePermissions;
 import io.github.aaronfilson.studiomanager.schedule.ShiftCovered;
 import io.github.aaronfilson.studiomanager.schedule.ShiftOffered;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
@@ -43,13 +43,19 @@ class NotificationListeners {
   private final StudioService studios;
   private final StudioMembers members;
   private final Clock clock;
+  private final RolePermissions rolePermissions;
 
   NotificationListeners(
-      Notices notices, StudioService studios, StudioMembers members, Clock clock) {
+      Notices notices,
+      StudioService studios,
+      StudioMembers members,
+      Clock clock,
+      RolePermissions rolePermissions) {
     this.notices = notices;
     this.studios = studios;
     this.members = members;
     this.clock = clock;
+    this.rolePermissions = rolePermissions;
   }
 
   /** One notice per maker for the whole firing, listing each of their pieces it finished. */
@@ -197,8 +203,7 @@ class NotificationListeners {
   void onWebhookEndpointDisabled(WebhookEndpointDisabled disabled) {
     List<UUID> staff =
         members.list().stream()
-            .filter(
-                member -> StudioPermissions.roleHolds(member.role(), Permission.WEBHOOKS_MANAGE))
+            .filter(member -> rolePermissions.roleHolds(member.role(), Permission.WEBHOOKS_MANAGE))
             .map(MemberView::accountId)
             .toList();
     String body =

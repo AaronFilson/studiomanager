@@ -34,18 +34,21 @@ public class StudioService {
   private final TransactionOperations transactions;
   private final Clock clock;
   private final StudioPermissions permissions;
+  private final StudioRoles studioRoles;
 
   StudioService(
       StudioRepository studios,
       StudioMembershipRepository memberships,
       TransactionOperations transactions,
       Clock clock,
-      StudioPermissions permissions) {
+      StudioPermissions permissions,
+      StudioRoles studioRoles) {
     this.studios = studios;
     this.memberships = memberships;
     this.transactions = transactions;
     this.clock = clock;
     this.permissions = permissions;
+    this.studioRoles = studioRoles;
   }
 
   /**
@@ -88,6 +91,7 @@ public class StudioService {
                   memberships.save(
                       new StudioMembership(
                           Uuids.v7(), studioId, caller.accountId(), StudioRole.OWNER, now));
+                  studioRoles.seed(now);
                   return StudioView.of(studio, StudioRole.OWNER, 1);
                 }));
     return Objects.requireNonNull(created, "Creating a studio returns it");

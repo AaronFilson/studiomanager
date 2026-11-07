@@ -7,6 +7,7 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenResolver;
 import io.github.aaronfilson.studiomanager.platform.tenancy.MembershipLookup;
 import io.github.aaronfilson.studiomanager.platform.tenancy.PlatformAdmin;
 import io.github.aaronfilson.studiomanager.platform.tenancy.PlatformAdminFilter;
+import io.github.aaronfilson.studiomanager.platform.tenancy.RolePermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContextFilter;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +54,7 @@ class SecurityConfiguration {
       HttpSecurity http,
       AccountResolver accounts,
       MembershipLookup memberships,
+      RolePermissions rolePermissions,
       ApiTokenResolver apiTokens,
       JsonMapper json) {
     ProblemJsonSecurityHandler problems = new ProblemJsonSecurityHandler(json);
@@ -91,7 +93,9 @@ class SecurityConfiguration {
         .addFilterBefore(
             new ApiTokenAuthenticationFilter(apiTokens, problems),
             BearerTokenAuthenticationFilter.class)
-        .addFilterAfter(new TenantContextFilter(accounts, memberships), AuthorizationFilter.class)
+        .addFilterAfter(
+            new TenantContextFilter(accounts, memberships, rolePermissions),
+            AuthorizationFilter.class)
         .addFilterAfter(new PlatformAdminFilter(), TenantContextFilter.class);
     return http.build();
   }

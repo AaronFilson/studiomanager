@@ -9,6 +9,7 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.RolePermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
@@ -46,6 +47,7 @@ public class ProblemReportService {
   private final ApplicationEventPublisher events;
   private final Clock clock;
   private final StudioPermissions permissions;
+  private final RolePermissions rolePermissions;
 
   ProblemReportService(
       ReportedProblemRepository problems,
@@ -55,8 +57,10 @@ public class ProblemReportService {
       AccountDirectory accounts,
       ApplicationEventPublisher events,
       Clock clock,
-      StudioPermissions permissions) {
+      StudioPermissions permissions,
+      RolePermissions rolePermissions) {
     this.permissions = permissions;
+    this.rolePermissions = rolePermissions;
     this.problems = problems;
     this.maintenance = maintenance;
     this.access = access;
@@ -167,7 +171,7 @@ public class ProblemReportService {
     Stream<UUID> staff =
         members.list().stream()
             .filter(member ->
-                StudioPermissions.roleHolds(member.role(), Permission.MAINTENANCE_REPORTS_RESOLVE))
+                rolePermissions.roleHolds(member.role(), Permission.MAINTENANCE_REPORTS_RESOLVE))
             .map(MemberView::accountId);
     Stream<UUID> technicians =
         access.allDuties().entrySet().stream()

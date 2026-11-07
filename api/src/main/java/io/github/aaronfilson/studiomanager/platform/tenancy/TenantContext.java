@@ -27,9 +27,10 @@ import org.jspecify.annotations.Nullable;
  *     null} when they signed in to the app themselves. Histories note it as "via &lt;token
  *     name&gt;".
  * @param permissions what the caller may do in that studio (ADR 25); empty outside any one studio.
- *     Until a studio's roles are stored (plan 21, lane R4) it is the role's {@linkplain
- *     Permission#defaultsFor code defaults}. Only an OWNER may hold an owner-only permission, and a
- *     job never holds more than its ceiling's defaults.
+ *     A request's is resolved by {@link RolePermissions} from the studio's stored role set and the
+ *     person's duties; other contexts hold the role's {@linkplain Permission#defaultsFor code
+ *     defaults}. Only an OWNER may hold an owner-only permission, and a job never holds more than
+ *     its ceiling's defaults.
  */
 public record TenantContext(
     UUID accountId,
@@ -135,6 +136,13 @@ public record TenantContext(
   public TenantContext viaToken(UUID tokenId) {
     Objects.requireNonNull(tokenId, "tokenId");
     return new TenantContext(accountId, studioId, role, kind, tokenId, permissions);
+  }
+
+  /**
+   * The same caller holding exactly {@code held}: what {@link RolePermissions} resolved for them.
+   */
+  TenantContext withPermissions(Set<Permission> held) {
+    return new TenantContext(accountId, studioId, role, kind, viaTokenId, held);
   }
 
   /** Whether the caller holds {@code permission} in the bound studio. */

@@ -4,7 +4,7 @@ import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
+import io.github.aaronfilson.studiomanager.platform.tenancy.RolePermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
@@ -31,6 +31,7 @@ class MaintenanceReminders {
   private final AccessService access;
   private final StudioMembers members;
   private final ApplicationEventPublisher events;
+  private final RolePermissions rolePermissions;
 
   MaintenanceReminders(
       MaintenanceTaskRepository tasks,
@@ -38,13 +39,15 @@ class MaintenanceReminders {
       MaintenanceQueries queries,
       AccessService access,
       StudioMembers members,
-      ApplicationEventPublisher events) {
+      ApplicationEventPublisher events,
+      RolePermissions rolePermissions) {
     this.tasks = tasks;
     this.reads = reads;
     this.queries = queries;
     this.access = access;
     this.members = members;
     this.events = events;
+    this.rolePermissions = rolePermissions;
   }
 
   /**
@@ -71,7 +74,7 @@ class MaintenanceReminders {
     List<UUID> staff =
         members.list().stream()
             .filter(
-                member -> StudioPermissions.roleHolds(member.role(), Permission.MAINTENANCE_MANAGE))
+                member -> rolePermissions.roleHolds(member.role(), Permission.MAINTENANCE_MANAGE))
             .map(MemberView::accountId)
             .toList();
     // Nothing here is changed through Hibernate, but the claim is SQL: flush by the rule (ADR 21)

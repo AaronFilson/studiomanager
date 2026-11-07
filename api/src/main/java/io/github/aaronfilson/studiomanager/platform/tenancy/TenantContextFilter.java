@@ -31,10 +31,13 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
   private final AccountResolver accounts;
   private final MembershipLookup memberships;
+  private final RolePermissions rolePermissions;
 
-  public TenantContextFilter(AccountResolver accounts, MembershipLookup memberships) {
+  public TenantContextFilter(
+      AccountResolver accounts, MembershipLookup memberships, RolePermissions rolePermissions) {
     this.accounts = accounts;
     this.memberships = memberships;
+    this.rolePermissions = rolePermissions;
   }
 
   @Override
@@ -46,7 +49,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
     if (authentication instanceof JwtAuthenticationToken jwt) {
       TenantContext caller = TenantContext.forAccount(accounts.resolve(jwt.getToken()));
       UUID studioId = studioIdFrom(request);
-      context = studioId == null ? caller : caller.inStudio(studioId, roleIn(studioId, caller));
+      context = studioId == null ? caller : inStudio(caller, studioId);
     } else if (authentication instanceof ApiTokenAuthentication token) {
       context = tokenContext(request, token.token());
     } else {
@@ -83,13 +86,22 @@ public class TenantContextFilter extends OncePerRequestFilter {
         .ifPresent(why -> {
           throw new AccessDeniedException(why);
         });
-    TenantContext caller = TenantContext.forAccount(token.accountId());
-    StudioRole role = roleIn(token.studioId(), caller);
-    if (!StudioPermissions.roleHolds(role, Permission.API_TOKENS_OWN)) {
+    TenantContext person = inStudio(TenantContext.forAccount(token.accountId()), token.studioId());
+    if (!person.holds(Permission.API_TOKENS_OWN)) {
       throw new AccessDeniedException(
           "API tokens are for staff. This token's owner isn't staff any more.");
     }
-    return caller.inStudio(token.studioId(), role).viaToken(token.tokenId());
+    return person.viaToken(token.tokenId());
+  }
+
+  /**
+   * The caller in {@code studioId}, once their membership is confirmed, holding what their role and
+   * duties there give them. The lookups run bound to the studio, so row-level security lets them
+   * read its roles and duties.
+   */
+  private TenantContext inStudio(TenantContext caller, UUID studioId) {
+    TenantContext member = caller.inStudio(studioId, roleIn(studioId, caller));
+    return TenantContext.callAs(member, () -> rolePermissions.resolve(member));
   }
 
   private static String areaOf(HttpServletRequest request) {

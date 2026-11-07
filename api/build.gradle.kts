@@ -56,6 +56,9 @@ dependencies {
     implementation(libs.mcp.spring.webmvc)
     // Rate limits for MCP tool calls and API token calls, in memory per replica (plan 20, section 6)
     implementation(libs.bucket4j)
+    // Each studio's stored role permission sets, cached for a minute (plan 21 §5). The version
+    // comes from Spring Boot's BOM.
+    implementation("com.github.ben-manes.caffeine:caffeine")
     // Event streaming (off unless studiomanager.stream.enabled): Modulith publishes the stream
     // contract to Kafka through the same outbox as email (ADR 15, docs/adr/0015-event-streaming-to-kafka.md)
     implementation("org.springframework.boot:spring-boot-starter-kafka")

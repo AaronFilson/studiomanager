@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
+import io.github.aaronfilson.studiomanager.studio.AccessChangeLog;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.time.Clock;
 import java.time.Instant;
@@ -31,6 +32,7 @@ public class AccessService {
   private final StudioMembers members;
   private final Clock clock;
   private final StudioPermissions permissions;
+  private final AccessChangeLog changeLog;
 
   AccessService(
       MemberDutyRepository duties,
@@ -38,13 +40,15 @@ public class AccessService {
       CertificationRepository certifications,
       StudioMembers members,
       Clock clock,
-      StudioPermissions permissions) {
+      StudioPermissions permissions,
+      AccessChangeLog changeLog) {
     this.duties = duties;
     this.types = types;
     this.certifications = certifications;
     this.members = members;
     this.clock = clock;
     this.permissions = permissions;
+    this.changeLog = changeLog;
   }
 
   @Transactional(readOnly = true)
@@ -89,7 +93,13 @@ public class AccessService {
       }
     }
     duties.flush();
-    return dutiesOf(accountId);
+    Set<Duty> heldNow = dutiesOf(accountId);
+    changeLog.record(
+        AccessChangeLog.Kind.MEMBER_DUTIES,
+        accountId.toString(),
+        held.stream().map(duty -> duty.duty().name()).toList(),
+        heldNow.stream().map(Duty::name).toList());
+    return heldNow;
   }
 
   @Transactional(readOnly = true)
