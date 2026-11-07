@@ -3,21 +3,18 @@ package io.github.aaronfilson.studiomanager.ledger;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
-import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberJoined;
+import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
+import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,23 +33,29 @@ public class OpeningBalances {
 
   private static final Logger log = LoggerFactory.getLogger(OpeningBalances.class);
 
-  private final JdbcClient jdbc;
-  private final LedgerService ledger;
+  private final PendingOpeningBalanceRepository held;
+  private final Journal journal;
+  private final StudioBooks books;
+  private final StudioMembers members;
   private final TransactionOperations transactions;
 
-  OpeningBalances(JdbcClient jdbc, LedgerService ledger, TransactionOperations transactions) {
-    this.jdbc = jdbc;
-    this.ledger = ledger;
+  OpeningBalances(
+      PendingOpeningBalanceRepository held,
+      Journal journal,
+      StudioBooks books,
+      StudioMembers members,
+      TransactionOperations transactions) {
+    this.held = held;
+    this.journal = journal;
+    this.books = books;
+    this.members = members;
     this.transactions = transactions;
   }
 
   /** Whether this member already has an opening balance. */
   @Transactional(readOnly = true)
   public boolean hasOpeningBalance(UUID memberId) {
-    return jdbc.sql("select exists (select 1 from journal_entry where idempotency_key = :key)")
-        .param("key", key(memberId))
-        .query(Boolean.class)
-        .single();
+    return journal.isPosted(key(memberId));
   }
 
   /**
@@ -63,14 +66,15 @@ public class OpeningBalances {
     if (amount.signum() == 0) {
       throw new InvalidInputException("An opening balance can't be zero; leave it blank instead.");
     }
-    if (amount.stripTrailingZeros().scale() > ledger.currency().getDefaultFractionDigits()) {
+    Currency currency = books.currency();
+    if (amount.stripTrailingZeros().scale() > currency.getDefaultFractionDigits()) {
       throw new InvalidInputException(
-          "Too many decimal places for " + ledger.currency().getCurrencyCode() + ".");
+          "Too many decimal places for " + currency.getCurrencyCode() + ".");
     }
     if (amount.abs().compareTo(new BigDecimal("1000000")) >= 0) {
       throw new InvalidInputException("That balance is too large to be right.");
     }
-    if (asOf != null && asOf.isAfter(ledger.today())) {
+    if (asOf != null && asOf.isAfter(books.today())) {
       throw new InvalidInputException("The balance date hasn't happened yet.");
     }
   }
@@ -78,33 +82,22 @@ public class OpeningBalances {
   /** Posts a member's opening balance now. Returns false if they already had one. */
   @Transactional
   public boolean post(UUID memberId, BigDecimal amount, @Nullable LocalDate asOf) {
-    requireStaff();
+    LedgerService.requireStaff();
     validate(amount, asOf);
     if (hasOpeningBalance(memberId)) {
       return false;
     }
-    postEntry(memberId, amount, asOf == null ? ledger.today() : asOf);
+    postEntry(memberId, amount, asOf == null ? books.today() : asOf);
     return true;
   }
 
   /** Holds a balance for someone invited by email, to post when they join. */
   @Transactional
   public void holdForInvite(UUID inviteId, BigDecimal amount, @Nullable LocalDate asOf) {
-    TenantContext caller = requireStaff();
+    LedgerService.requireStaff();
     validate(amount, asOf);
-    jdbc.sql(
-            """
-            insert into pending_opening_balance (id, studio_id, invite_id, amount, as_of, created_by, created_at)
-            values (:id, :studioId, :invite, :amount, :asOf, :by, :now)
-            """)
-        .param("id", Uuids.v7())
-        .param("studioId", caller.studioId())
-        .param("invite", inviteId)
-        .param("amount", amount)
-        .param("asOf", asOf == null ? ledger.today() : asOf)
-        .param("by", caller.accountId())
-        .param("now", Instant.now().truncatedTo(ChronoUnit.MICROS).atOffset(ZoneOffset.UTC))
-        .update();
+    held.saveAndFlush(
+        new PendingOpeningBalance(inviteId, amount, asOf == null ? books.today() : asOf));
   }
 
   /**
@@ -118,35 +111,27 @@ public class OpeningBalances {
         TenantContext.forAccount(joined.accountId()).inStudio(joined.studioId(), StudioRole.MEMBER);
     TenantContext.callAs(
         member,
-        () ->
-            transactions.execute(tx -> {
-              List<Held> held =
-                  jdbc.sql(
-                          """
-                          select b.id, b.amount, b.as_of from pending_opening_balance b
-                          join studio_invite i on i.id = b.invite_id
-                          where i.accepted_by = :account and b.entry_id is null
-                          order by b.created_at
-                          for update of b
-                          """)
-                      .param("account", joined.accountId())
-                      .query(Held.class)
-                      .list();
-              for (Held balance : held) {
-                // Two invites with balances for one person: the first wins, as with a re-import
-                UUID entryId = postEntry(joined.accountId(), balance.amount(), balance.asOf());
-                jdbc.sql("update pending_opening_balance set entry_id = :entry where id = :id")
-                    .param("entry", entryId)
-                    .param("id", balance.id())
-                    .update();
-                log.debug("Posted the opening balance held for {}", joined.accountId());
-              }
-              return null;
-            }));
+        () -> {
+          transactions.executeWithoutResult(tx -> postHeld(joined.accountId()));
+          return joined;
+        });
+  }
+
+  private void postHeld(UUID accountId) {
+    List<UUID> invites = members.invitesAcceptedBy(accountId);
+    if (invites.isEmpty()) {
+      return;
+    }
+    for (PendingOpeningBalance balance : held.findUnpostedForUpdate(invites)) {
+      // Two invites with balances for one person: the first wins, as with a re-import
+      balance.posted(postEntry(accountId, balance.amount(), balance.asOf()));
+      log.debug("Posted the opening balance held for {}", accountId);
+    }
+    held.flush();
   }
 
   private UUID postEntry(UUID memberId, BigDecimal amount, LocalDate day) {
-    return ledger.post(
+    return journal.post(
         EntryKind.OPENING_BALANCE,
         day,
         "Opening balance",
@@ -160,15 +145,4 @@ public class OpeningBalances {
   private static String key(UUID memberId) {
     return "opening-balance:" + memberId;
   }
-
-  private static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    if (caller.role() == null || !caller.role().includes(StudioRole.STAFF)) {
-      throw new org.springframework.security.access.AccessDeniedException(
-          "Only staff can do this.");
-    }
-    return caller;
-  }
-
-  record Held(UUID id, BigDecimal amount, LocalDate asOf) {}
 }

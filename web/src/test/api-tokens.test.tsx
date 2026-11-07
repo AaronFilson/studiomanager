@@ -42,7 +42,7 @@ describe('AI for invoices', () => {
           provider: 'ANTHROPIC',
           lastFour: 'Wxyz',
           status: 'UNTESTED',
-          allowGoogleFallback: true,
+          allowPlatformReaders: true,
           setAt: '2026-11-06T08:00:00Z',
         });
       }),
@@ -51,7 +51,7 @@ describe('AI for invoices', () => {
           provider: 'ANTHROPIC',
           lastFour: 'Wxyz',
           status: 'WORKING',
-          allowGoogleFallback: true,
+          allowPlatformReaders: true,
           setAt: '2026-11-06T08:00:00Z',
         }),
       ),
@@ -59,11 +59,11 @@ describe('AI for invoices', () => {
 
     const { user } = renderApp(`/studios/${studio.id}/settings`);
     await user.type(await screen.findByLabelText('Anthropic API key'), 'sk-ant-api03-secret-Wxyz');
-    await user.click(screen.getByLabelText(/let Google Document AI try/));
+    await user.click(screen.getByLabelText(/allow the platform's readers/));
     await user.click(screen.getByRole('button', { name: 'Save key' }));
 
     expect(await screen.findByText('not checked yet')).toBeInTheDocument();
-    expect(sent).toEqual({ provider: 'ANTHROPIC', apiKey: 'sk-ant-api03-secret-Wxyz', allowGoogleFallback: true });
+    expect(sent).toEqual({ provider: 'ANTHROPIC', apiKey: 'sk-ant-api03-secret-Wxyz', allowPlatformReaders: true });
     expect(screen.queryByText(/sk-ant-api03-secret/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Test key' }));
     expect(await screen.findByText('working')).toBeInTheDocument();

@@ -54,7 +54,7 @@ class McpApiTests {
   }
 
   @Test
-  void aClientConnectsAndListsReadOnlyTools() {
+  void aClientConnectsAndListsTools() {
     MvcTestResult init =
         rpc(
             token,
@@ -81,10 +81,15 @@ class McpApiTests {
     List<String> names = JsonPath.read(body(list), "$.result.tools[*].name");
     assertThat(names)
         .contains("studio_today", "kilns", "low_supplies", "maintenance_due", "glaze_batch");
-    // Nothing an assistant can call here changes anything
-    List<Boolean> readOnly =
-        JsonPath.read(body(list), "$.result.tools[*].annotations.readOnlyHint");
-    assertThat(readOnly).hasSameSizeAs(names).containsOnly(true);
+    // Nothing an assistant can call here is destructive. Only the propose tools aren't read-only,
+    // and all they do is record a suggestion for staff
+    List<Boolean> destructive =
+        JsonPath.read(body(list), "$.result.tools[*].annotations.destructiveHint");
+    assertThat(destructive).hasSameSizeAs(names).containsOnly(false);
+    List<String> writing =
+        JsonPath.read(body(list), "$.result.tools[?(@.annotations.readOnlyHint == false)].name");
+    assertThat(writing)
+        .containsExactlyInAnyOrder("propose_purchase_request", "propose_maintenance_task");
   }
 
   @Test

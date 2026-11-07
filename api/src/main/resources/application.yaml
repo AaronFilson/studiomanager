@@ -131,6 +131,14 @@ studiomanager:
     # AI keys at rest. Blank uses a fixed development key; application-azure.yaml requires a real one.
     key-encryption-key: ${STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY:}
     anthropic-base-url: ${STUDIOMANAGER_ANTHROPIC_BASE_URL:https://api.anthropic.com}
+  invoices:
+    # The supplies inbox (docs/planning/16, ADR 18). The model and its prices are settings, so a
+    # newer model can be tried without a deploy. Prices are USD per million tokens, for the cost
+    # recorded with each read (checked 2026-11-06).
+    claude:
+      model: ${STUDIOMANAGER_INVOICES_CLAUDE_MODEL:claude-opus-5-5}
+      input-usd-per-million: 4.00
+      output-usd-per-million: 20.00
   rate-limit:
     # Per person, per studio, per channel, in memory on each replica (plan 20, section 6). These
     # are the defaults; the admin page can change them while the app runs. Tune from the call log.

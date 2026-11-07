@@ -7,11 +7,10 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -20,7 +19,6 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
@@ -41,26 +39,29 @@ class WebhookSender {
   static final Duration CLAIM = Duration.ofMinutes(2);
   static final int EXCERPT_CHARS = 1000;
 
-  private final JdbcClient jdbc;
+  private final WebhookQueries queries;
   private final TransactionOperations transactions;
   private final SafeHttpClient http;
   private final WebhookSecrets secrets;
   private final ApplicationEventPublisher events;
   private final MeterRegistry meters;
+  private final Clock clock;
 
   WebhookSender(
-      JdbcClient jdbc,
+      WebhookQueries queries,
       TransactionOperations transactions,
       SafeHttpClient http,
       WebhookSecrets secrets,
       ApplicationEventPublisher events,
-      MeterRegistry meters) {
-    this.jdbc = jdbc;
+      MeterRegistry meters,
+      Clock clock) {
+    this.queries = queries;
     this.transactions = transactions;
     this.http = http;
     this.secrets = secrets;
     this.events = events;
     this.meters = meters;
+    this.clock = clock;
   }
 
   /** {@link #attempt}, on another thread, so the request that caused the event isn't held up. */
@@ -86,12 +87,16 @@ class WebhookSender {
     return TenantContext.callAs(
         as,
         () -> {
-          Claimed claimed = transactions.execute(tx -> claim(deliveryId, now()));
+          Instant claimedAt = clock.instant();
+          Claimed claimed =
+              transactions.execute(
+                  tx -> queries.claim(deliveryId, claimedAt, claimedAt.plus(CLAIM)).orElse(null));
           if (claimed == null) {
             return false;
           }
           Outcome outcome = send(claimed);
-          DeliveryResult result = transactions.execute(tx -> record(claimed, outcome, now()));
+          DeliveryResult result =
+              transactions.execute(tx -> record(claimed, outcome, clock.instant()));
           if (result == null) {
             return false;
           }
@@ -100,32 +105,14 @@ class WebhookSender {
         });
   }
 
-  private @Nullable Claimed claim(UUID deliveryId, Instant now) {
-    return jdbc.sql(
-            """
-            update webhook_delivery d set claimed_until = :until
-            from webhook_endpoint e, webhook_event ev
-            where d.id = :id and d.status = 'PENDING' and (d.claimed_until is null or d.claimed_until < :now)
-              and e.id = d.endpoint_id and e.enabled and ev.id = d.event_id
-            returning d.id, d.studio_id, d.endpoint_id, d.attempts, e.url, e.secret, e.previous_secret,
-                      e.previous_secret_until, ev.id as event_id, ev.body
-            """)
-        .param("until", (now.plus(CLAIM)).atOffset(ZoneOffset.UTC))
-        .param("now", now.atOffset(ZoneOffset.UTC))
-        .param("id", deliveryId)
-        .query(Claimed.class)
-        .optional()
-        .orElse(null);
-  }
-
   private Outcome send(Claimed delivery) {
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     List<String> signWith = new ArrayList<>();
     signWith.add(secrets.decrypt(delivery.endpointId(), delivery.secret()));
-    if (delivery.previousSecret() != null
-        && delivery.previousSecretUntil() != null
-        && delivery.previousSecretUntil().toInstant().isAfter(now)) {
-      signWith.add(secrets.decrypt(delivery.endpointId(), delivery.previousSecret()));
+    byte[] previousSecret = delivery.previousSecret();
+    OffsetDateTime previousUntil = delivery.previousSecretUntil();
+    if (previousSecret != null && previousUntil != null && previousUntil.toInstant().isAfter(now)) {
+      signWith.add(secrets.decrypt(delivery.endpointId(), previousSecret));
     }
     var headers =
         WebhookSigner.headers(
@@ -148,76 +135,25 @@ class WebhookSender {
   }
 
   private DeliveryResult record(Claimed delivery, Outcome outcome, Instant now) {
-    jdbc.sql(
-            """
-            insert into webhook_attempt (id, studio_id, delivery_id, attempted_at, status_code, error, duration_ms,
-                                         response_excerpt)
-            values (:id, :studioId, :deliveryId, :now, :status, :error, :ms, :excerpt)
-            """)
-        .param("id", Uuids.v7())
-        .param("studioId", delivery.studioId())
-        .param("deliveryId", delivery.id())
-        .param("now", now.atOffset(ZoneOffset.UTC))
-        .param("status", outcome.statusCode())
-        .param("error", outcome.error())
-        .param("ms", outcome.durationMs())
-        .param("excerpt", outcome.excerpt())
-        .update();
+    queries.recordAttempt(delivery.studioId(), delivery.id(), now, outcome, Uuids.v7());
     int attempts = delivery.attempts() + 1;
-    boolean arrived = outcome.statusCode() != null && Backoff.delivered(outcome.statusCode());
-    if (arrived) {
-      jdbc.sql(
-              """
-              update webhook_delivery set status = 'DELIVERED', attempts = :attempts, delivered_at = :now,
-                     next_attempt_at = null, claimed_until = null
-              where id = :id
-              """)
-          .param("attempts", attempts)
-          .param("now", now.atOffset(ZoneOffset.UTC))
-          .param("id", delivery.id())
-          .update();
-      jdbc.sql(
-              "update webhook_endpoint set consecutive_failures = 0, failing_since = null where id = :id")
-          .param("id", delivery.endpointId())
-          .update();
+    Integer statusCode = outcome.statusCode();
+    if (statusCode != null && Backoff.delivered(statusCode)) {
+      queries.delivered(delivery.id(), delivery.endpointId(), attempts, now);
       return DeliveryResult.DELIVERED;
     }
-    Optional<Instant> next =
-        outcome.statusCode() != null && outcome.statusCode() == 410
-            ? Optional.empty()
-            : Backoff.nextAttempt(attempts, now);
-    jdbc.sql(
-            """
-            update webhook_delivery set status = :status, attempts = :attempts, next_attempt_at = :next,
-                   claimed_until = null
-            where id = :id
-            """)
-        .param("status", next.isPresent() ? "PENDING" : "FAILED")
-        .param("attempts", attempts)
-        .param("next", next.map(at -> at.atOffset(ZoneOffset.UTC)).orElse(null))
-        .param("id", delivery.id())
-        .update();
-    Failing failing =
-        jdbc.sql(
-                """
-                update webhook_endpoint set consecutive_failures = consecutive_failures + 1,
-                       failing_since = coalesce(failing_since, :now)
-                where id = :id
-                returning consecutive_failures, failing_since
-                """)
-            .param("now", now.atOffset(ZoneOffset.UTC))
-            .param("id", delivery.endpointId())
-            .query(Failing.class)
-            .single();
-    if (outcome.statusCode() != null && outcome.statusCode() == 410) {
+    boolean gone = statusCode != null && statusCode == 410;
+    Optional<Instant> next = gone ? Optional.empty() : Backoff.nextAttempt(attempts, now);
+    WebhookQueries.Failing failing =
+        queries.failed(delivery.id(), delivery.endpointId(), attempts, next.orElse(null), now);
+    if (gone) {
       disable(delivery, "It answered 410 Gone, which means the receiver was removed.");
-    } else if (Backoff.shouldDisable(
-        failing.consecutiveFailures(), failing.failingSince().toInstant(), now)) {
+    } else if (Backoff.shouldDisable(failing.consecutiveFailures(), failing.failingSince(), now)) {
       disable(
           delivery,
           "Every delivery failed for %s (%d in a row). The last: %s"
               .formatted(
-                  failing.failingSince().toInstant().isBefore(now.minus(Backoff.DISABLE_AFTER))
+                  failing.failingSince().isBefore(now.minus(Backoff.DISABLE_AFTER))
                       ? "3 days"
                       : "a while",
                   failing.consecutiveFailures(),
@@ -241,28 +177,10 @@ class WebhookSender {
   }
 
   private void disable(Claimed delivery, String reason) {
-    Optional<String> url =
-        jdbc.sql(
-                """
-                update webhook_endpoint set enabled = false, disabled_reason = :reason
-                where id = :id and enabled
-                returning url
-                """)
-            .param("reason", reason)
-            .param("id", delivery.endpointId())
-            .query(String.class)
-            .optional();
+    Optional<String> url = queries.disable(delivery.endpointId(), reason);
     if (url.isEmpty()) {
       return;
     }
-    // It won't be retried, and turning it back on doesn't replay what it missed
-    jdbc.sql(
-            """
-            update webhook_delivery set status = 'FAILED', next_attempt_at = null, claimed_until = null
-            where endpoint_id = :id and status = 'PENDING'
-            """)
-        .param("id", delivery.endpointId())
-        .update();
     log.info(
         "Disabled webhook endpoint {} in studio {}: {}",
         delivery.endpointId(),
@@ -281,10 +199,6 @@ class WebhookSender {
 
   private static int millisSince(long startedNanos) {
     return (int) Math.min(Integer.MAX_VALUE, (System.nanoTime() - startedNanos) / 1_000_000);
-  }
-
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 
   record Claimed(
@@ -309,8 +223,6 @@ class WebhookSender {
       return statusCode != null ? "HTTP " + statusCode + "." : String.valueOf(error);
     }
   }
-
-  record Failing(int consecutiveFailures, OffsetDateTime failingSince) {}
 
   /** How an attempt ended: it arrived, it will be tried again, or it won't be. */
   enum DeliveryResult {

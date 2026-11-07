@@ -28,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 class GlazeController implements GlazesApi {
 
   private final GlazeBook book;
+  private final GlazeEdits edits;
 
-  GlazeController(GlazeBook book) {
+  GlazeController(GlazeBook book, GlazeEdits edits) {
     this.book = book;
+    this.edits = edits;
   }
 
   @Override
@@ -49,7 +51,7 @@ class GlazeController implements GlazesApi {
         request.getOwnerKind() == null
             ? GlazeBook.OwnerKind.MEMBER
             : GlazeBook.OwnerKind.valueOf(request.getOwnerKind().getValue());
-    return ResponseEntity.status(HttpStatus.CREATED).body(dto(book.create(kind, draft(request))));
+    return ResponseEntity.status(HttpStatus.CREATED).body(dto(edits.create(kind, draft(request))));
   }
 
   @Override
@@ -62,16 +64,17 @@ class GlazeController implements GlazesApi {
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
   public ResponseEntity<GlazeRecipeDto> updateGlaze(
       UUID studioId, UUID glazeId, SaveGlazeRequestDto request) {
-    if (request.getVersion() == null) {
+    Integer version = request.getVersion();
+    if (version == null) {
       throw new InvalidInputException("Send the version the change was made from.");
     }
-    return ResponseEntity.ok(dto(book.update(glazeId, request.getVersion(), draft(request))));
+    return ResponseEntity.ok(dto(edits.update(glazeId, version, draft(request))));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
   public ResponseEntity<Void> deleteGlaze(UUID studioId, UUID glazeId) {
-    book.delete(glazeId);
+    edits.delete(glazeId);
     return ResponseEntity.noContent().build();
   }
 

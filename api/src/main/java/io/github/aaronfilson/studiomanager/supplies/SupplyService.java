@@ -1,46 +1,40 @@
 package io.github.aaronfilson.studiomanager.supplies;
 
+import io.github.aaronfilson.studiomanager.apitoken.ApiTokens;
 import io.github.aaronfilson.studiomanager.platform.Capped;
-import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
-import io.github.aaronfilson.studiomanager.studio.StudioMembers;
-import io.github.aaronfilson.studiomanager.studio.StudioService;
-import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Category;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
-import io.github.aaronfilson.studiomanager.supplies.SupplyModel.ItemSettings;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Movement;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.PurchaseRequest;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.RequestStatus;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.data.domain.Limit;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Clay and supplies in the bound studio. Stock on hand is the sum of movements, never a stored
- * number someone can forget to update.
+ * Clay and supplies in the bound studio: what other modules read, and the one change they make
+ * (maintenance uses parts). Stock on hand is the sum of movements, never a stored number someone
+ * can forget to update.
+ *
+ * <p>The other changes are in this package, one service per use case: {@link SupplyItems}, {@link
+ * StockMovements}, {@link SupplySales} and {@link PurchaseRequests}. Each list here is a fixed
+ * number of queries however long it is.
  */
 @Service
 public class SupplyService {
@@ -48,33 +42,33 @@ public class SupplyService {
   /** The most movements {@link #movements} returns. */
   static final int STOCK_HISTORY_LIMIT = 1000;
 
-  private static final String SELECT_ITEM =
-      """
-      select i.id, i.name, i.category, i.unit, i.supplier, i.lead_time_days, i.par_level, i.reorder_quantity,
-             i.sale_price, i.tax_category, i.substitute, i.version,
-             coalesce((select sum(m.quantity) from stock_movement m where m.item_id = i.id), 0) as on_hand,
-             coalesce((select sum(r.quantity) from purchase_request r
-                       where r.item_id = i.id and r.status in ('APPROVED', 'ORDERED')), 0) as on_order
-      from supply_item i
-      """;
+  /** Requests whose stock is on its way: approved or ordered, and not yet received. */
+  static final Set<RequestStatus> ON_ORDER =
+      EnumSet.of(RequestStatus.APPROVED, RequestStatus.ORDERED);
 
-  private final JdbcClient jdbc;
-  private final StudioMembers members;
-  private final StudioService studios;
+  private static final Set<RequestStatus> OPEN =
+      EnumSet.of(RequestStatus.REQUESTED, RequestStatus.APPROVED, RequestStatus.ORDERED);
+
+  private final SupplyItemRepository itemRepository;
+  private final StockMovementRepository movementRepository;
+  private final PurchaseRequestRepository requestRepository;
+  private final StockMovements stock;
   private final AccountDirectory accounts;
-  private final ApplicationEventPublisher events;
+  private final ApiTokens tokens;
 
   SupplyService(
-      JdbcClient jdbc,
-      StudioMembers members,
-      StudioService studios,
+      SupplyItemRepository itemRepository,
+      StockMovementRepository movementRepository,
+      PurchaseRequestRepository requestRepository,
+      StockMovements stock,
       AccountDirectory accounts,
-      ApplicationEventPublisher events) {
-    this.jdbc = jdbc;
-    this.members = members;
-    this.studios = studios;
+      ApiTokens tokens) {
+    this.itemRepository = itemRepository;
+    this.movementRepository = movementRepository;
+    this.requestRepository = requestRepository;
+    this.stock = stock;
     this.accounts = accounts;
-    this.events = events;
+    this.tokens = tokens;
   }
 
   /**
@@ -83,21 +77,17 @@ public class SupplyService {
    */
   @Transactional(readOnly = true)
   public List<Item> items() {
-    return jdbc
-        .sql(SELECT_ITEM + "where not i.archived order by i.category, i.name")
-        .query(SupplyService::mapItem)
-        .list()
-        .stream()
-        .sorted((a, b) -> Boolean.compare(b.low(), a.low()))
+    return itemRepository.findActiveWithStock(ON_ORDER).stream()
+        .map(SupplyItemStock::toView)
+        .sorted(Comparator.comparing(Item::low).reversed())
         .toList();
   }
 
   @Transactional(readOnly = true)
   public Item item(UUID id) {
-    return jdbc.sql(SELECT_ITEM + "where i.id = :id")
-        .param("id", id)
-        .query(SupplyService::mapItem)
-        .optional()
+    return itemRepository
+        .findWithStock(id, ON_ORDER)
+        .map(SupplyItemStock::toView)
         .orElseThrow(() -> new NotFoundException("No such item."));
   }
 
@@ -107,62 +97,6 @@ public class SupplyService {
     return items().stream().filter(Item::needsOrdering).toList();
   }
 
-  @Transactional
-  public Item create(ItemSettings settings) {
-    TenantContext caller = requireStaff();
-    validate(settings);
-    UUID id = Uuids.v7();
-    try {
-      bind(
-              jdbc.sql(
-                  """
-                  insert into supply_item (id, studio_id, name, category, unit, supplier, lead_time_days, par_level,
-                                           reorder_quantity, sale_price, tax_category, substitute, version)
-                  values (:id, :studioId, :name, :category, :unit, :supplier, :lead, :par, :reorder, :price, :tax,
-                          :substitute, 0)
-                  """),
-              settings)
-          .param("id", id)
-          .param("studioId", caller.studioId())
-          .update();
-    } catch (DuplicateKeyException e) {
-      throw new InvalidInputException(
-          "There's already an item called '%s'.".formatted(settings.name().strip()));
-    }
-    return item(id);
-  }
-
-  @Transactional
-  public Item update(UUID id, ItemSettings settings, long expectedVersion) {
-    requireStaff();
-    validate(settings);
-    int updated;
-    try {
-      updated =
-          bind(
-                  jdbc.sql(
-                      """
-                      update supply_item set name = :name, category = :category, unit = :unit, supplier = :supplier,
-                             lead_time_days = :lead, par_level = :par, reorder_quantity = :reorder, sale_price = :price,
-                             tax_category = :tax, substitute = :substitute, version = version + 1
-                      where id = :id and version = :version
-                      """),
-                  settings)
-              .param("id", id)
-              .param("version", expectedVersion)
-              .update();
-    } catch (DuplicateKeyException e) {
-      throw new InvalidInputException(
-          "There's already an item called '%s'.".formatted(settings.name().strip()));
-    }
-    if (updated == 0) {
-      item(id);
-      throw ConflictException.staleVersion(
-          "Someone else changed this item at the same time. Reload and try again.");
-    }
-    return item(id);
-  }
-
   /**
    * Records stock coming in, being used, or a count. For a count, {@code quantity} is what is on
    * the shelf, and the movement records the difference from the books.
@@ -170,394 +104,103 @@ public class SupplyService {
   @Transactional
   public Item recordMovement(
       UUID itemId, MovementKind kind, BigDecimal quantity, @Nullable String note) {
-    TenantContext caller = requireStaff();
-    Item item = item(itemId);
-    BigDecimal change =
-        switch (kind) {
-          case RECEIVED -> positive(quantity);
-          case USED -> positive(quantity).negate();
-          case COUNTED -> {
-            if (quantity.signum() < 0) {
-              throw new InvalidInputException("A count can't be negative.");
-            }
-            yield quantity.subtract(item.onHand());
-          }
-          case SOLD ->
-              throw new InvalidInputException(
-                  "Record sales with the sale endpoint, so the member is charged.");
-        };
-    if (change.signum() != 0) {
-      insertMovement(caller, itemId, kind, change, null, note);
-    }
+    requireStaff();
+    stock.adjust(itemId, kind, quantity, note);
     return item(itemId);
   }
 
-  /** Sells an item to a member: stock goes down, and the price (plus tax) goes on their balance. */
-  @Transactional
-  public Item sell(UUID itemId, UUID memberId, BigDecimal quantity) {
-    TenantContext caller = requireStaff();
-    Item item = item(itemId);
-    if (item.salePrice() == null) {
-      throw new InvalidInputException(
-          "%s isn't for sale; give it a price first.".formatted(item.name()));
-    }
-    if (members.roleOf(memberId).isEmpty()) {
-      throw new InvalidInputException("That person isn't a member of this studio.");
-    }
-    BigDecimal amount =
-        item.salePrice()
-            .multiply(positive(quantity))
-            .setScale(
-                studios.current().currency().getDefaultFractionDigits(), RoundingMode.HALF_UP);
-    Instant now = now();
-    UUID movementId =
-        insertMovement(caller, itemId, MovementKind.SOLD, quantity.negate(), memberId, null);
-    events.publishEvent(
-        new SupplySold(
-            movementId, memberId, item.name(), quantity, amount, item.taxCategory(), now));
-    return item(itemId);
-  }
-
+  /** An item's movements, newest first, with the names of members who bought. */
   @Transactional(readOnly = true)
   public Capped<Movement> movements(UUID itemId) {
     requireStaff();
-    item(itemId);
-    Capped<Movement> raw =
-        Capped.fromFetched(
-            jdbc.sql(
-                    """
-                    select id, kind, quantity, member_id, note, created_at from stock_movement
-                    where item_id = :id order by created_at desc limit :fetchSize
-                    """)
-                .param("id", itemId)
-                .param("fetchSize", Capped.fetchSize(STOCK_HISTORY_LIMIT))
-                .query((rs, row) ->
-                    new Movement(
-                        rs.getObject("id", UUID.class),
-                        MovementKind.valueOf(rs.getString("kind")),
-                        rs.getBigDecimal("quantity"),
-                        rs.getObject("member_id", UUID.class),
-                        null,
-                        rs.getString("note"),
-                        instant(rs, "created_at")))
-                .list(),
-            STOCK_HISTORY_LIMIT);
+    if (!itemRepository.existsById(itemId)) {
+      throw new NotFoundException("No such item.");
+    }
+    List<StockMovement> fetched =
+        movementRepository.findByItemIdOrderByCreatedAtDescIdDesc(
+            itemId, Limit.of(Capped.fetchSize(STOCK_HISTORY_LIMIT)));
     Map<UUID, String> names =
         accounts.displayNames(
-            raw.items().stream().map(Movement::memberId).filter(Objects::nonNull).toList());
-    return raw.map(m ->
-        new Movement(
-            m.id(),
-            m.kind(),
-            m.quantity(),
-            m.memberId(),
-            m.memberId() == null ? null : names.get(m.memberId()),
-            m.note(),
-            m.createdAt()));
-  }
-
-  // ---- Purchase requests
-
-  /** Asks for more of an item. Without a quantity, the item's usual reorder quantity. */
-  @Transactional
-  public PurchaseRequest request(
-      UUID itemId, @Nullable BigDecimal quantity, @Nullable String note) {
-    TenantContext caller = requireStaff();
-    Item item = item(itemId);
-    BigDecimal amount = quantity != null ? positive(quantity) : item.reorderQuantity();
-    if (amount == null) {
-      throw new InvalidInputException("How many? This item has no usual reorder quantity.");
-    }
-    UUID id = Uuids.v7();
-    jdbc.sql(
-            """
-            insert into purchase_request (id, studio_id, item_id, quantity, note, status, requested_by,
-                                          requested_via_token_id, requested_at, version)
-            values (:id, :studioId, :item, :quantity, :note, 'REQUESTED', :by, :viaToken, :now, 0)
-            """)
-        .param("viaToken", caller.viaTokenId())
-        .param("id", id)
-        .param("studioId", caller.studioId())
-        .param("item", itemId)
-        .param("quantity", amount)
-        .param("note", clean(note))
-        .param("by", caller.accountId())
-        .param("now", utc(now()))
-        .update();
-    return request(id);
-  }
-
-  /**
-   * Moves a request on. The owner approves or rejects; staff mark approved requests ordered and
-   * then received, which puts the stock on the shelf.
-   */
-  @Transactional
-  public PurchaseRequest decide(UUID requestId, RequestStatus to, long expectedVersion) {
-    TenantContext caller = requireStaff();
-    PurchaseRequest request = request(requestId);
-    boolean owner = caller.role() == StudioRole.OWNER;
-    boolean allowed =
-        switch (to) {
-          case APPROVED, REJECTED -> request.status() == RequestStatus.REQUESTED && owner;
-          case ORDERED -> request.status() == RequestStatus.APPROVED;
-          case RECEIVED ->
-              request.status() == RequestStatus.APPROVED
-                  || request.status() == RequestStatus.ORDERED;
-          case REQUESTED -> false;
-        };
-    if (!allowed) {
-      if ((to == RequestStatus.APPROVED || to == RequestStatus.REJECTED) && !owner) {
-        throw new AccessDeniedException("Only the owner approves purchases.");
-      }
-      throw new InvalidInputException(
-          "A %s request can't become %s."
-              .formatted(request.status().name().toLowerCase(), to.name().toLowerCase()));
-    }
-    boolean decision = to == RequestStatus.APPROVED || to == RequestStatus.REJECTED;
-    int updated =
-        jdbc.sql(
-                """
-                update purchase_request set status = :to, version = version + 1,
-                       decided_by = case when :decision then :me else decided_by end,
-                       decided_via_token_id = case when :decision then :viaToken else decided_via_token_id end,
-                       decided_at = case when :decision then :now else decided_at end
-                where id = :id and version = :version
-                """)
-            .param("to", to.name())
-            .param("decision", decision)
-            .param("me", caller.accountId())
-            .param("viaToken", caller.viaTokenId())
-            .param("now", utc(now()))
-            .param("id", requestId)
-            .param("version", expectedVersion)
-            .update();
-    if (updated == 0) {
-      throw ConflictException.staleVersion(
-          "Someone else changed this request at the same time. Reload and try again.");
-    }
-    if (to == RequestStatus.RECEIVED) {
-      insertMovement(
-          caller,
-          request.itemId(),
-          MovementKind.RECEIVED,
-          request.quantity(),
-          null,
-          "Purchase received");
-    }
-    return request(requestId);
+            fetched.stream().map(StockMovement::memberId).filter(Objects::nonNull).toList());
+    return Capped.fromFetched(
+        fetched.stream()
+            .map(movement -> movement.toView(nameOf(movement.memberId(), names)))
+            .toList(),
+        STOCK_HISTORY_LIMIT);
   }
 
   /** Open requests (requested, approved, ordered), oldest first. */
   @Transactional(readOnly = true)
   public List<PurchaseRequest> openRequests() {
     requireStaff();
-    return requests(
-        "where r.status in ('REQUESTED', 'APPROVED', 'ORDERED') order by r.requested_at", Map.of());
+    return views(requestRepository.findWithItemByStatusIn(OPEN));
   }
 
-  private PurchaseRequest request(UUID id) {
-    return requests("where r.id = :id", Map.of("id", id)).stream()
-        .findFirst()
-        .orElseThrow(() -> new NotFoundException("No such purchase request."));
+  /** One request as the API returns it, for {@link PurchaseRequests}. */
+  PurchaseRequest view(PurchaseRequestEntity request) {
+    return views(List.of(request)).getFirst();
   }
 
-  private List<PurchaseRequest> requests(String where, Map<String, Object> params) {
-    var spec =
-        jdbc.sql(
-            """
-            select r.id, r.item_id, i.name as item_name, r.quantity, r.note, r.status, r.requested_by, r.requested_at,
-                   r.decided_by, r.version, requested_via.name as requested_via_token,
-                   decided_via.name as decided_via_token
-            from purchase_request r join supply_item i on i.id = r.item_id
-            left join api_token requested_via on requested_via.id = r.requested_via_token_id
-            left join api_token decided_via on decided_via.id = r.decided_via_token_id
-            """
-                + where);
-    for (var param : params.entrySet()) {
-      spec = spec.param(param.getKey(), param.getValue());
-    }
-    List<UUID> deciders = new ArrayList<>();
-    List<PurchaseRequest> raw =
-        spec.query(
-                (rs, row) -> {
-                  deciders.add(rs.getObject("decided_by", UUID.class));
-                  return new PurchaseRequest(
-                      rs.getObject("id", UUID.class),
-                      rs.getObject("item_id", UUID.class),
-                      rs.getString("item_name"),
-                      rs.getBigDecimal("quantity"),
-                      rs.getString("note"),
-                      RequestStatus.valueOf(rs.getString("status")),
-                      rs.getObject("requested_by", UUID.class),
-                      null,
-                      rs.getString("requested_via_token"),
-                      instant(rs, "requested_at"),
-                      null,
-                      rs.getString("decided_via_token"),
-                      rs.getLong("version"));
-                })
-            .list();
-    List<UUID> ids = new ArrayList<>(raw.stream().map(PurchaseRequest::requestedBy).toList());
-    deciders.stream().filter(Objects::nonNull).forEach(ids::add);
-    Map<UUID, String> names = accounts.displayNames(ids);
-    List<PurchaseRequest> named = new ArrayList<>(raw.size());
-    for (int i = 0; i < raw.size(); i++) {
-      PurchaseRequest r = raw.get(i);
-      UUID decider = deciders.get(i);
-      named.add(
-          new PurchaseRequest(
-              r.id(),
-              r.itemId(),
-              r.itemName(),
-              r.quantity(),
-              r.note(),
-              r.status(),
-              r.requestedBy(),
-              names.get(r.requestedBy()),
-              r.requestedViaToken(),
-              r.requestedAt(),
-              decider == null ? null : names.get(decider),
-              r.decidedViaToken(),
-              r.version()));
-    }
-    return named;
-  }
-
-  // ---- Internals
-
-  /**
-   * Records a movement. If it takes an item with a substitute from in stock to out, members are
-   * told what to use instead ({@link SupplyRanOut}); once per stock-out, because it fires on the
-   * change, not on every movement while the shelf is empty.
-   */
-  private UUID insertMovement(
-      TenantContext caller,
-      UUID itemId,
-      MovementKind kind,
-      BigDecimal quantity,
-      @Nullable UUID memberId,
-      @Nullable String note) {
-    // One movement per item at a time, so two at once can't both see the last bag on the shelf
-    jdbc.sql("select id from supply_item where id = :id for update")
-        .param("id", itemId)
-        .query(UUID.class)
-        .single();
-    BigDecimal before = onHand(itemId);
-    UUID id = Uuids.v7();
-    jdbc.sql(
-            """
-            insert into stock_movement (id, studio_id, item_id, kind, quantity, member_id, note, created_by, created_at)
-            values (:id, :studioId, :item, :kind, :quantity, :member, :note, :by, :now)
-            """)
-        .param("id", id)
-        .param("studioId", caller.studioId())
-        .param("item", itemId)
-        .param("kind", kind.name())
-        .param("quantity", quantity)
-        .param("member", memberId)
-        .param("note", clean(note))
-        .param("by", caller.accountId())
-        .param("now", utc(now()))
-        .update();
-    if (before.signum() > 0 && before.add(quantity).signum() <= 0) {
-      Item item = item(itemId);
-      if (item.substitute() != null) {
-        events.publishEvent(
-            new SupplyRanOut(caller.studioId(), itemId, item.name(), item.substitute()));
+  private List<PurchaseRequest> views(List<PurchaseRequestEntity> requests) {
+    List<UUID> people = new ArrayList<>();
+    List<UUID> viaTokens = new ArrayList<>();
+    for (PurchaseRequestEntity request : requests) {
+      people.add(request.requestedBy());
+      UUID decider = request.decidedBy();
+      if (decider != null) {
+        people.add(decider);
+      }
+      UUID requestedVia = request.requestedViaTokenId();
+      if (requestedVia != null) {
+        viaTokens.add(requestedVia);
+      }
+      UUID decidedVia = request.decidedViaTokenId();
+      if (decidedVia != null) {
+        viaTokens.add(decidedVia);
       }
     }
-    return id;
+    Map<UUID, String> names = accounts.displayNames(people);
+    Map<UUID, String> tokenNames = tokens.names(viaTokens);
+    return requests.stream()
+        .map(request ->
+            request.toView(
+                names.get(request.requestedBy()),
+                nameOf(request.requestedViaTokenId(), tokenNames),
+                nameOf(request.decidedBy(), names),
+                nameOf(request.decidedViaTokenId(), tokenNames)))
+        .toList();
   }
 
-  private BigDecimal onHand(UUID itemId) {
-    return jdbc.sql("select coalesce(sum(quantity), 0) from stock_movement where item_id = :id")
-        .param("id", itemId)
-        .query(BigDecimal.class)
-        .single();
+  /** The name of an account or API token, looked up by id; null when there's no id. */
+  private static @Nullable String nameOf(@Nullable UUID id, Map<UUID, String> names) {
+    return id == null ? null : names.get(id);
   }
 
-  private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, ItemSettings s) {
-    return spec.param("name", s.name().strip())
-        .param("category", s.category().name())
-        .param("unit", s.unit().strip())
-        .param("supplier", clean(s.supplier()))
-        .param("lead", s.leadTimeDays())
-        .param("par", s.parLevel())
-        .param("reorder", s.reorderQuantity())
-        .param("price", s.salePrice())
-        .param("tax", clean(s.taxCategory()))
-        .param("substitute", clean(s.substitute()));
-  }
+  // ---- Shared by this package's services
 
-  private static void validate(ItemSettings s) {
-    if (s.name() == null || s.name().isBlank() || s.name().strip().length() > 80) {
-      throw new InvalidInputException("Name the item in 1 to 80 characters.");
-    }
-    if (s.unit() == null || s.unit().isBlank() || s.unit().strip().length() > 30) {
-      throw new InvalidInputException(
-          "Say what one unit is, such as \"25 lb bag\" (up to 30 characters).");
-    }
-    if (s.leadTimeDays() != null && (s.leadTimeDays() < 0 || s.leadTimeDays() > 365)) {
-      throw new InvalidInputException("Lead time is 0 to 365 days.");
-    }
-    if (s.salePrice() != null && s.salePrice().signum() < 0) {
-      throw new InvalidInputException("A price can't be negative.");
-    }
-    if (s.reorderQuantity() != null && s.reorderQuantity().signum() <= 0) {
-      throw new InvalidInputException("A reorder quantity must be more than zero.");
-    }
-  }
-
-  private static BigDecimal positive(BigDecimal quantity) {
-    if (quantity == null || quantity.signum() <= 0) {
-      throw new InvalidInputException("The quantity must be more than zero.");
-    }
-    return quantity;
-  }
-
-  private static @Nullable String clean(@Nullable String text) {
-    if (text == null || text.isBlank()) {
-      return null;
-    }
-    String stripped = text.strip();
-    return stripped.length() > 200 ? stripped.substring(0, 200) : stripped;
-  }
-
-  private static Item mapItem(ResultSet rs, int row) throws SQLException {
-    return new Item(
-        rs.getObject("id", UUID.class),
-        rs.getString("name"),
-        Category.valueOf(rs.getString("category")),
-        rs.getString("unit"),
-        rs.getString("supplier"),
-        rs.getObject("lead_time_days", Integer.class),
-        rs.getBigDecimal("par_level"),
-        rs.getBigDecimal("reorder_quantity"),
-        rs.getBigDecimal("sale_price"),
-        rs.getString("tax_category"),
-        rs.getString("substitute"),
-        rs.getBigDecimal("on_hand"),
-        rs.getBigDecimal("on_order"),
-        rs.getLong("version"));
-  }
-
-  private static TenantContext requireStaff() {
+  /** The bound caller, if they're staff or the owner. */
+  static TenantContext requireStaff() {
     TenantContext caller = TenantContext.require();
-    if (caller.role() == null || !caller.role().includes(StudioRole.STAFF)) {
+    StudioRole role = caller.role();
+    if (role == null || !role.includes(StudioRole.STAFF)) {
       throw new AccessDeniedException("Only staff can do this.");
     }
     return caller;
   }
 
-  private static Instant instant(ResultSet rs, String column) throws SQLException {
-    return rs.getObject(column, OffsetDateTime.class).toInstant();
+  static BigDecimal positive(BigDecimal quantity) {
+    if (quantity.signum() <= 0) {
+      throw new InvalidInputException("The quantity must be more than zero.");
+    }
+    return quantity;
   }
 
-  private static OffsetDateTime utc(Instant instant) {
-    return instant.atOffset(ZoneOffset.UTC);
-  }
-
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.MICROS);
+  /** Trimmed, cut to 200 characters, and null if blank. */
+  static @Nullable String clean(@Nullable String text) {
+    if (text == null || text.isBlank()) {
+      return null;
+    }
+    String stripped = text.strip();
+    return stripped.length() > 200 ? stripped.substring(0, 200) : stripped;
   }
 }

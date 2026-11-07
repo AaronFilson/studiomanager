@@ -12,7 +12,11 @@ import java.util.Currency;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** A studio: the tenant that every studio-owned row belongs to. */
+/**
+ * A studio: the tenant that every studio-owned row belongs to. It has no {@code @TenantId}, so "my
+ * studios" can read it with no studio bound (ADR 21); row-level security still limits it to the
+ * caller's studios.
+ */
 @Entity
 @Table(name = "studio")
 class Studio {
@@ -38,6 +42,7 @@ class Studio {
   // ID
   @Version private @Nullable Long version;
 
+  @SuppressWarnings("NullAway.Init")
   protected Studio() {}
 
   Studio(

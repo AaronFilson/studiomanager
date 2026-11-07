@@ -10,6 +10,34 @@ _Reviewed the same day:_
 - _the open work this plan didn't cover is in section 9;_
 - _the order now runs in parallel lanes._
 
+## Status (2026-11-06)
+
+**Done: the foundation, wave 1, and the first deploy.** Dev runs on Azure in West US, with
+sign-up through External ID, the admin page and email working.
+
+| Step | PR | Notes |
+|---|---|---|
+| 0. Foundation | #20 | |
+| 1. Wave 1: lanes C, P, M, S, A | #25 | Merged together in the planned order (C, P, M, S, A). ADRs 21–24 written. List caps use this plan's proposed numbers; real row sizes are still to be measured |
+| First deploy | #21–#24, #26 | Below |
+
+**What the first deploy changed:**
+- **#21:** dev's Entra and database settings; the encryption keys Terraform never set (the API and every job now get them as Container App secrets); v2 tokens on the web and mobile registrations, which External ID requires; the `Microsoft.Communication` provider; bootstrap's GitHub federation now trusts GitHub's immutable OIDC subject (owner and repository by id).
+- **#22:** the image build's AOT training run starts without a database: Spring Modulith's event registry, scheduling and eager initialization are off in that profile only. `AotTrainingStartTests` reproduces the build's start.
+- **#23:** everything moved to West US (Static Web Apps to West US 2, where it's offered). Postgres was refused in East US 2 for this subscription. Bootstrap's region now defaults to `westus`, and the runbook says to choose it first.
+- **#24:** the web app's authority carries the tenant id (`https://<subdomain>.ciamlogin.com/<tenant-id>/`); the bare host serves no OpenID metadata.
+- **#26:** a custom "Studio Manager Email Sender" role (defined in bootstrap, assigned to the API identity on the ACS resource). A test invite arrived.
+- **Branch protection on `main`:** the API, web and Terraform checks are required; admins can bypass.
+- **External ID puts `roles` in access tokens:** confirmed. The admin role goes to the account that signs in to the site (a customer account), not the tenant administrator.
+
+**In progress:** "via \<token name\>" attribution in histories (plan 17 step 2's remainder), migration V37.
+
+**Next:**
+- Wave 2 (lanes 2a–2d) and the lanes alongside it (D, F1, F1g, F2, F3, R). All can start, since P is merged.
+- Before a real pilot: a custom email domain (the Azure-managed sender lands in junk and has low limits).
+- Measure real row sizes for the list caps on the seeded demo studio.
+- Check trace volume: the Azure Monitor starter may ignore `OTEL_TRACES_SAMPLER` (lane S's note).
+
 ## Decisions
 
 - **No limits on a studio's own AI calls.** They use the studio's own key, so the studio pays.

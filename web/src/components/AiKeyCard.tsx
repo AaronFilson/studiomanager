@@ -21,7 +21,7 @@ export function AiKeyCard({ studioId }: { studioId: string }) {
   const queryClient = useQueryClient();
   const key = useQuery({ ...getAiKeyOptions({ path: { studioId } }), retry: false });
   const [apiKey, setApiKey] = useState('');
-  const [fallback, setFallback] = useState(false);
+  const [platformReaders, setPlatformReaders] = useState(false);
   const update = (status: AiKeyStatus | null) =>
     queryClient.setQueryData(getAiKeyQueryKey({ path: { studioId } }), status ?? undefined);
   const save = useMutation({
@@ -69,7 +69,7 @@ export function AiKeyCard({ studioId }: { studioId: string }) {
           event.preventDefault();
           save.mutate({
             path: { studioId },
-            body: { provider: 'ANTHROPIC', apiKey: apiKey.trim(), allowGoogleFallback: fallback },
+            body: { provider: 'ANTHROPIC', apiKey: apiKey.trim(), allowPlatformReaders: platformReaders },
           });
         }}
       >
@@ -88,8 +88,9 @@ export function AiKeyCard({ studioId }: { studioId: string }) {
           />
         </div>
         <label className="choice">
-          <input type="checkbox" checked={fallback} onChange={(e) => setFallback(e.target.checked)} />
-          If the key can&apos;t read an invoice, let Google Document AI try
+          <input type="checkbox" checked={platformReaders} onChange={(e) => setPlatformReaders(e.target.checked)} />
+          Also allow the platform&apos;s readers (Google Document AI, Azure AI Document Intelligence) when they&apos;re
+          offered
         </label>
         <div>
           <button type="submit" className="primary" disabled={save.isPending}>
