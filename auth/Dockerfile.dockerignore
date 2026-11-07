@@ -1,0 +1,9 @@
+# The bridge's image builds from the repo root; send only what auth/Dockerfile copies.
+*
+!api/gradlew
+!api/settings.gradle.kts
+!api/build.gradle.kts
+!api/gradle.properties
+!api/gradle/
+!auth/build.gradle.kts
+!auth/src/

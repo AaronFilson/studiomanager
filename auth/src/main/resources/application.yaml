@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: studiomanager-auth
+  threads:
+    virtual:
+      enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            # The GitHub OAuth app (docs/runbooks/github-sign-in.md)
+            client-id: ${STUDIOMANAGER_BRIDGE_GITHUB_CLIENT_ID}
+            client-secret: ${STUDIOMANAGER_BRIDGE_GITHUB_CLIENT_SECRET}
+            # Read-only: the profile and the email list, nothing else (plan 18)
+            scope: read:user, user:email
+            # Fixed, so it never depends on how the proxy in front describes the request
+            redirect-uri: ${studiomanager.bridge.issuer}/login/oauth2/code/github
+
+server:
+  # Container Apps' ingress terminates TLS and sends X-Forwarded-*; only the ingress can reach the
+  # app, so the headers are trusted, and redirects back into the bridge stay on https
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      # A session only carries one sign-in from /oauth2/authorize through GitHub and back
+      timeout: 10m
+      cookie:
+        name: BRIDGE_SESSION
+        http-only: true
+        secure: ${STUDIOMANAGER_BRIDGE_SECURE_COOKIE:true}
+        # Lax: GitHub's redirect back is a top-level GET, which Lax still sends the cookie with
+        same-site: lax
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+studiomanager:
+  bridge:
+    # This app's public origin, with no trailing slash: the iss of every token it signs
+    issuer: ${STUDIOMANAGER_BRIDGE_ISSUER}
+    # What Entra's custom OIDC identity provider is configured with (infra/identity, the runbook)
+    entra-client-id: ${STUDIOMANAGER_BRIDGE_ENTRA_CLIENT_ID}
+    entra-client-secret: ${STUDIOMANAGER_BRIDGE_ENTRA_CLIENT_SECRET}
+    # Comma-separated: https://<subdomain>.ciamlogin.com/<tenant-id>/federation/oauth2 and the
+    # <subdomain>.onmicrosoft.com form
+    entra-redirect-uris: ${STUDIOMANAGER_BRIDGE_ENTRA_REDIRECT_URIS}
+    # One or more PKCS#8 PEM RSA keys; the first signs (ADR 20)
+    signing-keys: ${STUDIOMANAGER_BRIDGE_SIGNING_KEYS}
+    github-emails-uri: ${STUDIOMANAGER_BRIDGE_GITHUB_EMAILS_URI:https://api.github.com/user/emails}
+    authorize-requests-per-minute: ${STUDIOMANAGER_BRIDGE_AUTHORIZE_REQUESTS_PER_MINUTE:60}

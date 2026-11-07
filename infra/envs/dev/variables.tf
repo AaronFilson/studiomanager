@@ -84,6 +84,29 @@ variable "db_admin_group" {
   }
 }
 
+variable "github_sign_in" {
+  description = "The GitHub sign-in bridge (ADR 20, docs/runbooks/github-sign-in.md). Off by default; turn it on only after its three Key Vault secrets exist. github_client_id is the GitHub OAuth app's client ID; entra_client_id is the ID Entra's custom OIDC identity provider uses with the bridge."
+  type = object({
+    enabled          = bool
+    github_client_id = optional(string, "")
+    entra_client_id  = optional(string, "studiomanager-entra")
+  })
+  default = {
+    enabled = false
+  }
+
+  validation {
+    condition     = !var.github_sign_in.enabled || length(var.github_sign_in.github_client_id) > 0
+    error_message = "Set github_sign_in.github_client_id (the GitHub OAuth app's client ID) to turn the bridge on."
+  }
+}
+
+variable "bridge_image" {
+  description = "Bridge image used only when its Container App is first created. CI rolls later images."
+  type        = string
+  default     = "ghcr.io/aaronfilson/studiomanager-auth:main"
+}
+
 variable "api_min_replicas" {
   type    = number
   default = 0

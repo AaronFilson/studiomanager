@@ -14,6 +14,7 @@ concurrency:
 
 env:
   IMAGE_NAME: ghcr.io/aaronfilson/studiomanager-api
+  BRIDGE_IMAGE_NAME: ghcr.io/aaronfilson/studiomanager-auth
   TERRAFORM_VERSION: 1.16.6
 
 jobs:
@@ -27,13 +28,16 @@ jobs:
       packages: write
     outputs:
       image: ${{ steps.ref.outputs.image }}
+      bridge_image: ${{ steps.ref.outputs.bridge_image }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - id: ref
-        run: echo "image=${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "image=${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "bridge_image=${BRIDGE_IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -58,6 +62,26 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # The GitHub sign-in bridge (ADR 20). Built on every deploy, so its :main image exists, and
+      # is public, before github_sign_in is turned on; rolled out below only when it's on. Its
+      # context is the repo root because it builds with the API's Gradle wrapper and catalog;
+      # auth/Dockerfile.dockerignore trims the context.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: auth/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ref.outputs.bridge_image }}
+            ${{ env.BRIDGE_IMAGE_NAME }}:main
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=bridge
+          cache-to: type=gha,mode=max,scope=bridge
+
   infra:
     name: Terraform apply
     needs: image
@@ -81,6 +105,7 @@ jobs:
       container_app: ${{ steps.out.outputs.container_app }}
       migration_job: ${{ steps.out.outputs.migration_job }}
       sweep_job: ${{ steps.out.outputs.sweep_job }}
+      bridge_container_app: ${{ steps.out.outputs.bridge_container_app }}
       api_url: ${{ steps.out.outputs.api_url }}
       static_web_app: ${{ steps.out.outputs.static_web_app }}
       web_build_env: ${{ steps.out.outputs.web_build_env }}
@@ -121,6 +146,7 @@ jobs:
             echo "container_app=$(out api_container_app_name)"
             echo "migration_job=$(out migration_job_name)"
             echo "sweep_job=$(out sweep_job_name)"
+            echo "bridge_container_app=$(out bridge_container_app_name)"
             echo "api_url=$(out api_url)"
             echo "static_web_app=$(out static_web_app_name)"
             echo "web_build_env=$(jq -c '.web_build_env.value' "$RUNNER_TEMP/outputs.json")"
@@ -151,6 +177,8 @@ jobs:
       CONTAINER_APP: ${{ needs.infra.outputs.container_app }}
       MIGRATION_JOB: ${{ needs.infra.outputs.migration_job }}
       SWEEP_JOB: ${{ needs.infra.outputs.sweep_job }}
+      BRIDGE_IMAGE: ${{ needs.image.outputs.bridge_image }}
+      BRIDGE_CONTAINER_APP: ${{ needs.infra.outputs.bridge_container_app }}
       API_URL: ${{ needs.infra.outputs.api_url }}
     steps:
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
@@ -186,6 +214,11 @@ jobs:
       # The scheduled sweep job runs the same image as the API (ADR 23)
       - name: Roll out the sweep job image
         run: az containerapp job update --name "$SWEEP_JOB" --resource-group "$RESOURCE_GROUP" --image "$IMAGE" --output none
+
+      # Only while github_sign_in is on in Terraform (ADR 20); the output is empty otherwise.
+      - name: Roll out the GitHub sign-in bridge image
+        if: needs.infra.outputs.bridge_container_app != ''
+        run: az containerapp update --name "$BRIDGE_CONTAINER_APP" --resource-group "$RESOURCE_GROUP" --image "$BRIDGE_IMAGE" --output none
 
       # Wakes the app from zero; the retries cover JVM cold start.
       - name: Smoke test
