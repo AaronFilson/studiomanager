@@ -72,8 +72,7 @@ class MaintenancePersistenceTests {
     long forThree = countHistory(trap);
 
     assertThat(
-            TenantContext.callAs(inStudio(), () -> records.records(UUID.fromString(trap)))
-                .items())
+            TenantContext.callAs(inStudio(), () -> records.records(UUID.fromString(trap))).items())
         .extracting(MaintenanceModel.WorkRecord::taskTitle)
         .containsExactly(null, "Empty the trap", "Empty the trap");
     assertThat(forThree).isEqualTo(forOne);
@@ -188,9 +187,7 @@ class MaintenancePersistenceTests {
 
   private void repair(String assetId, String note) {
     created(
-        post(
-            "/maintenance/assets/" + assetId + "/records",
-            "{\"note\": \"%s\"}".formatted(note)));
+        post("/maintenance/assets/" + assetId + "/records", "{\"note\": \"%s\"}".formatted(note)));
   }
 
   private void report(String assetId, String description) {

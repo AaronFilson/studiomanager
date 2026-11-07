@@ -102,7 +102,15 @@ class MaintenanceRecords {
     MaintainedAsset asset = task.asset();
     Integer firings = reads.firingsNow(asset);
     insertRecord(
-        asset, task, note, cost, ticked, firings, parts, task.title() + ": " + reads.nameOf(asset), now);
+        asset,
+        task,
+        note,
+        cost,
+        ticked,
+        firings,
+        parts,
+        task.title() + ": " + reads.nameOf(asset),
+        now);
     task.markDone(now, Objects.requireNonNullElse(firings, 0));
     tasks.flush();
     return reads.view(task);
@@ -149,8 +157,7 @@ class MaintenanceRecords {
     return Capped.fromFetched(found, RECORDS_LIMIT)
         .map(record ->
             record.toView(
-                names.get(record.doneBy()),
-                partsByRecord.getOrDefault(record.id(), List.of())));
+                names.get(record.doneBy()), partsByRecord.getOrDefault(record.id(), List.of())));
   }
 
   /**
@@ -178,8 +185,7 @@ class MaintenanceRecords {
     for (MaintenanceQueries.ExportedRecord row : rows) {
       // Archived assets keep their records; a kiln's name lives on the kiln
       String ownName = row.ownName();
-      String asset =
-          assetNames.getOrDefault(row.assetId(), ownName == null ? "Kiln" : ownName);
+      String asset = assetNames.getOrDefault(row.assetId(), ownName == null ? "Kiln" : ownName);
       String taskTitle = row.taskTitle();
       csv.row(
           Arrays.asList(

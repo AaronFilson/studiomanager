@@ -98,8 +98,7 @@ class BookingChanges {
           "%s needs a certification first: %s."
               .formatted(resource.name(), access.type(certification).name()));
     }
-    List<BookingKind> overlapping =
-        bookings.findKindsOverlapping(resourceId, startsAt, endsAt);
+    List<BookingKind> overlapping = bookings.findKindsOverlapping(resourceId, startsAt, endsAt);
     String clash = BookingRules.clash(kind, resource.capacity(), overlapping);
     if (clash != null) {
       throw new ConflictException(clash);

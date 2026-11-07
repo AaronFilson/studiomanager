@@ -65,8 +65,8 @@ class ReportedProblem {
   }
 
   /**
-   * Closes the report. A report already resolved is a conflict, as a stale version is: someone
-   * else got there first.
+   * Closes the report. A report already resolved is a conflict, as a stale version is: someone else
+   * got there first.
    */
   void resolve(UUID by, Instant at, @Nullable String cleanedResolution) {
     if (resolvedAt != null) {

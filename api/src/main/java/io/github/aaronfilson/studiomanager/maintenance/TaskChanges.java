@@ -38,10 +38,7 @@ class TaskChanges {
     TaskSettings valid = validate(settings, asset);
     MaintenanceTask task =
         new MaintenanceTask(
-            asset,
-            valid,
-            clock.instant(),
-            Objects.requireNonNullElse(reads.firingsNow(asset), 0));
+            asset, valid, clock.instant(), Objects.requireNonNullElse(reads.firingsNow(asset), 0));
     tasks.saveAndFlush(task);
     return reads.view(task);
   }

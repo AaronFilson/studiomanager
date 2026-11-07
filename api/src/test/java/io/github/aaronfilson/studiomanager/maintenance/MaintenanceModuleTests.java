@@ -78,8 +78,7 @@ class MaintenanceModuleTests {
         TenantContext.callAs(
                 signedIn,
                 () ->
-                    studios.create(
-                        "Module Upkeep", UnitSystem.METRIC, "Europe/London", "GB", null))
+                    studios.create("Module Upkeep", UnitSystem.METRIC, "Europe/London", "GB", null))
             .id();
     owner = signedIn.inStudio(studioId, StudioRole.OWNER);
   }

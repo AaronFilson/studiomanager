@@ -75,8 +75,7 @@ public class ProblemReportService {
     if (cleaned.isEmpty() || cleaned.length() > 1000) {
       throw new InvalidInputException("Describe the problem in up to 1,000 characters.");
     }
-    String assetName =
-        assetId == null ? null : maintenance.nameOf(maintenance.findAsset(assetId));
+    String assetName = assetId == null ? null : maintenance.nameOf(maintenance.findAsset(assetId));
     TenantContext caller = TenantContext.require();
     ReportedProblem problem =
         new ReportedProblem(assetId, cleaned, caller.accountId(), clock.instant());
@@ -102,10 +101,7 @@ public class ProblemReportService {
     return Capped.fromFetched(
         views(
             problems.findNewest(
-                isStaff(caller),
-                caller.accountId(),
-                openOnly,
-                Limit.of(Capped.fetchSize(LIMIT)))),
+                isStaff(caller), caller.accountId(), openOnly, Limit.of(Capped.fetchSize(LIMIT)))),
         LIMIT);
   }
 

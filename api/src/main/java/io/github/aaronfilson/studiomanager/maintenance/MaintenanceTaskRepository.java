@@ -7,8 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 /**
- * Tasks still tracked, on assets still tracked, always with their asset, since every view shows
- * the asset's name.
+ * Tasks still tracked, on assets still tracked, always with their asset, since every view shows the
+ * asset's name.
  */
 interface MaintenanceTaskRepository extends JpaRepository<MaintenanceTask, UUID> {
 
@@ -26,6 +26,7 @@ interface MaintenanceTaskRepository extends JpaRepository<MaintenanceTask, UUID>
       """)
   Optional<MaintenanceTask> findTracked(UUID taskId);
 
-  @Query("select lower(t.title) from MaintenanceTask t where t.asset.id = :assetId and not t.archived")
+  @Query(
+      "select lower(t.title) from MaintenanceTask t where t.asset.id = :assetId and not t.archived")
   List<String> findTitlesInLowerCase(UUID assetId);
 }

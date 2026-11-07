@@ -31,8 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
  * module, which tells people, isn't started, so these check what schedule publishes.
  *
  * <p>Scenario runs each stimulus in a transaction of its own, and row-level security and
- * Hibernate's tenant are read when a transaction begins, so each scenario runs inside {@link
- * #as}.
+ * Hibernate's tenant are read when a transaction begins, so each scenario runs inside {@link #as}.
  */
 // account and apitoken implement platform interfaces that the security filters need
 @ApplicationModuleTest(
@@ -60,8 +59,7 @@ class ScheduleModuleTests {
         TenantContext.callAs(
                 signedIn,
                 () ->
-                    studios.create(
-                        "Module Roster", UnitSystem.METRIC, "Europe/London", "GB", null))
+                    studios.create("Module Roster", UnitSystem.METRIC, "Europe/London", "GB", null))
             .id();
     owner = signedIn.inStudio(studioId, StudioRole.OWNER);
     String code = as(owner, () -> members.invite(StudioRole.MEMBER).code());
@@ -74,18 +72,20 @@ class ScheduleModuleTests {
   void askingForCoverPublishesShiftOfferedToWhoeverCouldTakeIt(Scenario scenario) {
     Shift shift = heldByOwner();
 
-    as(owner, () -> {
-      scenario
-          .stimulate(() -> shiftChanges.offer(shift.id(), true, 1))
-          .andWaitForEventOfType(ShiftOffered.class)
-          .matching(offered -> offered.shiftId().equals(shift.id()))
-          .toArriveAndVerify(offered -> {
-            assertThat(offered.title()).isEqualTo("Front desk");
-            // Anyone could cover a shift with no duty, except whoever already has it
-            assertThat(offered.recipients()).containsExactly(member.accountId());
-          });
-      return null;
-    });
+    as(
+        owner,
+        () -> {
+          scenario
+              .stimulate(() -> shiftChanges.offer(shift.id(), true, 1))
+              .andWaitForEventOfType(ShiftOffered.class)
+              .matching(offered -> offered.shiftId().equals(shift.id()))
+              .toArriveAndVerify(offered -> {
+                assertThat(offered.title()).isEqualTo("Front desk");
+                // Anyone could cover a shift with no duty, except whoever already has it
+                assertThat(offered.recipients()).containsExactly(member.accountId());
+              });
+          return null;
+        });
   }
 
   @Test
@@ -93,15 +93,17 @@ class ScheduleModuleTests {
     Shift shift = heldByOwner();
     as(owner, () -> shiftChanges.offer(shift.id(), true, 1));
 
-    as(member, () -> {
-      scenario
-          .stimulate(() -> shiftChanges.assign(shift.id(), member.accountId(), 2))
-          .andWaitForEventOfType(ShiftCovered.class)
-          .matching(covered -> covered.shiftId().equals(shift.id()))
-          .toArriveAndVerify(covered ->
-              assertThat(covered.previousHolder()).isEqualTo(owner.accountId()));
-      return null;
-    });
+    as(
+        member,
+        () -> {
+          scenario
+              .stimulate(() -> shiftChanges.assign(shift.id(), member.accountId(), 2))
+              .andWaitForEventOfType(ShiftCovered.class)
+              .matching(covered -> covered.shiftId().equals(shift.id()))
+              .toArriveAndVerify(
+                  covered -> assertThat(covered.previousHolder()).isEqualTo(owner.accountId()));
+          return null;
+        });
   }
 
   /** A shift tomorrow, with no duty, that the owner has taken. */

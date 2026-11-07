@@ -9,8 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 /** Credited hours. */
 interface HoursCreditRepository extends JpaRepository<HoursCredit, UUID> {
 
-  @Query(
-      "select h from HoursCredit h where h.accountId = :accountId order by h.creditedAt desc")
+  @Query("select h from HoursCredit h where h.accountId = :accountId order by h.creditedAt desc")
   List<HoursCredit> findNewestFor(UUID accountId, Limit limit);
 
   /** Everything credited to someone, past any cap on the entries listed: one aggregate query. */

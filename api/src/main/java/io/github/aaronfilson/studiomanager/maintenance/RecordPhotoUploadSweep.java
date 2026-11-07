@@ -72,8 +72,8 @@ class RecordPhotoUploadSweep implements Sweep {
         TenantContext.callAs(
             TenantContext.system(SystemActor.PHOTO_CLEANUP),
             () ->
-                transactions.execute(tx ->
-                    queries.takeAbandonedPhotoUploads(now.minus(ABANDONED_AFTER))));
+                transactions.execute(
+                    tx -> queries.takeAbandonedPhotoUploads(now.minus(ABANDONED_AFTER))));
     if (taken == null || taken.isEmpty()) {
       return 0;
     }

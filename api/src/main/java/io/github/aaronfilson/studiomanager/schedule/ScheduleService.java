@@ -156,10 +156,7 @@ public class ScheduleService {
         Capped.fromFetched(credits, HOURS_ENTRIES_LIMIT)
             .map(credit -> credit.toView(names.get(credit.creditedBy())));
     return new HoursLedger(
-        accountId,
-        names.get(accountId),
-        Math.toIntExact(hours.totalMinutes(accountId)),
-        entries);
+        accountId, names.get(accountId), Math.toIntExact(hours.totalMinutes(accountId)), entries);
   }
 
   // ---- For the other services in this package

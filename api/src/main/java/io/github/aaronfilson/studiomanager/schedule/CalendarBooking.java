@@ -102,7 +102,11 @@ class CalendarBooking implements Persistable<UUID> {
 
   /** A kiln's firing, from when it started for {@code expectedLength}, trimmed when it ends. */
   static CalendarBooking ofFiring(
-      BookableResource kiln, UUID firingId, String title, Instant startedAt, Duration expectedLength) {
+      BookableResource kiln,
+      UUID firingId,
+      String title,
+      Instant startedAt,
+      Duration expectedLength) {
     return new CalendarBooking(
         kiln, BookingKind.FIRING, title, startedAt, startedAt.plus(expectedLength), null, firingId);
   }
@@ -144,6 +148,15 @@ class CalendarBooking implements Persistable<UUID> {
    */
   ScheduleModel.Booking toView(@Nullable String accountName, boolean mine) {
     return new ScheduleModel.Booking(
-        id, resource.id(), resource.name(), kind, title, startsAt, endsAt, accountId, accountName, mine);
+        id,
+        resource.id(),
+        resource.name(),
+        kind,
+        title,
+        startsAt,
+        endsAt,
+        accountId,
+        accountName,
+        mine);
   }
 }

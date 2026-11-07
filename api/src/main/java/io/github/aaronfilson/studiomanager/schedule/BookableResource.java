@@ -16,8 +16,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Something on the calendar that can be booked: a kiln, the wheel room with its seats, the whole
- * studio. The certification type belongs to the access module and the asset to maintenance, so
- * both are held by id, not mapped (ADR 21).
+ * studio. The certification type belongs to the access module and the asset to maintenance, so both
+ * are held by id, not mapped (ADR 21).
  */
 @Entity
 @Table(name = "resource")

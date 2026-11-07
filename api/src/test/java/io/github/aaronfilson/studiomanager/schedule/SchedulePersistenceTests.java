@@ -36,7 +36,8 @@ class SchedulePersistenceTests {
   @Autowired TransactionOperations transactions;
 
   private final TestUser owner = TestUser.named("Lou");
-  private final Instant tomorrow = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.HOURS);
+  private final Instant tomorrow =
+      Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.HOURS);
   private UUID studioId;
   private UUID ownerAccountId;
 
@@ -120,7 +121,8 @@ class SchedulePersistenceTests {
     TenantContext theirs = new TenantContext(accountId(stranger), theirStudio, StudioRole.OWNER);
 
     assertThat(TenantContext.callAs(theirs, this::readResourceIds)).doesNotContain(ours);
-    assertThat(TenantContext.callAs(TenantContext.forAccount(ownerAccountId), this::readResourceIds))
+    assertThat(
+            TenantContext.callAs(TenantContext.forAccount(ownerAccountId), this::readResourceIds))
         .isEmpty();
   }
 

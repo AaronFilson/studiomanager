@@ -30,9 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * What's maintained in the bound studio, and what's due: the reads other modules and the
- * controller use. Changes are in {@link AssetChanges}, {@link TaskChanges} and {@link
- * MaintenanceRecords}; reminders in {@link MaintenanceReminders}.
+ * What's maintained in the bound studio, and what's due: the reads other modules and the controller
+ * use. Changes are in {@link AssetChanges}, {@link TaskChanges} and {@link MaintenanceRecords};
+ * reminders in {@link MaintenanceReminders}.
  *
  * <p>Each task keeps its own clock, the time and the kiln's firing count when it was last done, so
  * completing one task never restarts another. Kilns are assets like any other, except that their
@@ -87,9 +87,7 @@ public class MaintenanceService {
     return tracked.stream()
         .map(asset ->
             assetView(
-                asset,
-                kilnOf(asset, kilnsById),
-                tasksByAsset.getOrDefault(asset.id(), List.of())))
+                asset, kilnOf(asset, kilnsById), tasksByAsset.getOrDefault(asset.id(), List.of())))
         .sorted(
             Comparator.comparing((Asset asset) -> asset.kind() != AssetKind.KILN)
                 .thenComparing(Asset::name, String.CASE_INSENSITIVE_ORDER))
@@ -156,8 +154,8 @@ public class MaintenanceService {
     UUID kilnId = asset.kilnId();
     KilnView.KilnType kilnType = kilnId == null ? null : kilns.get(kilnId).kind();
     return StarterTasks.forKind(asset.kind(), kilnType).stream()
-        .filter(suggestion ->
-            !existing.contains(suggestion.task().title().toLowerCase(Locale.ROOT)))
+        .filter(
+            suggestion -> !existing.contains(suggestion.task().title().toLowerCase(Locale.ROOT)))
         .toList();
   }
 
@@ -177,8 +175,7 @@ public class MaintenanceService {
   Task view(MaintenanceTask task) {
     MaintainedAsset asset = task.asset();
     UUID kilnId = asset.kilnId();
-    Map<UUID, KilnView> kiln =
-        kilnId == null ? Map.of() : Map.of(kilnId, kilns.get(kilnId));
+    Map<UUID, KilnView> kiln = kilnId == null ? Map.of() : Map.of(kilnId, kilns.get(kilnId));
     return taskViews(List.of(task), kiln, clock.instant()).getFirst();
   }
 
