@@ -29,5 +29,5 @@ output "mobile_env" {
 
 output "authority" {
   description = "VITE_ENTRA_AUTHORITY for the web app."
-  value       = "https://${var.external_tenant_subdomain}.ciamlogin.com/"
+  value       = "https://${var.external_tenant_subdomain}.ciamlogin.com/${var.external_tenant_id}/"
 }

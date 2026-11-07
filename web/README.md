@@ -23,7 +23,7 @@ Vite reads these at build time (`web/.env.local` locally, pipeline variables in 
 | Variable | Example | Notes |
 |---|---|---|
 | `VITE_ENTRA_CLIENT_ID` | `00000000-…` | The SPA app registration in the External ID tenant |
-| `VITE_ENTRA_AUTHORITY` | `https://<subdomain>.ciamlogin.com/` | The tenant's authority; its host becomes MSAL's `knownAuthorities` |
+| `VITE_ENTRA_AUTHORITY` | `https://<subdomain>.ciamlogin.com/<tenant-id>/` | The tenant's authority; its host becomes MSAL's `knownAuthorities`. The tenant id is required: the bare host serves no OpenID metadata |
 | `VITE_API_SCOPES` | `api://<api-client-id>/access_as_user` | Space-separated |
 | `VITE_API_BASE_URL` | `https://<app>.<env>.<region>.azurecontainerapps.io` | Empty locally (same origin, through the proxy) |
 
