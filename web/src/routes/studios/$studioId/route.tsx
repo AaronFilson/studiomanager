@@ -104,6 +104,11 @@ function StudioLayout() {
             Settings
           </Link>
         )}
+        {can('studio.roles.manage') && (
+          <Link to="/studios/$studioId/roles" params={{ studioId }}>
+            Roles
+          </Link>
+        )}
         {can('webhooks.manage') && (
           <Link to="/studios/$studioId/webhooks" params={{ studioId }}>
             Webhooks

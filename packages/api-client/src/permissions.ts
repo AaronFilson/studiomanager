@@ -23,6 +23,7 @@ export type PermissionKey =
   | 'schedule.manage'
   | 'studio.ai_key.manage'
   | 'studio.export'
+  | 'studio.roles.manage'
   | 'studio.settings.edit'
   | 'supplies.manage'
   | 'supplies.purchase.approve'

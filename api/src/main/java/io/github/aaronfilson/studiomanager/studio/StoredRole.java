@@ -65,6 +65,10 @@ class StoredRole {
     return key;
   }
 
+  String name() {
+    return name;
+  }
+
   void touch(Instant now) {
     updatedAt = now;
   }

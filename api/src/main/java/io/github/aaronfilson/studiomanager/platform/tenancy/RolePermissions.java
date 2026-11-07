@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -176,6 +177,29 @@ public class RolePermissions {
       throw new InvalidInputException("Some of those permissions are for owners only.");
     }
     return withoutFloor(wanted);
+  }
+
+  /** The roles in the order the owners' roles page lists them: OWNER first. */
+  public static List<StudioRole> listed() {
+    return List.of(StudioRole.OWNER, StudioRole.STAFF, StudioRole.MEMBER);
+  }
+
+  /** Whether owners may edit what {@code role} holds: every role but OWNER. */
+  public static boolean editable(StudioRole role) {
+    return role != StudioRole.OWNER;
+  }
+
+  /**
+   * What {@code role} holds, without anyone's duties, given its stored set: everything for an
+   * OWNER, the stored set as held for another role, or the code defaults when nothing is stored.
+   * Unlike {@link #ofRole} this ignores shadow mode and the cache, for showing owners what they
+   * set.
+   */
+  public static Set<Permission> held(StudioRole role, Optional<Set<Permission>> storedSet) {
+    if (!editable(role)) {
+      return Collections.unmodifiableSet(EnumSet.allOf(Permission.class));
+    }
+    return storedSet.map(RolePermissions::effective).orElse(Permission.defaultsFor(role));
   }
 
   /** {@code stored} as held: with the floor, which every role holds. */

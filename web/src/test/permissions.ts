@@ -25,7 +25,13 @@ const staffDefaults: PermissionKey[] = [
   'webhooks.manage',
 ];
 
-const ownerOnly: PermissionKey[] = ['owners.manage', 'studio.ai_key.manage', 'studio.export', 'supplies.purchase.approve'];
+const ownerOnly: PermissionKey[] = [
+  'owners.manage',
+  'studio.ai_key.manage',
+  'studio.export',
+  'studio.roles.manage',
+  'supplies.purchase.approve',
+];
 
 const roleNames: Record<StudioRole, string> = { OWNER: 'Owner', STAFF: 'Staff', MEMBER: 'Member' };
 

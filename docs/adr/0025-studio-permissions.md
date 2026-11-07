@@ -49,6 +49,36 @@ apps (R3), store per-studio role sets with a one-minute cache, an audit log and 
 cap tokens and MCP by permissions (R5), and open the owner's roles page, custom roles and
 co-owners (R6 to R8).
 
+## Editing roles (lane R6)
+
+Owners edit roles on the roles page, through `GET /roles`, `PUT /roles/{role}/permissions`,
+`POST /roles/{role}/reset` and `GET /roles/history`, all `studio.roles.manage`. The rules:
+
+- **Only owners edit, and only STAFF and MEMBER.** `studio.roles.manage` is owner-only, so no one
+  else can change any role, including their own. The OWNER role always holds everything and is
+  shown, not edited.
+- **Owner-only permissions are locked off** for every other role (decision 5). The API refuses
+  them with 400, and the database check on `studio_role_permission` refuses them too.
+- **The floor is locked on.** Every role always holds the self-service floor (`money.own.read`);
+  it isn't stored, and the page shows it checked and disabled.
+- **Everything else is editable,** including `DUTY_ONLY` permissions and `api_tokens.own` and
+  `mcp.use` (decision 8). Unknown keys are refused, not ignored, on the way in.
+- **A save names the whole set** and the role then holds exactly that (plus the floor). "Reset to
+  defaults" sets `Permission.defaultsFor(role)`. Both write one `role_change_log` row with the
+  sorted before and after, and publish `AccessChanged`, the Modulith event every access change
+  (role permissions, duties, member roles, billing contact) now publishes from `AccessChangeLog`.
+- **No version check.** The plan doesn't call for one: two owners saving at once is last write
+  wins, and both saves are in the log. Before saving, the page says how many people hold the role
+  and which permissions they lose.
+- **No per-person overrides** (decision 7); duty grants stay fixed in code.
+- **Changes apply at once on the instance that made them, everywhere within a minute** (the
+  cache), and the page says so.
+- **Words live with the API.** `PermissionCatalogue` gives every permission an area, a label and a
+  description, with a case per permission and no default, so a new permission doesn't compile
+  until it's described. Web and mobile read them from `GET /roles`.
+- **Tokens never reach it.** `TokenPolicy` lists `roles` as an admin area, and no scope allows
+  `studio.roles.manage`.
+
 ## Consequences
 
 - One readable list says what can be granted, and the owner-only list is explicit.

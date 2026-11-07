@@ -79,6 +79,8 @@ public final class TokenPolicy {
           Map.entry("payables", MONEY),
           Map.entry("my-consignment", MONEY),
           Map.entry("invites", ADMIN),
+          // What each role may do, and the access log: owners only, in the app (plan 21, R6)
+          Map.entry("roles", ADMIN),
           Map.entry("imports", ADMIN),
           Map.entry("webhooks", ADMIN),
           Map.entry("api-tokens", ADMIN),

@@ -57,4 +57,36 @@ class AccessChange {
     this.afterValue = afterValue;
     this.at = at;
   }
+
+  UUID id() {
+    return id;
+  }
+
+  UUID actorAccountId() {
+    return actorAccountId;
+  }
+
+  @Nullable UUID viaTokenId() {
+    return viaTokenId;
+  }
+
+  AccessChangeLog.Kind kind() {
+    return kind;
+  }
+
+  String target() {
+    return target;
+  }
+
+  String beforeValue() {
+    return beforeValue;
+  }
+
+  String afterValue() {
+    return afterValue;
+  }
+
+  Instant at() {
+    return at;
+  }
 }
