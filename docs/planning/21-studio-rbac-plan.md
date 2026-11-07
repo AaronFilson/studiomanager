@@ -625,6 +625,29 @@ clear result instead. Revisit if the SDK gains a per-request tool list.
   invite notice), the two-owner reminder test, and web `members.test.tsx`.
 - Not done: the mobile owner picker (the mobile app has no members screen yet).
 
+**R6 done (2026-11-07), branch `rbac-r6`.** No migration; no role changes until an owner edits it.
+- Endpoints (tag `roles`, all `x-permission: studio.roles.manage`): `GET /roles` (`listRoles`:
+  the catalogue grouped by area with labels, descriptions and a `lock` of `OWNER_ONLY` or `FLOOR`,
+  and each role's held keys, `editable` and `memberCount`), `PUT /roles/{role}/permissions`
+  (`setRolePermissions`), `POST /roles/{role}/reset` (`resetRolePermissions`, to
+  `Permission.defaultsFor`), and `GET /roles/history` (`listAccessChanges`, a capped list of 200,
+  newest first, with actor and member names, added and removed, and "via token"). OWNER,
+  owner-only and unknown keys are refused with 400. `TokenPolicy` lists `roles` as an admin area.
+- Words: `platform.tenancy.PermissionCatalogue` gives every permission an area, label and
+  description (one case per permission, no default), served by `GET /roles` so web and mobile
+  share them; `PermissionCatalogueTests` checks every permission has them, labels are unique and
+  every area is used.
+- Events: `AccessChangeLog.record` now publishes `studio.AccessChanged` (kind, target, actor, via
+  token, added, removed) for every access change, so the activity stream and webhooks can pick
+  it up. Nothing subscribes yet.
+- Web: a Roles page (`/studios/$studioId/roles`, nav link behind `can('studio.roles.manage')`):
+  the OWNER card (not editable), a form per editable role with a fieldset per area, locked
+  permissions disabled with their reason, "N people with this role lose: ..." before saving, Save
+  and "Reset to defaults", and the access history.
+- No optimistic version check: the plan doesn't call for one (last write wins; both are logged).
+- ADR 25 has an "Editing roles" section.
+- Tests: `RolesApiTests` (integration), `PermissionCatalogueTests`, web `roles.test.tsx`.
+
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
 queue.

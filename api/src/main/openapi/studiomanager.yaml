@@ -64,6 +64,10 @@ tags:
     description: Duties (technician, monitor, work exchange…) and certifications on equipment.
   - name: permissions
     description: What the caller may do in a studio, so the apps show only what they can use.
+  - name: roles
+    description: |
+      What each role may do in a studio, edited by its owners, and the log of every change to
+      who may do what. Owners only.
   - name: schedule
     description: The studio calendar, the staffing roster, and credited hours.
   - name: today
@@ -1939,6 +1943,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MyPermissions"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/roles:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [roles]
+      operationId: listRoles
+      x-permission: studio.roles.manage
+      summary: Every role and what it may do, with the permission catalogue (owners only)
+      description: |
+        The catalogue lists every permission once, grouped by area, with its label and
+        description and, when it can't be edited, why. Owner-only permissions are never held by
+        another role; the floor is always held by every role. The OWNER role holds everything and
+        isn't editable.
+      responses:
+        "200":
+          description: The roles and the catalogue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleCatalogue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/roles/{role}/permissions:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RoleName"
+    put:
+      tags: [roles]
+      operationId: setRolePermissions
+      x-permission: studio.roles.manage
+      summary: Choose what a role may do (owners only)
+      description: |
+        The role then holds exactly these permissions, plus the floor every role holds. Refused
+        for the OWNER role and for owner-only permissions. Unknown keys are refused. The change is
+        logged, and applies on this server at once and everywhere within a minute.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRolePermissionsRequest"
+      responses:
+        "200":
+          description: The role afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/roles/{role}/reset:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RoleName"
+    post:
+      tags: [roles]
+      operationId: resetRolePermissions
+      x-permission: studio.roles.manage
+      summary: Give a role its default permissions back (owners only)
+      description: The defaults are what the role could do before anyone edited it. Logged.
+      responses:
+        "200":
+          description: The role afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/roles/history:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [roles]
+      operationId: listAccessChanges
+      x-permission: studio.roles.manage
+      summary: Every change to who may do what, newest first (owners only)
+      description: |
+        Role permissions, members' duties and roles, and the billing contact, each with the
+        account that made it. Kept for the life of the studio; this lists the newest.
+      responses:
+        "200":
+          description: The newest changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessChangeList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -4608,6 +4717,12 @@ components:
       schema:
         type: string
         format: uuid
+    RoleName:
+      name: role
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/StudioRole"
     ShiftId:
       name: shiftId
       in: path
@@ -6133,6 +6248,141 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Duty"
+
+    RoleCatalogue:
+      type: object
+      required: [areas, roles]
+      properties:
+        areas:
+          type: array
+          description: Every permission, grouped by area, in the order to show them.
+          items:
+            $ref: "#/components/schemas/PermissionArea"
+        roles:
+          type: array
+          description: The studio's roles, OWNER first.
+          items:
+            $ref: "#/components/schemas/Role"
+
+    PermissionArea:
+      type: object
+      required: [area, label, permissions]
+      properties:
+        area:
+          type: string
+          description: A stable name for the group, such as `MONEY`.
+        label:
+          type: string
+          description: The group's heading, such as `Money`.
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionInfo"
+
+    PermissionInfo:
+      type: object
+      required: [key, label, description]
+      properties:
+        key:
+          type: string
+          description: The permission's key, such as `pieces.move`.
+        label:
+          type: string
+          description: A short name, such as `Move pieces`.
+        description:
+          type: string
+          description: One sentence on what it allows.
+        lock:
+          $ref: "#/components/schemas/PermissionLock"
+
+    PermissionLock:
+      type: string
+      description: |
+        Why a permission can't be edited on any role but OWNER. Absent when owners may edit it.
+        - `OWNER_ONLY`: only owners ever hold it.
+        - `FLOOR`: every role always holds it; it covers the person's own things.
+      enum: [OWNER_ONLY, FLOOR]
+
+    Role:
+      type: object
+      required: [role, name, permissions, editable, memberCount]
+      properties:
+        role:
+          $ref: "#/components/schemas/StudioRole"
+        name:
+          type: string
+          description: The role's name in this studio, such as `Staff`.
+        permissions:
+          type: array
+          description: Permission keys the role holds, sorted. Duties may add more for a person.
+          items:
+            type: string
+        editable:
+          type: boolean
+          description: False for OWNER, which always holds every permission.
+        memberCount:
+          type: integer
+          format: int32
+          description: How many members hold the role.
+
+    SetRolePermissionsRequest:
+      type: object
+      required: [permissions]
+      properties:
+        permissions:
+          type: array
+          description: The permission keys the role should hold. The floor is added anyway.
+          maxItems: 200
+          items:
+            type: string
+            maxLength: 100
+
+    AccessChangeKind:
+      type: string
+      description: |
+        What changed.
+        - `ROLE_PERMISSIONS`: a role's permissions; the target is the role's key, such as `staff`.
+        - `MEMBER_DUTIES`: a member's duties; the target is their account.
+        - `MEMBER_ROLE`: a member's role; the target is their account.
+        - `BILLING_CONTACT`: the studio's billing contact; added and removed are accounts.
+      enum: [ROLE_PERMISSIONS, MEMBER_DUTIES, MEMBER_ROLE, BILLING_CONTACT]
+
+    AccessChange:
+      type: object
+      required: [id, at, actorAccountId, viaToken, kind, target, added, removed]
+      properties:
+        id:
+          type: string
+          format: uuid
+        at:
+          type: string
+          format: date-time
+        actorAccountId:
+          type: string
+          format: uuid
+        actorName:
+          type: string
+          description: The acting person's name, when they are still a member.
+        viaToken:
+          type: boolean
+          description: Made with an API token rather than in the app.
+        kind:
+          $ref: "#/components/schemas/AccessChangeKind"
+        target:
+          type: string
+        targetName:
+          type: string
+          description: For a member's duties or role, the member's name, when they are still a member.
+        added:
+          type: array
+          description: Permission keys, duties, roles or accounts the change added.
+          items:
+            type: string
+        removed:
+          type: array
+          description: What the change took away.
+          items:
+            type: string
 
     MemberDuties:
       type: object
@@ -8580,6 +8830,21 @@ components:
 
     # Capped lists. Each list below is cut at `limit` rows; `truncated` says whether anything
     # was cut. Clients say so when it is set, and point at a filter or the studio export.
+
+    AccessChangeList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessChange"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
 
     PieceList:
       type: object

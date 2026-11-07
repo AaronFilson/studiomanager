@@ -21,6 +21,8 @@ interface StudioMembershipRepository extends JpaRepository<StudioMembership, UUI
 
   int countByStudioId(UUID studioId);
 
+  int countByStudioIdAndRole(UUID studioId, StudioRole role);
+
   Optional<StudioMembership> findByStudioIdAndAccountId(UUID studioId, UUID accountId);
 
   /**

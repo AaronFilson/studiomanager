@@ -1,0 +1,159 @@
+import type { AccessChange, RoleCatalogue, SetRolePermissionsRequest } from '@studiomanager/api-client';
+import { screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it } from 'vitest';
+
+import { aStudio, renderApp } from './renderApp';
+import { API, capped, server } from './server';
+
+const studio = aStudio();
+
+const catalogue: RoleCatalogue = {
+  areas: [
+    {
+      area: 'MEMBERS',
+      label: 'Members',
+      permissions: [{ key: 'members.read', label: 'See members', description: 'See everyone in the studio.' }],
+    },
+    {
+      area: 'MONEY',
+      label: 'Money',
+      permissions: [
+        { key: 'money.own.read', label: 'See own balance', description: 'See their own balance.', lock: 'FLOOR' },
+        { key: 'money.refund_and_adjust', label: 'Refund and adjust', description: 'Refund payments.' },
+      ],
+    },
+    {
+      area: 'OWNERS',
+      label: 'Owners',
+      permissions: [{ key: 'owners.manage', label: 'Manage owners', description: 'Add co-owners.', lock: 'OWNER_ONLY' }],
+    },
+  ],
+  roles: [
+    {
+      role: 'OWNER',
+      name: 'Owner',
+      permissions: ['members.read', 'money.own.read', 'money.refund_and_adjust', 'owners.manage'],
+      editable: false,
+      memberCount: 1,
+    },
+    {
+      role: 'STAFF',
+      name: 'Staff',
+      permissions: ['members.read', 'money.own.read', 'money.refund_and_adjust'],
+      editable: true,
+      memberCount: 3,
+    },
+    { role: 'MEMBER', name: 'Member', permissions: ['money.own.read'], editable: true, memberCount: 12 },
+  ],
+};
+
+const history: AccessChange[] = [
+  {
+    id: 'c1',
+    at: '2026-11-07T12:00:00Z',
+    actorAccountId: 'a1',
+    actorName: 'Mara',
+    viaToken: false,
+    kind: 'ROLE_PERMISSIONS',
+    target: 'staff',
+    added: [],
+    removed: ['money.refund_and_adjust'],
+  },
+  {
+    id: 'c2',
+    at: '2026-11-06T12:00:00Z',
+    actorAccountId: 'a1',
+    actorName: 'Mara',
+    viaToken: false,
+    kind: 'MEMBER_DUTIES',
+    target: 'a2',
+    targetName: 'Jo',
+    added: ['MONITOR'],
+    removed: [],
+  },
+];
+
+function serveRoles(calls: string[]) {
+  server.use(
+    http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+    http.get(`${API}/api/v1/studios/:studioId/roles`, () => HttpResponse.json(catalogue)),
+    http.get(`${API}/api/v1/studios/:studioId/roles/history`, () => HttpResponse.json(capped(history, false, 200))),
+    http.put(`${API}/api/v1/studios/:studioId/roles/:role/permissions`, async ({ params, request }) => {
+      const body = (await request.json()) as SetRolePermissionsRequest;
+      calls.push(`set ${String(params.role)} ${body.permissions.join(',')}`);
+      return HttpResponse.json({ ...catalogue.roles[1], permissions: body.permissions });
+    }),
+    http.post(`${API}/api/v1/studios/:studioId/roles/:role/reset`, ({ params }) => {
+      calls.push(`reset ${String(params.role)}`);
+      return HttpResponse.json(catalogue.roles[1]);
+    }),
+  );
+}
+
+describe('roles', () => {
+  it('shows each role grouped by area, with locked permissions disabled and why', async () => {
+    serveRoles([]);
+
+    renderApp(`/studios/${studio.id}/roles`);
+
+    const staff = await screen.findByRole('form', { name: 'Staff' });
+    expect(within(staff).getByRole('checkbox', { name: /See members/ })).toBeChecked();
+    expect(within(staff).getByRole('checkbox', { name: /See own balance/ })).toBeDisabled();
+    expect(within(staff).getByRole('checkbox', { name: /See own balance/ })).toBeChecked();
+    const owners = within(staff).getByRole('checkbox', { name: /Manage owners/ });
+    expect(owners).toBeDisabled();
+    expect(owners).not.toBeChecked();
+    expect(within(staff).getByText(/Owners only/)).toBeInTheDocument();
+    expect(within(staff).getByRole('group', { name: 'Money' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Owner' })).toHaveTextContent("can't be changed");
+    expect(screen.queryByRole('form', { name: 'Owner' })).not.toBeInTheDocument();
+  });
+
+  it('warns who loses what before saving, then saves the new set', async () => {
+    const calls: string[] = [];
+    serveRoles(calls);
+
+    const { user } = renderApp(`/studios/${studio.id}/roles`);
+    const staff = await screen.findByRole('form', { name: 'Staff' });
+    expect(within(staff).getByRole('button', { name: 'Save Staff' })).toBeDisabled();
+    await user.click(within(staff).getByRole('checkbox', { name: /Refund and adjust/ }));
+
+    expect(within(staff).getByRole('status')).toHaveTextContent('3 people with this role lose: Refund and adjust.');
+    await user.click(within(staff).getByRole('button', { name: 'Save Staff' }));
+
+    await expect.poll(() => calls).toEqual(['set STAFF members.read,money.own.read']);
+  });
+
+  it('resets a role to its defaults', async () => {
+    const calls: string[] = [];
+    serveRoles(calls);
+
+    const { user } = renderApp(`/studios/${studio.id}/roles`);
+    const member = await screen.findByRole('form', { name: 'Member' });
+    await user.click(within(member).getByRole('button', { name: 'Reset Member to defaults' }));
+
+    await expect.poll(() => calls).toEqual(['reset MEMBER']);
+  });
+
+  it('lists the access history with labels and names', async () => {
+    serveRoles([]);
+
+    renderApp(`/studios/${studio.id}/roles`);
+
+    const log = await screen.findByRole('region', { name: 'Access history' });
+    expect(await within(log).findByText(/Mara changed Staff: took away Refund and adjust/)).toBeInTheDocument();
+    expect(within(log).getByText(/Mara changed Jo's duties: added/)).toBeInTheDocument();
+  });
+
+  it('offers the page and its link only to owners', async () => {
+    serveRoles([]);
+    server.use(http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(aStudio({ myRole: 'STAFF' }))));
+
+    renderApp(`/studios/${studio.id}/roles`);
+
+    expect(await screen.findByText(/Only the studio's owners/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Roles' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Staff' })).not.toBeInTheDocument();
+  });
+});
