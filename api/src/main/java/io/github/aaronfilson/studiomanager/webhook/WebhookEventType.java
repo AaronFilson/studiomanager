@@ -12,6 +12,9 @@ public enum WebhookEventType {
       "fee.charged",
       "Something was charged to a member's balance: a firing fee when a piece is taken in, or supplies sold."),
   MEMBER_JOINED("member.joined", "Someone accepted an invite and joined the studio."),
+  ACCESS_CHANGED(
+      "access.changed",
+      "Someone changed who may do what: a role's permissions, a member's role or duties, the owners, or the billing contact."),
   PING("ping", "A test, sent from the Webhooks page.");
 
   private final String wireName;

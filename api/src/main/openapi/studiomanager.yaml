@@ -8023,7 +8023,7 @@ components:
 
     WebhookEventType:
       type: string
-      enum: [pieces.ready, fee.charged, member.joined, ping]
+      enum: [pieces.ready, fee.charged, member.joined, access.changed, ping]
 
     WeeklyActivity:
       type: object

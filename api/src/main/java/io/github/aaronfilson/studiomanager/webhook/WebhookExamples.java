@@ -66,6 +66,15 @@ final class WebhookExamples {
         data.put("member", member);
         data.put("joined_at", "2026-11-04T18:04:00Z");
       }
+      case ACCESS_CHANGED -> {
+        data.put("kind", "role_permissions");
+        data.put("target", "staff");
+        data.put("added", List.of("money.refund_and_adjust"));
+        data.put("removed", List.of());
+        data.put("changed_by", member);
+        data.put("via_token", false);
+        data.put("changed_at", "2026-11-04T18:04:00Z");
+      }
       case PING ->
           data.put(
               "message", "A test from " + studioName + ". If you can see this, the webhook works.");
