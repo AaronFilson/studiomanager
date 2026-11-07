@@ -73,8 +73,8 @@ class MaintenanceReminders {
     Map<UUID, Set<Duty>> duties = access.allDuties();
     List<UUID> staff =
         members.list().stream()
-            .filter(
-                member -> rolePermissions.roleHolds(member.role(), Permission.MAINTENANCE_MANAGE))
+            .filter(member ->
+                rolePermissions.memberHolds(member.memberRole(), Permission.MAINTENANCE_MANAGE))
             .map(MemberView::accountId)
             .toList();
     // Nothing here is changed through Hibernate, but the claim is SQL: flush by the rule (ADR 21)

@@ -171,7 +171,8 @@ public class ProblemReportService {
     Stream<UUID> staff =
         members.list().stream()
             .filter(member ->
-                rolePermissions.roleHolds(member.role(), Permission.MAINTENANCE_REPORTS_RESOLVE))
+                rolePermissions.memberHolds(
+                    member.memberRole(), Permission.MAINTENANCE_REPORTS_RESOLVE))
             .map(MemberView::accountId);
     Stream<UUID> technicians =
         access.allDuties().entrySet().stream()

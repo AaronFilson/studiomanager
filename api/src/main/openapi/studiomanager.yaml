@@ -534,6 +534,39 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/members/{accountId}/role:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/AccountId"
+    put:
+      tags: [members]
+      operationId: setMemberRole
+      x-permission: members.role.assign
+      summary: Give a member a built-in or custom role (staff only)
+      description: |
+        Nobody can give a role that holds more than they do, or move someone who holds more than
+        they do. Owners are made and unmade with the owner endpoints, so neither the member nor
+        the role may be OWNER here. Logged; applies on the member's next request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetMemberRoleRequest"
+      responses:
+        "204":
+          description: They hold the role.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/members/billing-contact:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -2052,6 +2085,123 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/roles/assignable:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [roles]
+      operationId: listAssignableRoles
+      x-permission: members.invite
+      summary: The roles the caller may invite someone as, or give a member (staff only)
+      description: |
+        Built-in and custom roles whose permissions are all the caller's own: nobody can give a
+        role that holds more than they do. Owners see every role, OWNER included.
+      responses:
+        "200":
+          description: The roles, built-in first, then custom roles by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/roles/custom:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [roles]
+      operationId: createCustomRole
+      x-permission: studio.roles.manage
+      summary: Make a custom role, such as "Kiln tech" (owners only)
+      description: |
+        A custom role has a name, a base of STAFF or MEMBER (never OWNER) and its own
+        permissions. The base is what the rest of the system treats its members as; what they
+        may do is the role's own set, plus the floor and their duties. Owner-only permissions
+        are refused. Logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomRoleRequest"
+      responses:
+        "201":
+          description: The new role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/roles/custom/{roleId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/RoleId"
+    put:
+      tags: [roles]
+      operationId: updateCustomRole
+      x-permission: studio.roles.manage
+      summary: Rename a custom role and choose what it may do (owners only)
+      description: |
+        Its base can't change; make another role instead. Owner-only permissions are refused.
+        Logged, and applies on this server at once and everywhere within a minute.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomRoleRequest"
+      responses:
+        "200":
+          description: The role afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [roles]
+      operationId: deleteCustomRole
+      x-permission: studio.roles.manage
+      summary: Delete a custom role nobody holds (owners only)
+      description: |
+        Refused while any member holds the role: give them another role first, so nobody's access
+        changes as a side effect. Open invites into the role are withdrawn. Logged.
+      responses:
+        "204":
+          description: Deleted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /api/v1/studios/{studioId}/duties:
     parameters:
@@ -4723,6 +4873,13 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/StudioRole"
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ShiftId:
       name: shiftId
       in: path
@@ -5158,7 +5315,7 @@ components:
 
     Member:
       type: object
-      required: [accountId, role, joinedAt]
+      required: [accountId, role, roleId, roleName, joinedAt]
       properties:
         accountId:
           type: string
@@ -5167,6 +5324,13 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/StudioRole"
+        roleId:
+          type: string
+          format: uuid
+          description: The role they hold, built-in or custom. `role` is its base.
+        roleName:
+          type: string
+          description: That role's name in the studio, such as `Staff` or `Kiln tech`.
         joinedAt:
           type: string
           format: date-time
@@ -5192,16 +5356,29 @@ components:
           format: uuid
           description: An owner of the studio.
 
+    SetMemberRoleRequest:
+      type: object
+      required: [roleId]
+      properties:
+        roleId:
+          type: string
+          format: uuid
+          description: A built-in STAFF or MEMBER role, or a custom role.
+
     CreateInviteRequest:
       type: object
       required: [role]
       properties:
         role:
           $ref: "#/components/schemas/StudioRole"
+        roleId:
+          type: string
+          format: uuid
+          description: A custom role to invite them as. `role` must then be its base.
 
     Invite:
       type: object
-      required: [id, code, role, expiresAt]
+      required: [id, code, role, roleId, roleName, expiresAt]
       properties:
         id:
           type: string
@@ -5211,6 +5388,13 @@ components:
           description: Share this with the invitee. It is shown only once.
         role:
           $ref: "#/components/schemas/StudioRole"
+        roleId:
+          type: string
+          format: uuid
+          description: The role they join in, built-in or custom.
+        roleName:
+          type: string
+          description: That role's name, such as `Kiln tech`.
         expiresAt:
           type: string
           format: date-time
@@ -5227,6 +5411,13 @@ components:
           description: Who it was emailed to. Absent for a link invite.
         role:
           $ref: "#/components/schemas/StudioRole"
+        roleId:
+          type: string
+          format: uuid
+          description: The role they join in. Absent on invites made before custom roles.
+        roleName:
+          type: string
+          description: That role's name, such as `Kiln tech`. Absent when `roleId` is.
         createdAt:
           type: string
           format: date-time
@@ -5251,6 +5442,10 @@ components:
           description: Email addresses, separated by commas, semicolons, spaces or new lines.
         role:
           $ref: "#/components/schemas/StudioRole"
+        roleId:
+          type: string
+          format: uuid
+          description: A custom role to invite them as. `role` must then be its base.
 
     EmailInvitesResult:
       type: object
@@ -6305,13 +6500,26 @@ components:
 
     Role:
       type: object
-      required: [role, name, permissions, editable, memberCount]
+      required: [id, key, role, name, permissions, editable, custom, memberCount]
       properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          description: |
+            A stable name: `owner`, `staff` or `member` for the built-in roles, a slug of the name
+            (such as `kiln_tech`) for a custom role. The access log names roles by it.
         role:
           $ref: "#/components/schemas/StudioRole"
         name:
           type: string
-          description: The role's name in this studio, such as `Staff`.
+          description: The role's name in this studio, such as `Staff` or `Kiln tech`.
+        custom:
+          type: boolean
+          description: |
+            True for a role the owners made. `role` is then its base, what the rest of the system
+            treats its members as; it may be renamed and deleted.
         permissions:
           type: array
           description: Permission keys the role holds, sorted. Duties may add more for a person.
@@ -6337,15 +6545,52 @@ components:
             type: string
             maxLength: 100
 
+    CreateCustomRoleRequest:
+      type: object
+      required: [name, base, permissions]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: Unique in the studio, ignoring case. No commas.
+        base:
+          $ref: "#/components/schemas/StudioRole"
+        permissions:
+          type: array
+          description: The permission keys the role should hold. The floor is added anyway.
+          maxItems: 200
+          items:
+            type: string
+            maxLength: 100
+
+    UpdateCustomRoleRequest:
+      type: object
+      required: [name, permissions]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        permissions:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+            maxLength: 100
+
     AccessChangeKind:
       type: string
       description: |
         What changed.
         - `ROLE_PERMISSIONS`: a role's permissions; the target is the role's key, such as `staff`.
         - `MEMBER_DUTIES`: a member's duties; the target is their account.
-        - `MEMBER_ROLE`: a member's role; the target is their account.
+        - `MEMBER_ROLE`: a member's role; the target is their account. Built-in roles are named
+          `OWNER`, `STAFF` or `MEMBER`, custom roles by key.
         - `BILLING_CONTACT`: the studio's billing contact; added and removed are accounts.
-      enum: [ROLE_PERMISSIONS, MEMBER_DUTIES, MEMBER_ROLE, BILLING_CONTACT]
+        - `ROLE_CREATED`, `ROLE_RENAMED`, `ROLE_DELETED`: a custom role; the target is its key,
+          added and removed are its names.
+      enum: [ROLE_PERMISSIONS, MEMBER_DUTIES, MEMBER_ROLE, BILLING_CONTACT, ROLE_CREATED, ROLE_RENAMED, ROLE_DELETED]
 
     AccessChange:
       type: object

@@ -106,8 +106,10 @@ public class TenantContextFilter extends OncePerRequestFilter {
    * read its roles and duties.
    */
   private TenantContext inStudio(TenantContext caller, UUID studioId) {
-    TenantContext member = caller.inStudio(studioId, roleIn(studioId, caller));
-    return TenantContext.callAs(member, () -> rolePermissions.resolve(member));
+    MemberRole role = roleIn(studioId, caller);
+    // Bound at the role's base; a custom role's own set is what they hold
+    TenantContext member = caller.inStudio(studioId, role.base());
+    return TenantContext.callAs(member, () -> rolePermissions.resolve(member, role));
   }
 
   private static String areaOf(HttpServletRequest request) {
@@ -117,7 +119,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
     return match == null ? "" : match.getUriVariables().getOrDefault("area", "");
   }
 
-  private StudioRole roleIn(UUID studioId, TenantContext caller) {
+  private MemberRole roleIn(UUID studioId, TenantContext caller) {
     return TenantContext.callAs(caller, () -> memberships.roleOf(caller.accountId(), studioId))
         .orElseThrow(() -> new AccessDeniedException("You are not a member of this studio."));
   }

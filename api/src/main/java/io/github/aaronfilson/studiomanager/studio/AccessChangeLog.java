@@ -40,7 +40,13 @@ public class AccessChangeLog {
      */
     MEMBER_ROLE,
     /** The studio's billing contact; the target is "studio", the values account ids. */
-    BILLING_CONTACT
+    BILLING_CONTACT,
+    /** A custom role was made; the target is its key, the value its name. */
+    ROLE_CREATED,
+    /** A custom role was renamed; the target is its key, the values its names. */
+    ROLE_RENAMED,
+    /** A custom role was deleted; the target is its key, the value its name. */
+    ROLE_DELETED
   }
 
   /**

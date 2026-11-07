@@ -34,6 +34,9 @@ class StudioInvite {
   @Enumerated(EnumType.STRING)
   private StudioRole role;
 
+  /** The role row the invitee joins in; null on invites made before custom roles (lane R7). */
+  private @Nullable UUID roleId;
+
   private UUID createdBy;
 
   private Instant createdAt;
@@ -52,10 +55,11 @@ class StudioInvite {
   protected StudioInvite() {}
 
   /** A new invite, open for {@link #LIFETIME} from {@code now}; {@code email} null for a link. */
-  StudioInvite(String code, StudioRole role, UUID createdBy, @Nullable String email, Instant now) {
+  StudioInvite(String code, StoredRole role, UUID createdBy, @Nullable String email, Instant now) {
     this.id = Uuids.v7();
     this.codeHash = InviteCodes.sha256(code);
-    this.role = role;
+    this.role = role.base();
+    this.roleId = role.id();
     this.createdBy = createdBy;
     this.createdAt = now;
     this.expiresAt = now.plus(LIFETIME);
@@ -68,6 +72,10 @@ class StudioInvite {
 
   StudioRole role() {
     return role;
+  }
+
+  @Nullable UUID roleId() {
+    return roleId;
   }
 
   @Nullable String email() {
@@ -88,6 +96,6 @@ class StudioInvite {
   }
 
   OpenInviteView toOpenView() {
-    return new OpenInviteView(id, email, role, createdAt, expiresAt, lastSentAt);
+    return new OpenInviteView(id, email, role, roleId, createdAt, expiresAt, lastSentAt);
   }
 }

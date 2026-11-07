@@ -6,6 +6,7 @@ import io.github.aaronfilson.studiomanager.contract.PermissionsApi;
 import io.github.aaronfilson.studiomanager.contract.StudioRoleDto;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -21,20 +22,25 @@ import org.springframework.web.bind.annotation.RestController;
 class MyPermissionsController implements PermissionsApi {
 
   private final AccessService access;
+  private final StudioMembers members;
 
-  MyPermissionsController(AccessService access) {
+  MyPermissionsController(AccessService access, StudioMembers members) {
     this.access = access;
+    this.members = members;
   }
 
   @Override
   @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_READ')")
   public ResponseEntity<MyPermissionsDto> getMyPermissions(UUID studioId) {
     TenantContext context = TenantContext.require();
+    if (!studioId.equals(context.studioId())) {
+      throw new IllegalStateException("The request is not bound to studio " + studioId);
+    }
     String roleKey = Objects.requireNonNull(context.role(), "role").name();
     return ResponseEntity.ok(
         new MyPermissionsDto()
             .role(StudioRoleDto.valueOf(roleKey))
-            .roleName(displayName(roleKey))
+            .roleName(members.roleNameOf(context.accountId()).orElseGet(() -> displayName(roleKey)))
             .permissions(context.permissions().stream().map(Permission::key).sorted().toList())
             .duties(
                 access.dutiesOf(context.accountId()).stream()
@@ -42,7 +48,7 @@ class MyPermissionsController implements PermissionsApi {
                     .toList()));
   }
 
-  /** {@code STAFF} as {@code Staff}, until R6 lets owners name roles. */
+  /** {@code STAFF} as {@code Staff}, when the role's row can't be read. */
   private static String displayName(String roleKey) {
     return roleKey.charAt(0) + roleKey.substring(1).toLowerCase(Locale.ROOT);
   }
