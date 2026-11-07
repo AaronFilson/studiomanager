@@ -80,7 +80,7 @@ class AiKeyApiTests {
             owner,
             "PUT",
             path("/ai-key"),
-            "{\"provider\": \"ANTHROPIC\", \"apiKey\": \"%s\", \"allowGoogleFallback\": true}"
+            "{\"provider\": \"ANTHROPIC\", \"apiKey\": \"%s\", \"allowPlatformReaders\": true}"
                 .formatted(KEY));
     assertThat(saved).hasStatusOk();
     assertThat(saved).bodyText().doesNotContain(KEY);

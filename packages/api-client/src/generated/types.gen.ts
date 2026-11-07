@@ -1744,15 +1744,134 @@ export type AiKeyStatus = {
     reason?: string;
     checkedAt?: string;
     /**
-     * Whether an invoice the key can't read may be read by Google Document AI instead.
+     * Whether the studio consents to invoices being read by the platform's own readers
+     * (Google Document AI, Azure AI Document Intelligence) when the admin turns them on.
+     *
      */
-    allowGoogleFallback: boolean;
+    allowPlatformReaders: boolean;
     setAt: string;
 };
 
 export type SetAiKeyRequest = {
     provider: AiProvider;
-    allowGoogleFallback?: boolean;
+    allowPlatformReaders?: boolean;
+};
+
+export type InvoiceFileType = 'PDF' | 'JPEG' | 'PNG';
+
+/**
+ * `UPLOADING` until the file is checked; `READING` while a reader has it; `READY` when the
+ * numbers add up; `NEEDS_LOOK` when they don't, or nobody could read it; `CONFIRMED` once
+ * its stock is received.
+ *
+ */
+export type InvoiceStatus = 'UPLOADING' | 'READING' | 'READY' | 'NEEDS_LOOK' | 'CONFIRMED';
+
+export type InvoiceReader = 'CLAUDE' | 'GOOGLE_DOCUMENT_AI' | 'AZURE_DOCUMENT_INTELLIGENCE';
+
+/**
+ * How the line's supply item was found: an alias from this vendor's earlier invoices, by SKU
+ * or by description; by the item's name; or picked by staff.
+ *
+ */
+export type InvoiceMatchSource = 'ALIAS_SKU' | 'ALIAS_DESCRIPTION' | 'NAME' | 'STAFF';
+
+/**
+ * A decimal, as a string so no precision is lost. Negative for a discount or credit.
+ */
+export type InvoiceAmount = string;
+
+export type StartInvoiceUploadRequest = {
+    fileType: InvoiceFileType;
+};
+
+export type InvoiceUpload = {
+    invoiceId: string;
+    uploadUrl: string;
+    expiresAt: string;
+    maxBytes: number;
+};
+
+export type InvoiceLine = {
+    description: string;
+    sku?: string;
+    quantity?: InvoiceAmount;
+    unit?: string;
+    unitPrice?: InvoiceAmount;
+    lineTotal?: InvoiceAmount;
+    /**
+     * The supply item this line is received into; none for a line that isn't stock.
+     */
+    supplyItemId?: string;
+    readonly matchSource?: InvoiceMatchSource;
+};
+
+export type Invoice = {
+    id: string;
+    status: InvoiceStatus;
+    fileType: InvoiceFileType;
+    /**
+     * A short-lived link to the file, to show next to the draft.
+     */
+    fileUrl?: string;
+    reader?: InvoiceReader;
+    /**
+     * Why it wasn't read, or what was left out of what was read.
+     */
+    readNote?: string;
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    subtotal?: InvoiceAmount;
+    shipping?: InvoiceAmount;
+    tax?: InvoiceAmount;
+    total?: InvoiceAmount;
+    lines: Array<InvoiceLine>;
+    /**
+     * What doesn't add up. Empty when everything does.
+     */
+    problems: Array<string>;
+    uploadedBy: string;
+    uploadedAt: string;
+    confirmedBy?: string;
+    confirmedAt?: string;
+    version: number;
+};
+
+export type InvoiceSummary = {
+    id: string;
+    status: InvoiceStatus;
+    fileType: InvoiceFileType;
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    total?: InvoiceAmount;
+    uploadedAt: string;
+};
+
+export type InvoiceList = {
+    items: Array<InvoiceSummary>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type SaveInvoiceDraftRequest = {
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    subtotal?: InvoiceAmount;
+    shipping?: InvoiceAmount;
+    tax?: InvoiceAmount;
+    total?: InvoiceAmount;
+    lines: Array<InvoiceLine>;
+    expectedVersion: number;
+};
+
+export type ConfirmInvoiceRequest = {
+    expectedVersion: number;
 };
 
 /**
@@ -1979,7 +2098,64 @@ export type WebhookDeliveryList = {
 export type SetAiKeyRequestWritable = {
     provider: AiProvider;
     apiKey: string;
-    allowGoogleFallback?: boolean;
+    allowPlatformReaders?: boolean;
+};
+
+export type InvoiceLineWritable = {
+    description: string;
+    sku?: string;
+    quantity?: InvoiceAmount;
+    unit?: string;
+    unitPrice?: InvoiceAmount;
+    lineTotal?: InvoiceAmount;
+    /**
+     * The supply item this line is received into; none for a line that isn't stock.
+     */
+    supplyItemId?: string;
+};
+
+export type InvoiceWritable = {
+    id: string;
+    status: InvoiceStatus;
+    fileType: InvoiceFileType;
+    /**
+     * A short-lived link to the file, to show next to the draft.
+     */
+    fileUrl?: string;
+    reader?: InvoiceReader;
+    /**
+     * Why it wasn't read, or what was left out of what was read.
+     */
+    readNote?: string;
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    subtotal?: InvoiceAmount;
+    shipping?: InvoiceAmount;
+    tax?: InvoiceAmount;
+    total?: InvoiceAmount;
+    lines: Array<InvoiceLineWritable>;
+    /**
+     * What doesn't add up. Empty when everything does.
+     */
+    problems: Array<string>;
+    uploadedBy: string;
+    uploadedAt: string;
+    confirmedBy?: string;
+    confirmedAt?: string;
+    version: number;
+};
+
+export type SaveInvoiceDraftRequestWritable = {
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    subtotal?: InvoiceAmount;
+    shipping?: InvoiceAmount;
+    tax?: InvoiceAmount;
+    total?: InvoiceAmount;
+    lines: Array<InvoiceLineWritable>;
+    expectedVersion: number;
 };
 
 /**
@@ -7826,3 +8002,294 @@ export type TestAiKeyResponses = {
 };
 
 export type TestAiKeyResponse = TestAiKeyResponses[keyof TestAiKeyResponses];
+
+export type ListInvoicesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices';
+};
+
+export type ListInvoicesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListInvoicesError = ListInvoicesErrors[keyof ListInvoicesErrors];
+
+export type ListInvoicesResponses = {
+    /**
+     * Invoices, without their lines.
+     */
+    200: InvoiceList;
+};
+
+export type ListInvoicesResponse = ListInvoicesResponses[keyof ListInvoicesResponses];
+
+export type StartInvoiceUploadData = {
+    body: StartInvoiceUploadRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices';
+};
+
+export type StartInvoiceUploadErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type StartInvoiceUploadError = StartInvoiceUploadErrors[keyof StartInvoiceUploadErrors];
+
+export type StartInvoiceUploadResponses = {
+    /**
+     * Where to upload the file.
+     */
+    201: InvoiceUpload;
+};
+
+export type StartInvoiceUploadResponse = StartInvoiceUploadResponses[keyof StartInvoiceUploadResponses];
+
+export type DiscardInvoiceData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}';
+};
+
+export type DiscardInvoiceErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type DiscardInvoiceError = DiscardInvoiceErrors[keyof DiscardInvoiceErrors];
+
+export type DiscardInvoiceResponses = {
+    /**
+     * Gone.
+     */
+    204: void;
+};
+
+export type DiscardInvoiceResponse = DiscardInvoiceResponses[keyof DiscardInvoiceResponses];
+
+export type GetInvoiceData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}';
+};
+
+export type GetInvoiceErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type GetInvoiceError = GetInvoiceErrors[keyof GetInvoiceErrors];
+
+export type GetInvoiceResponses = {
+    /**
+     * The invoice.
+     */
+    200: Invoice;
+};
+
+export type GetInvoiceResponse = GetInvoiceResponses[keyof GetInvoiceResponses];
+
+export type SaveInvoiceDraftData = {
+    body: SaveInvoiceDraftRequestWritable;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}';
+};
+
+export type SaveInvoiceDraftErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type SaveInvoiceDraftError = SaveInvoiceDraftErrors[keyof SaveInvoiceDraftErrors];
+
+export type SaveInvoiceDraftResponses = {
+    /**
+     * The invoice, checked again.
+     */
+    200: Invoice;
+};
+
+export type SaveInvoiceDraftResponse = SaveInvoiceDraftResponses[keyof SaveInvoiceDraftResponses];
+
+export type CompleteInvoiceUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}/complete';
+};
+
+export type CompleteInvoiceUploadErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type CompleteInvoiceUploadError = CompleteInvoiceUploadErrors[keyof CompleteInvoiceUploadErrors];
+
+export type CompleteInvoiceUploadResponses = {
+    /**
+     * Accepted; being read.
+     */
+    202: Invoice;
+};
+
+export type CompleteInvoiceUploadResponse = CompleteInvoiceUploadResponses[keyof CompleteInvoiceUploadResponses];
+
+export type ConfirmInvoiceData = {
+    body: ConfirmInvoiceRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}/confirm';
+};
+
+export type ConfirmInvoiceErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type ConfirmInvoiceError = ConfirmInvoiceErrors[keyof ConfirmInvoiceErrors];
+
+export type ConfirmInvoiceResponses = {
+    /**
+     * The confirmed invoice.
+     */
+    200: Invoice;
+};
+
+export type ConfirmInvoiceResponse = ConfirmInvoiceResponses[keyof ConfirmInvoiceResponses];

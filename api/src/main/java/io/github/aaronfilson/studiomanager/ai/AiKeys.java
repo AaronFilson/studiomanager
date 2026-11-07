@@ -41,8 +41,19 @@ public class AiKeys {
       Status status,
       @Nullable String reason,
       @Nullable Instant checkedAt,
-      boolean allowGoogleFallback,
+      boolean allowPlatformReaders,
       Instant setAt) {}
+
+  /**
+   * The studio's key, decrypted for one read. Its {@code toString} never shows the key, so it can't
+   * leak into a log line or an exception message by accident.
+   */
+  public record StudioKey(String secret) {
+    @Override
+    public String toString() {
+      return "StudioKey[redacted]";
+    }
+  }
 
   private final AiProviderKeyRepository keys;
   private final AiKeyQueries queries;
@@ -73,7 +84,7 @@ public class AiKeys {
   }
 
   /** Saves (or replaces) the key, untested. Deliberately not echoed back. */
-  public KeyStatus set(Provider provider, @Nullable String apiKey, boolean allowGoogleFallback) {
+  public KeyStatus set(Provider provider, @Nullable String apiKey, boolean allowPlatformReaders) {
     TenantContext caller = requireOwner();
     UUID studioId = caller.requireStudioId();
     String key = apiKey == null ? "" : apiKey.strip();
@@ -91,7 +102,7 @@ public class AiKeys {
               provider,
               cipher.encrypt(studioId, key),
               key.substring(key.length() - 4),
-              allowGoogleFallback,
+              allowPlatformReaders,
               caller.accountId(),
               clock.instant());
           return keys.findById(studioId).orElseThrow().toStatus();
@@ -151,6 +162,31 @@ public class AiKeys {
           keys.flush();
           return stored.toStatus();
         }));
+  }
+
+  /**
+   * The bound studio's key, for reading one invoice: empty when there is none, or when Anthropic
+   * has refused it. For the invoice reader, which runs as a system job, so no owner check here; the
+   * key never leaves the server.
+   */
+  public Optional<StudioKey> keyForReading() {
+    UUID studioId = TenantContext.require().requireStudioId();
+    return Objects.requireNonNull(
+        transactions.execute(tx ->
+            keys.findById(studioId)
+                .filter(stored -> !stored.refused())
+                .map(stored -> new StudioKey(cipher.decrypt(studioId, stored.keyCiphertext())))));
+  }
+
+  /** Marks the bound studio's key refused, after the provider answered 401 or 403 to a read. */
+  public void markRefused(String reason) {
+    UUID studioId = TenantContext.require().requireStudioId();
+    transactions.executeWithoutResult(tx ->
+        keys.findById(studioId)
+            .ifPresent(stored -> {
+              stored.checked(Status.REJECTED, reason, clock.instant());
+              keys.flush();
+            }));
   }
 
   private static TenantContext requireOwner() {

@@ -1,0 +1,16 @@
+{
+  "vendorName": "Northside Ceramic Materials",
+  "invoiceNumber": "100388",
+  "invoiceDate": "2026-09-30",
+  "subtotal": "147.60",
+  "shipping": "0.00",
+  "tax": "0.00",
+  "total": "147.60",
+  "lines": [
+    {"description": "Custer feldspar", "sku": "", "quantity": "10", "unit": "lb", "unitPrice": "1.86", "lineTotal": "18.60"},
+    {"description": "EPK kaolin", "sku": "", "quantity": "50", "unit": "lb", "unitPrice": "1.20", "lineTotal": "60.00"},
+    {"description": "Red iron oxide", "sku": "", "quantity": "5", "unit": "lb", "unitPrice": "6.90", "lineTotal": "34.50"},
+    {"description": "Cobalt carbonate", "sku": "", "quantity": "1", "unit": "lb", "unitPrice": "39.00", "lineTotal": "39.00"},
+    {"description": "Member discount", "sku": "", "quantity": "1", "unit": "", "unitPrice": "-4.50", "lineTotal": "-4.50"}
+  ]
+}

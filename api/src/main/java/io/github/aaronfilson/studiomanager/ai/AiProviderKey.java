@@ -39,7 +39,7 @@ class AiProviderKey {
 
   private @Nullable Instant checkedAt;
 
-  private boolean allowGoogleFallback;
+  private boolean allowPlatformReaders;
 
   private Instant setAt;
 
@@ -48,6 +48,11 @@ class AiProviderKey {
 
   byte[] keyCiphertext() {
     return keyCiphertext;
+  }
+
+  /** Whether the provider has refused this key; a refused key isn't used to read invoices. */
+  boolean refused() {
+    return status == AiKeys.Status.REJECTED;
   }
 
   /** Records what a check with the provider found. */
@@ -59,6 +64,6 @@ class AiProviderKey {
 
   AiKeys.KeyStatus toStatus() {
     return new AiKeys.KeyStatus(
-        provider, lastFour, status, statusReason, checkedAt, allowGoogleFallback, setAt);
+        provider, lastFour, status, statusReason, checkedAt, allowPlatformReaders, setAt);
   }
 }

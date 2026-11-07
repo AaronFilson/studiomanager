@@ -25,24 +25,24 @@ class AiKeyQueries {
       AiKeys.Provider provider,
       byte[] ciphertext,
       String lastFour,
-      boolean allowGoogleFallback,
+      boolean allowPlatformReaders,
       UUID setBy,
       Instant now) {
     jdbc.sql(
             """
             insert into ai_provider_key (studio_id, provider, key_ciphertext, last_four, status,
-                                         allow_google_fallback, set_by, set_at)
-            values (:studio, :provider, :secret, :lastFour, 'UNTESTED', :fallback, :by, :now)
+                                         allow_platform_readers, set_by, set_at)
+            values (:studio, :provider, :secret, :lastFour, 'UNTESTED', :platformReaders, :by, :now)
             on conflict (studio_id) do update set provider = excluded.provider,
                 key_ciphertext = excluded.key_ciphertext, last_four = excluded.last_four, status = 'UNTESTED',
-                status_reason = null, checked_at = null, allow_google_fallback = excluded.allow_google_fallback,
+                status_reason = null, checked_at = null, allow_platform_readers = excluded.allow_platform_readers,
                 set_by = excluded.set_by, set_at = excluded.set_at
             """)
         .param("studio", studioId)
         .param("provider", provider.name())
         .param("secret", ciphertext)
         .param("lastFour", lastFour)
-        .param("fallback", allowGoogleFallback)
+        .param("platformReaders", allowPlatformReaders)
         .param("by", setBy)
         .param("now", now.atOffset(ZoneOffset.UTC))
         .update();
