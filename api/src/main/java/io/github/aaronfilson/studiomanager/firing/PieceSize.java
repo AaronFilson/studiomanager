@@ -24,6 +24,17 @@ public record PieceSize(
   }
 
   public boolean hasDimensions() {
-    return length != null;
+    return box() != null;
   }
+
+  /** The three dimensions together, or null when the piece wasn't measured. */
+  public @Nullable Box box() {
+    if (length == null || width == null || height == null) {
+      return null;
+    }
+    return new Box(length, width, height);
+  }
+
+  /** A piece's bounding box: all three dimensions, none of them missing. */
+  public record Box(Length length, Length width, Length height) {}
 }

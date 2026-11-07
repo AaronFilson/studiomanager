@@ -57,7 +57,7 @@ class StreamPublisher {
     }
     events.publishEvent(
         new StudioStreamEvent.FeeCharged(
-            TenantContext.require().studioId(),
+            TenantContext.require().requireStudioId(),
             piece.receivedAt().truncatedTo(ChronoUnit.SECONDS),
             piece.makerAccountId(),
             "piece",
@@ -74,7 +74,7 @@ class StreamPublisher {
     }
     events.publishEvent(
         new StudioStreamEvent.FeeCharged(
-            TenantContext.require().studioId(),
+            TenantContext.require().requireStudioId(),
             sale.soldAt().truncatedTo(ChronoUnit.SECONDS),
             sale.memberId(),
             "supply_sale",

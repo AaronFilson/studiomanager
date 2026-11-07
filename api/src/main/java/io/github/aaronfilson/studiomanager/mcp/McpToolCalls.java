@@ -166,7 +166,9 @@ class McpToolCalls {
           | ConflictException
           | AccessDeniedException toolFailure) {
         log(caller, studioId, argumentsJson, ApiCallLog.Outcome.ERROR, started);
-        return failure(toolFailure.getMessage());
+        return failure(
+            java.util.Objects.requireNonNullElse(
+                toolFailure.getMessage(), "The tool couldn't do that."));
       } catch (RuntimeException unexpected) {
         log(caller, studioId, argumentsJson, ApiCallLog.Outcome.ERROR, started);
         throw unexpected;

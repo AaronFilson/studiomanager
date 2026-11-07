@@ -150,7 +150,11 @@ public class ImportService {
                                 .formatted(balance.toPlainString())));
               }
             } catch (InvalidInputException e) {
-              results.add(new RowResult(row.line(), Outcome.ERROR, e.getMessage()));
+              results.add(
+                  new RowResult(
+                      row.line(),
+                      Outcome.ERROR,
+                      Objects.requireNonNullElse(e.getMessage(), "This row couldn't be read.")));
             }
           }
           // A dry run never asks for emails, even ones that would roll back unsent
@@ -242,7 +246,11 @@ public class ImportService {
                               payee.name(),
                               created ? " (a new artist)" : "")));
             } catch (InvalidInputException e) {
-              results.add(new RowResult(row.line(), Outcome.ERROR, e.getMessage()));
+              results.add(
+                  new RowResult(
+                      row.line(),
+                      Outcome.ERROR,
+                      Objects.requireNonNullElse(e.getMessage(), "This row couldn't be read.")));
             }
           }
           return results;

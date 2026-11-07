@@ -24,33 +24,39 @@ public final class PieceSizes {
     }
     DimensionsDto dimensions = dto.getDimensions();
     WeightMeasureDto weight = dto.getWeight();
-    LengthUnit unit = dimensions == null ? null : LengthUnit.valueOf(dimensions.getUnit().name());
-    return new PieceSize(
-        dimensions == null ? null : new Length(positive(dimensions.getLength(), "length"), unit),
-        dimensions == null ? null : new Length(positive(dimensions.getWidth(), "width"), unit),
-        dimensions == null ? null : new Length(positive(dimensions.getHeight(), "height"), unit),
+    Weight measured =
         weight == null
             ? null
             : new Weight(
-                positive(weight.getValue(), "weight"),
-                WeightUnit.valueOf(weight.getUnit().name())));
+                positive(weight.getValue(), "weight"), WeightUnit.valueOf(weight.getUnit().name()));
+    if (dimensions == null) {
+      return new PieceSize(null, null, null, measured);
+    }
+    LengthUnit unit = LengthUnit.valueOf(dimensions.getUnit().name());
+    return new PieceSize(
+        new Length(positive(dimensions.getLength(), "length"), unit),
+        new Length(positive(dimensions.getWidth(), "width"), unit),
+        new Length(positive(dimensions.getHeight(), "height"), unit),
+        measured);
   }
 
   public static PieceSizeDto toDto(PieceSize size) {
     PieceSizeDto dto = new PieceSizeDto();
-    if (size.hasDimensions()) {
+    PieceSize.Box box = size.box();
+    if (box != null) {
       dto.dimensions(
           new DimensionsDto()
-              .length(plain(size.length().value()))
-              .width(plain(size.width().value()))
-              .height(plain(size.height().value()))
-              .unit(LengthUnitDto.valueOf(size.length().unit().name())));
+              .length(plain(box.length().value()))
+              .width(plain(box.width().value()))
+              .height(plain(box.height().value()))
+              .unit(LengthUnitDto.valueOf(box.length().unit().name())));
     }
-    if (size.weight() != null) {
+    Weight weight = size.weight();
+    if (weight != null) {
       dto.weight(
           new WeightMeasureDto()
-              .value(plain(size.weight().value()))
-              .unit(WeightUnitDto.valueOf(size.weight().unit().name())));
+              .value(plain(weight.value()))
+              .unit(WeightUnitDto.valueOf(weight.unit().name())));
     }
     return dto;
   }

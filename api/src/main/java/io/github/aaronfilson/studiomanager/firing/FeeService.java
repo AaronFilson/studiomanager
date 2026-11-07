@@ -100,13 +100,23 @@ public class FeeService {
       FeeRule rule =
           switch (ruleType) {
             case "PER_VOLUME" ->
-                new FeeRule.PerVolume(rate, FeeRule.VolumeUnit.valueOf(unit), dimensionRounding);
+                new FeeRule.PerVolume(
+                    rate, FeeRule.VolumeUnit.valueOf(requireUnit()), dimensionRounding);
             case "PER_WEIGHT" ->
-                new FeeRule.PerWeight(rate, WeightUnit.valueOf(unit), dimensionRounding);
+                new FeeRule.PerWeight(rate, WeightUnit.valueOf(requireUnit()), dimensionRounding);
             case "FLAT" -> new FeeRule.Flat(rate);
             default -> throw new IllegalStateException("Unknown rule type " + ruleType);
           };
       return new FeeSchedule(version, rule, minimum, taxCategory);
+    }
+
+    /** A per-volume or per-weight row must name its unit; the error names the bad row. */
+    private String requireUnit() {
+      if (unit == null) {
+        throw new IllegalStateException(
+            "Fee schedule version %d is %s but has no unit".formatted(version, ruleType));
+      }
+      return unit;
     }
   }
 }
