@@ -26,6 +26,7 @@ import { Route as StudiosStudioIdMyConsignmentRouteImport } from './routes/studi
 import { Route as StudiosStudioIdPayablesRouteImport } from './routes/studios/$studioId/payables'
 import { Route as StudiosStudioIdRosterRouteImport } from './routes/studios/$studioId/roster'
 import { Route as StudiosStudioIdSettingsRouteImport } from './routes/studios/$studioId/settings'
+import { Route as StudiosStudioIdSuggestionsRouteImport } from './routes/studios/$studioId/suggestions'
 import { Route as StudiosStudioIdSuppliesRouteImport } from './routes/studios/$studioId/supplies'
 import { Route as StudiosStudioIdTodayRouteImport } from './routes/studios/$studioId/today'
 import { Route as StudiosStudioIdWebhooksRouteImport } from './routes/studios/$studioId/webhooks'
@@ -123,6 +124,12 @@ const StudiosStudioIdSettingsRoute = StudiosStudioIdSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => StudiosStudioIdRouteRoute,
 } as any)
+const StudiosStudioIdSuggestionsRoute =
+  StudiosStudioIdSuggestionsRouteImport.update({
+    id: '/suggestions',
+    path: '/suggestions',
+    getParentRoute: () => StudiosStudioIdRouteRoute,
+  } as any)
 const StudiosStudioIdSuppliesRoute = StudiosStudioIdSuppliesRouteImport.update({
   id: '/supplies',
   path: '/supplies',
@@ -192,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
+  '/studios/$studioId/suggestions': typeof StudiosStudioIdSuggestionsRoute
   '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
   '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
   '/studios/$studioId/webhooks': typeof StudiosStudioIdWebhooksRoute
@@ -218,6 +226,7 @@ export interface FileRoutesByTo {
   '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
+  '/studios/$studioId/suggestions': typeof StudiosStudioIdSuggestionsRoute
   '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
   '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
   '/studios/$studioId/webhooks': typeof StudiosStudioIdWebhooksRoute
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/studios/$studioId/payables': typeof StudiosStudioIdPayablesRoute
   '/studios/$studioId/roster': typeof StudiosStudioIdRosterRoute
   '/studios/$studioId/settings': typeof StudiosStudioIdSettingsRoute
+  '/studios/$studioId/suggestions': typeof StudiosStudioIdSuggestionsRoute
   '/studios/$studioId/supplies': typeof StudiosStudioIdSuppliesRoute
   '/studios/$studioId/today': typeof StudiosStudioIdTodayRoute
   '/studios/$studioId/webhooks': typeof StudiosStudioIdWebhooksRoute
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
+    | '/studios/$studioId/suggestions'
     | '/studios/$studioId/supplies'
     | '/studios/$studioId/today'
     | '/studios/$studioId/webhooks'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
+    | '/studios/$studioId/suggestions'
     | '/studios/$studioId/supplies'
     | '/studios/$studioId/today'
     | '/studios/$studioId/webhooks'
@@ -331,6 +343,7 @@ export interface FileRouteTypes {
     | '/studios/$studioId/payables'
     | '/studios/$studioId/roster'
     | '/studios/$studioId/settings'
+    | '/studios/$studioId/suggestions'
     | '/studios/$studioId/supplies'
     | '/studios/$studioId/today'
     | '/studios/$studioId/webhooks'
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudiosStudioIdSettingsRouteImport
       parentRoute: typeof StudiosStudioIdRouteRoute
     }
+    '/studios/$studioId/suggestions': {
+      id: '/studios/$studioId/suggestions'
+      path: '/suggestions'
+      fullPath: '/studios/$studioId/suggestions'
+      preLoaderRoute: typeof StudiosStudioIdSuggestionsRouteImport
+      parentRoute: typeof StudiosStudioIdRouteRoute
+    }
     '/studios/$studioId/supplies': {
       id: '/studios/$studioId/supplies'
       path: '/supplies'
@@ -548,6 +568,7 @@ interface StudiosStudioIdRouteRouteChildren {
   StudiosStudioIdPayablesRoute: typeof StudiosStudioIdPayablesRoute
   StudiosStudioIdRosterRoute: typeof StudiosStudioIdRosterRoute
   StudiosStudioIdSettingsRoute: typeof StudiosStudioIdSettingsRoute
+  StudiosStudioIdSuggestionsRoute: typeof StudiosStudioIdSuggestionsRoute
   StudiosStudioIdSuppliesRoute: typeof StudiosStudioIdSuppliesRoute
   StudiosStudioIdTodayRoute: typeof StudiosStudioIdTodayRoute
   StudiosStudioIdWebhooksRoute: typeof StudiosStudioIdWebhooksRoute
@@ -571,6 +592,7 @@ const StudiosStudioIdRouteRouteChildren: StudiosStudioIdRouteRouteChildren = {
   StudiosStudioIdPayablesRoute: StudiosStudioIdPayablesRoute,
   StudiosStudioIdRosterRoute: StudiosStudioIdRosterRoute,
   StudiosStudioIdSettingsRoute: StudiosStudioIdSettingsRoute,
+  StudiosStudioIdSuggestionsRoute: StudiosStudioIdSuggestionsRoute,
   StudiosStudioIdSuppliesRoute: StudiosStudioIdSuppliesRoute,
   StudiosStudioIdTodayRoute: StudiosStudioIdTodayRoute,
   StudiosStudioIdWebhooksRoute: StudiosStudioIdWebhooksRoute,

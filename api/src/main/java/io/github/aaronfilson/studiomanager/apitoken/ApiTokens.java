@@ -24,12 +24,14 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -195,6 +197,24 @@ public class ApiTokens implements ApiTokenResolver {
               token.name(),
               caller.accountId()));
     }
+  }
+
+  /**
+   * The names of these tokens in the bound studio, for saying which token did something ("through
+   * 'Claude desktop'"). Revoked tokens keep their names; ids not found are left out.
+   */
+  @Transactional(readOnly = true)
+  public Map<UUID, String> names(Collection<UUID> tokenIds) {
+    if (tokenIds.isEmpty()) {
+      return Map.of();
+    }
+    return jdbc
+        .sql("select id, name from api_token where id in (:ids)")
+        .param("ids", List.copyOf(tokenIds))
+        .query((rs, row) -> Map.entry(rs.getObject("id", UUID.class), rs.getString("name")))
+        .list()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private TokenView get(UUID id) {
