@@ -191,7 +191,8 @@ public class ApiTokens implements ApiTokenResolver {
   }
 
   private TenantContext requireOwnTokens() {
-    return permissions.require(Permission.API_TOKENS_OWN, "API tokens are for staff.");
+    return permissions.require(
+        Permission.API_TOKENS_OWN, "Your role here doesn't include API tokens.");
   }
 
   static String newSecret() {
