@@ -39,6 +39,8 @@ public final class TokenPolicy {
           Map.entry(
               "pending-actions",
               new Never("A person approves assistant suggestions in the app, not with a token.")),
+          // The caller's own permissions in the studio (plan 21 §5)
+          Map.entry("me", READ_ONLY),
           Map.entry("today", READ_ONLY),
           Map.entry("activity", READ_ONLY),
           Map.entry("members", READ_ONLY),
@@ -77,6 +79,8 @@ public final class TokenPolicy {
           Map.entry("payables", MONEY),
           Map.entry("my-consignment", MONEY),
           Map.entry("invites", ADMIN),
+          // What each role may do, and the access log: owners only, in the app (plan 21, R6)
+          Map.entry("roles", ADMIN),
           Map.entry("imports", ADMIN),
           Map.entry("webhooks", ADMIN),
           Map.entry("api-tokens", ADMIN),

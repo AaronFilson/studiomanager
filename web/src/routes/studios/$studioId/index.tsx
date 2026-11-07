@@ -7,6 +7,7 @@ import {
   listMyNotificationsQueryKey,
   markNotificationReadMutation,
   sendNoticeMutation,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -15,7 +16,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
 import { ProblemReportForm } from '../../../components/ProblemReportForm';
-import { formatDateTime, formatMoney, isStaff, roleLabel, unitSystemLabel } from '../../../labels';
+import { formatDateTime, formatMoney, roleLabel, unitSystemLabel } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/')({
   component: StudioHome,
@@ -25,6 +26,7 @@ function StudioHome() {
   const { studioId } = Route.useParams();
   // The layout has already loaded the studio, so this reads the cache
   const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
   const countryName = new Intl.DisplayNames(undefined, { type: 'region' }).of(studio.country) ?? studio.country;
 
   return (
@@ -34,7 +36,7 @@ function StudioHome() {
       <MyTasks studioId={studioId} />
       <ProblemReportForm studioId={studioId} />
       <MyBalance studioId={studioId} currency={studio.currency} />
-      {isStaff(studio.myRole) && <NoticeForm studioId={studioId} />}
+      {can('notices.send') && <NoticeForm studioId={studioId} />}
       <dl className="facts">
         <dt>Your role</dt>
         <dd>{roleLabel(studio.myRole)}</dd>

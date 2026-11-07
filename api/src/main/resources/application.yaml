@@ -119,6 +119,10 @@ studiomanager:
     blob-endpoint: ${STUDIOMANAGER_STORAGE_BLOB_ENDPOINT:}
     connection-string: ${STUDIOMANAGER_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;}
     container: piece-photos
+  permissions:
+    # "enforcing": each studio's stored role permission sets decide. "shadow": the code defaults
+    # decide and a stored set that differs is logged and counted (plan 21, lane R4)
+    mode: ${STUDIOMANAGER_PERMISSIONS_MODE:enforcing}
   webhooks:
     # Keyring of AES-256 keys, base64: encrypts endpoints' signing secrets at rest. "2:new,1:old"
     # rotates (current first); a bare key is version 1 (SecretCipher). Blank uses a fixed

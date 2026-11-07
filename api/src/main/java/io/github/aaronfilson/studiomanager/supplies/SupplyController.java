@@ -48,13 +48,13 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_READ')")
   public ResponseEntity<List<SupplyItemDto>> listSupplies(UUID studioId) {
     return ResponseEntity.ok(supplies.items().stream().map(SupplyDtos::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_MANAGE')")
   public ResponseEntity<SupplyItemDto> createSupply(UUID studioId, SaveSupplyRequestDto request) {
     Item item = items.create(settings(request));
     return ResponseEntity.created(
@@ -63,7 +63,7 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_MANAGE')")
   public ResponseEntity<SupplyItemDto> updateSupply(
       UUID studioId, UUID itemId, UpdateSupplyRequestDto request) {
     return ResponseEntity.ok(
@@ -72,7 +72,7 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_MANAGE')")
   public ResponseEntity<StockMovementListDto> listStockMovements(UUID studioId, UUID itemId) {
     Capped<StockMovementDto> history =
         supplies
@@ -91,7 +91,7 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_MANAGE')")
   public ResponseEntity<SupplyItemDto> recordStockMovement(
       UUID studioId, UUID itemId, StockMovementRequestDto request) {
     return ResponseEntity.ok(
@@ -104,7 +104,7 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_SELL')")
   public ResponseEntity<SupplyItemDto> sellSupply(
       UUID studioId, UUID itemId, SellSupplyRequestDto request) {
     return ResponseEntity.ok(
@@ -113,14 +113,14 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_PURCHASE_REQUEST')")
   public ResponseEntity<List<PurchaseRequestDto>> listPurchaseRequests(UUID studioId) {
     return ResponseEntity.ok(
         supplies.openRequests().stream().map(SupplyController::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_PURCHASE_REQUEST')")
   public ResponseEntity<PurchaseRequestDto> createPurchaseRequest(
       UUID studioId, CreatePurchaseRequestRequestDto request) {
     PurchaseRequest created =
@@ -132,7 +132,7 @@ class SupplyController implements SuppliesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SUPPLIES_PURCHASE_REQUEST')")
   public ResponseEntity<PurchaseRequestDto> decidePurchaseRequest(
       UUID studioId, UUID requestId, DecidePurchaseRequestDto request) {
     return ResponseEntity.ok(

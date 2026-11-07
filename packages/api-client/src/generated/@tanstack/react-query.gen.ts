@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvite, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, compareInvoiceReaders, completeInvoiceUpload, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, confirmInvoice, createApiToken, createAsset, createBooking, createCertificationType, createDemoToken, createGlaze, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, createWebhookEndpoint, decidePendingAction, decidePurchaseRequest, deleteAiKey, deleteGlaze, deletePhoto, deleteWebhookEndpoint, discardInvoice, emailInvites, endRateLimitBoost, expireStoredValue, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getAiKey, getClearing, getFeeSchedule, getFiring, getGlaze, getGlazeBatch, getHours, getInvoice, getInvoiceReaders, getKilnQueue, getLedgerSummary, getMe, getMyConsignment, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getRateLimits, getStatement, getStoredValueMovements, getStudio, getToday, getWeeklyActivity, grantCertification, importConsignment, importMembers, importPayout, intakePiece, listAdminStudios, listApiTokens, listAssets, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listGlazes, listInvoices, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPendingActions, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listSettingChanges, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, listWebhookDeliveries, listWebhookEndpoints, listWebhookEventTypes, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, payPayees, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, reportProblem, resendInvite, resendWebhookDelivery, resetDemoStudio, resetInvoiceReaders, resetNormalRateLimits, resolveProblemReport, returnConsignment, revokeApiToken, revokeCertification, revokeInvite, rotateWebhookSecret, saveFeeSchedule, saveInvoiceDraft, savePiecePolicy, scheduleRateLimitBoost, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAiKey, setAssetAvailability, setDuties, setInvoiceReaders, setKilnAvailability, setNormalRateLimits, setTaxRate, startInvoiceUpload, startPhotoUpload, startRecordPhotoUpload, takeInConsignment, testAiKey, testWebhookEndpoint, transitionFiring, updateAsset, updateGlaze, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, updateWebhookEndpoint, useStoredValue } from '../sdk.gen';
-import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompareInvoiceReadersData, CompareInvoiceReadersError, CompareInvoiceReadersResponse, CompleteInvoiceUploadData, CompleteInvoiceUploadError, CompleteInvoiceUploadResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, ConfirmInvoiceData, ConfirmInvoiceError, ConfirmInvoiceResponse, CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateDemoTokenData, CreateDemoTokenError, CreateDemoTokenResponse, CreateGlazeData, CreateGlazeError, CreateGlazeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, CreateWebhookEndpointData, CreateWebhookEndpointError, CreateWebhookEndpointResponse, DecidePendingActionData, DecidePendingActionError, DecidePendingActionResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeleteAiKeyData, DeleteAiKeyError, DeleteAiKeyResponse, DeleteGlazeData, DeleteGlazeError, DeleteGlazeResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, DeleteWebhookEndpointData, DeleteWebhookEndpointError, DeleteWebhookEndpointResponse, DiscardInvoiceData, DiscardInvoiceError, DiscardInvoiceResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, EndRateLimitBoostData, EndRateLimitBoostError, EndRateLimitBoostResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetAiKeyData, GetAiKeyError, GetAiKeyResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetGlazeBatchData, GetGlazeBatchError, GetGlazeBatchResponse, GetGlazeData, GetGlazeError, GetGlazeResponse, GetHoursData, GetHoursError, GetHoursResponse, GetInvoiceData, GetInvoiceError, GetInvoiceReadersData, GetInvoiceReadersError, GetInvoiceReadersResponse, GetInvoiceResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetMyConsignmentData, GetMyConsignmentError, GetMyConsignmentResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetRateLimitsData, GetRateLimitsError, GetRateLimitsResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GetWeeklyActivityData, GetWeeklyActivityError, GetWeeklyActivityResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportConsignmentData, ImportConsignmentError, ImportConsignmentResponse, ImportMembersData, ImportMembersError, ImportMembersResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAdminStudiosData, ListAdminStudiosError, ListAdminStudiosResponse, ListApiTokensData, ListApiTokensError, ListApiTokensResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListGlazesData, ListGlazesError, ListGlazesResponse, ListInvoicesData, ListInvoicesError, ListInvoicesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPendingActionsData, ListPendingActionsError, ListPendingActionsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListSettingChangesData, ListSettingChangesError, ListSettingChangesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, ListWebhookDeliveriesData, ListWebhookDeliveriesError, ListWebhookDeliveriesResponse, ListWebhookEndpointsData, ListWebhookEndpointsError, ListWebhookEndpointsResponse, ListWebhookEventTypesData, ListWebhookEventTypesError, ListWebhookEventTypesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, PayPayeesData, PayPayeesError, PayPayeesResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResendWebhookDeliveryData, ResendWebhookDeliveryError, ResendWebhookDeliveryResponse, ResetDemoStudioData, ResetDemoStudioError, ResetDemoStudioResponse, ResetInvoiceReadersData, ResetInvoiceReadersError, ResetInvoiceReadersResponse, ResetNormalRateLimitsData, ResetNormalRateLimitsError, ResetNormalRateLimitsResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeApiTokenData, RevokeApiTokenError, RevokeApiTokenResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, RotateWebhookSecretData, RotateWebhookSecretError, RotateWebhookSecretResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SaveInvoiceDraftData, SaveInvoiceDraftError, SaveInvoiceDraftResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, ScheduleRateLimitBoostData, ScheduleRateLimitBoostError, ScheduleRateLimitBoostResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAiKeyData, SetAiKeyError, SetAiKeyResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetInvoiceReadersData, SetInvoiceReadersError, SetInvoiceReadersResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetNormalRateLimitsData, SetNormalRateLimitsError, SetNormalRateLimitsResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartInvoiceUploadData, StartInvoiceUploadError, StartInvoiceUploadResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TestAiKeyData, TestAiKeyError, TestAiKeyResponse, TestWebhookEndpointData, TestWebhookEndpointError, TestWebhookEndpointResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateGlazeData, UpdateGlazeError, UpdateGlazeResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UpdateWebhookEndpointData, UpdateWebhookEndpointError, UpdateWebhookEndpointResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
+import { acceptInvite, addOwner, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, compareInvoiceReaders, completeInvoiceUpload, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, confirmInvoice, createApiToken, createAsset, createBooking, createCertificationType, createCustomRole, createDemoToken, createGlaze, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, createWebhookEndpoint, decidePendingAction, decidePurchaseRequest, deleteAiKey, deleteCustomRole, deleteGlaze, deletePhoto, deleteWebhookEndpoint, discardInvoice, emailInvites, endRateLimitBoost, expireStoredValue, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getAiKey, getBillingContact, getClearing, getFeeSchedule, getFiring, getGlaze, getGlazeBatch, getHours, getInvoice, getInvoiceReaders, getKilnQueue, getLedgerSummary, getMe, getMyConsignment, getMyPermissions, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getRateLimits, getStatement, getStoredValueMovements, getStudio, getToday, getWeeklyActivity, grantCertification, importConsignment, importMembers, importPayout, intakePiece, listAccessChanges, listAdminStudios, listApiTokens, listAssets, listAssignableRoles, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listGlazes, listInvoices, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPendingActions, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listRoles, listSettingChanges, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, listWebhookDeliveries, listWebhookEndpoints, listWebhookEventTypes, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, payPayees, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, removeOwner, reportProblem, resendInvite, resendWebhookDelivery, resetDemoStudio, resetInvoiceReaders, resetNormalRateLimits, resetRolePermissions, resolveProblemReport, returnConsignment, revokeApiToken, revokeCertification, revokeInvite, rotateWebhookSecret, saveFeeSchedule, saveInvoiceDraft, savePiecePolicy, scheduleRateLimitBoost, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAiKey, setAssetAvailability, setBillingContact, setDuties, setInvoiceReaders, setKilnAvailability, setMemberRole, setNormalRateLimits, setRolePermissions, setTaxRate, startInvoiceUpload, startPhotoUpload, startRecordPhotoUpload, takeInConsignment, testAiKey, testWebhookEndpoint, transitionFiring, updateAsset, updateCustomRole, updateGlaze, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, updateWebhookEndpoint, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AddOwnerData, AddOwnerError, AddOwnerResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompareInvoiceReadersData, CompareInvoiceReadersError, CompareInvoiceReadersResponse, CompleteInvoiceUploadData, CompleteInvoiceUploadError, CompleteInvoiceUploadResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, ConfirmInvoiceData, ConfirmInvoiceError, ConfirmInvoiceResponse, CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateCustomRoleData, CreateCustomRoleError, CreateCustomRoleResponse, CreateDemoTokenData, CreateDemoTokenError, CreateDemoTokenResponse, CreateGlazeData, CreateGlazeError, CreateGlazeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, CreateWebhookEndpointData, CreateWebhookEndpointError, CreateWebhookEndpointResponse, DecidePendingActionData, DecidePendingActionError, DecidePendingActionResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeleteAiKeyData, DeleteAiKeyError, DeleteAiKeyResponse, DeleteCustomRoleData, DeleteCustomRoleError, DeleteCustomRoleResponse, DeleteGlazeData, DeleteGlazeError, DeleteGlazeResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, DeleteWebhookEndpointData, DeleteWebhookEndpointError, DeleteWebhookEndpointResponse, DiscardInvoiceData, DiscardInvoiceError, DiscardInvoiceResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, EndRateLimitBoostData, EndRateLimitBoostError, EndRateLimitBoostResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetAiKeyData, GetAiKeyError, GetAiKeyResponse, GetBillingContactData, GetBillingContactError, GetBillingContactResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetGlazeBatchData, GetGlazeBatchError, GetGlazeBatchResponse, GetGlazeData, GetGlazeError, GetGlazeResponse, GetHoursData, GetHoursError, GetHoursResponse, GetInvoiceData, GetInvoiceError, GetInvoiceReadersData, GetInvoiceReadersError, GetInvoiceReadersResponse, GetInvoiceResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetMyConsignmentData, GetMyConsignmentError, GetMyConsignmentResponse, GetMyPermissionsData, GetMyPermissionsError, GetMyPermissionsResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetRateLimitsData, GetRateLimitsError, GetRateLimitsResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GetWeeklyActivityData, GetWeeklyActivityError, GetWeeklyActivityResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportConsignmentData, ImportConsignmentError, ImportConsignmentResponse, ImportMembersData, ImportMembersError, ImportMembersResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAccessChangesData, ListAccessChangesError, ListAccessChangesResponse, ListAdminStudiosData, ListAdminStudiosError, ListAdminStudiosResponse, ListApiTokensData, ListApiTokensError, ListApiTokensResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListAssignableRolesData, ListAssignableRolesError, ListAssignableRolesResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListGlazesData, ListGlazesError, ListGlazesResponse, ListInvoicesData, ListInvoicesError, ListInvoicesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPendingActionsData, ListPendingActionsError, ListPendingActionsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSettingChangesData, ListSettingChangesError, ListSettingChangesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, ListWebhookDeliveriesData, ListWebhookDeliveriesError, ListWebhookDeliveriesResponse, ListWebhookEndpointsData, ListWebhookEndpointsError, ListWebhookEndpointsResponse, ListWebhookEventTypesData, ListWebhookEventTypesError, ListWebhookEventTypesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, PayPayeesData, PayPayeesError, PayPayeesResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, RemoveOwnerData, RemoveOwnerError, RemoveOwnerResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResendWebhookDeliveryData, ResendWebhookDeliveryError, ResendWebhookDeliveryResponse, ResetDemoStudioData, ResetDemoStudioError, ResetDemoStudioResponse, ResetInvoiceReadersData, ResetInvoiceReadersError, ResetInvoiceReadersResponse, ResetNormalRateLimitsData, ResetNormalRateLimitsError, ResetNormalRateLimitsResponse, ResetRolePermissionsData, ResetRolePermissionsError, ResetRolePermissionsResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeApiTokenData, RevokeApiTokenError, RevokeApiTokenResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, RotateWebhookSecretData, RotateWebhookSecretError, RotateWebhookSecretResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SaveInvoiceDraftData, SaveInvoiceDraftError, SaveInvoiceDraftResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, ScheduleRateLimitBoostData, ScheduleRateLimitBoostError, ScheduleRateLimitBoostResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAiKeyData, SetAiKeyError, SetAiKeyResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetBillingContactData, SetBillingContactError, SetBillingContactResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetInvoiceReadersData, SetInvoiceReadersError, SetInvoiceReadersResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetMemberRoleData, SetMemberRoleError, SetMemberRoleResponse, SetNormalRateLimitsData, SetNormalRateLimitsError, SetNormalRateLimitsResponse, SetRolePermissionsData, SetRolePermissionsError, SetRolePermissionsResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartInvoiceUploadData, StartInvoiceUploadError, StartInvoiceUploadResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TestAiKeyData, TestAiKeyError, TestAiKeyResponse, TestWebhookEndpointData, TestWebhookEndpointError, TestWebhookEndpointResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateCustomRoleData, UpdateCustomRoleError, UpdateCustomRoleResponse, UpdateGlazeData, UpdateGlazeError, UpdateGlazeResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UpdateWebhookEndpointData, UpdateWebhookEndpointError, UpdateWebhookEndpointResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -367,6 +367,106 @@ export const listMembersOptions = (options: Options<ListMembersData>) => queryOp
     },
     queryKey: listMembersQueryKey(options)
 });
+
+/**
+ * Make an owner staff instead, or step down yourself (owners only)
+ *
+ * A studio always keeps at least one owner: removing the last is refused with "Add another
+ * owner first". If they were the billing contact, the studio has none until the remaining
+ * owners pick one. Every owner is told.
+ *
+ */
+export const removeOwnerMutation = (options?: Partial<Options<RemoveOwnerData>>): UseMutationOptions<RemoveOwnerResponse, RemoveOwnerError, Options<RemoveOwnerData>> => {
+    const mutationOptions: UseMutationOptions<RemoveOwnerResponse, RemoveOwnerError, Options<RemoveOwnerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeOwner({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Make a member one of the studio's owners (owners only)
+ *
+ * A studio can have several co-owners, and each holds every owner-only permission. Every
+ * owner is told. Making an owner an owner again changes nothing.
+ *
+ */
+export const addOwnerMutation = (options?: Partial<Options<AddOwnerData>>): UseMutationOptions<AddOwnerResponse, AddOwnerError, Options<AddOwnerData>> => {
+    const mutationOptions: UseMutationOptions<AddOwnerResponse, AddOwnerError, Options<AddOwnerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addOwner({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give a member a built-in or custom role (staff only)
+ *
+ * Nobody can give a role that holds more than they do, or move someone who holds more than
+ * they do. Owners are made and unmade with the owner endpoints, so neither the member nor
+ * the role may be OWNER here. Logged; applies on the member's next request.
+ *
+ */
+export const setMemberRoleMutation = (options?: Partial<Options<SetMemberRoleData>>): UseMutationOptions<SetMemberRoleResponse, SetMemberRoleError, Options<SetMemberRoleData>> => {
+    const mutationOptions: UseMutationOptions<SetMemberRoleResponse, SetMemberRoleError, Options<SetMemberRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMemberRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getBillingContactQueryKey = (options: Options<GetBillingContactData>) => createQueryKey('getBillingContact', options);
+
+/**
+ * The owner the platform bills (owners only)
+ */
+export const getBillingContactOptions = (options: Options<GetBillingContactData>) => queryOptions<GetBillingContactResponse, GetBillingContactError, GetBillingContactResponse, ReturnType<typeof getBillingContactQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getBillingContact({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getBillingContactQueryKey(options)
+});
+
+/**
+ * Choose the owner the platform bills (owners only)
+ */
+export const setBillingContactMutation = (options?: Partial<Options<SetBillingContactData>>): UseMutationOptions<SetBillingContactResponse, SetBillingContactError, Options<SetBillingContactData>> => {
+    const mutationOptions: UseMutationOptions<SetBillingContactResponse, SetBillingContactError, Options<SetBillingContactData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setBillingContact({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const listOpenInvitesQueryKey = (options: Options<ListOpenInvitesData>) => createQueryKey('listOpenInvites', options);
 
@@ -1317,6 +1417,202 @@ export const sendNoticeMutation = (options?: Partial<Options<SendNoticeData>>): 
     const mutationOptions: UseMutationOptions<SendNoticeResponse, SendNoticeError, Options<SendNoticeData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await sendNotice({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getMyPermissionsQueryKey = (options: Options<GetMyPermissionsData>) => createQueryKey('getMyPermissions', options);
+
+/**
+ * The caller's role, permissions and duties in a studio
+ *
+ * The apps show or hide things by these keys. Hiding is convenience only; every operation
+ * still checks its own `x-permission`.
+ *
+ */
+export const getMyPermissionsOptions = (options: Options<GetMyPermissionsData>) => queryOptions<GetMyPermissionsResponse, GetMyPermissionsError, GetMyPermissionsResponse, ReturnType<typeof getMyPermissionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMyPermissions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMyPermissionsQueryKey(options)
+});
+
+export const listRolesQueryKey = (options: Options<ListRolesData>) => createQueryKey('listRoles', options);
+
+/**
+ * Every role and what it may do, with the permission catalogue (owners only)
+ *
+ * The catalogue lists every permission once, grouped by area, with its label and
+ * description and, when it can't be edited, why. Owner-only permissions are never held by
+ * another role; the floor is always held by every role. The OWNER role holds everything and
+ * isn't editable.
+ *
+ */
+export const listRolesOptions = (options: Options<ListRolesData>) => queryOptions<ListRolesResponse, ListRolesError, ListRolesResponse, ReturnType<typeof listRolesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listRoles({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listRolesQueryKey(options)
+});
+
+/**
+ * Choose what a role may do (owners only)
+ *
+ * The role then holds exactly these permissions, plus the floor every role holds. Refused
+ * for the OWNER role and for owner-only permissions. Unknown keys are refused. The change is
+ * logged, and applies on this server at once and everywhere within a minute.
+ *
+ */
+export const setRolePermissionsMutation = (options?: Partial<Options<SetRolePermissionsData>>): UseMutationOptions<SetRolePermissionsResponse, SetRolePermissionsError, Options<SetRolePermissionsData>> => {
+    const mutationOptions: UseMutationOptions<SetRolePermissionsResponse, SetRolePermissionsError, Options<SetRolePermissionsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setRolePermissions({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Give a role its default permissions back (owners only)
+ *
+ * The defaults are what the role could do before anyone edited it. Logged.
+ */
+export const resetRolePermissionsMutation = (options?: Partial<Options<ResetRolePermissionsData>>): UseMutationOptions<ResetRolePermissionsResponse, ResetRolePermissionsError, Options<ResetRolePermissionsData>> => {
+    const mutationOptions: UseMutationOptions<ResetRolePermissionsResponse, ResetRolePermissionsError, Options<ResetRolePermissionsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resetRolePermissions({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAccessChangesQueryKey = (options: Options<ListAccessChangesData>) => createQueryKey('listAccessChanges', options);
+
+/**
+ * Every change to who may do what, newest first (owners only)
+ *
+ * Role permissions, members' duties and roles, and the billing contact, each with the
+ * account that made it. Kept for the life of the studio; this lists the newest.
+ *
+ */
+export const listAccessChangesOptions = (options: Options<ListAccessChangesData>) => queryOptions<ListAccessChangesResponse, ListAccessChangesError, ListAccessChangesResponse, ReturnType<typeof listAccessChangesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAccessChanges({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAccessChangesQueryKey(options)
+});
+
+export const listAssignableRolesQueryKey = (options: Options<ListAssignableRolesData>) => createQueryKey('listAssignableRoles', options);
+
+/**
+ * The roles the caller may invite someone as, or give a member (staff only)
+ *
+ * Built-in and custom roles whose permissions are all the caller's own: nobody can give a
+ * role that holds more than they do. Owners see every role, OWNER included.
+ *
+ */
+export const listAssignableRolesOptions = (options: Options<ListAssignableRolesData>) => queryOptions<ListAssignableRolesResponse, ListAssignableRolesError, ListAssignableRolesResponse, ReturnType<typeof listAssignableRolesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAssignableRoles({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAssignableRolesQueryKey(options)
+});
+
+/**
+ * Make a custom role, such as "Kiln tech" (owners only)
+ *
+ * A custom role has a name, a base of STAFF or MEMBER (never OWNER) and its own
+ * permissions. The base is what the rest of the system treats its members as; what they
+ * may do is the role's own set, plus the floor and their duties. Owner-only permissions
+ * are refused. Logged.
+ *
+ */
+export const createCustomRoleMutation = (options?: Partial<Options<CreateCustomRoleData>>): UseMutationOptions<CreateCustomRoleResponse, CreateCustomRoleError, Options<CreateCustomRoleData>> => {
+    const mutationOptions: UseMutationOptions<CreateCustomRoleResponse, CreateCustomRoleError, Options<CreateCustomRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createCustomRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a custom role nobody holds (owners only)
+ *
+ * Refused while any member holds the role: give them another role first, so nobody's access
+ * changes as a side effect. Open invites into the role are withdrawn. Logged.
+ *
+ */
+export const deleteCustomRoleMutation = (options?: Partial<Options<DeleteCustomRoleData>>): UseMutationOptions<DeleteCustomRoleResponse, DeleteCustomRoleError, Options<DeleteCustomRoleData>> => {
+    const mutationOptions: UseMutationOptions<DeleteCustomRoleResponse, DeleteCustomRoleError, Options<DeleteCustomRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteCustomRole({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Rename a custom role and choose what it may do (owners only)
+ *
+ * Its base can't change; make another role instead. Owner-only permissions are refused.
+ * Logged, and applies on this server at once and everywhere within a minute.
+ *
+ */
+export const updateCustomRoleMutation = (options?: Partial<Options<UpdateCustomRoleData>>): UseMutationOptions<UpdateCustomRoleResponse, UpdateCustomRoleError, Options<UpdateCustomRoleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateCustomRoleResponse, UpdateCustomRoleError, Options<UpdateCustomRoleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateCustomRole({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

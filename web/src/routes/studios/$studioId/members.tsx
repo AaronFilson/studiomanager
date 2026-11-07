@@ -1,24 +1,33 @@
 import {
+  addOwnerMutation,
   createCertificationTypeMutation,
   createInviteMutation,
   type Duty,
   emailInvitesMutation,
-  getStudioOptions,
+  getBillingContactOptions,
+  getBillingContactQueryKey,
+  getMeOptions,
   grantCertificationMutation,
   listCertificationsOptions,
   listCertificationTypesOptions,
+  listAssignableRolesOptions,
   listDutiesOptions,
   listMembersOptions,
   listOpenInvitesOptions,
   listOpenInvitesQueryKey,
   type Member,
+  removeOwnerMutation,
   resendInviteMutation,
   revokeInviteMutation,
+  type Role,
+  setBillingContactMutation,
   setDutiesMutation,
+  setMemberRoleMutation,
   type SkippedEmail,
   type StudioRole,
+  useCan,
 } from '@studiomanager/api-client';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
@@ -33,21 +42,36 @@ const allDuties: Duty[] = ['TECHNICIAN', 'MONITOR', 'WORK_EXCHANGE', 'VOLUNTEER_
 
 function MembersPage() {
   const { studioId } = Route.useParams();
-  const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
   const members = useQuery(listMembersOptions({ path: { studioId } }));
+  const managesOwners = can('owners.manage');
+  // Built-in and custom roles the caller may give: none that holds more than they do
+  const assignable = useQuery({
+    ...listAssignableRolesOptions({ path: { studioId } }),
+    enabled: can('members.invite'),
+  });
+  const roles = assignable.data ?? [];
 
   return (
     <div className="stack">
       <h1>Members</h1>
-      <EmailInviteForm studioId={studioId} myRole={studio.myRole} />
-      <InviteForm studioId={studioId} myRole={studio.myRole} />
+      {managesOwners && members.isSuccess && <BillingContactCard studioId={studioId} members={members.data} />}
+      <EmailInviteForm studioId={studioId} roles={roles} />
+      <InviteForm studioId={studioId} roles={roles} />
       <OpenInvites studioId={studioId} />
       {members.isPending && <p>Loading members…</p>}
       {members.isError && <ErrorMessage error={members.error} />}
       {members.isSuccess && (
         <ul className="studio-list">
           {members.data.map((member) => (
-            <MemberRow key={member.accountId} studioId={studioId} member={member} />
+            <MemberRow
+              key={member.accountId}
+              studioId={studioId}
+              member={member}
+              managesOwners={managesOwners}
+              ownerCount={members.data.filter((m) => m.role === 'OWNER').length}
+              roles={can('members.role.assign') ? roles : []}
+            />
           ))}
         </ul>
       )}
@@ -56,7 +80,133 @@ function MembersPage() {
   );
 }
 
-function MemberRow({ studioId, member }: { studioId: string; member: Member }) {
+/**
+ * The one owner the platform bills. When that person stops being an owner the studio has none, and
+ * the remaining owners are asked here to pick another.
+ */
+function BillingContactCard({ studioId, members }: { studioId: string; members: Member[] }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const contact = useQuery(getBillingContactOptions({ path: { studioId } }));
+  const choose = useMutation({
+    ...setBillingContactMutation(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getBillingContactQueryKey({ path: { studioId } }) }),
+  });
+  const owners = members.filter((m) => m.role === 'OWNER');
+
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Billing contact</h2>
+      {contact.isError && <ErrorMessage error={contact.error} />}
+      {contact.data?.chooseNeeded && (
+        <p className="badge warning" role="status">
+          The billing contact is no longer an owner. Pick one of the owners; until then, billing notices go to every
+          owner.
+        </p>
+      )}
+      {contact.isSuccess && (
+        <div className="field">
+          <label htmlFor={`${id}-owner`}>Owner the studio is billed through</label>
+          <select
+            id={`${id}-owner`}
+            value={contact.data.accountId ?? ''}
+            disabled={choose.isPending}
+            onChange={(e) => {
+              if (e.target.value) choose.mutate({ path: { studioId }, body: { accountId: e.target.value } });
+            }}
+          >
+            {!contact.data.accountId && <option value="">Choose an owner</option>}
+            {owners.map((owner) => (
+              <option key={owner.accountId} value={owner.accountId}>
+                {owner.displayName ?? 'Unnamed owner'}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {choose.isError && <ErrorMessage error={choose.error} />}
+    </section>
+  );
+}
+
+/** Make a member an owner, or an owner staff; refused for the last owner, so not offered. */
+function OwnerControls({ studioId, member, ownerCount }: { studioId: string; member: Member; ownerCount: number }) {
+  const queryClient = useQueryClient();
+  const me = useQuery(getMeOptions());
+  const onSuccess = () => queryClient.invalidateQueries();
+  const add = useMutation({ ...addOwnerMutation(), onSuccess });
+  const remove = useMutation({ ...removeOwnerMutation(), onSuccess });
+  const name = member.displayName ?? 'this member';
+  const isMe = me.data?.account.id === member.accountId;
+  const path = { studioId, accountId: member.accountId };
+
+  return (
+    <div className="row">
+      {member.role !== 'OWNER' && (
+        <button type="button" disabled={add.isPending} onClick={() => add.mutate({ path })}>
+          Make {name} an owner
+        </button>
+      )}
+      {member.role === 'OWNER' && ownerCount > 1 && (
+        <button type="button" disabled={remove.isPending} onClick={() => remove.mutate({ path })}>
+          {isMe ? 'Step down as owner' : `Remove ${name} as owner`}
+        </button>
+      )}
+      {member.role === 'OWNER' && ownerCount <= 1 && (
+        <span className="badge">The only owner. Add another owner before they can step down.</span>
+      )}
+      {(add.error ?? remove.error) && <ErrorMessage error={add.error ?? remove.error} />}
+    </div>
+  );
+}
+
+/**
+ * Choose a member's role among the built-in and custom roles the caller may give. Owners are made
+ * and unmade with the owner controls, and a member whose role the caller couldn't give isn't
+ * offered a choice.
+ */
+function RolePicker({ studioId, member, roles }: { studioId: string; member: Member; roles: Role[] }) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const assign = useMutation({ ...setMemberRoleMutation(), onSuccess: () => queryClient.invalidateQueries() });
+  const choices = roles.filter((role) => role.role !== 'OWNER');
+  if (member.role === 'OWNER' || !choices.some((role) => role.id === member.roleId)) return null;
+
+  return (
+    <div className="field">
+      <label htmlFor={`${id}-role`}>{member.displayName ?? 'Member'}&apos;s role</label>
+      <select
+        id={`${id}-role`}
+        value={member.roleId}
+        disabled={assign.isPending}
+        onChange={(e) =>
+          assign.mutate({ path: { studioId, accountId: member.accountId }, body: { roleId: e.target.value } })
+        }
+      >
+        {choices.map((role) => (
+          <option key={role.id} value={role.id}>
+            {role.name}
+          </option>
+        ))}
+      </select>
+      {assign.isError && <ErrorMessage error={assign.error} />}
+    </div>
+  );
+}
+
+function MemberRow({
+  studioId,
+  member,
+  managesOwners,
+  ownerCount,
+  roles,
+}: {
+  studioId: string;
+  member: Member;
+  managesOwners: boolean;
+  ownerCount: number;
+  roles: Role[];
+}) {
   const queryClient = useQueryClient();
   const duties = useQuery(listDutiesOptions({ path: { studioId } }));
   const types = useQuery(listCertificationTypesOptions({ path: { studioId } }));
@@ -80,9 +230,11 @@ function MemberRow({ studioId, member }: { studioId: string; member: Member }) {
         <div>
           <strong>{member.displayName ?? 'Unnamed member'}</strong>{' '}
           <span className="badge">
-            {roleLabel(member.role)} · joined {formatDate(member.joinedAt)}
+            {member.roleName} · joined {formatDate(member.joinedAt)}
           </span>
         </div>
+        {managesOwners && <OwnerControls studioId={studioId} member={member} ownerCount={ownerCount} />}
+        <RolePicker studioId={studioId} member={member} roles={roles} />
         <div className="row" role="group" aria-label={`${member.displayName ?? 'Member'}'s duties`}>
           {allDuties.map((duty) => (
             <label key={duty} className="choice">
@@ -161,8 +313,38 @@ function CertificationTypeForm({ studioId }: { studioId: string }) {
   );
 }
 
-function rolesFor(myRole: StudioRole): StudioRole[] {
-  return myRole === 'OWNER' ? ['MEMBER', 'STAFF', 'OWNER'] : ['MEMBER', 'STAFF'];
+/**
+ * What an invite form sends for the chosen role: a built-in role by name, a custom role by id with
+ * its base. Before the roles load, or with none chosen, the built-in member role.
+ */
+function inviteRole(roles: Role[], chosenId: string): { role: StudioRole; roleId?: string } {
+  const chosen = roles.find((role) => role.id === chosenId) ?? roles.find((role) => role.key === 'member');
+  if (!chosen) return { role: 'MEMBER' };
+  return chosen.custom ? { role: chosen.role, roleId: chosen.id } : { role: chosen.role };
+}
+
+/** The role options, the built-in member role first chosen. */
+function RoleSelect({
+  id,
+  roles,
+  value,
+  onChange,
+}: {
+  id: string;
+  roles: Role[];
+  value: string;
+  onChange: (roleId: string) => void;
+}) {
+  const selected = value || (roles.find((role) => role.key === 'member')?.id ?? '');
+  return (
+    <select id={id} value={selected} onChange={(e) => onChange(e.target.value)}>
+      {roles.map((role) => (
+        <option key={role.id} value={role.id}>
+          {role.name}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 const skipReasons: Record<SkippedEmail['reason'], string> = {
@@ -170,11 +352,11 @@ const skipReasons: Record<SkippedEmail['reason'], string> = {
   ALREADY_INVITED: 'already invited; resend it below',
 };
 
-function EmailInviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole }) {
+function EmailInviteForm({ studioId, roles }: { studioId: string; roles: Role[] }) {
   const id = useId();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
-  const [role, setRole] = useState<StudioRole>('MEMBER');
+  const [roleId, setRoleId] = useState('');
   const send = useMutation({
     ...emailInvitesMutation(),
     onSuccess: async () => {
@@ -189,7 +371,7 @@ function EmailInviteForm({ studioId, myRole }: { studioId: string; myRole: Studi
       aria-labelledby={`${id}-title`}
       onSubmit={(event) => {
         event.preventDefault();
-        send.mutate({ path: { studioId }, body: { text, role } });
+        send.mutate({ path: { studioId }, body: { text, ...inviteRole(roles, roleId) } });
       }}
     >
       <h2 id={`${id}-title`}>Invite by email</h2>
@@ -210,13 +392,7 @@ function EmailInviteForm({ studioId, myRole }: { studioId: string; myRole: Studi
       </div>
       <div className="field">
         <label htmlFor={`${id}-role`}>As</label>
-        <select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as StudioRole)}>
-          {rolesFor(myRole).map((r) => (
-            <option key={r} value={r}>
-              {roleLabel(r)}
-            </option>
-          ))}
-        </select>
+        <RoleSelect id={`${id}-role`} roles={roles} value={roleId} onChange={setRoleId} />
       </div>
       {send.isError && <ErrorMessage error={send.error} />}
       {send.data && (
@@ -262,7 +438,8 @@ function OpenInvites({ studioId }: { studioId: string }) {
             <span>
               <strong>{invite.email ?? 'Invite link'}</strong>{' '}
               <span className={invite.expired ? 'badge warning' : 'badge'}>
-                {roleLabel(invite.role)} · {invite.expired ? 'expired' : 'until'} {formatDate(invite.expiresAt)}
+                {invite.roleName ?? roleLabel(invite.role)} · {invite.expired ? 'expired' : 'until'}{' '}
+                {formatDate(invite.expiresAt)}
                 {invite.email && !invite.lastSentAt ? ' · sending' : ''}
               </span>
             </span>
@@ -282,15 +459,14 @@ function OpenInvites({ studioId }: { studioId: string }) {
   );
 }
 
-function InviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole }) {
+function InviteForm({ studioId, roles }: { studioId: string; roles: Role[] }) {
   const id = useId();
   const queryClient = useQueryClient();
-  const [role, setRole] = useState<StudioRole>('MEMBER');
+  const [roleId, setRoleId] = useState('');
   const invite = useMutation({
     ...createInviteMutation(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: listOpenInvitesQueryKey({ path: { studioId } }) }),
   });
-  const roles = rolesFor(myRole);
   const link = invite.data ? `${window.location.origin}/invites/${invite.data.code}` : undefined;
 
   return (
@@ -298,13 +474,7 @@ function InviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole
       <h2 id={`${id}-title`}>Invite with a link</h2>
       <div className="field">
         <label htmlFor={`${id}-role`}>As</label>
-        <select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as StudioRole)}>
-          {roles.map((r) => (
-            <option key={r} value={r}>
-              {roleLabel(r)}
-            </option>
-          ))}
-        </select>
+        <RoleSelect id={`${id}-role`} roles={roles} value={roleId} onChange={setRoleId} />
       </div>
       {invite.isError && <ErrorMessage error={invite.error} />}
       {link && invite.data && (
@@ -321,7 +491,7 @@ function InviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole
           type="button"
           className="primary"
           disabled={invite.isPending}
-          onClick={() => invite.mutate({ path: { studioId }, body: { role } })}
+          onClick={() => invite.mutate({ path: { studioId }, body: inviteRole(roles, roleId) })}
         >
           Create an invite link
         </button>

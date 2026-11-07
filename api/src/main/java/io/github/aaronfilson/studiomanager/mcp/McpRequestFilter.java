@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.mcp;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioAuthorization;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,9 +20,9 @@ import org.springframework.web.servlet.function.ServerResponse;
 
 /**
  * What stays ours in front of the SDK's transport. A router function can't take
- * {@code @PreAuthorize}, so this checks the caller is staff in the studio the URL names. It also
- * checks {@code MCP-Protocol-Version}, which the transport doesn't, and answers anything but POST
- * with a 405 that names POST in {@code Allow}.
+ * {@code @PreAuthorize}, so this checks the caller holds {@code mcp.use} in the studio the URL
+ * names. It also checks {@code MCP-Protocol-Version}, which the transport doesn't, and answers
+ * anything but POST with a 405 that names POST in {@code Allow}.
  */
 @Component
 class McpRequestFilter implements HandlerFilterFunction<ServerResponse, ServerResponse> {
@@ -46,10 +46,11 @@ class McpRequestFilter implements HandlerFilterFunction<ServerResponse, ServerRe
       return ServerResponse.badRequest().build();
     }
     // The tools act on whatever studio is bound, so make sure it's the one in the URL, and that
-    // the caller is staff there. The tenant filter already refuses anyone who isn't a member.
+    // the caller holds mcp.use there (a token, only with the read scope). The tenant filter
+    // already refuses anyone who isn't a member.
     boolean boundHere = studioId.equals(TenantContext.require().studioId());
-    if (!boundHere || !studioAuthz.hasRole(studioId, StudioRole.STAFF)) {
-      throw new AccessDeniedException("The MCP server is for staff of this studio.");
+    if (!boundHere || !studioAuthz.can(studioId, Permission.MCP_USE)) {
+      throw new AccessDeniedException("Your role in this studio doesn't include the MCP server.");
     }
     // No server-to-client stream: a stateless server answers each POST and keeps nothing open
     if (!HttpMethod.POST.equals(request.method())) {

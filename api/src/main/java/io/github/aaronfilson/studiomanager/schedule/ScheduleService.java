@@ -6,7 +6,7 @@ import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Booking;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.BookingKind;
@@ -40,6 +40,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ScheduleService {
 
   static final Duration LONGEST_RANGE = Duration.ofDays(62);
+
+  /** Why a change only staff may make was refused. */
+  static final String ONLY_STAFF = "Only staff can do this.";
 
   /** The most bookings or shifts one range returns. */
   static final int RANGE_LIMIT = 2000;
@@ -111,7 +114,7 @@ public class ScheduleService {
    */
   List<Booking> bookingViews(List<CalendarBooking> found) {
     TenantContext caller = TenantContext.require();
-    boolean staff = isStaff(caller);
+    boolean staff = caller.holds(Permission.SCHEDULE_MANAGE);
     Map<UUID, String> names =
         accounts.displayNames(
             found.stream()
@@ -143,7 +146,7 @@ public class ScheduleService {
   @Transactional(readOnly = true)
   public HoursLedger hours(UUID accountId) {
     TenantContext caller = TenantContext.require();
-    if (!accountId.equals(caller.accountId()) && !isStaff(caller)) {
+    if (!accountId.equals(caller.accountId()) && !caller.holds(Permission.SCHEDULE_HOURS_MANAGE)) {
       throw new AccessDeniedException("You can see only your own hours.");
     }
     List<HoursCredit> credits =
@@ -167,19 +170,6 @@ public class ScheduleService {
 
   Shift shiftView(RosterShift shift) {
     return shiftViews(List.of(shift)).getFirst();
-  }
-
-  static boolean isStaff(TenantContext caller) {
-    StudioRole role = caller.role();
-    return role != null && role.includes(StudioRole.STAFF);
-  }
-
-  static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    if (!isStaff(caller)) {
-      throw new AccessDeniedException("Only staff can do this.");
-    }
-    return caller;
   }
 
   private List<Shift> shiftViews(List<RosterShift> found) {

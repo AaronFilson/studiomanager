@@ -14,6 +14,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -130,6 +131,33 @@ class MaintenanceReminderTests {
     sweep.runAt(start.plus(Duration.ofDays(29)));
     assertThat(notices(owner)).containsExactly("Due soon: Clean the auger");
     assertThat(notices(monitor)).hasSize(2);
+  }
+
+  /**
+   * V14 once picked one owner per studio; with co-owners (plan 21, lane R8) a task nobody is
+   * assigned reaches every owner.
+   */
+  @Test
+  void aStudioWithTwoOwnersRemindsBoth() throws Exception {
+    Instant start = Instant.now();
+    String makerId =
+        read(mvc.get().uri("/api/v1/me").with(maker.token()).exchange(), "$.account.id");
+    assertThat(mvc.put().uri(path("/members/" + makerId + "/owner")).with(owner.token()))
+        .hasStatus(HttpStatus.NO_CONTENT);
+    String pugMill =
+        read(
+            post(owner, path("/maintenance/assets"), "{\"kind\": \"PUG_MILL\", \"name\": \"Pug\"}"),
+            "$.id");
+    post(
+        owner,
+        path("/maintenance/assets/" + pugMill + "/tasks"),
+        "{\"title\": \"Grease the gears\", \"everyDays\": 30}");
+
+    sweep.runAt(start.plus(Duration.ofDays(29)));
+
+    assertThat(notices(owner)).containsExactly("Due soon: Grease the gears");
+    assertThat(notices(maker)).containsExactly("Due soon: Grease the gears");
+    assertThat(notices(monitor)).isEmpty();
   }
 
   /** The titles of someone's maintenance notices in the studio, newest first. */

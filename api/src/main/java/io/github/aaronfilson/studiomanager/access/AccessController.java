@@ -7,8 +7,8 @@ import io.github.aaronfilson.studiomanager.contract.CreateCertificationTypeReque
 import io.github.aaronfilson.studiomanager.contract.DutyDto;
 import io.github.aaronfilson.studiomanager.contract.MemberDutiesDto;
 import io.github.aaronfilson.studiomanager.contract.SetDutiesRequestDto;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioAuthorization;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.net.URI;
 import java.time.ZoneOffset;
@@ -36,7 +36,7 @@ class AccessController implements AccessApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_DUTIES_MANAGE')")
   public ResponseEntity<List<MemberDutiesDto>> listDuties(UUID studioId) {
     return ResponseEntity.ok(
         access.allDuties().entrySet().stream()
@@ -45,7 +45,7 @@ class AccessController implements AccessApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_DUTIES_MANAGE')")
   public ResponseEntity<MemberDutiesDto> setDuties(
       UUID studioId, UUID accountId, SetDutiesRequestDto request) {
     Set<Duty> duties = EnumSet.noneOf(Duty.class);
@@ -54,13 +54,13 @@ class AccessController implements AccessApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_READ')")
   public ResponseEntity<List<CertificationTypeDto>> listCertificationTypes(UUID studioId) {
     return ResponseEntity.ok(access.types().stream().map(AccessController::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_CERTIFY')")
   public ResponseEntity<CertificationTypeDto> createCertificationType(
       UUID studioId, CreateCertificationTypeRequestDto request) {
     AccessService.CertificationType type =
@@ -71,13 +71,13 @@ class AccessController implements AccessApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_READ')")
   public ResponseEntity<List<CertificationDto>> listCertifications(
       UUID studioId, @Nullable UUID accountId) {
     List<AccessService.Certification> found;
     if (accountId != null) {
       found = certifications.certifications(accountId);
-    } else if (authorization.hasRole(studioId, StudioRole.STAFF)) {
+    } else if (authorization.can(studioId, Permission.MEMBERS_CERTIFY)) {
       found = certifications.allCertifications();
     } else {
       found = certifications.certifications(TenantContext.require().accountId());
@@ -86,14 +86,14 @@ class AccessController implements AccessApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_CERTIFY')")
   public ResponseEntity<CertificationDto> grantCertification(
       UUID studioId, UUID typeId, UUID accountId) {
     return ResponseEntity.ok(toDto(certifications.grant(typeId, accountId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_CERTIFY')")
   public ResponseEntity<Void> revokeCertification(UUID studioId, UUID typeId, UUID accountId) {
     certifications.revoke(typeId, accountId);
     return ResponseEntity.noContent().build();

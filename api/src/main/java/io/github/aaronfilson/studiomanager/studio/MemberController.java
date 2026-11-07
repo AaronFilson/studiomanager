@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.contract.BillingContactDto;
 import io.github.aaronfilson.studiomanager.contract.CreateInviteRequestDto;
 import io.github.aaronfilson.studiomanager.contract.EmailInvitesRequestDto;
 import io.github.aaronfilson.studiomanager.contract.EmailInvitesResultDto;
@@ -8,6 +9,8 @@ import io.github.aaronfilson.studiomanager.contract.MemberDto;
 import io.github.aaronfilson.studiomanager.contract.MembersApi;
 import io.github.aaronfilson.studiomanager.contract.MembershipDto;
 import io.github.aaronfilson.studiomanager.contract.OpenInviteDto;
+import io.github.aaronfilson.studiomanager.contract.SetBillingContactRequestDto;
+import io.github.aaronfilson.studiomanager.contract.SetMemberRoleRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SkippedEmailDto;
 import io.github.aaronfilson.studiomanager.contract.StudioRoleDto;
 import io.github.aaronfilson.studiomanager.contract.StudioSummaryDto;
@@ -17,6 +20,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,16 +32,25 @@ class MemberController implements MembersApi {
 
   private final StudioMembers members;
   private final StudioInvites invites;
+  private final StudioService studios;
+  private final StudioRoles roles;
   private final Clock clock;
 
-  MemberController(StudioMembers members, StudioInvites invites, Clock clock) {
+  MemberController(
+      StudioMembers members,
+      StudioInvites invites,
+      StudioService studios,
+      StudioRoles roles,
+      Clock clock) {
     this.members = members;
     this.invites = invites;
+    this.studios = studios;
+    this.roles = roles;
     this.clock = clock;
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_READ')")
   public ResponseEntity<List<MemberDto>> listMembers(UUID studioId) {
     return ResponseEntity.ok(
         members.list().stream()
@@ -45,41 +59,90 @@ class MemberController implements MembersApi {
                     .accountId(member.accountId())
                     .displayName(member.displayName())
                     .role(StudioRoleDto.valueOf(member.role().name()))
+                    .roleId(member.roleId())
+                    .roleName(member.roleName())
                     .joinedAt(member.joinedAt().atOffset(ZoneOffset.UTC)))
             .toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_ROLE_ASSIGN')")
+  public ResponseEntity<Void> setMemberRole(
+      UUID studioId, UUID accountId, SetMemberRoleRequestDto request) {
+    studios.setMemberRole(studioId, accountId, request.getRoleId());
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<Void> addOwner(UUID studioId, UUID accountId) {
+    studios.addOwner(studioId, accountId);
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<Void> removeOwner(UUID studioId, UUID accountId) {
+    studios.removeOwner(studioId, accountId);
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<BillingContactDto> getBillingContact(UUID studioId) {
+    return ResponseEntity.ok(billingContactDto(studios.billingContact(studioId)));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<BillingContactDto> setBillingContact(
+      UUID studioId, SetBillingContactRequestDto request) {
+    studios.setBillingContact(studioId, request.getAccountId());
+    return ResponseEntity.ok(billingContactDto(studios.billingContact(studioId)));
+  }
+
+  private static BillingContactDto billingContactDto(Optional<UUID> contact) {
+    return new BillingContactDto().accountId(contact.orElse(null)).chooseNeeded(contact.isEmpty());
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<InviteDto> createInvite(UUID studioId, CreateInviteRequestDto request) {
-    InviteView invite = invites.invite(StudioRole.valueOf(request.getRole().name()));
+    InviteView invite =
+        invites.invite(StudioRole.valueOf(request.getRole().name()), request.getRoleId());
     return ResponseEntity.created(URI.create("/api/v1/invites/" + invite.code() + "/accept"))
         .body(
             new InviteDto()
                 .id(invite.id())
                 .code(invite.code())
                 .role(StudioRoleDto.valueOf(invite.role().name()))
+                .roleId(invite.roleId())
+                .roleName(invite.roleName())
                 .expiresAt(invite.expiresAt().atOffset(ZoneOffset.UTC)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<List<OpenInviteDto>> listOpenInvites(UUID studioId) {
     Instant now = clock.instant();
+    Map<UUID, String> roleNames = roles.namesById();
     return ResponseEntity.ok(
-        invites.openInvites().stream().map(invite -> toDto(invite, now)).toList());
+        invites.openInvites().stream().map(invite -> toDto(invite, roleNames, now)).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<EmailInvitesResultDto> emailInvites(
       UUID studioId, EmailInvitesRequestDto request) {
     EmailInvitesResult result =
-        members.emailInvites(request.getText(), StudioRole.valueOf(request.getRole().name()));
+        members.emailInvites(
+            request.getText(), StudioRole.valueOf(request.getRole().name()), request.getRoleId());
     Instant now = clock.instant();
+    Map<UUID, String> roleNames = roles.namesById();
     return ResponseEntity.ok(
         new EmailInvitesResultDto()
-            .invited(result.invited().stream().map(invite -> toDto(invite, now)).toList())
+            .invited(
+                result.invited().stream().map(invite -> toDto(invite, roleNames, now)).toList())
             .skipped(
                 result.skipped().stream()
                     .map(skip ->
@@ -90,16 +153,16 @@ class MemberController implements MembersApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<Void> revokeInvite(UUID studioId, UUID inviteId) {
     invites.revoke(inviteId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MEMBERS_INVITE')")
   public ResponseEntity<OpenInviteDto> resendInvite(UUID studioId, UUID inviteId) {
-    return ResponseEntity.ok(toDto(invites.resend(inviteId), clock.instant()));
+    return ResponseEntity.ok(toDto(invites.resend(inviteId), roles.namesById(), clock.instant()));
   }
 
   @Override
@@ -111,11 +174,15 @@ class MemberController implements MembersApi {
             .role(StudioRoleDto.valueOf(membership.role().name())));
   }
 
-  private static OpenInviteDto toDto(OpenInviteView invite, Instant now) {
+  private static OpenInviteDto toDto(
+      OpenInviteView invite, Map<UUID, String> roleNames, Instant now) {
+    UUID roleId = invite.roleId();
     return new OpenInviteDto()
         .id(invite.id())
         .email(invite.email())
         .role(StudioRoleDto.valueOf(invite.role().name()))
+        .roleId(roleId)
+        .roleName(roleId == null ? null : roleNames.get(roleId))
         .createdAt(invite.createdAt().atOffset(ZoneOffset.UTC))
         .expiresAt(invite.expiresAt().atOffset(ZoneOffset.UTC))
         .expired(invite.expiredAt(now))

@@ -9,8 +9,8 @@ import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.maintenance.ProblemReportService;
 import io.github.aaronfilson.studiomanager.piece.PieceService;
 import io.github.aaronfilson.studiomanager.piece.PieceStage;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Booking;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleModel.Shift;
 import io.github.aaronfilson.studiomanager.schedule.ScheduleService;
@@ -22,7 +22,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +44,7 @@ public class TodayService {
   private final SupplyService supplies;
   private final MaintenanceService maintenance;
   private final ProblemReportService problems;
+  private final StudioPermissions permissions;
 
   TodayService(
       StudioService studios,
@@ -54,7 +54,9 @@ public class TodayService {
       ScheduleService schedule,
       SupplyService supplies,
       MaintenanceService maintenance,
-      ProblemReportService problems) {
+      ProblemReportService problems,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.studios = studios;
     this.kilns = kilns;
     this.firings = firings;
@@ -67,10 +69,7 @@ public class TodayService {
 
   @Transactional(readOnly = true)
   public Today today(Instant now) {
-    TenantContext caller = TenantContext.require();
-    if (caller.role() == null || !caller.role().includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("The studio overview is for staff.");
-    }
+    permissions.require(Permission.TODAY_READ, "The studio overview is for staff.");
     ZoneId zone = studios.current().timeZone();
     LocalDate date = now.atZone(zone).toLocalDate();
     Instant dayStart = date.atStartOfDay(zone).toInstant();

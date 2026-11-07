@@ -12,8 +12,9 @@ import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Payee;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PayeeChanges;
 import io.github.aaronfilson.studiomanager.ledger.PayablesService;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.EmailInvitesResult;
 import io.github.aaronfilson.studiomanager.studio.OpenInviteView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
@@ -31,7 +32,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
@@ -55,13 +55,16 @@ public class ImportService {
   private final StudioService studios;
   private final OpeningBalances openingBalances;
   private final PayablesService payables;
+  private final StudioPermissions permissions;
 
   ImportService(
       TransactionOperations transactions,
       StudioMembers members,
       StudioService studios,
       OpeningBalances openingBalances,
-      PayablesService payables) {
+      PayablesService payables,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.transactions = transactions;
     this.members = members;
     this.studios = studios;
@@ -75,7 +78,7 @@ public class ImportService {
    * the same file twice changes nothing.
    */
   public ImportResult importMembers(List<MemberRow> rows, boolean dryRun) {
-    requireStaff();
+    requireCanImport();
     requireSize(rows);
     return run(
         dryRun,
@@ -163,7 +166,7 @@ public class ImportService {
    * created if neither matches; a new artist takes the row's share as their terms.
    */
   public ImportResult importConsignment(List<ConsignmentRow> rows, boolean dryRun) {
-    requireStaff();
+    requireCanImport();
     requireSize(rows);
     return run(
         dryRun,
@@ -286,11 +289,8 @@ public class ImportService {
     }
   }
 
-  private static void requireStaff() {
-    TenantContext caller = TenantContext.require();
-    if (caller.role() == null || !caller.role().includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff can import.");
-    }
+  private void requireCanImport() {
+    permissions.require(Permission.IMPORTS_RUN, "Only staff can import.");
   }
 
   private record Held(@Nullable BigDecimal amount, @Nullable LocalDate asOf) {}

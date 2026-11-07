@@ -1,21 +1,25 @@
-import { getStudioOptions } from '@studiomanager/api-client';
+import { getStudioOptions, useCan } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 
 import { IntakeForm } from '../../../features/IntakeForm';
-import { isStaff } from '../../../labels';
 import { ErrorText, Loading, Screen } from '../../../ui';
 
 export default function IntakeScreen() {
   const { studioId } = useLocalSearchParams<{ studioId: string }>();
   const studio = useQuery(getStudioOptions({ path: { studioId } }));
+  const permissions = useCan(studioId);
 
   return (
     <Screen>
-      {studio.isPending && <Loading />}
+      {(studio.isPending || permissions.isPending) && <Loading />}
       {studio.isError && <ErrorText error={studio.error} />}
-      {studio.isSuccess && (
-        <IntakeForm studioId={studioId} unitSystem={studio.data.unitSystem} staff={isStaff(studio.data.myRole)} />
+      {studio.isSuccess && !permissions.isPending && (
+        <IntakeForm
+          studioId={studioId}
+          unitSystem={studio.data.unitSystem}
+          staff={permissions.can('pieces.intake_for_others')}
+        />
       )}
     </Screen>
   );

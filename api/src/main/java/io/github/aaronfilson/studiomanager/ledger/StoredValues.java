@@ -12,6 +12,8 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
@@ -47,6 +49,7 @@ class StoredValues {
   private final StudioBooks books;
   private final LedgerService ledger;
   private final AccountDirectory accounts;
+  private final StudioPermissions permissions;
 
   StoredValues(
       StoredValueRepository storedValues,
@@ -54,7 +57,9 @@ class StoredValues {
       Journal journal,
       StudioBooks books,
       LedgerService ledger,
-      AccountDirectory accounts) {
+      AccountDirectory accounts,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.storedValues = storedValues;
     this.queries = queries;
     this.journal = journal;
@@ -72,7 +77,7 @@ class StoredValues {
       BigDecimal amount,
       Provider provider,
       @Nullable LocalDate expiresOn) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     ledger.requirePositive(amount);
     if (kind != StoredValueKind.GIFT_CARD && holder == null) {
       throw new InvalidInputException("Only a gift card can be sold without naming who holds it.");
@@ -110,7 +115,7 @@ class StoredValues {
   /** Uses stored value to pay down what a member owes. */
   @Transactional
   public StoredValueBalance useStoredValue(UUID storedValueId, UUID memberId, BigDecimal amount) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     ledger.requireMember(memberId);
     ledger.requirePositive(amount);
     // Lock the balance so two uses at once can't both spend it
@@ -146,7 +151,7 @@ class StoredValues {
   /** Writes off what's left on a lapsed balance as breakage revenue. */
   @Transactional
   public StoredValueBalance expireStoredValue(UUID storedValueId) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     StoredValueBalance balance = storedValue(storedValueId);
     if (balance.remaining().signum() <= 0) {
       throw new InvalidInputException("Nothing is left on it.");
@@ -168,7 +173,7 @@ class StoredValues {
   @Transactional(readOnly = true)
   public List<StoredValueBalance> storedValuesOf(UUID memberId) {
     TenantContext caller = TenantContext.require();
-    if (!memberId.equals(caller.accountId()) && !LedgerService.isStaff(caller)) {
+    if (!memberId.equals(caller.accountId()) && !caller.holds(Permission.MONEY_READ)) {
       throw new AccessDeniedException("You can see only your own balances.");
     }
     return withNames(
@@ -183,7 +188,7 @@ class StoredValues {
    */
   @Transactional(readOnly = true)
   public Capped<StoredValueBalance> storedValues() {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     Capped<StoredValueBalance> found =
         Capped.fromFetched(
             queries.storedValuesWithSomethingLeft(Capped.fetchSize(STORED_VALUES_LIMIT)),
@@ -194,7 +199,7 @@ class StoredValues {
   /** Looks up a gift card by its code, for redeeming it at the desk. */
   @Transactional(readOnly = true)
   public StoredValueBalance giftCard(String code) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     return withNames(queries.giftCardByCode(code.strip().toUpperCase(Locale.ROOT))).stream()
         .findFirst()
         .orElseThrow(() -> new NotFoundException("No gift card with that code."));
@@ -206,7 +211,7 @@ class StoredValues {
    */
   @Transactional(readOnly = true)
   public List<StoredValueMovement> storedValueMovements(LocalDate from, LocalDate to) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_READ, LedgerService.ONLY_STAFF);
     LedgerService.requireDateRange(from, to);
     Map<StoredValueKind, Totals> totals = new EnumMap<>(StoredValueKind.class);
     for (StoredValueKind kind : StoredValueKind.values()) {

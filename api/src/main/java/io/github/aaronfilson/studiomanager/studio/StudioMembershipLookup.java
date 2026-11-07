@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.MemberRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.MembershipLookup;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -18,7 +18,7 @@ class StudioMembershipLookup implements MembershipLookup {
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<StudioRole> roleOf(UUID accountId, UUID studioId) {
-    return memberships.findRole(studioId, accountId);
+  public Optional<MemberRole> roleOf(UUID accountId, UUID studioId) {
+    return memberships.findMemberRole(studioId, accountId);
   }
 }

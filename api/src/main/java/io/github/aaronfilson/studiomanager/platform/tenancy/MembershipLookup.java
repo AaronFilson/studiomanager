@@ -10,5 +10,6 @@ import java.util.UUID;
 @FunctionalInterface
 public interface MembershipLookup {
 
-  Optional<StudioRole> roleOf(UUID accountId, UUID studioId);
+  /** The role row {@code accountId} holds in {@code studioId}, with its base. */
+  Optional<MemberRole> roleOf(UUID accountId, UUID studioId);
 }

@@ -38,6 +38,9 @@ class Studio {
 
   private Instant createdAt;
 
+  // An owner, or null while the owners choose one (V40 checks it is an owner at commit)
+  private @Nullable UUID billingContactAccountId;
+
   // Null until first saved, which is also how Spring Data tells new from existing with an assigned
   // ID
   @Version private @Nullable Long version;
@@ -88,5 +91,13 @@ class Studio {
 
   Instant createdAt() {
     return createdAt;
+  }
+
+  @Nullable UUID billingContactAccountId() {
+    return billingContactAccountId;
+  }
+
+  void billingContact(@Nullable UUID accountId) {
+    this.billingContactAccountId = accountId;
   }
 }

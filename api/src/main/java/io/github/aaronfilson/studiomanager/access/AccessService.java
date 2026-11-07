@@ -2,8 +2,9 @@ package io.github.aaronfilson.studiomanager.access;
 
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
+import io.github.aaronfilson.studiomanager.studio.AccessChangeLog;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.time.Clock;
 import java.time.Instant;
@@ -15,7 +16,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,18 +31,24 @@ public class AccessService {
   private final CertificationRepository certifications;
   private final StudioMembers members;
   private final Clock clock;
+  private final StudioPermissions permissions;
+  private final AccessChangeLog changeLog;
 
   AccessService(
       MemberDutyRepository duties,
       CertificationTypeRepository types,
       CertificationRepository certifications,
       StudioMembers members,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions,
+      AccessChangeLog changeLog) {
     this.duties = duties;
     this.types = types;
     this.certifications = certifications;
     this.members = members;
     this.clock = clock;
+    this.permissions = permissions;
+    this.changeLog = changeLog;
   }
 
   @Transactional(readOnly = true)
@@ -69,7 +75,7 @@ public class AccessService {
    */
   @Transactional
   public Set<Duty> setDuties(UUID accountId, Set<Duty> wanted) {
-    requireStaff();
+    permissions.require(Permission.MEMBERS_DUTIES_MANAGE, "Only staff can do this.");
     requireMember(accountId);
     List<MemberDuty> held = duties.findByAccount(accountId);
     Set<Duty> kept = EnumSet.noneOf(Duty.class);
@@ -87,7 +93,13 @@ public class AccessService {
       }
     }
     duties.flush();
-    return dutiesOf(accountId);
+    Set<Duty> heldNow = dutiesOf(accountId);
+    changeLog.record(
+        AccessChangeLog.Kind.MEMBER_DUTIES,
+        accountId.toString(),
+        held.stream().map(duty -> duty.duty().name()).toList(),
+        heldNow.stream().map(Duty::name).toList());
+    return heldNow;
   }
 
   @Transactional(readOnly = true)
@@ -123,19 +135,6 @@ public class AccessService {
     if (members.roleOf(accountId).isEmpty()) {
       throw new InvalidInputException("That person isn't a member of this studio.");
     }
-  }
-
-  static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    if (!isStaff(caller)) {
-      throw new AccessDeniedException("Only staff can do this.");
-    }
-    return caller;
-  }
-
-  static boolean isStaff(TenantContext caller) {
-    StudioRole role = caller.role();
-    return role != null && role.includes(StudioRole.STAFF);
   }
 
   public record CertificationType(UUID id, String name, @Nullable Integer validMonths) {}

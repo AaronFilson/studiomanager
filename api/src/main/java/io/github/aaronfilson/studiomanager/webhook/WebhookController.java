@@ -37,7 +37,7 @@ class WebhookController implements WebhooksApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<List<WebhookEventTypeInfoDto>> listWebhookEventTypes(UUID studioId) {
     String name = studios.current().name();
     return ResponseEntity.ok(
@@ -51,13 +51,13 @@ class WebhookController implements WebhooksApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<List<WebhookEndpointDto>> listWebhookEndpoints(UUID studioId) {
     return ResponseEntity.ok(endpoints.list().stream().map(WebhookController::dto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<CreatedWebhookEndpointDto> createWebhookEndpoint(
       UUID studioId, CreateWebhookEndpointDto request) {
     var created =
@@ -71,7 +71,7 @@ class WebhookController implements WebhooksApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<WebhookEndpointDto> updateWebhookEndpoint(
       UUID studioId, UUID endpointId, UpdateWebhookEndpointDto request) {
     return ResponseEntity.ok(
@@ -89,14 +89,14 @@ class WebhookController implements WebhooksApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<Void> deleteWebhookEndpoint(UUID studioId, UUID endpointId) {
     endpoints.delete(endpointId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<WebhookSecretDto> rotateWebhookSecret(UUID studioId, UUID endpointId) {
     var rotated = endpoints.rotateSecret(endpointId);
     return ResponseEntity.ok(
@@ -106,13 +106,13 @@ class WebhookController implements WebhooksApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<WebhookDeliveryDto> testWebhookEndpoint(UUID studioId, UUID endpointId) {
     return ResponseEntity.ok(dto(endpoints.test(endpointId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<WebhookDeliveryListDto> listWebhookDeliveries(
       UUID studioId, UUID endpointId) {
     Capped<WebhookDeliveryDto> deliveries =
@@ -122,7 +122,7 @@ class WebhookController implements WebhooksApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'WEBHOOKS_MANAGE')")
   public ResponseEntity<WebhookDeliveryDto> resendWebhookDelivery(UUID studioId, UUID deliveryId) {
     return ResponseEntity.ok(dto(endpoints.resend(deliveryId)));
   }

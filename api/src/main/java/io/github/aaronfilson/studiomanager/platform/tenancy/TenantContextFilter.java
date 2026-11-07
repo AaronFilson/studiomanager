@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.EnumSet;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.server.PathContainer;
@@ -31,10 +32,13 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
   private final AccountResolver accounts;
   private final MembershipLookup memberships;
+  private final RolePermissions rolePermissions;
 
-  public TenantContextFilter(AccountResolver accounts, MembershipLookup memberships) {
+  public TenantContextFilter(
+      AccountResolver accounts, MembershipLookup memberships, RolePermissions rolePermissions) {
     this.accounts = accounts;
     this.memberships = memberships;
+    this.rolePermissions = rolePermissions;
   }
 
   @Override
@@ -46,7 +50,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
     if (authentication instanceof JwtAuthenticationToken jwt) {
       TenantContext caller = TenantContext.forAccount(accounts.resolve(jwt.getToken()));
       UUID studioId = studioIdFrom(request);
-      context = studioId == null ? caller : caller.inStudio(studioId, roleIn(studioId, caller));
+      context = studioId == null ? caller : inStudio(caller, studioId);
     } else if (authentication instanceof ApiTokenAuthentication token) {
       context = tokenContext(request, token.token());
     } else {
@@ -70,7 +74,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
   /**
    * A token works only in its own studio, only where {@link TokenPolicy} allows its scopes, and
-   * only while its person is still staff there: their live role is the ceiling.
+   * only while its person holds {@code api_tokens.own} there. It holds what its person holds now
+   * and its scopes allow ({@link TokenScope#allowedBy}), resolved on every request, so a change to
+   * the person's role or their role's set applies to the token at once (plan 21 §5).
    */
   private TenantContext tokenContext(
       HttpServletRequest request, ApiTokenResolver.ResolvedToken token) {
@@ -83,13 +89,27 @@ public class TenantContextFilter extends OncePerRequestFilter {
         .ifPresent(why -> {
           throw new AccessDeniedException(why);
         });
-    TenantContext caller = TenantContext.forAccount(token.accountId());
-    StudioRole role = roleIn(token.studioId(), caller);
-    if (!role.includes(StudioRole.STAFF)) {
+    TenantContext person = inStudio(TenantContext.forAccount(token.accountId()), token.studioId());
+    if (!person.holds(Permission.API_TOKENS_OWN)) {
       throw new AccessDeniedException(
-          "API tokens are for staff. This token's owner isn't staff any more.");
+          "This token's owner may no longer use API tokens in this studio.");
     }
-    return caller.inStudio(token.studioId(), role).viaToken(token.tokenId());
+    EnumSet<Permission> held = EnumSet.noneOf(Permission.class);
+    held.addAll(person.permissions());
+    held.retainAll(TokenScope.allowedBy(token.scopes()));
+    return person.viaToken(token.tokenId()).withPermissions(held);
+  }
+
+  /**
+   * The caller in {@code studioId}, once their membership is confirmed, holding what their role and
+   * duties there give them. The lookups run bound to the studio, so row-level security lets them
+   * read its roles and duties.
+   */
+  private TenantContext inStudio(TenantContext caller, UUID studioId) {
+    MemberRole role = roleIn(studioId, caller);
+    // Bound at the role's base; a custom role's own set is what they hold
+    TenantContext member = caller.inStudio(studioId, role.base());
+    return TenantContext.callAs(member, () -> rolePermissions.resolve(member, role));
   }
 
   private static String areaOf(HttpServletRequest request) {
@@ -99,7 +119,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
     return match == null ? "" : match.getUriVariables().getOrDefault("area", "");
   }
 
-  private StudioRole roleIn(UUID studioId, TenantContext caller) {
+  private MemberRole roleIn(UUID studioId, TenantContext caller) {
     return TenantContext.callAs(caller, () -> memberships.roleOf(caller.accountId(), studioId))
         .orElseThrow(() -> new AccessDeniedException("You are not a member of this studio."));
   }

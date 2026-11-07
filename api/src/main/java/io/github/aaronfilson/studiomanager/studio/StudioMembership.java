@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.MemberRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,6 +14,10 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One person's membership, and role, in one studio.
+ *
+ * <p>The role is a {@link StoredRole} row ({@code roleId}, lane R7), system or custom; {@code role}
+ * is always that row's base, kept for everything still keyed on it ({@code V41__custom_roles.sql}
+ * keeps the two in step in the database too).
  *
  * <p>No {@code @TenantId}: "my studios" reads a person's memberships in every studio with none
  * bound (ADR 21). So queries in one studio name the studio themselves.
@@ -30,6 +35,8 @@ class StudioMembership {
   @Enumerated(EnumType.STRING)
   private StudioRole role;
 
+  private UUID roleId;
+
   private Instant createdAt;
 
   @Version private @Nullable Long version;
@@ -37,11 +44,12 @@ class StudioMembership {
   @SuppressWarnings("NullAway.Init")
   protected StudioMembership() {}
 
-  StudioMembership(UUID id, UUID studioId, UUID accountId, StudioRole role, Instant createdAt) {
+  StudioMembership(UUID id, UUID studioId, UUID accountId, StoredRole role, Instant createdAt) {
     this.id = id;
     this.studioId = studioId;
     this.accountId = accountId;
-    this.role = role;
+    this.role = role.base();
+    this.roleId = role.id();
     this.createdAt = createdAt;
   }
 
@@ -53,7 +61,21 @@ class StudioMembership {
     return role;
   }
 
+  UUID roleId() {
+    return roleId;
+  }
+
+  MemberRole memberRole() {
+    return new MemberRole(role, roleId);
+  }
+
   Instant createdAt() {
     return createdAt;
+  }
+
+  /** Puts the member in {@code newRole}, at its base. */
+  void changeRole(StoredRole newRole) {
+    this.role = newRole.base();
+    this.roleId = newRole.id();
   }
 }

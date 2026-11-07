@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompareInvoiceReadersData, CompareInvoiceReadersErrors, CompareInvoiceReadersResponses, CompleteInvoiceUploadData, CompleteInvoiceUploadErrors, CompleteInvoiceUploadResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadErrors, CompleteRecordPhotoUploadResponses, ConfirmInvoiceData, ConfirmInvoiceErrors, ConfirmInvoiceResponses, CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateDemoTokenData, CreateDemoTokenErrors, CreateDemoTokenResponses, CreateGlazeData, CreateGlazeErrors, CreateGlazeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePayeeData, CreatePayeeErrors, CreatePayeeResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, CreateWebhookEndpointData, CreateWebhookEndpointErrors, CreateWebhookEndpointResponses, DecidePendingActionData, DecidePendingActionErrors, DecidePendingActionResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeleteAiKeyData, DeleteAiKeyErrors, DeleteAiKeyResponses, DeleteGlazeData, DeleteGlazeErrors, DeleteGlazeResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, DeleteWebhookEndpointData, DeleteWebhookEndpointErrors, DeleteWebhookEndpointResponses, DiscardInvoiceData, DiscardInvoiceErrors, DiscardInvoiceResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, EndRateLimitBoostData, EndRateLimitBoostErrors, EndRateLimitBoostResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, ExportMaintenanceRecordsData, ExportMaintenanceRecordsErrors, ExportMaintenanceRecordsResponses, ExportNecReportData, ExportNecReportErrors, ExportNecReportResponses, ExportStudioData, ExportStudioErrors, ExportStudioResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetAiKeyData, GetAiKeyErrors, GetAiKeyResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetGlazeBatchData, GetGlazeBatchErrors, GetGlazeBatchResponses, GetGlazeData, GetGlazeErrors, GetGlazeResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetInvoiceData, GetInvoiceErrors, GetInvoiceReadersData, GetInvoiceReadersErrors, GetInvoiceReadersResponses, GetInvoiceResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetMyConsignmentData, GetMyConsignmentErrors, GetMyConsignmentResponses, GetNecReportData, GetNecReportErrors, GetNecReportResponses, GetPayeeStatementData, GetPayeeStatementErrors, GetPayeeStatementResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetRateLimitsData, GetRateLimitsErrors, GetRateLimitsResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GetWeeklyActivityData, GetWeeklyActivityErrors, GetWeeklyActivityResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportConsignmentData, ImportConsignmentErrors, ImportConsignmentResponses, ImportMembersData, ImportMembersErrors, ImportMembersResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListAdminStudiosData, ListAdminStudiosErrors, ListAdminStudiosResponses, ListApiTokensData, ListApiTokensErrors, ListApiTokensResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListConsignmentItemsData, ListConsignmentItemsErrors, ListConsignmentItemsResponses, ListConsignmentSalesData, ListConsignmentSalesErrors, ListConsignmentSalesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListGlazesData, ListGlazesErrors, ListGlazesResponses, ListInvoicesData, ListInvoicesErrors, ListInvoicesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayeesData, ListPayeesErrors, ListPayeesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPendingActionsData, ListPendingActionsErrors, ListPendingActionsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListProblemReportsData, ListProblemReportsErrors, ListProblemReportsResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListReportableAssetsData, ListReportableAssetsErrors, ListReportableAssetsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListSettingChangesData, ListSettingChangesErrors, ListSettingChangesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksErrors, ListSuggestedMaintenanceTasksResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, ListWebhookDeliveriesData, ListWebhookDeliveriesErrors, ListWebhookDeliveriesResponses, ListWebhookEndpointsData, ListWebhookEndpointsErrors, ListWebhookEndpointsResponses, ListWebhookEventTypesData, ListWebhookEventTypesErrors, ListWebhookEventTypesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, OfferShiftData, OfferShiftErrors, OfferShiftResponses, PayPayeeData, PayPayeeErrors, PayPayeeResponses, PayPayeesData, PayPayeesErrors, PayPayeesResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordEarningData, RecordEarningErrors, RecordEarningResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, RefundConsignmentSaleData, RefundConsignmentSaleErrors, RefundConsignmentSaleResponses, ReportProblemData, ReportProblemErrors, ReportProblemResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResendWebhookDeliveryData, ResendWebhookDeliveryErrors, ResendWebhookDeliveryResponses, ResetDemoStudioData, ResetDemoStudioErrors, ResetDemoStudioResponses, ResetInvoiceReadersData, ResetInvoiceReadersErrors, ResetInvoiceReadersResponses, ResetNormalRateLimitsData, ResetNormalRateLimitsErrors, ResetNormalRateLimitsResponses, ResolveProblemReportData, ResolveProblemReportErrors, ResolveProblemReportResponses, ReturnConsignmentData, ReturnConsignmentErrors, ReturnConsignmentResponses, RevokeApiTokenData, RevokeApiTokenErrors, RevokeApiTokenResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RotateWebhookSecretData, RotateWebhookSecretErrors, RotateWebhookSecretResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SaveInvoiceDraftData, SaveInvoiceDraftErrors, SaveInvoiceDraftResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, ScheduleRateLimitBoostData, ScheduleRateLimitBoostErrors, ScheduleRateLimitBoostResponses, SellConsignmentData, SellConsignmentErrors, SellConsignmentResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAiKeyData, SetAiKeyErrors, SetAiKeyResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetInvoiceReadersData, SetInvoiceReadersErrors, SetInvoiceReadersResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetNormalRateLimitsData, SetNormalRateLimitsErrors, SetNormalRateLimitsResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartInvoiceUploadData, StartInvoiceUploadErrors, StartInvoiceUploadResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, StartRecordPhotoUploadData, StartRecordPhotoUploadErrors, StartRecordPhotoUploadResponses, TakeInConsignmentData, TakeInConsignmentErrors, TakeInConsignmentResponses, TestAiKeyData, TestAiKeyErrors, TestAiKeyResponses, TestWebhookEndpointData, TestWebhookEndpointErrors, TestWebhookEndpointResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateGlazeData, UpdateGlazeErrors, UpdateGlazeResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdatePayeeData, UpdatePayeeErrors, UpdatePayeeResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UpdateWebhookEndpointData, UpdateWebhookEndpointErrors, UpdateWebhookEndpointResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AddOwnerData, AddOwnerErrors, AddOwnerResponses, AdjustHoursData, AdjustHoursErrors, AdjustHoursResponses, ArchiveAssetData, ArchiveAssetErrors, ArchiveAssetResponses, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskErrors, ArchiveMaintenanceTaskResponses, AssignShiftData, AssignShiftErrors, AssignShiftResponses, CancelBookingData, CancelBookingErrors, CancelBookingResponses, CompareInvoiceReadersData, CompareInvoiceReadersErrors, CompareInvoiceReadersResponses, CompleteInvoiceUploadData, CompleteInvoiceUploadErrors, CompleteInvoiceUploadResponses, CompleteMaintenanceTaskData, CompleteMaintenanceTaskErrors, CompleteMaintenanceTaskResponses, CompletePhotoUploadData, CompletePhotoUploadErrors, CompletePhotoUploadResponses, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadErrors, CompleteRecordPhotoUploadResponses, ConfirmInvoiceData, ConfirmInvoiceErrors, ConfirmInvoiceResponses, CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateAssetData, CreateAssetErrors, CreateAssetResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateCertificationTypeData, CreateCertificationTypeErrors, CreateCertificationTypeResponses, CreateCustomRoleData, CreateCustomRoleErrors, CreateCustomRoleResponses, CreateDemoTokenData, CreateDemoTokenErrors, CreateDemoTokenResponses, CreateGlazeData, CreateGlazeErrors, CreateGlazeResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreateKilnData, CreateKilnErrors, CreateKilnResponses, CreateMaintenanceTaskData, CreateMaintenanceTaskErrors, CreateMaintenanceTaskResponses, CreatePayeeData, CreatePayeeErrors, CreatePayeeResponses, CreatePurchaseRequestData, CreatePurchaseRequestErrors, CreatePurchaseRequestResponses, CreateResourceData, CreateResourceErrors, CreateResourceResponses, CreateShiftsData, CreateShiftsErrors, CreateShiftsResponses, CreateStudioData, CreateStudioErrors, CreateStudioResponses, CreateSupplyData, CreateSupplyErrors, CreateSupplyResponses, CreateWebhookEndpointData, CreateWebhookEndpointErrors, CreateWebhookEndpointResponses, DecidePendingActionData, DecidePendingActionErrors, DecidePendingActionResponses, DecidePurchaseRequestData, DecidePurchaseRequestErrors, DecidePurchaseRequestResponses, DeleteAiKeyData, DeleteAiKeyErrors, DeleteAiKeyResponses, DeleteCustomRoleData, DeleteCustomRoleErrors, DeleteCustomRoleResponses, DeleteGlazeData, DeleteGlazeErrors, DeleteGlazeResponses, DeletePhotoData, DeletePhotoErrors, DeletePhotoResponses, DeleteWebhookEndpointData, DeleteWebhookEndpointErrors, DeleteWebhookEndpointResponses, DiscardInvoiceData, DiscardInvoiceErrors, DiscardInvoiceResponses, EmailInvitesData, EmailInvitesErrors, EmailInvitesResponses, EndRateLimitBoostData, EndRateLimitBoostErrors, EndRateLimitBoostResponses, ExpireStoredValueData, ExpireStoredValueErrors, ExpireStoredValueResponses, ExportJournalData, ExportJournalErrors, ExportJournalResponses, ExportMaintenanceRecordsData, ExportMaintenanceRecordsErrors, ExportMaintenanceRecordsResponses, ExportNecReportData, ExportNecReportErrors, ExportNecReportResponses, ExportStudioData, ExportStudioErrors, ExportStudioResponses, FindGiftCardData, FindGiftCardErrors, FindGiftCardResponses, GetAiKeyData, GetAiKeyErrors, GetAiKeyResponses, GetBillingContactData, GetBillingContactErrors, GetBillingContactResponses, GetClearingData, GetClearingErrors, GetClearingResponses, GetFeeScheduleData, GetFeeScheduleErrors, GetFeeScheduleResponses, GetFiringData, GetFiringErrors, GetFiringResponses, GetGlazeBatchData, GetGlazeBatchErrors, GetGlazeBatchResponses, GetGlazeData, GetGlazeErrors, GetGlazeResponses, GetHoursData, GetHoursErrors, GetHoursResponses, GetInvoiceData, GetInvoiceErrors, GetInvoiceReadersData, GetInvoiceReadersErrors, GetInvoiceReadersResponses, GetInvoiceResponses, GetKilnQueueData, GetKilnQueueErrors, GetKilnQueueResponses, GetLedgerSummaryData, GetLedgerSummaryErrors, GetLedgerSummaryResponses, GetMeData, GetMeErrors, GetMeResponses, GetMyConsignmentData, GetMyConsignmentErrors, GetMyConsignmentResponses, GetMyPermissionsData, GetMyPermissionsErrors, GetMyPermissionsResponses, GetNecReportData, GetNecReportErrors, GetNecReportResponses, GetPayeeStatementData, GetPayeeStatementErrors, GetPayeeStatementResponses, GetPieceData, GetPieceErrors, GetPiecePolicyData, GetPiecePolicyErrors, GetPiecePolicyResponses, GetPieceResponses, GetRateLimitsData, GetRateLimitsErrors, GetRateLimitsResponses, GetStatementData, GetStatementErrors, GetStatementResponses, GetStoredValueMovementsData, GetStoredValueMovementsErrors, GetStoredValueMovementsResponses, GetStudioData, GetStudioErrors, GetStudioResponses, GetTodayData, GetTodayErrors, GetTodayResponses, GetWeeklyActivityData, GetWeeklyActivityErrors, GetWeeklyActivityResponses, GrantCertificationData, GrantCertificationErrors, GrantCertificationResponses, ImportConsignmentData, ImportConsignmentErrors, ImportConsignmentResponses, ImportMembersData, ImportMembersErrors, ImportMembersResponses, ImportPayoutData, ImportPayoutErrors, ImportPayoutResponses, IntakePieceData, IntakePieceErrors, IntakePieceResponses, ListAccessChangesData, ListAccessChangesErrors, ListAccessChangesResponses, ListAdminStudiosData, ListAdminStudiosErrors, ListAdminStudiosResponses, ListApiTokensData, ListApiTokensErrors, ListApiTokensResponses, ListAssetsData, ListAssetsErrors, ListAssetsResponses, ListAssignableRolesData, ListAssignableRolesErrors, ListAssignableRolesResponses, ListBalancesData, ListBalancesErrors, ListBalancesResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListCertificationsData, ListCertificationsErrors, ListCertificationsResponses, ListCertificationTypesData, ListCertificationTypesErrors, ListCertificationTypesResponses, ListConsignmentItemsData, ListConsignmentItemsErrors, ListConsignmentItemsResponses, ListConsignmentSalesData, ListConsignmentSalesErrors, ListConsignmentSalesResponses, ListDutiesData, ListDutiesErrors, ListDutiesResponses, ListGlazesData, ListGlazesErrors, ListGlazesResponses, ListInvoicesData, ListInvoicesErrors, ListInvoicesResponses, ListKilnFiringsData, ListKilnFiringsErrors, ListKilnFiringsResponses, ListKilnsData, ListKilnsErrors, ListKilnsResponses, ListMaintenanceRecordsData, ListMaintenanceRecordsErrors, ListMaintenanceRecordsResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMyMaintenanceTasksData, ListMyMaintenanceTasksErrors, ListMyMaintenanceTasksResponses, ListMyNotificationsData, ListMyNotificationsErrors, ListMyNotificationsResponses, ListOpenInvitesData, ListOpenInvitesErrors, ListOpenInvitesResponses, ListPayeesData, ListPayeesErrors, ListPayeesResponses, ListPayoutsData, ListPayoutsErrors, ListPayoutsResponses, ListPendingActionsData, ListPendingActionsErrors, ListPendingActionsResponses, ListPiecesData, ListPiecesErrors, ListPiecesResponses, ListProblemReportsData, ListProblemReportsErrors, ListProblemReportsResponses, ListPurchaseRequestsData, ListPurchaseRequestsErrors, ListPurchaseRequestsResponses, ListReportableAssetsData, ListReportableAssetsErrors, ListReportableAssetsResponses, ListResourcesData, ListResourcesErrors, ListResourcesResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListSettingChangesData, ListSettingChangesErrors, ListSettingChangesResponses, ListShiftsData, ListShiftsErrors, ListShiftsResponses, ListStockMovementsData, ListStockMovementsErrors, ListStockMovementsResponses, ListStoredValuesData, ListStoredValuesErrors, ListStoredValuesResponses, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksErrors, ListSuggestedMaintenanceTasksResponses, ListSuppliesData, ListSuppliesErrors, ListSuppliesResponses, ListTaxRatesData, ListTaxRatesErrors, ListTaxRatesResponses, ListWebhookDeliveriesData, ListWebhookDeliveriesErrors, ListWebhookDeliveriesResponses, ListWebhookEndpointsData, ListWebhookEndpointsErrors, ListWebhookEndpointsResponses, ListWebhookEventTypesData, ListWebhookEventTypesErrors, ListWebhookEventTypesResponses, LoadKilnData, LoadKilnErrors, LoadKilnResponses, MarkNotificationReadData, MarkNotificationReadErrors, MarkNotificationReadResponses, MarkShiftWorkedData, MarkShiftWorkedErrors, MarkShiftWorkedResponses, MovePieceData, MovePieceErrors, MovePieceResponses, OfferShiftData, OfferShiftErrors, OfferShiftResponses, PayPayeeData, PayPayeeErrors, PayPayeeResponses, PayPayeesData, PayPayeesErrors, PayPayeesResponses, QuoteFeeData, QuoteFeeErrors, QuoteFeeResponses, RecordEarningData, RecordEarningErrors, RecordEarningResponses, RecordPaymentData, RecordPaymentErrors, RecordPaymentResponses, RecordRepairData, RecordRepairErrors, RecordRepairResponses, RecordStockMovementData, RecordStockMovementErrors, RecordStockMovementResponses, RefundConsignmentSaleData, RefundConsignmentSaleErrors, RefundConsignmentSaleResponses, RemoveOwnerData, RemoveOwnerErrors, RemoveOwnerResponses, ReportProblemData, ReportProblemErrors, ReportProblemResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResendWebhookDeliveryData, ResendWebhookDeliveryErrors, ResendWebhookDeliveryResponses, ResetDemoStudioData, ResetDemoStudioErrors, ResetDemoStudioResponses, ResetInvoiceReadersData, ResetInvoiceReadersErrors, ResetInvoiceReadersResponses, ResetNormalRateLimitsData, ResetNormalRateLimitsErrors, ResetNormalRateLimitsResponses, ResetRolePermissionsData, ResetRolePermissionsErrors, ResetRolePermissionsResponses, ResolveProblemReportData, ResolveProblemReportErrors, ResolveProblemReportResponses, ReturnConsignmentData, ReturnConsignmentErrors, ReturnConsignmentResponses, RevokeApiTokenData, RevokeApiTokenErrors, RevokeApiTokenResponses, RevokeCertificationData, RevokeCertificationErrors, RevokeCertificationResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RotateWebhookSecretData, RotateWebhookSecretErrors, RotateWebhookSecretResponses, SaveFeeScheduleData, SaveFeeScheduleErrors, SaveFeeScheduleResponses, SaveInvoiceDraftData, SaveInvoiceDraftErrors, SaveInvoiceDraftResponses, SavePiecePolicyData, SavePiecePolicyErrors, SavePiecePolicyResponses, ScheduleRateLimitBoostData, ScheduleRateLimitBoostErrors, ScheduleRateLimitBoostResponses, SellConsignmentData, SellConsignmentErrors, SellConsignmentResponses, SellStoredValueData, SellStoredValueErrors, SellStoredValueResponses, SellSupplyData, SellSupplyErrors, SellSupplyResponses, SendNoticeData, SendNoticeErrors, SendNoticeResponses, SetAiKeyData, SetAiKeyErrors, SetAiKeyResponses, SetAssetAvailabilityData, SetAssetAvailabilityErrors, SetAssetAvailabilityResponses, SetBillingContactData, SetBillingContactErrors, SetBillingContactResponses, SetDutiesData, SetDutiesErrors, SetDutiesResponses, SetInvoiceReadersData, SetInvoiceReadersErrors, SetInvoiceReadersResponses, SetKilnAvailabilityData, SetKilnAvailabilityErrors, SetKilnAvailabilityResponses, SetMemberRoleData, SetMemberRoleErrors, SetMemberRoleResponses, SetNormalRateLimitsData, SetNormalRateLimitsErrors, SetNormalRateLimitsResponses, SetRolePermissionsData, SetRolePermissionsErrors, SetRolePermissionsResponses, SetTaxRateData, SetTaxRateErrors, SetTaxRateResponses, StartInvoiceUploadData, StartInvoiceUploadErrors, StartInvoiceUploadResponses, StartPhotoUploadData, StartPhotoUploadErrors, StartPhotoUploadResponses, StartRecordPhotoUploadData, StartRecordPhotoUploadErrors, StartRecordPhotoUploadResponses, TakeInConsignmentData, TakeInConsignmentErrors, TakeInConsignmentResponses, TestAiKeyData, TestAiKeyErrors, TestAiKeyResponses, TestWebhookEndpointData, TestWebhookEndpointErrors, TestWebhookEndpointResponses, TransitionFiringData, TransitionFiringErrors, TransitionFiringResponses, UpdateAssetData, UpdateAssetErrors, UpdateAssetResponses, UpdateCustomRoleData, UpdateCustomRoleErrors, UpdateCustomRoleResponses, UpdateGlazeData, UpdateGlazeErrors, UpdateGlazeResponses, UpdateKilnData, UpdateKilnErrors, UpdateKilnResponses, UpdateMaintenanceTaskData, UpdateMaintenanceTaskErrors, UpdateMaintenanceTaskResponses, UpdatePayeeData, UpdatePayeeErrors, UpdatePayeeResponses, UpdateSupplyData, UpdateSupplyErrors, UpdateSupplyResponses, UpdateWebhookEndpointData, UpdateWebhookEndpointErrors, UpdateWebhookEndpointResponses, UseStoredValueData, UseStoredValueErrors, UseStoredValueResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -305,6 +305,113 @@ export const listMembers = <ThrowOnError extends boolean = false>(options: Optio
         }],
     url: '/api/v1/studios/{studioId}/members',
     ...options
+});
+
+/**
+ * Make an owner staff instead, or step down yourself (owners only)
+ *
+ * A studio always keeps at least one owner: removing the last is refused with "Add another
+ * owner first". If they were the billing contact, the studio has none until the remaining
+ * owners pick one. Every owner is told.
+ *
+ */
+export const removeOwner = <ThrowOnError extends boolean = false>(options: Options<RemoveOwnerData, ThrowOnError>): RequestResult<RemoveOwnerResponses, RemoveOwnerErrors, ThrowOnError> => (options.client ?? client).delete<RemoveOwnerResponses, RemoveOwnerErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/members/{accountId}/owner',
+    ...options
+});
+
+/**
+ * Make a member one of the studio's owners (owners only)
+ *
+ * A studio can have several co-owners, and each holds every owner-only permission. Every
+ * owner is told. Making an owner an owner again changes nothing.
+ *
+ */
+export const addOwner = <ThrowOnError extends boolean = false>(options: Options<AddOwnerData, ThrowOnError>): RequestResult<AddOwnerResponses, AddOwnerErrors, ThrowOnError> => (options.client ?? client).put<AddOwnerResponses, AddOwnerErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/members/{accountId}/owner',
+    ...options
+});
+
+/**
+ * Give a member a built-in or custom role (staff only)
+ *
+ * Nobody can give a role that holds more than they do, or move someone who holds more than
+ * they do. Owners are made and unmade with the owner endpoints, so neither the member nor
+ * the role may be OWNER here. Logged; applies on the member's next request.
+ *
+ */
+export const setMemberRole = <ThrowOnError extends boolean = false>(options: Options<SetMemberRoleData, ThrowOnError>): RequestResult<SetMemberRoleResponses, SetMemberRoleErrors, ThrowOnError> => (options.client ?? client).put<SetMemberRoleResponses, SetMemberRoleErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/members/{accountId}/role',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The owner the platform bills (owners only)
+ */
+export const getBillingContact = <ThrowOnError extends boolean = false>(options: Options<GetBillingContactData, ThrowOnError>): RequestResult<GetBillingContactResponses, GetBillingContactErrors, ThrowOnError> => (options.client ?? client).get<GetBillingContactResponses, GetBillingContactErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/members/billing-contact',
+    ...options
+});
+
+/**
+ * Choose the owner the platform bills (owners only)
+ */
+export const setBillingContact = <ThrowOnError extends boolean = false>(options: Options<SetBillingContactData, ThrowOnError>): RequestResult<SetBillingContactResponses, SetBillingContactErrors, ThrowOnError> => (options.client ?? client).put<SetBillingContactResponses, SetBillingContactErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/members/billing-contact',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -1330,6 +1437,210 @@ export const sendNotice = <ThrowOnError extends boolean = false>(options: Option
             type: 'http'
         }],
     url: '/api/v1/studios/{studioId}/notices',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The caller's role, permissions and duties in a studio
+ *
+ * The apps show or hide things by these keys. Hiding is convenience only; every operation
+ * still checks its own `x-permission`.
+ *
+ */
+export const getMyPermissions = <ThrowOnError extends boolean = false>(options: Options<GetMyPermissionsData, ThrowOnError>): RequestResult<GetMyPermissionsResponses, GetMyPermissionsErrors, ThrowOnError> => (options.client ?? client).get<GetMyPermissionsResponses, GetMyPermissionsErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/me/permissions',
+    ...options
+});
+
+/**
+ * Every role and what it may do, with the permission catalogue (owners only)
+ *
+ * The catalogue lists every permission once, grouped by area, with its label and
+ * description and, when it can't be edited, why. Owner-only permissions are never held by
+ * another role; the floor is always held by every role. The OWNER role holds everything and
+ * isn't editable.
+ *
+ */
+export const listRoles = <ThrowOnError extends boolean = false>(options: Options<ListRolesData, ThrowOnError>): RequestResult<ListRolesResponses, ListRolesErrors, ThrowOnError> => (options.client ?? client).get<ListRolesResponses, ListRolesErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles',
+    ...options
+});
+
+/**
+ * Choose what a role may do (owners only)
+ *
+ * The role then holds exactly these permissions, plus the floor every role holds. Refused
+ * for the OWNER role and for owner-only permissions. Unknown keys are refused. The change is
+ * logged, and applies on this server at once and everywhere within a minute.
+ *
+ */
+export const setRolePermissions = <ThrowOnError extends boolean = false>(options: Options<SetRolePermissionsData, ThrowOnError>): RequestResult<SetRolePermissionsResponses, SetRolePermissionsErrors, ThrowOnError> => (options.client ?? client).put<SetRolePermissionsResponses, SetRolePermissionsErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/{role}/permissions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Give a role its default permissions back (owners only)
+ *
+ * The defaults are what the role could do before anyone edited it. Logged.
+ */
+export const resetRolePermissions = <ThrowOnError extends boolean = false>(options: Options<ResetRolePermissionsData, ThrowOnError>): RequestResult<ResetRolePermissionsResponses, ResetRolePermissionsErrors, ThrowOnError> => (options.client ?? client).post<ResetRolePermissionsResponses, ResetRolePermissionsErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/{role}/reset',
+    ...options
+});
+
+/**
+ * Every change to who may do what, newest first (owners only)
+ *
+ * Role permissions, members' duties and roles, and the billing contact, each with the
+ * account that made it. Kept for the life of the studio; this lists the newest.
+ *
+ */
+export const listAccessChanges = <ThrowOnError extends boolean = false>(options: Options<ListAccessChangesData, ThrowOnError>): RequestResult<ListAccessChangesResponses, ListAccessChangesErrors, ThrowOnError> => (options.client ?? client).get<ListAccessChangesResponses, ListAccessChangesErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/history',
+    ...options
+});
+
+/**
+ * The roles the caller may invite someone as, or give a member (staff only)
+ *
+ * Built-in and custom roles whose permissions are all the caller's own: nobody can give a
+ * role that holds more than they do. Owners see every role, OWNER included.
+ *
+ */
+export const listAssignableRoles = <ThrowOnError extends boolean = false>(options: Options<ListAssignableRolesData, ThrowOnError>): RequestResult<ListAssignableRolesResponses, ListAssignableRolesErrors, ThrowOnError> => (options.client ?? client).get<ListAssignableRolesResponses, ListAssignableRolesErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/assignable',
+    ...options
+});
+
+/**
+ * Make a custom role, such as "Kiln tech" (owners only)
+ *
+ * A custom role has a name, a base of STAFF or MEMBER (never OWNER) and its own
+ * permissions. The base is what the rest of the system treats its members as; what they
+ * may do is the role's own set, plus the floor and their duties. Owner-only permissions
+ * are refused. Logged.
+ *
+ */
+export const createCustomRole = <ThrowOnError extends boolean = false>(options: Options<CreateCustomRoleData, ThrowOnError>): RequestResult<CreateCustomRoleResponses, CreateCustomRoleErrors, ThrowOnError> => (options.client ?? client).post<CreateCustomRoleResponses, CreateCustomRoleErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/custom',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a custom role nobody holds (owners only)
+ *
+ * Refused while any member holds the role: give them another role first, so nobody's access
+ * changes as a side effect. Open invites into the role are withdrawn. Logged.
+ *
+ */
+export const deleteCustomRole = <ThrowOnError extends boolean = false>(options: Options<DeleteCustomRoleData, ThrowOnError>): RequestResult<DeleteCustomRoleResponses, DeleteCustomRoleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteCustomRoleResponses, DeleteCustomRoleErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/custom/{roleId}',
+    ...options
+});
+
+/**
+ * Rename a custom role and choose what it may do (owners only)
+ *
+ * Its base can't change; make another role instead. Owner-only permissions are refused.
+ * Logged, and applies on this server at once and everywhere within a minute.
+ *
+ */
+export const updateCustomRole = <ThrowOnError extends boolean = false>(options: Options<UpdateCustomRoleData, ThrowOnError>): RequestResult<UpdateCustomRoleResponses, UpdateCustomRoleErrors, ThrowOnError> => (options.client ?? client).put<UpdateCustomRoleResponses, UpdateCustomRoleErrors, ThrowOnError>({
+    security: [{
+            key: 'bearerAuth',
+            scheme: 'bearer',
+            type: 'http'
+        }, {
+            key: 'apiToken',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/api/v1/studios/{studioId}/roles/custom/{roleId}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

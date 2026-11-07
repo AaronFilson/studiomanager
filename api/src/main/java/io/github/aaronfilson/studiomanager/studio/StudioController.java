@@ -37,7 +37,7 @@ class StudioController implements StudiosApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_READ')")
   public ResponseEntity<StudioDto> getStudio(UUID studioId) {
     return ResponseEntity.ok(toDto(studios.get(studioId)));
   }

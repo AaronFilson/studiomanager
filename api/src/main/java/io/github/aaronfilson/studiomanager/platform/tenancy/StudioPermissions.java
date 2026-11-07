@@ -1,0 +1,58 @@
+package io.github.aaronfilson.studiomanager.platform.tenancy;
+
+import java.util.UUID;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Component;
+
+/**
+ * The one place a permission is checked (ADR 25). It reads the bound {@link TenantContext}, whose
+ * permissions were resolved once for the request.
+ *
+ * <p>Controllers check through {@code @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_MOVE')")}.
+ * Services call {@link #require} only where the answer depends on the row, such as someone else's
+ * piece rather than your own.
+ *
+ * <p>Choosing other people by what their role holds, such as who is told about a problem, is {@link
+ * RolePermissions#roleHolds}, from the studio's stored sets.
+ */
+@Component
+public class StudioPermissions {
+
+  /** Whether the caller holds {@code permission} in the studio the call is bound to. */
+  public boolean has(Permission permission) {
+    return TenantContext.current().map(context -> context.holds(permission)).orElse(false);
+  }
+
+  /**
+   * Whether the caller holds {@code permission} in {@code studioId}, and the call is bound there.
+   */
+  public boolean has(UUID studioId, Permission permission) {
+    return TenantContext.current()
+        .filter(context -> studioId.equals(context.studioId()))
+        .map(context -> context.holds(permission))
+        .orElse(false);
+  }
+
+  /**
+   * Refuses the call unless the caller holds {@code permission}.
+   *
+   * @throws AccessDeniedException when they don't, which the API answers with a 403
+   */
+  public void require(Permission permission) {
+    require(permission, "You don't have permission to do that in this studio.");
+  }
+
+  /**
+   * Refuses the call unless the caller holds {@code permission}, saying why in {@code message}, and
+   * otherwise returns the caller's context.
+   *
+   * @throws AccessDeniedException when they don't, which the API answers with a 403
+   */
+  public TenantContext require(Permission permission, String message) {
+    TenantContext caller = TenantContext.current().orElse(null);
+    if (caller == null || !caller.holds(permission)) {
+      throw new AccessDeniedException(message);
+    }
+    return caller;
+  }
+}

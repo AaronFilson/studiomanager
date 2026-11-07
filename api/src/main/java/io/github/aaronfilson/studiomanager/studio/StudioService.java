@@ -1,8 +1,13 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
+import io.github.aaronfilson.studiomanager.platform.tenancy.MemberRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.RolePermissions;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
@@ -12,12 +17,16 @@ import java.util.Currency;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionOperations;
 
 /** Studios and membership in them. The studio module's API to the rest of the application. */
@@ -31,16 +40,34 @@ public class StudioService {
   private final StudioMembershipRepository memberships;
   private final TransactionOperations transactions;
   private final Clock clock;
+  private final StudioPermissions permissions;
+  private final StudioRoles studioRoles;
+  private final StoredRoleRepository roles;
+  private final RolePermissions rolePermissions;
+  private final AccessChangeLog changeLog;
+  private final ApplicationEventPublisher events;
 
   StudioService(
       StudioRepository studios,
       StudioMembershipRepository memberships,
       TransactionOperations transactions,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions,
+      StudioRoles studioRoles,
+      StoredRoleRepository roles,
+      RolePermissions rolePermissions,
+      AccessChangeLog changeLog,
+      ApplicationEventPublisher events) {
     this.studios = studios;
     this.memberships = memberships;
     this.transactions = transactions;
     this.clock = clock;
+    this.permissions = permissions;
+    this.studioRoles = studioRoles;
+    this.roles = roles;
+    this.rolePermissions = rolePermissions;
+    this.changeLog = changeLog;
+    this.events = events;
   }
 
   /**
@@ -70,19 +97,28 @@ public class StudioService {
             () ->
                 transactions.execute(tx -> {
                   Instant now = clock.instant();
-                  Studio studio =
-                      studios.save(
-                          new Studio(
-                              studioId,
-                              trimmedName,
-                              unitSystem,
-                              zone,
-                              countryCode,
-                              studioCurrency,
-                              now));
+                  Studio made =
+                      new Studio(
+                          studioId,
+                          trimmedName,
+                          unitSystem,
+                          zone,
+                          countryCode,
+                          studioCurrency,
+                          now);
+                  // The creator is the first owner, so the billing contact too
+                  made.billingContact(caller.accountId());
+                  Studio studio = studios.save(made);
+                  studios.flush();
+                  // The roles first: the membership points at the OWNER role's row
+                  studioRoles.seed(now);
                   memberships.save(
                       new StudioMembership(
-                          Uuids.v7(), studioId, caller.accountId(), StudioRole.OWNER, now));
+                          Uuids.v7(),
+                          studioId,
+                          caller.accountId(),
+                          systemRole(StudioRole.OWNER),
+                          now));
                   return StudioView.of(studio, StudioRole.OWNER, 1);
                 }));
     return Objects.requireNonNull(created, "Creating a studio returns it");
@@ -118,9 +154,9 @@ public class StudioService {
    */
   @Transactional
   public void deleteCurrent() {
-    TenantContext caller = TenantContext.require();
-    UUID studioId = caller.requireStudioId();
-    if (caller.role() != StudioRole.OWNER) {
+    UUID studioId = TenantContext.require().requireStudioId();
+    // Deleting the studio removes every owner with it, so it takes the owners' own permission
+    if (!permissions.has(Permission.OWNERS_MANAGE)) {
       throw new AccessDeniedException("Only an owner can delete a studio.");
     }
     Studio studio =
@@ -132,6 +168,230 @@ public class StudioService {
   @Transactional(readOnly = true)
   public List<MembershipView> membershipsOf(UUID accountId) {
     return memberships.findMembershipsOf(accountId);
+  }
+
+  /**
+   * Makes a member of the bound studio one of its owners (plan 21, lane R8). Any owner can ({@code
+   * owners.manage}); every owner is told. Making an owner an owner again changes nothing.
+   */
+  @Transactional
+  public void addOwner(UUID studioId, UUID accountId) {
+    requireStillAnOwner(studioId, "Only an owner can add an owner.");
+    StudioMembership member =
+        memberships
+            .findByStudioIdAndAccountId(studioId, accountId)
+            .orElseThrow(() -> new NotFoundException("They aren't a member of this studio."));
+    if (member.role() == StudioRole.OWNER) {
+      return;
+    }
+    String before = logged(member);
+    member.changeRole(systemRole(StudioRole.OWNER));
+    memberships.flush();
+    changeLog.record(
+        AccessChangeLog.Kind.MEMBER_ROLE,
+        accountId.toString(),
+        List.of(before),
+        List.of(StudioRole.OWNER.name()));
+    events.publishEvent(new OwnersChanged(studioId, accountId, OwnersChanged.Change.ADDED, false));
+  }
+
+  /**
+   * Makes an owner of the bound studio staff instead. Any owner can, including of themselves
+   * (stepping down), as long as another owner remains: the last owner is refused with "Add another
+   * owner first", and so is a race that would leave none, because the owner rows are locked first.
+   * If they were the billing contact, the studio has none until the remaining owners pick one, and
+   * every owner is told.
+   *
+   * @throws ConflictException when they are the last owner
+   */
+  @Transactional
+  public void removeOwner(UUID studioId, UUID accountId) {
+    List<StudioMembership> owners =
+        requireStillAnOwner(studioId, "Only an owner can remove an owner.");
+    StudioMembership owner =
+        owners.stream()
+            .filter(membership -> membership.accountId().equals(accountId))
+            .findFirst()
+            .orElseThrow(() -> new NotFoundException("They aren't an owner of this studio."));
+    if (owners.size() == 1) {
+      throw new ConflictException(
+          "A studio always needs an owner, and they're the only one. Add another owner first.");
+    }
+    owner.changeRole(systemRole(StudioRole.STAFF));
+    Studio studio = currentStudio(studioId);
+    boolean contactCleared = accountId.equals(studio.billingContactAccountId());
+    if (contactCleared) {
+      studio.billingContact(null);
+      changeLog.record(
+          AccessChangeLog.Kind.BILLING_CONTACT, "studio", List.of(accountId.toString()), List.of());
+    }
+    memberships.flush();
+    changeLog.record(
+        AccessChangeLog.Kind.MEMBER_ROLE,
+        accountId.toString(),
+        List.of(StudioRole.OWNER.name()),
+        List.of(StudioRole.STAFF.name()));
+    events.publishEvent(
+        new OwnersChanged(studioId, accountId, OwnersChanged.Change.REMOVED, contactCleared));
+  }
+
+  /** The bound studio's billing contact, an owner; empty while the owners choose one. */
+  @Transactional(readOnly = true)
+  public Optional<UUID> billingContact(UUID studioId) {
+    TenantContext caller =
+        permissions.require(Permission.OWNERS_MANAGE, "Only an owner can see the billing contact.");
+    requireBoundTo(caller, studioId);
+    return Optional.ofNullable(currentStudio(studioId).billingContactAccountId());
+  }
+
+  /**
+   * Makes {@code accountId}, who must be an owner, the bound studio's billing contact.
+   *
+   * @throws ConflictException when they aren't an owner
+   */
+  @Transactional
+  public void setBillingContact(UUID studioId, UUID accountId) {
+    boolean isOwner =
+        requireStillAnOwner(studioId, "Only an owner can choose the billing contact.").stream()
+            .anyMatch(owner -> owner.accountId().equals(accountId));
+    if (!isOwner) {
+      throw new ConflictException("The billing contact must be an owner. Make them one first.");
+    }
+    Studio studio = currentStudio(studioId);
+    UUID before = studio.billingContactAccountId();
+    if (accountId.equals(before)) {
+      return;
+    }
+    studio.billingContact(accountId);
+    studios.flush();
+    changeLog.record(
+        AccessChangeLog.Kind.BILLING_CONTACT,
+        "studio",
+        before == null ? List.of() : List.of(before.toString()),
+        List.of(accountId.toString()));
+  }
+
+  /**
+   * Puts a member of the bound studio in the role row {@code roleId}: a system STAFF or MEMBER
+   * role, or a custom role (plan 21, lane R7). Needs {@code members.role.assign}, and nobody can
+   * give a role that holds more than they do, or move someone who holds more than they do (§7).
+   * Owners are made and unmade with {@link #addOwner} and {@link #removeOwner}, which keep the
+   * studio's last owner, so neither side of this may be OWNER. Logged; applies on their next
+   * request, since a membership's role is read per request.
+   *
+   * @throws ConflictException when the member is an owner or the role is the OWNER role
+   */
+  @Transactional
+  public void setMemberRole(UUID studioId, UUID accountId, UUID roleId) {
+    TenantContext caller =
+        permissions.require(
+            Permission.MEMBERS_ROLE_ASSIGN, "You can't change what role members have.");
+    requireBoundTo(caller, studioId);
+    StoredRole target =
+        roles.findById(roleId).orElseThrow(() -> new NotFoundException("No such role."));
+    if (target.base() == StudioRole.OWNER) {
+      throw new ConflictException("Make someone an owner with the owner controls.");
+    }
+    StudioMembership member =
+        memberships
+            .findByStudioIdAndAccountId(studioId, accountId)
+            .orElseThrow(() -> new NotFoundException("They aren't a member of this studio."));
+    if (member.role() == StudioRole.OWNER) {
+      throw new ConflictException("They're an owner. Remove them as owner first.");
+    }
+    Set<Permission> held = caller.permissions();
+    if (!held.containsAll(rolePermissions.ofMemberRole(new MemberRole(target.base(), target.id())))
+        || !held.containsAll(rolePermissions.ofMemberRole(member.memberRole()))) {
+      throw new AccessDeniedException("You can't give or change a role above your own.");
+    }
+    if (member.roleId().equals(target.id())) {
+      return;
+    }
+    String before = logged(member);
+    member.changeRole(target);
+    memberships.flush();
+    changeLog.record(
+        AccessChangeLog.Kind.MEMBER_ROLE,
+        accountId.toString(),
+        List.of(before),
+        List.of(logged(target)));
+  }
+
+  /**
+   * Someone who accepts an owner invite is added without any owner acting in the studio, so the
+   * owners are told here: after the acceptance commits, bound to the studio it joined. Accepting
+   * happens outside any studio, so this can't run in that transaction.
+   */
+  @Async
+  @TransactionalEventListener
+  void onMemberJoined(MemberJoined joined) {
+    TenantContext member =
+        TenantContext.forAccount(joined.accountId()).inStudio(joined.studioId(), StudioRole.MEMBER);
+    TenantContext.callAs(
+        member,
+        () -> {
+          transactions.executeWithoutResult(tx -> {
+            boolean joinedAsOwner =
+                memberships
+                    .findRole(joined.studioId(), joined.accountId())
+                    .map(role -> role == StudioRole.OWNER)
+                    .orElse(false);
+            if (joinedAsOwner) {
+              events.publishEvent(
+                  new OwnersChanged(
+                      joined.studioId(), joined.accountId(), OwnersChanged.Change.ADDED, false));
+            }
+          });
+          return joined;
+        });
+  }
+
+  /**
+   * Refuses the caller unless they hold {@code owners.manage} and are still an owner now, under the
+   * lock on the owner rows: an owner demoted a moment ago by another owner may have had their
+   * permissions resolved before that committed. Returns the studio's owners, locked until the
+   * transaction ends.
+   */
+  private List<StudioMembership> requireStillAnOwner(UUID studioId, String message) {
+    TenantContext caller = permissions.require(Permission.OWNERS_MANAGE, message);
+    requireBoundTo(caller, studioId);
+    List<StudioMembership> owners = memberships.lockByRole(studioId, StudioRole.OWNER);
+    boolean stillOwner =
+        owners.stream().anyMatch(owner -> owner.accountId().equals(caller.accountId()));
+    if (!stillOwner) {
+      throw new AccessDeniedException("You're no longer an owner of this studio.");
+    }
+    return owners;
+  }
+
+  /** The bound studio's system role for {@code base}. */
+  private StoredRole systemRole(StudioRole base) {
+    return roles
+        .findSystemRole(base)
+        .orElseThrow(() -> new IllegalStateException("The studio has no system role " + base));
+  }
+
+  /** A member's role as the access log names it. */
+  private String logged(StudioMembership member) {
+    return roles.findById(member.roleId()).map(StudioService::logged).orElse(member.role().name());
+  }
+
+  /**
+   * A role as the access log names it: {@code STAFF} for a system role, as before custom roles, and
+   * the key, such as {@code kiln_tech}, for a custom one.
+   */
+  private static String logged(StoredRole role) {
+    return role.isSystem() ? role.base().name() : role.key();
+  }
+
+  private static void requireBoundTo(TenantContext caller, UUID studioId) {
+    if (!studioId.equals(caller.studioId())) {
+      throw new IllegalStateException("The request is not bound to studio " + studioId);
+    }
+  }
+
+  private Studio currentStudio(UUID studioId) {
+    return studios.findById(studioId).orElseThrow(() -> new NotFoundException("No such studio."));
   }
 
   private static ZoneId parseTimeZone(String timeZone) {

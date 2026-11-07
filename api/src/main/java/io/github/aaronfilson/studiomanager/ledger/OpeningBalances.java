@@ -3,6 +3,8 @@ package io.github.aaronfilson.studiomanager.ledger;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberJoined;
@@ -38,13 +40,16 @@ public class OpeningBalances {
   private final StudioBooks books;
   private final StudioMembers members;
   private final TransactionOperations transactions;
+  private final StudioPermissions permissions;
 
   OpeningBalances(
       PendingOpeningBalanceRepository held,
       Journal journal,
       StudioBooks books,
       StudioMembers members,
-      TransactionOperations transactions) {
+      TransactionOperations transactions,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.held = held;
     this.journal = journal;
     this.books = books;
@@ -82,7 +87,7 @@ public class OpeningBalances {
   /** Posts a member's opening balance now. Returns false if they already had one. */
   @Transactional
   public boolean post(UUID memberId, BigDecimal amount, @Nullable LocalDate asOf) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_REFUND_AND_ADJUST, LedgerService.ONLY_STAFF);
     validate(amount, asOf);
     if (hasOpeningBalance(memberId)) {
       return false;
@@ -94,7 +99,7 @@ public class OpeningBalances {
   /** Holds a balance for someone invited by email, to post when they join. */
   @Transactional
   public void holdForInvite(UUID inviteId, BigDecimal amount, @Nullable LocalDate asOf) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_REFUND_AND_ADJUST, LedgerService.ONLY_STAFF);
     validate(amount, asOf);
     held.saveAndFlush(
         new PendingOpeningBalance(inviteId, amount, asOf == null ? books.today() : asOf));

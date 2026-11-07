@@ -3,21 +3,21 @@ import {
   cancelBookingMutation,
   createBookingMutation,
   createResourceMutation,
-  getStudioOptions,
   listAssetsOptions,
   listBookingsOptions,
   listCertificationTypesOptions,
   listResourcesOptions,
   listResourcesQueryKey,
   type ResourceKind,
+  useCan,
 } from '@studiomanager/api-client';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useMemo, useState } from 'react';
 
 import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage } from '../../../components/ErrorMessage';
-import { formatDate, formatTime, isStaff } from '../../../labels';
+import { formatDate, formatTime } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/calendar')({
   component: CalendarPage,
@@ -42,8 +42,8 @@ function startOfDay(date: Date): Date {
 
 function CalendarPage() {
   const { studioId } = Route.useParams();
-  const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
-  const staff = isStaff(studio.myRole);
+  const { can } = useCan(studioId);
+  const staff = can('schedule.manage');
   const [weekOffset, setWeekOffset] = useState(0);
   const { from, to } = useMemo(() => {
     const start = startOfDay(new Date());

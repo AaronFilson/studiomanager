@@ -11,6 +11,7 @@ import {
   sellSupplyMutation,
   type SupplyCategory,
   type SupplyItem,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -18,7 +19,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { InvoiceInbox } from '../../../components/InvoiceInbox';
-import { formatMoney, isStaff } from '../../../labels';
+import { formatMoney } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/supplies')({
   component: SuppliesPage,
@@ -38,7 +39,8 @@ const categoryLabels: Record<SupplyCategory, string> = {
 function SuppliesPage() {
   const { studioId } = Route.useParams();
   const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
-  const staff = isStaff(studio.myRole);
+  const { can } = useCan(studioId);
+  const staff = can('supplies.manage');
   const items = useQuery(listSuppliesOptions({ path: { studioId } }));
 
   return (
@@ -51,7 +53,7 @@ function SuppliesPage() {
           <ItemRow key={item.id} studioId={studioId} item={item} staff={staff} currency={studio.currency} />
         ))}
       </ul>
-      {staff && <Requests studioId={studioId} canApprove={studio.myRole === 'OWNER'} />}
+      {staff && <Requests studioId={studioId} canApprove={can('supplies.purchase.approve')} />}
       {staff && <InvoiceInbox studioId={studioId} />}
       {staff && <AddItemForm studioId={studioId} currency={studio.currency} />}
     </div>

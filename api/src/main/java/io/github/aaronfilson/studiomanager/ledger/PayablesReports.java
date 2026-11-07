@@ -1,13 +1,13 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
-import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.requireStaff;
-
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.NecLine;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.NecReport;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PayeeStatement;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.PaymentMethod;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.StatementLine;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -24,11 +24,17 @@ class PayablesReports {
   private final PayablesService payees;
   private final PayablesQueries queries;
   private final StudioBooks books;
+  private final StudioPermissions permissions;
 
-  PayablesReports(PayablesService payees, PayablesQueries queries, StudioBooks books) {
+  PayablesReports(
+      PayablesService payees,
+      PayablesQueries queries,
+      StudioBooks books,
+      StudioPermissions permissions) {
     this.payees = payees;
     this.queries = queries;
     this.books = books;
+    this.permissions = permissions;
   }
 
   /**
@@ -36,7 +42,7 @@ class PayablesReports {
    */
   @Transactional(readOnly = true)
   public PayeeStatement statement(UUID payeeId, LocalDate from, LocalDate to) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     if (to.isBefore(from) || ChronoUnit.DAYS.between(from, to) > 366) {
       throw new InvalidInputException("Ask for a range of up to a year.");
     }
@@ -55,7 +61,7 @@ class PayablesReports {
    */
   @Transactional(readOnly = true)
   public NecReport necReport(int year) {
-    requireStaff();
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, LedgerService.ONLY_STAFF);
     if (year < 2000 || year > books.today().getYear()) {
       throw new InvalidInputException("Ask for a year that has started.");
     }

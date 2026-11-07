@@ -4,7 +4,8 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenResolver;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TokenScope;
 import jakarta.persistence.EntityManager;
@@ -55,6 +56,7 @@ public class ApiTokens implements ApiTokenResolver {
   private final AccountDirectory accounts;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   ApiTokens(
       ApiTokenRepository tokens,
@@ -62,13 +64,15 @@ public class ApiTokens implements ApiTokenResolver {
       EntityManager entityManager,
       AccountDirectory accounts,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.tokens = tokens;
     this.queries = queries;
     this.entityManager = entityManager;
     this.accounts = accounts;
     this.events = events;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   public record TokenView(
@@ -97,9 +101,9 @@ public class ApiTokens implements ApiTokenResolver {
   /** The caller's own tokens; the studio's owner sees everyone's. */
   @Transactional(readOnly = true)
   public List<TokenView> list() {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireOwnTokens();
     List<ApiToken> found =
-        caller.role() == StudioRole.OWNER
+        caller.holds(Permission.API_TOKENS_MANAGE_ALL)
             ? tokens.findAllNewestFirst()
             : tokens.findOwnNewestFirst(caller.accountId());
     Map<UUID, String> names =
@@ -112,7 +116,7 @@ public class ApiTokens implements ApiTokenResolver {
   @Transactional
   public Created create(
       @Nullable String name, Set<TokenScope> scopes, @Nullable Integer expiresInDays) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireOwnTokens();
     String cleanName = name == null ? "" : name.strip();
     if (cleanName.isEmpty() || cleanName.length() > 80) {
       throw new InvalidInputException(
@@ -149,10 +153,11 @@ public class ApiTokens implements ApiTokenResolver {
   /** Stops a token working at once. Its owner can revoke it, and so can the studio's owner. */
   @Transactional
   public void revoke(UUID id) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = requireOwnTokens();
     ApiToken token =
         tokens.findAndLock(id).orElseThrow(() -> new NotFoundException("No such token."));
-    if (!token.accountId().equals(caller.accountId()) && caller.role() != StudioRole.OWNER) {
+    if (!token.accountId().equals(caller.accountId())
+        && !caller.holds(Permission.API_TOKENS_MANAGE_ALL)) {
       throw new AccessDeniedException("Only its owner, or the studio's owner, can revoke a token.");
     }
     if (token.revoke(clock.instant())) {
@@ -185,13 +190,9 @@ public class ApiTokens implements ApiTokenResolver {
     return accounts.displayNames(List.of(token.accountId())).get(token.accountId());
   }
 
-  private static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("API tokens are for staff.");
-    }
-    return caller;
+  private TenantContext requireOwnTokens() {
+    return permissions.require(
+        Permission.API_TOKENS_OWN, "Your role here doesn't include API tokens.");
   }
 
   static String newSecret() {
