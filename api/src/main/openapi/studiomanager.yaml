@@ -4624,6 +4624,12 @@ components:
           description: 'For a job, its name, such as "System: unclaimed pieces".'
         actorKind:
           $ref: "#/components/schemas/ActorKind"
+        viaToken:
+          type: string
+          description: >-
+            The name of the personal API token the person made the change through, by REST or an
+            MCP tool, so it reads "Olive via Sync script". Absent when they used the app. A revoked
+            token still shows its name.
         occurredAt:
           type: string
           format: date-time
@@ -5221,6 +5227,11 @@ components:
           format: uuid
         doneByName:
           type: string
+        viaToken:
+          type: string
+          description: >-
+            The name of the personal API token the work was logged through, by REST or an MCP
+            tool. Absent when it was logged in the app. A revoked token still shows its name.
         doneAt:
           type: string
           format: date-time

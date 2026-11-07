@@ -20,9 +20,16 @@ import org.jspecify.annotations.Nullable;
  * @param studioId the studio the call acts in; {@code null} outside any one studio
  * @param role the caller's role in that studio; present exactly when {@code studioId} is
  * @param kind whether a person or a background job is calling
+ * @param viaTokenId the personal API token the person is calling through, by REST or MCP; {@code
+ *     null} when they signed in to the app themselves. Histories note it as "via &lt;token
+ *     name&gt;".
  */
 public record TenantContext(
-    UUID accountId, @Nullable UUID studioId, @Nullable StudioRole role, PrincipalKind kind) {
+    UUID accountId,
+    @Nullable UUID studioId,
+    @Nullable StudioRole role,
+    PrincipalKind kind,
+    @Nullable UUID viaTokenId) {
 
   private static final ScopedValue<TenantContext> CURRENT = ScopedValue.newInstance();
 
@@ -50,9 +57,18 @@ public record TenantContext(
         throw new IllegalArgumentException(
             "%s can't act above %s".formatted(actor, actor.ceiling()));
       }
+      if (viaTokenId != null) {
+        throw new IllegalArgumentException("A job doesn't call through an API token");
+      }
     } else if (SystemActor.byAccountId(accountId).isPresent()) {
       throw new IllegalArgumentException("A system account can't act as a person: " + accountId);
     }
+  }
+
+  /** A context with no API token: a person signed in to the app, or a job. */
+  public TenantContext(
+      UUID accountId, @Nullable UUID studioId, @Nullable StudioRole role, PrincipalKind kind) {
+    this(accountId, studioId, role, kind, null);
   }
 
   /** A person's context. */
@@ -80,7 +96,13 @@ public record TenantContext(
       throw new IllegalStateException(
           "Bind a job to a studio with TenantContext.system(actor, studioId)");
     }
-    return new TenantContext(accountId, studioId, role, kind);
+    return new TenantContext(accountId, studioId, role, kind, viaTokenId);
+  }
+
+  /** The same person, calling through the personal API token {@code tokenId}. */
+  public TenantContext viaToken(UUID tokenId) {
+    Objects.requireNonNull(tokenId, "tokenId");
+    return new TenantContext(accountId, studioId, role, kind, tokenId);
   }
 
   /**

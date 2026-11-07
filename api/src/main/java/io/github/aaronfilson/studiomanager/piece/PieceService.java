@@ -195,8 +195,10 @@ public class PieceService {
     List<PieceView.Event> timeline =
         jdbc.sql(
                 """
-                select from_stage, to_stage, note, actor_account_id, occurred_at
-                from piece_event where piece_id = :id order by occurred_at, id
+                select e.from_stage, e.to_stage, e.note, e.actor_account_id, t.name as via_token_name,
+                       e.occurred_at
+                from piece_event e left join api_token t on t.id = e.via_token_id
+                where e.piece_id = :id order by e.occurred_at, e.id
                 """)
             .param("id", pieceId)
             .query((rs, row) ->
@@ -206,6 +208,7 @@ public class PieceService {
                     rs.getString("note"),
                     rs.getObject("actor_account_id", UUID.class),
                     null,
+                    rs.getString("via_token_name"),
                     instant(rs, "occurred_at")))
             .list();
     return withDetails(List.of(piece), timeline, true).getFirst();
@@ -423,11 +426,13 @@ public class PieceService {
       Instant at) {
     jdbc.sql(
             """
-            insert into piece_event (id, studio_id, piece_id, from_stage, to_stage, note, actor_account_id, occurred_at)
-            values (:id, :studioId, :pieceId, :from, :to, :note, :actor, :at)
+            insert into piece_event (id, studio_id, piece_id, from_stage, to_stage, note, actor_account_id,
+                                     via_token_id, occurred_at)
+            values (:id, :studioId, :pieceId, :from, :to, :note, :actor, :viaToken, :at)
             """)
         .param("id", Uuids.v7())
         .param("studioId", TenantContext.require().studioId())
+        .param("viaToken", TenantContext.require().viaTokenId())
         .param("pieceId", pieceId)
         .param("from", from == null ? null : from.name())
         .param("to", to.name())
@@ -461,6 +466,7 @@ public class PieceService {
                     e.note(),
                     e.actorAccountId(),
                     e.actorAccountId() == null ? null : names.get(e.actorAccountId()),
+                    e.viaTokenName(),
                     e.occurredAt()))
             .toList();
     List<PieceView> named = new ArrayList<>(pieces.size());

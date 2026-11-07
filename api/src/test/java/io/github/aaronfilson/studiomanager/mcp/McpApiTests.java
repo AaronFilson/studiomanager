@@ -171,6 +171,9 @@ class McpApiTests {
     UUID ownerId =
         UUID.fromString(
             read(mvc.get().uri("/api/v1/me").with(owner.token()).exchange(), "$.account.id"));
+    String tokenId =
+        read(mvc.get().uri(path("/api-tokens")).with(owner.token()).exchange(), "$[0].id");
+    // The tool ran with the token bound as "via", the same binding the histories record
     List<String> logged =
         TenantContext.callAs(
             new TenantContext(ownerId, studioId, StudioRole.OWNER),
@@ -178,13 +181,13 @@ class McpApiTests {
                 transactions.execute(tx ->
                     jdbc.sql(
                             """
-                            select target || ' ' || outcome || ' ' || (token_id is not null) from api_call_log
+                            select target || ' ' || outcome || ' ' || token_id from api_call_log
                             where studio_id = :studioId and channel = 'MCP'
                             """)
                         .param("studioId", studioId)
                         .query(String.class)
                         .list()));
-    assertThat(logged).containsExactly("kilns OK true");
+    assertThat(logged).containsExactly("kilns OK " + tokenId);
   }
 
   @Test

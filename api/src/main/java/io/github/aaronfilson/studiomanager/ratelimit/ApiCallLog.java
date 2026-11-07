@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.ratelimit;
 
 import io.github.aaronfilson.studiomanager.platform.Uuids;
-import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.ratelimit.RateLimitSettings.Channel;
 import java.time.Clock;
 import java.time.Duration;
@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -67,13 +66,12 @@ public class ApiCallLog {
     this.clock = clock;
   }
 
-  /** The personal API token the current request signed in with, if it did. */
+  /**
+   * The personal API token the current request signed in with, if it did: the same token the
+   * histories name as "via".
+   */
   public static Optional<UUID> currentTokenId() {
-    if (SecurityContextHolder.getContext().getAuthentication()
-        instanceof ApiTokenAuthentication tokenAuthentication) {
-      return Optional.of(tokenAuthentication.token().tokenId());
-    }
-    return Optional.empty();
+    return TenantContext.current().map(TenantContext::viaTokenId);
   }
 
   /** Logs {@code call}, made by the current request. */

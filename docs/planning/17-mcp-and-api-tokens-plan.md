@@ -202,6 +202,19 @@ personal tokens.** Built and green. It differs from the plan above in these ways
   Showing "via <token name>" in histories needs `TenantContext`, `app.via_token` and contract
   changes, so it's left for a lane that owns those.
 
+**"Via token" attribution, 2026-11-06, on `via-token-attribution` (V37).**
+- `TenantContext` gains `viaTokenId`, set by `TenantContextFilter` for every token request, REST
+  and MCP alike. The call log now reads the token from it too, so there is one source.
+- The histories that record an actor, the piece timeline (`piece_event`) and maintenance records
+  (`maintenance_record`), store `via_token_id`. The API joins the token's name, so a revoked token
+  still shows it, and the contract adds an optional `viaToken` on `PieceEvent` and
+  `MaintenanceRecord`. Web and mobile show "Olive via Sync script", and the maintenance CSV's
+  "Done by" column does the same.
+- **No `app.via_token` setting.** The app writes these histories itself, with no triggers, so the
+  id goes in the insert like the actor does. Add the setting if a trigger ever writes history.
+- Every MCP tool still only reads, so no MCP call makes history yet. The MCP test checks the tool
+  call runs with the token bound, the same binding a write would record.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

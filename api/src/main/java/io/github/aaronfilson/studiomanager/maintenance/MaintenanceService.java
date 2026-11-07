@@ -430,8 +430,10 @@ public class MaintenanceService {
         Capped.fromFetched(
             jdbc.sql(
                     """
-                    select r.id, r.asset_id, r.task_id, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
+                    select r.id, r.asset_id, r.task_id, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by,
+                           v.name as via_token_name, r.done_at
                     from maintenance_record r left join maintenance_task t on t.id = r.task_id
+                    left join api_token v on v.id = r.via_token_id
                     where r.asset_id = :assetId order by r.done_at desc, r.id desc limit :fetchSize
                     """)
                 .param("assetId", assetId)
@@ -448,6 +450,7 @@ public class MaintenanceService {
                         rs.getObject("at_firing", Integer.class),
                         rs.getObject("done_by", UUID.class),
                         null,
+                        rs.getString("via_token_name"),
                         rs.getObject("done_at", OffsetDateTime.class).toInstant(),
                         List.of()))
                 .list(),
@@ -467,6 +470,7 @@ public class MaintenanceService {
             r.atFiring(),
             r.doneBy(),
             names.get(r.doneBy()),
+            r.viaTokenName(),
             r.doneAt(),
             parts.getOrDefault(r.id(), List.of())));
   }
@@ -507,14 +511,17 @@ public class MaintenanceService {
         List<String> checked,
         @Nullable Integer atFiring,
         UUID doneBy,
+        @Nullable String viaTokenName,
         Instant doneAt) {}
     List<Row> rows =
         jdbc.sql(
                 """
-                select r.asset_id, a.name, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
+                select r.asset_id, a.name, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by,
+                       v.name as via_token_name, r.done_at
                 from maintenance_record r
                 join asset a on a.id = r.asset_id
                 left join maintenance_task t on t.id = r.task_id
+                left join api_token v on v.id = r.via_token_id
                 where r.done_at >= :from and r.done_at < :to
                 order by r.done_at, r.id
                 """)
@@ -530,6 +537,7 @@ public class MaintenanceService {
                     strings(rs.getArray("checked")),
                     rs.getObject("at_firing", Integer.class),
                     rs.getObject("done_by", UUID.class),
+                    rs.getString("via_token_name"),
                     rs.getObject("done_at", OffsetDateTime.class).toInstant()))
             .list();
     Map<UUID, String> names = accounts.displayNames(rows.stream().map(Row::doneBy).toList());
@@ -552,7 +560,9 @@ public class MaintenanceService {
               row.cost(),
               String.join("; ", row.checked()),
               row.atFiring(),
-              names.get(row.doneBy())));
+              row.viaTokenName() == null
+                  ? names.get(row.doneBy())
+                  : names.get(row.doneBy()) + " via " + row.viaTokenName()));
     }
     return csv.toString();
   }
@@ -839,9 +849,11 @@ public class MaintenanceService {
     jdbc.sql(
             """
             insert into maintenance_record (id, studio_id, asset_id, task_id, note, cost, checked, at_firing,
-                                            done_by, done_at)
-            values (:id, :studioId, :assetId, :taskId, :note, :cost, :checked, :atFiring, :by, :now)
+                                            done_by, via_token_id, done_at)
+            values (:id, :studioId, :assetId, :taskId, :note, :cost, :checked, :atFiring, :by, :viaToken,
+                    :now)
             """)
+        .param("viaToken", caller.viaTokenId())
         .param("id", id)
         .param("studioId", caller.studioId())
         .param("assetId", assetId)
