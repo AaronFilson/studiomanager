@@ -11,6 +11,8 @@ infra/
                   state storage, GitHub OIDC identities, env resource groups, DB admin groups
   identity/       once per environment, by a person signed in to the External ID tenant
                   app registrations: studiomanager-<env>-api and studiomanager-<env>-web
+  gcp/            once, by a person signed in to Google, local state
+                  Document AI Invoice Parser, workload identity federation from Azure
   envs/dev/       the dev environment; CI plans on PRs and applies on merge
     backend.hcl   remote-state settings (the storage account name comes from a GitHub variable)
     dev.tfvars    non-secret settings, committed
@@ -21,6 +23,7 @@ infra/
     api/          the API Container App and the Flyway migration job
     storage/      blob storage for piece photos
     key_vault/    Key Vault (RBAC mode)
+    document_intelligence/  Azure AI Document Intelligence (F0) for invoices
   .tflint.hcl
 ```
 
@@ -31,6 +34,7 @@ infra/
 | 1 | `bootstrap` | You, as subscription Owner (`az login`) | local, git-ignored |
 | 2 | `identity` | You, signed in to the External ID tenant | local, git-ignored |
 | 3 | `envs/dev` | GitHub Actions (`deploy-dev.yml`) | Azure Storage, `dev.tfstate` |
+| 4 (optional) | `gcp` | You, signed in to Google ([runbook](../docs/runbooks/google-document-ai.md)) | local, git-ignored |
 
 Then, once per environment, there's one manual database step that Terraform can't do (step 12 of the runbook).
 
@@ -47,6 +51,7 @@ Then, once per environment, there's one manual database step that Terraform can'
 | PostgreSQL | `psql-studiomanager-dev-<hash>` | 18, B1ms, database `studiomanager`, Entra auth only |
 | Storage | `ststudiomgrdev<hash>` | `piece-photos` container, no shared keys, CORS for the web origin |
 | Key Vault | `kv-studiomgr-dev-<hash>` | RBAC mode, empty for now |
+| Document Intelligence | `di-studiomanager-dev-<hash>` | F0 (free, 500 pages a month), key auth off; the API identity is Cognitive Services User |
 | Static Web App | `stapp-studiomanager-dev` | Free tier; serves `web/dist` |
 | Monitoring | `log-studiomanager-dev`, `appi-studiomanager-dev` | 0.15 GB/day ingestion cap; 10% of traces sampled |
 
@@ -64,8 +69,8 @@ managed identities. Nothing to rotate, nothing to leak. There are two identities
 - `id-studiomanager-github-deploy` trusts only `environment:dev`, so it is usable only by jobs running in the
   GitHub `dev` environment. That environment is restricted to `main` and can require reviewers. It has
   Contributor on the env resource group, plus *Role Based Access Control Administrator* **with a condition**:
-  it may only grant Storage Blob Data Contributor, Key Vault Secrets User and Monitoring Metrics Publisher,
-  and only to service principals. So a compromised pipeline cannot make itself Owner.
+  it may only grant Storage Blob Data Contributor, Key Vault Secrets User, Monitoring Metrics Publisher,
+  the email sender role and Cognitive Services User, and only to service principals. So a compromised pipeline cannot make itself Owner.
 - `id-studiomanager-github-plan` trusts `pull_request` and `refs/heads/main`. Any branch can open a PR, so
   this identity is read-only: Reader on the resource group, Storage Blob Data Reader on state. PR plans
   run with `-lock=false -refresh=false`. Refreshing would call list-secrets actions (Static Web Apps does)

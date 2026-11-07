@@ -1,16 +1,19 @@
 package io.github.aaronfilson.studiomanager.invoice;
 
+import io.github.aaronfilson.studiomanager.contract.ComparedReadDto;
 import io.github.aaronfilson.studiomanager.contract.ConfirmInvoiceRequestDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceFileTypeDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceLineDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceListDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceMatchSourceDto;
+import io.github.aaronfilson.studiomanager.contract.InvoiceReadOutcomeDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceReaderDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceStatusDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceSummaryDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceUploadDto;
 import io.github.aaronfilson.studiomanager.contract.InvoicesApi;
+import io.github.aaronfilson.studiomanager.contract.ReaderComparisonDto;
 import io.github.aaronfilson.studiomanager.contract.SaveInvoiceDraftRequestDto;
 import io.github.aaronfilson.studiomanager.contract.StartInvoiceUploadRequestDto;
 import io.github.aaronfilson.studiomanager.platform.Capped;
@@ -32,10 +35,12 @@ class InvoiceController implements InvoicesApi {
 
   private final InvoiceInbox inbox;
   private final InvoiceReview review;
+  private final ReaderComparison comparison;
 
-  InvoiceController(InvoiceInbox inbox, InvoiceReview review) {
+  InvoiceController(InvoiceInbox inbox, InvoiceReview review, ReaderComparison comparison) {
     this.inbox = inbox;
     this.review = review;
+    this.comparison = comparison;
   }
 
   @Override
@@ -120,6 +125,58 @@ class InvoiceController implements InvoicesApi {
   public ResponseEntity<Void> discardInvoice(UUID studioId, UUID invoiceId) {
     inbox.discard(studioId, invoiceId);
     return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'OWNER')")
+  public ResponseEntity<ReaderComparisonDto> compareInvoiceReaders(UUID studioId, UUID invoiceId) {
+    return ResponseEntity.ok(
+        new ReaderComparisonDto()
+            .results(
+                comparison.compare(studioId, invoiceId).stream()
+                    .map(InvoiceController::toDto)
+                    .toList()));
+  }
+
+  private static ComparedReadDto toDto(ReaderComparison.Compared compared) {
+    ComparedReadDto dto =
+        new ComparedReadDto()
+            .reader(InvoiceReaderDto.fromValue(compared.reader().name()))
+            .outcome(InvoiceReadOutcomeDto.fromValue(compared.outcome().name()))
+            .note(compared.note())
+            .elapsedMs(compared.elapsedMs())
+            .problems(compared.problems())
+            .lines(List.of());
+    ReaderResult.Usage usage = compared.usage();
+    if (usage != null) {
+      BigDecimal cost = usage.costUsd();
+      dto.pages(usage.pages())
+          .inputTokens(usage.inputTokens())
+          .outputTokens(usage.outputTokens())
+          .costUsd(cost == null ? null : cost.toPlainString());
+    }
+    InvoiceDraft draft = compared.draft();
+    if (draft != null) {
+      dto.vendorName(draft.vendorName())
+          .invoiceNumber(draft.invoiceNumber())
+          .invoiceDate(draft.invoiceDate())
+          .subtotal(text(draft.subtotal()))
+          .shipping(text(draft.shipping()))
+          .tax(text(draft.tax()))
+          .total(text(draft.total()))
+          .lines(
+              draft.lines().stream()
+                  .map(line ->
+                      new InvoiceLineDto()
+                          .description(line.description())
+                          .sku(line.sku())
+                          .quantity(text(line.quantity()))
+                          .unit(line.unit())
+                          .unitPrice(text(line.unitPrice()))
+                          .lineTotal(text(line.lineTotal())))
+                  .toList());
+    }
+    return dto;
   }
 
   private static InvoiceDto toDto(InvoiceView view) {

@@ -107,6 +107,35 @@ variable "bridge_image" {
   default     = "ghcr.io/aaronfilson/studiomanager-auth:main"
 }
 
+variable "invoice_demo_studio_id" {
+  description = "The demo studio, for which the platform-paid invoice readers are on until the admin page says otherwise. Empty: no studio."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.invoice_demo_studio_id == "" || can(regex("^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$", var.invoice_demo_studio_id))
+    error_message = "Must be a studio's id (a GUID), or empty."
+  }
+}
+
+variable "google_invoice_reader" {
+  description = "From `terraform output api_env` in infra/gcp. Empty values leave the Google Document AI reader off."
+  type = object({
+    location                   = string
+    processor_name             = string
+    workload_identity_audience = string
+    service_account_email      = string
+    azure_token_scope          = string
+  })
+  default = {
+    location                   = ""
+    processor_name             = ""
+    workload_identity_audience = ""
+    service_account_email      = ""
+    azure_token_scope          = ""
+  }
+}
+
 variable "api_min_replicas" {
   type    = number
   default = 0

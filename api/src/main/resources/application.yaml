@@ -139,6 +139,28 @@ studiomanager:
       model: ${STUDIOMANAGER_INVOICES_CLAUDE_MODEL:claude-opus-5-5}
       input-usd-per-million: 4.00
       output-usd-per-million: 20.00
+    # The platform-paid readers (docs/planning/20, "Invoice readers"). Each is off until its
+    # values are set (infra/gcp and infra/modules/document_intelligence give them), and then reads
+    # only for the studios the admin page allows, with the owner's consent, under monthly caps.
+    platform-readers:
+      # Before the admin saves any rules, both readers are on for this studio only
+      demo-studio-id: ${STUDIOMANAGER_INVOICES_DEMO_STUDIO_ID:}
+      studio-monthly-pages: 50
+      # Azure's free F0 tier reads 500 pages a month
+      platform-monthly-pages: 400
+    google:
+      location: ${STUDIOMANAGER_INVOICES_GOOGLE_LOCATION:}
+      processor-name: ${STUDIOMANAGER_INVOICES_GOOGLE_PROCESSOR_NAME:}
+      workload-identity-audience: ${STUDIOMANAGER_INVOICES_GOOGLE_WIF_AUDIENCE:}
+      service-account-email: ${STUDIOMANAGER_INVOICES_GOOGLE_SERVICE_ACCOUNT:}
+      # The managed-identity token's audience, which the GCP provider accepts (infra/gcp)
+      azure-token-scope: ${STUDIOMANAGER_INVOICES_GOOGLE_AZURE_TOKEN_SCOPE:api://AzureADTokenExchange/.default}
+      # $0.10 per 10 pages, billed per document in blocks of 10 (checked 2026-11-06)
+      usd-per-ten-pages: 0.10
+    azure:
+      endpoint: ${STUDIOMANAGER_INVOICES_AZURE_ENDPOINT:}
+      # F0 is free; S0's rate wasn't confirmed (docs/planning/20)
+      usd-per-thousand-pages: ${STUDIOMANAGER_INVOICES_AZURE_USD_PER_THOUSAND_PAGES:0}
   rate-limit:
     # Per person, per studio, per channel, in memory on each replica (plan 20, section 6). These
     # are the defaults; the admin page can change them while the app runs. Tune from the call log.

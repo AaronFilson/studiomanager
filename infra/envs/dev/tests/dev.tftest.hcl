@@ -78,6 +78,12 @@ mock_provider "azurerm" {
     }
   }
 
+  mock_resource "azurerm_cognitive_account" {
+    defaults = {
+      id = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.CognitiveServices/accounts/di-mock"
+    }
+  }
+
   mock_resource "azurerm_communication_service" {
     defaults = {
       id       = "/subscriptions/88888888-8888-8888-8888-888888888888/resourceGroups/rg-studiomanager-dev/providers/Microsoft.Communication/communicationServices/acs-mock"
@@ -135,6 +141,26 @@ run "wires_the_environment" {
     condition     = azurerm_role_assignment.api_blob.principal_type == "ServicePrincipal" && azurerm_role_assignment.api_key_vault.principal_type == "ServicePrincipal"
     error_message = "principal_type is required by the deploy identity's role-assignment condition."
   }
+
+  assert {
+    condition     = azurerm_role_assignment.api_document_intelligence.role_definition_name == "Cognitive Services User" && azurerm_role_assignment.api_document_intelligence.principal_type == "ServicePrincipal"
+    error_message = "The API reads invoices with Document Intelligence as its own identity."
+  }
+
+  assert {
+    condition     = module.document_intelligence.endpoint == "https://di-studiomanager-dev-${substr(sha1("88888888-8888-8888-8888-888888888888-dev"), 0, 6)}.cognitiveservices.azure.com"
+    error_message = "The API gets the Document Intelligence endpoint."
+  }
+}
+
+run "rejects_a_demo_studio_that_is_not_an_id" {
+  command = plan
+
+  variables {
+    invoice_demo_studio_id = "demo"
+  }
+
+  expect_failures = [var.invoice_demo_studio_id]
 }
 
 run "the_github_bridge_is_off_by_default" {

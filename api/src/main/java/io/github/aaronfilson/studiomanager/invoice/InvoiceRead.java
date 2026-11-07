@@ -29,7 +29,15 @@ class InvoiceRead {
     READ,
     REFUSED_CREDENTIALS,
     UNAVAILABLE,
-    UNREADABLE
+    UNREADABLE;
+
+    static Outcome of(InvoiceReadException.Failure failure) {
+      return switch (failure) {
+        case REFUSED_CREDENTIALS -> REFUSED_CREDENTIALS;
+        case UNAVAILABLE -> UNAVAILABLE;
+        case UNREADABLE -> UNREADABLE;
+      };
+    }
   }
 
   @Id private UUID id;

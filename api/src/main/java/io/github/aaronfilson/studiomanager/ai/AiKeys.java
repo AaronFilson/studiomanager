@@ -178,6 +178,18 @@ public class AiKeys {
                 .map(stored -> new StudioKey(cipher.decrypt(studioId, stored.keyCiphertext())))));
   }
 
+  /**
+   * Whether the bound studio's owner consents to invoices going to the platform's own readers
+   * (Google Document AI, Azure AI Document Intelligence). False when the studio has no key row: the
+   * consent is saved with the key, so a studio that never set one hasn't given it.
+   */
+  public boolean platformReadersAllowed() {
+    UUID studioId = TenantContext.require().requireStudioId();
+    return Boolean.TRUE.equals(
+        transactions.execute(
+            tx -> keys.findById(studioId).map(AiProviderKey::allowsPlatformReaders).orElse(false)));
+  }
+
   /** Marks the bound studio's key refused, after the provider answered 401 or 403 to a read. */
   public void markRefused(String reason) {
     UUID studioId = TenantContext.require().requireStudioId();

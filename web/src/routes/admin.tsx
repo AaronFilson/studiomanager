@@ -23,6 +23,7 @@ import { useId, useState } from 'react';
 
 import { requireSignIn } from '../auth/requireSignIn';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { InvoiceReadersAdmin } from '../components/InvoiceReadersAdmin';
 
 /** Running the service: live rate limits, boosts, and the history of every change (ADR 24). */
 export const Route = createFileRoute('/admin')({
@@ -38,6 +39,7 @@ function AdminPage() {
       <h1>Admin</h1>
       <Limits />
       <DemoStudio />
+      <InvoiceReadersAdmin />
       <History />
     </div>
   );
@@ -365,6 +367,8 @@ function settingLabel(key: string): string {
       return 'Normal limits';
     case 'rate-limit.boost':
       return 'Boost';
+    case 'invoice-readers':
+      return 'Invoice readers';
     default:
       return key;
   }

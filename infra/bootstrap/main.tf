@@ -25,6 +25,7 @@ locals {
     "4633458b-17de-408a-b874-0445c86b69e6", # Key Vault Secrets User
     "3913510d-42f4-4e42-8a64-420c390055eb", # Monitoring Metrics Publisher
     local.email_sender_role_id,             # Studio Manager Email Sender (below)
+    "a97b65f3-24c7-4388-baec-2e87135dc908", # Cognitive Services User (Document Intelligence)
   ]
   assignable_role_list = join(", ", local.assignable_role_ids)
 
