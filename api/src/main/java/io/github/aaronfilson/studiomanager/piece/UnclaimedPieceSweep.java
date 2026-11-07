@@ -4,12 +4,11 @@ import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
 import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
@@ -29,14 +28,17 @@ class UnclaimedPieceSweep implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(UnclaimedPieceSweep.class);
 
-  private final JdbcClient jdbc;
+  private final PieceQueries queries;
   private final TransactionOperations transactions;
   private final SweepRunner sweeps;
+  private final Clock clock;
 
-  UnclaimedPieceSweep(JdbcClient jdbc, TransactionOperations transactions, SweepRunner sweeps) {
-    this.jdbc = jdbc;
+  UnclaimedPieceSweep(
+      PieceQueries queries, TransactionOperations transactions, SweepRunner sweeps, Clock clock) {
+    this.queries = queries;
     this.transactions = transactions;
     this.sweeps = sweeps;
+    this.clock = clock;
   }
 
   @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1H")
@@ -51,7 +53,7 @@ class UnclaimedPieceSweep implements Sweep {
 
   @Override
   public void sweep() {
-    runAt(Instant.now());
+    runAt(clock.instant());
   }
 
   /** Marks every piece whose hold ended at or before {@code now}, and returns how many. */
@@ -59,12 +61,7 @@ class UnclaimedPieceSweep implements Sweep {
     Integer marked =
         TenantContext.callAs(
             TenantContext.system(SystemActor.UNCLAIMED_PIECES),
-            () ->
-                transactions.execute(tx ->
-                    jdbc.sql("select app.mark_unclaimed_pieces(:now)")
-                        .param("now", now.atOffset(ZoneOffset.UTC))
-                        .query(Integer.class)
-                        .single()));
+            () -> transactions.execute(tx -> queries.markUnclaimed(now)));
     int count = marked == null ? 0 : marked;
     if (count > 0) {
       log.info("Marked {} pieces unclaimed", count);

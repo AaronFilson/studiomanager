@@ -3,13 +3,11 @@ package io.github.aaronfilson.studiomanager.webhook;
 import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
 import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
@@ -26,14 +24,17 @@ class WebhookHistoryPurge implements Sweep {
 
   static final Duration KEEP = Duration.ofDays(30);
 
-  private final JdbcClient jdbc;
+  private final WebhookQueries queries;
   private final TransactionOperations transactions;
   private final SweepRunner sweeps;
+  private final Clock clock;
 
-  WebhookHistoryPurge(JdbcClient jdbc, TransactionOperations transactions, SweepRunner sweeps) {
-    this.jdbc = jdbc;
+  WebhookHistoryPurge(
+      WebhookQueries queries, TransactionOperations transactions, SweepRunner sweeps, Clock clock) {
+    this.queries = queries;
     this.transactions = transactions;
     this.sweeps = sweeps;
+    this.clock = clock;
   }
 
   @Scheduled(initialDelayString = "PT15M", fixedDelayString = "PT24H")
@@ -51,12 +52,7 @@ class WebhookHistoryPurge implements Sweep {
     Integer purged =
         TenantContext.callAs(
             TenantContext.system(WebhookSweep.ACTOR),
-            () ->
-                transactions.execute(tx ->
-                    jdbc.sql("select app.purge_webhook_history(:before)")
-                        .param("before", Instant.now().minus(KEEP).atOffset(ZoneOffset.UTC))
-                        .query(Integer.class)
-                        .single()));
+            () -> transactions.execute(tx -> queries.purgeHistory(clock.instant().minus(KEEP))));
     if (purged != null && purged > 0) {
       log.info("Purged {} webhook events older than {} days", purged, KEEP.toDays());
     }

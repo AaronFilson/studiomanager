@@ -35,7 +35,7 @@ class AiKeyController implements AiApi {
             keys.set(
                 AiKeys.Provider.valueOf(request.getProvider().getValue()),
                 request.getApiKey(),
-                Boolean.TRUE.equals(request.getAllowGoogleFallback()))));
+                Boolean.TRUE.equals(request.getAllowPlatformReaders()))));
   }
 
   @Override
@@ -58,7 +58,7 @@ class AiKeyController implements AiApi {
         .status(AiKeyStatusDto.StatusEnum.valueOf(status.status().name()))
         .reason(status.reason())
         .checkedAt(status.checkedAt() == null ? null : status.checkedAt().atOffset(ZoneOffset.UTC))
-        .allowGoogleFallback(status.allowGoogleFallback())
+        .allowPlatformReaders(status.allowPlatformReaders())
         .setAt(status.setAt().atOffset(ZoneOffset.UTC));
   }
 }

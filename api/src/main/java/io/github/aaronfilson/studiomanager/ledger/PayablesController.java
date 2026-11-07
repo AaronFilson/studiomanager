@@ -56,9 +56,19 @@ import org.springframework.web.bind.annotation.RestController;
 class PayablesController implements PayablesApi {
 
   private final PayablesService payables;
+  private final Consignments consignments;
+  private final PayeePayments payments;
+  private final PayablesReports reports;
 
-  PayablesController(PayablesService payables) {
+  PayablesController(
+      PayablesService payables,
+      Consignments consignments,
+      PayeePayments payments,
+      PayablesReports reports) {
     this.payables = payables;
+    this.consignments = consignments;
+    this.payments = payments;
+    this.reports = reports;
   }
 
   @Override
@@ -86,7 +96,7 @@ class PayablesController implements PayablesApi {
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<PayeeStatementDto> getPayeeStatement(
       LocalDate from, LocalDate to, UUID studioId, UUID payeeId) {
-    var statement = payables.statement(payeeId, from, to);
+    var statement = reports.statement(payeeId, from, to);
     return ResponseEntity.ok(
         new PayeeStatementDto()
             .payeeId(statement.payeeId())
@@ -111,7 +121,7 @@ class PayablesController implements PayablesApi {
   public ResponseEntity<EarningDto> recordEarning(
       UUID studioId, UUID payeeId, RecordEarningRequestDto request) {
     var earning =
-        payables.recordEarning(
+        payments.recordEarning(
             payeeId,
             EarningKind.valueOf(request.getKind().getValue()),
             request.getDescription(),
@@ -137,7 +147,7 @@ class PayablesController implements PayablesApi {
   public ResponseEntity<PayeePaymentDto> payPayee(
       UUID studioId, UUID payeeId, PayPayeeRequestDto request) {
     var payment =
-        payables.pay(
+        payments.pay(
             payeeId,
             new BigDecimal(request.getAmount()),
             PaymentMethod.valueOf(request.getMethod().getValue()),
@@ -161,7 +171,7 @@ class PayablesController implements PayablesApi {
   public ResponseEntity<ConsignmentItemListDto> listConsignmentItems(
       UUID studioId, Boolean dueBack, @Nullable UUID payeeId, Boolean all) {
     Capped<ConsignmentItemDto> items =
-        payables
+        consignments
             .consignmentItems(payeeId, !Boolean.TRUE.equals(all), Boolean.TRUE.equals(dueBack))
             .map(PayablesController::toDto);
     return ResponseEntity.ok(
@@ -178,17 +188,17 @@ class PayablesController implements PayablesApi {
                 new PaymentRunLine(
                     line.getPayeeId(), new BigDecimal(line.getAmount()), line.getReference()))
             .toList();
-    var payments =
-        payables.payRun(
+    List<Payment> paid =
+        payments.payRun(
             lines, PaymentMethod.valueOf(request.getMethod().getValue()), request.getPaidOn());
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(payments.stream().map(PayablesController::toDto).toList());
+        .body(paid.stream().map(PayablesController::toDto).toList());
   }
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<MyConsignmentDto> getMyConsignment(UUID studioId) {
-    MyConsignment mine = payables.myConsignment();
+    MyConsignment mine = consignments.myConsignment();
     return ResponseEntity.ok(
         new MyConsignmentDto()
             .payeeId(mine.payeeId())
@@ -218,7 +228,7 @@ class PayablesController implements PayablesApi {
   public ResponseEntity<ConsignmentSaleDto> sellConsignment(
       UUID studioId, UUID itemId, SellConsignmentRequestDto request) {
     ConsignmentSale sale =
-        payables.sell(
+        consignments.sell(
             itemId,
             request.getQuantity() == null ? 1 : request.getQuantity(),
             decimal(request.getPrice()),
@@ -230,7 +240,7 @@ class PayablesController implements PayablesApi {
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<ConsignmentItemDto> returnConsignment(
       UUID studioId, UUID itemId, ReturnConsignmentRequestDto request) {
-    return ResponseEntity.ok(toDto(payables.returnToArtist(itemId, request.getQuantity())));
+    return ResponseEntity.ok(toDto(consignments.returnToArtist(itemId, request.getQuantity())));
   }
 
   @Override
@@ -238,7 +248,7 @@ class PayablesController implements PayablesApi {
   public ResponseEntity<ConsignmentSaleListDto> listConsignmentSales(
       UUID studioId, @Nullable UUID payeeId) {
     Capped<ConsignmentSaleDto> sales =
-        payables.consignmentSales(payeeId).map(PayablesController::toDto);
+        consignments.consignmentSales(payeeId).map(PayablesController::toDto);
     return ResponseEntity.ok(
         new ConsignmentSaleListDto(sales.items(), sales.truncated(), sales.limit()));
   }
@@ -246,13 +256,13 @@ class PayablesController implements PayablesApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<ConsignmentSaleDto> refundConsignmentSale(UUID studioId, UUID saleId) {
-    return ResponseEntity.ok(toDto(payables.refund(saleId)));
+    return ResponseEntity.ok(toDto(consignments.refund(saleId)));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<NecReportDto> getNecReport(Integer year, UUID studioId) {
-    NecReport report = payables.necReport(year);
+    NecReport report = reports.necReport(year);
     return ResponseEntity.ok(
         new NecReportDto()
             .year(report.year())
@@ -279,7 +289,7 @@ class PayablesController implements PayablesApi {
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             "attachment; filename=\"1099-nec-%d.csv\"".formatted(year))
-        .body(necCsv(payables.necReport(year)));
+        .body(necCsv(reports.necReport(year)));
   }
 
   /**

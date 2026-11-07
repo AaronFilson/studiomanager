@@ -4,8 +4,10 @@ import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
+import jakarta.persistence.EntityManager;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -13,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,18 +32,34 @@ import tools.jackson.databind.json.JsonMapper;
 class WebhookEvents {
 
   /** The sweep leaves a new delivery alone this long, while its first attempt runs. */
-  static final java.time.Duration FIRST_ATTEMPT_GRACE = java.time.Duration.ofMinutes(1);
+  static final Duration FIRST_ATTEMPT_GRACE = Duration.ofMinutes(1);
 
-  private final JdbcClient jdbc;
+  private final WebhookQueries queries;
+  private final WebhookEndpointRepository endpoints;
+  private final WebhookDeliveryRepository deliveries;
+  private final EntityManager entityManager;
   private final StudioService studios;
   private final JsonMapper json;
   private final WebhookSender sender;
+  private final Clock clock;
 
-  WebhookEvents(JdbcClient jdbc, StudioService studios, JsonMapper json, WebhookSender sender) {
-    this.jdbc = jdbc;
+  WebhookEvents(
+      WebhookQueries queries,
+      WebhookEndpointRepository endpoints,
+      WebhookDeliveryRepository deliveries,
+      EntityManager entityManager,
+      StudioService studios,
+      JsonMapper json,
+      WebhookSender sender,
+      Clock clock) {
+    this.queries = queries;
+    this.endpoints = endpoints;
+    this.deliveries = deliveries;
+    this.entityManager = entityManager;
     this.studios = studios;
     this.json = json;
     this.sender = sender;
+    this.clock = clock;
   }
 
   /**
@@ -51,15 +68,16 @@ class WebhookEvents {
    */
   @Transactional(propagation = Propagation.REQUIRED)
   public void publish(WebhookEventType type, String dedupeKey, Map<String, Object> data) {
-    List<UUID> endpoints =
-        jdbc.sql("select id from webhook_endpoint where enabled and :type = any(event_types)")
-            .param("type", type.wireName())
-            .query(UUID.class)
-            .list();
-    if (endpoints.isEmpty()) {
+    // A studio has at most ten endpoints, so they're filtered here rather than in the query
+    List<UUID> subscribed =
+        endpoints.findByEnabledTrue().stream()
+            .filter(endpoint -> endpoint.wants(type))
+            .map(WebhookEndpoint::id)
+            .toList();
+    if (subscribed.isEmpty()) {
       return;
     }
-    record(type, dedupeKey, data, endpoints)
+    record(type, dedupeKey, data, subscribed)
         .ifPresent(event -> {
           TenantContext caller = TenantContext.require();
           if (TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -82,7 +100,7 @@ class WebhookEvents {
   Optional<Recorded> record(
       WebhookEventType type, String dedupeKey, Map<String, Object> data, List<UUID> endpointIds) {
     StudioView studio = studios.current();
-    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    Instant now = clock.instant();
     UUID eventId = Uuids.v7();
     Map<String, Object> envelope = new LinkedHashMap<>();
     envelope.put("id", wireId(eventId));
@@ -92,48 +110,31 @@ class WebhookEvents {
     envelope.put("studio", Map.of("id", studio.id().toString(), "name", studio.name()));
     envelope.put("data", data);
     String body = json.writeValueAsString(envelope);
-    Optional<UUID> stored =
-        jdbc.sql(
-                """
-                insert into webhook_event (id, studio_id, type, dedupe_key, body, created_at)
-                values (:id, :studioId, :type, :key, :body, :now)
-                on conflict (studio_id, dedupe_key) do nothing
-                returning id
-                """)
-            .param("id", eventId)
-            .param("studioId", studio.id())
-            .param("type", type.wireName())
-            .param("key", dedupeKey)
-            .param("body", body)
-            .param("now", now.atOffset(ZoneOffset.UTC))
-            .query(UUID.class)
-            .optional();
-    if (stored.isEmpty()) {
+    if (!queries.insertEvent(eventId, studio.id(), type, dedupeKey, body, now)) {
       return Optional.empty();
     }
-    List<UUID> deliveries = new ArrayList<>();
+    List<UUID> added = new ArrayList<>();
     for (UUID endpointId : endpointIds) {
-      deliveries.add(addDelivery(studio.id(), endpointId, eventId, now));
+      added.add(addDelivery(endpointId, eventId, now));
     }
-    return Optional.of(new Recorded(eventId, deliveries));
+    return Optional.of(new Recorded(eventId, added));
   }
 
   /** A new delivery of an event already stored, such as a resend. */
-  UUID addDelivery(UUID studioId, UUID endpointId, UUID eventId, Instant now) {
-    UUID id = Uuids.v7();
-    jdbc.sql(
-            """
-            insert into webhook_delivery (id, studio_id, endpoint_id, event_id, status, next_attempt_at, created_at)
-            values (:id, :studioId, :endpointId, :eventId, 'PENDING', :next, :now)
-            """)
-        .param("id", id)
-        .param("studioId", studioId)
-        .param("endpointId", endpointId)
-        .param("eventId", eventId)
-        .param("next", now.plus(FIRST_ATTEMPT_GRACE).atOffset(ZoneOffset.UTC))
-        .param("now", now.atOffset(ZoneOffset.UTC))
-        .update();
-    return id;
+  UUID addDelivery(UUID endpointId, UUID eventId, Instant now) {
+    // Persisted, not saved: a delivery has no version, so save would look it up first. The event
+    // is only referenced, not loaded.
+    WebhookDelivery delivery =
+        new WebhookDelivery(
+            endpointId,
+            eventId,
+            entityManager.getReference(WebhookEvent.class, eventId),
+            now,
+            now.plus(FIRST_ATTEMPT_GRACE));
+    entityManager.persist(delivery);
+    // The first attempt claims it with SQL, once this commits
+    deliveries.flush();
+    return delivery.id();
   }
 
   /** The id receivers see, in the payload and the {@code webhook-id} header. */

@@ -36,9 +36,22 @@ import org.springframework.web.bind.annotation.RestController;
 class ScheduleController implements ScheduleApi {
 
   private final ScheduleService schedule;
+  private final ResourceChanges resourceChanges;
+  private final BookingChanges bookingChanges;
+  private final ShiftChanges shiftChanges;
+  private final CreditedHours creditedHours;
 
-  ScheduleController(ScheduleService schedule) {
+  ScheduleController(
+      ScheduleService schedule,
+      ResourceChanges resourceChanges,
+      BookingChanges bookingChanges,
+      ShiftChanges shiftChanges,
+      CreditedHours creditedHours) {
     this.schedule = schedule;
+    this.resourceChanges = resourceChanges;
+    this.bookingChanges = bookingChanges;
+    this.shiftChanges = shiftChanges;
+    this.creditedHours = creditedHours;
   }
 
   @Override
@@ -52,7 +65,7 @@ class ScheduleController implements ScheduleApi {
   public ResponseEntity<ResourceDto> createResource(
       UUID studioId, CreateResourceRequestDto request) {
     Resource resource =
-        schedule.createResource(
+        resourceChanges.createResource(
             request.getName(),
             ResourceKind.valueOf(request.getKind().name()),
             request.getCapacity(),
@@ -78,7 +91,7 @@ class ScheduleController implements ScheduleApi {
   public ResponseEntity<BookingDto> createBooking(UUID studioId, CreateBookingRequestDto request) {
     BookingDto booking =
         ScheduleDtos.toDto(
-            schedule.book(
+            bookingChanges.book(
                 request.getResourceId(),
                 // getValue, not name: the generator renames the CLASS constant, a reserved word in
                 // Java
@@ -95,7 +108,7 @@ class ScheduleController implements ScheduleApi {
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<Void> cancelBooking(UUID studioId, UUID bookingId) {
-    schedule.cancelBooking(bookingId);
+    bookingChanges.cancelBooking(bookingId);
     return ResponseEntity.noContent().build();
   }
 
@@ -115,7 +128,7 @@ class ScheduleController implements ScheduleApi {
     Duty duty = request.getDuty() == null ? null : Duty.valueOf(request.getDuty().name());
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
-            schedule
+            shiftChanges
                 .createWeeklyShifts(
                     request.getTitle(),
                     duty,
@@ -133,7 +146,7 @@ class ScheduleController implements ScheduleApi {
       UUID studioId, UUID shiftId, AssignShiftRequestDto request) {
     return ResponseEntity.ok(
         ScheduleDtos.toDto(
-            schedule.assign(shiftId, request.getAccountId(), request.getExpectedVersion())));
+            shiftChanges.assign(shiftId, request.getAccountId(), request.getExpectedVersion())));
   }
 
   /** Members may call this; the service lets through only whoever has the shift, and staff. */
@@ -143,7 +156,7 @@ class ScheduleController implements ScheduleApi {
       UUID studioId, UUID shiftId, OfferShiftRequestDto request) {
     return ResponseEntity.ok(
         ScheduleDtos.toDto(
-            schedule.offer(shiftId, request.getOffered(), request.getExpectedVersion())));
+            shiftChanges.offer(shiftId, request.getOffered(), request.getExpectedVersion())));
   }
 
   @Override
@@ -151,7 +164,7 @@ class ScheduleController implements ScheduleApi {
   public ResponseEntity<ShiftDto> markShiftWorked(
       UUID studioId, UUID shiftId, VersionRequestDto request) {
     return ResponseEntity.ok(
-        ScheduleDtos.toDto(schedule.markWorked(shiftId, request.getExpectedVersion())));
+        ScheduleDtos.toDto(shiftChanges.markWorked(shiftId, request.getExpectedVersion())));
   }
 
   @Override
@@ -165,7 +178,7 @@ class ScheduleController implements ScheduleApi {
   public ResponseEntity<HoursLedgerDto> adjustHours(
       UUID studioId, UUID accountId, AdjustHoursRequestDto request) {
     return ResponseEntity.ok(
-        toDto(schedule.adjustHours(accountId, request.getMinutes(), request.getNote())));
+        toDto(creditedHours.adjustHours(accountId, request.getMinutes(), request.getNote())));
   }
 
   private static ResourceDto toDto(Resource resource) {

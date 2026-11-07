@@ -1,0 +1,13 @@
+{
+  "vendorName": "RIVERBEND CLAY SUPPLY",
+  "invoiceNumber": "RB-20417",
+  "invoiceDate": "2026-10-14",
+  "subtotal": "212.50",
+  "shipping": "35.00",
+  "tax": "17.53",
+  "total": "265.03",
+  "lines": [
+    {"description": "B-MIX 5 CONE 5 CLAY 50LB BOX", "sku": "WC-401", "quantity": "5", "unit": "BOX", "unitPrice": "32.50", "lineTotal": "162.50"},
+    {"description": "SPECKLED BUFF 25LB", "sku": "WC-415", "quantity": "2", "unit": "BAG", "unitPrice": "25.00", "lineTotal": "50.00"}
+  ]
+}

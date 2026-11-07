@@ -15,6 +15,10 @@ security:
   - bearerAuth: []
   - apiToken: []
 tags:
+  - name: invoices
+    description: |
+      The supplies inbox. Staff upload a supplier invoice, a reader turns it into a draft, and
+      staff check it and confirm it into stock. Nothing reaches stock until they confirm.
   - name: ai
     description: |
       The studio's own AI key, used to read supplier invoices. The studio's own provider account
@@ -25,6 +29,10 @@ tags:
       within the token's scopes. A token is never more than its person: if they stop being
       staff, it stops working. Money, imports, the export, webhooks and tokens themselves are
       out of a token's reach.
+  - name: pending-actions
+    description: |
+      Changes an AI assistant proposed over MCP, waiting for staff. Approving one makes the change
+      through the normal rules, as the person who approved. Never reachable with an API token.
   - name: account
     description: The signed-in person.
   - name: admin
@@ -3741,6 +3749,69 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/pending-actions:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [pending-actions]
+      operationId: listPendingActions
+      summary: Assistant suggestions waiting for a decision, oldest first (staff only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The waiting suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingActionList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/pending-actions/{actionId}/decision:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: actionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [pending-actions]
+      operationId: decidePendingAction
+      summary: Approve or reject a suggestion (staff only)
+      description: |
+        Approving makes the change as the caller, with the same checks as making it by hand. If
+        that fails, nothing changes and the suggestion stays waiting.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecidePendingActionRequest"
+      responses:
+        "200":
+          description: The decided suggestion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingAction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/ai-key:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -3828,6 +3899,206 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/invoices:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [invoices]
+      operationId: listInvoices
+      summary: The supplies inbox, newest first (staff)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Invoices, without their lines.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [invoices]
+      operationId: startInvoiceUpload
+      summary: Start an invoice and get a URL to upload its file to (staff)
+      description: |
+        PUT the file to `uploadUrl` with `x-ms-blob-type: BlockBlob`, then call `complete`. The
+        file is a PDF, JPEG or PNG of up to `maxBytes`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartInvoiceUploadRequest"
+      responses:
+        "201":
+          description: Where to upload the file.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceUpload"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/invoices/{invoiceId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [invoices]
+      operationId: getInvoice
+      summary: An invoice's draft, its checks, and a link to its file (staff)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [invoices]
+      operationId: saveInvoiceDraft
+      summary: Replace the draft with staff's corrections (staff)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveInvoiceDraftRequest"
+      responses:
+        "200":
+          description: The invoice, checked again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [invoices]
+      operationId: discardInvoice
+      summary: Throw away an invoice that hasn't been confirmed, and its file (staff)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Gone.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/invoices/{invoiceId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [invoices]
+      operationId: completeInvoiceUpload
+      summary: Check the uploaded file and have it read (staff)
+      description: |
+        The file is read in the background, so the invoice comes back `READING`. Poll it until it's
+        `READY` or `NEEDS_LOOK`. Completing twice is harmless.
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Accepted; being read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/invoices/{invoiceId}/confirm:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [invoices]
+      operationId: confirmInvoice
+      summary: Receive the invoice's stock (staff)
+      description: |
+        Each line with a supply item is received into stock at its quantity, and what the vendor's
+        lines meant is remembered for its next invoice. Nothing reaches stock before this.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmInvoiceRequest"
+      responses:
+        "200":
+          description: The confirmed invoice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
 components:
   securitySchemes:
@@ -7127,7 +7398,7 @@ components:
 
     AiKeyStatus:
       type: object
-      required: [provider, lastFour, status, allowGoogleFallback, setAt]
+      required: [provider, lastFour, status, allowPlatformReaders, setAt]
       properties:
         provider:
           $ref: "#/components/schemas/AiProvider"
@@ -7142,9 +7413,11 @@ components:
         checkedAt:
           type: string
           format: date-time
-        allowGoogleFallback:
+        allowPlatformReaders:
           type: boolean
-          description: Whether an invoice the key can't read may be read by Google Document AI instead.
+          description: |
+            Whether the studio consents to invoices being read by the platform's own readers
+            (Google Document AI, Azure AI Document Intelligence) when the admin turns them on.
         setAt:
           type: string
           format: date-time
@@ -7160,16 +7433,235 @@ components:
           minLength: 20
           maxLength: 300
           writeOnly: true
-        allowGoogleFallback:
+        allowPlatformReaders:
           type: boolean
+
+    InvoiceFileType:
+      type: string
+      enum: [PDF, JPEG, PNG]
+
+    InvoiceStatus:
+      type: string
+      description: |
+        `UPLOADING` until the file is checked; `READING` while a reader has it; `READY` when the
+        numbers add up; `NEEDS_LOOK` when they don't, or nobody could read it; `CONFIRMED` once
+        its stock is received.
+      enum: [UPLOADING, READING, READY, NEEDS_LOOK, CONFIRMED]
+
+    InvoiceReader:
+      type: string
+      enum: [CLAUDE, GOOGLE_DOCUMENT_AI, AZURE_DOCUMENT_INTELLIGENCE]
+
+    InvoiceMatchSource:
+      type: string
+      description: |
+        How the line's supply item was found: an alias from this vendor's earlier invoices, by SKU
+        or by description; by the item's name; or picked by staff.
+      enum: [ALIAS_SKU, ALIAS_DESCRIPTION, NAME, STAFF]
+
+    InvoiceAmount:
+      type: string
+      description: A decimal, as a string so no precision is lost. Negative for a discount or credit.
+      pattern: "^-?\\d{1,9}(\\.\\d{1,4})?$"
+      examples: ["48.00"]
+
+    StartInvoiceUploadRequest:
+      type: object
+      required: [fileType]
+      properties:
+        fileType:
+          $ref: "#/components/schemas/InvoiceFileType"
+
+    InvoiceUpload:
+      type: object
+      required: [invoiceId, uploadUrl, expiresAt, maxBytes]
+      properties:
+        invoiceId:
+          type: string
+          format: uuid
+        uploadUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+        maxBytes:
+          type: integer
+          format: int32
+
+    InvoiceLine:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 200
+        sku:
+          type: string
+          maxLength: 60
+        quantity:
+          $ref: "#/components/schemas/InvoiceAmount"
+        unit:
+          type: string
+          maxLength: 30
+        unitPrice:
+          $ref: "#/components/schemas/InvoiceAmount"
+        lineTotal:
+          $ref: "#/components/schemas/InvoiceAmount"
+        supplyItemId:
+          type: string
+          format: uuid
+          description: The supply item this line is received into; none for a line that isn't stock.
+        matchSource:
+          readOnly: true
+          $ref: "#/components/schemas/InvoiceMatchSource"
+
+    Invoice:
+      type: object
+      required: [id, status, fileType, lines, problems, uploadedBy, uploadedAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/InvoiceStatus"
+        fileType:
+          $ref: "#/components/schemas/InvoiceFileType"
+        fileUrl:
+          type: string
+          format: uri
+          description: A short-lived link to the file, to show next to the draft.
+        reader:
+          $ref: "#/components/schemas/InvoiceReader"
+        readNote:
+          type: string
+          description: Why it wasn't read, or what was left out of what was read.
+        vendorName:
+          type: string
+        invoiceNumber:
+          type: string
+        invoiceDate:
+          type: string
+          format: date
+        subtotal:
+          $ref: "#/components/schemas/InvoiceAmount"
+        shipping:
+          $ref: "#/components/schemas/InvoiceAmount"
+        tax:
+          $ref: "#/components/schemas/InvoiceAmount"
+        total:
+          $ref: "#/components/schemas/InvoiceAmount"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        problems:
+          type: array
+          description: What doesn't add up. Empty when everything does.
+          items:
+            type: string
+        uploadedBy:
+          type: string
+          format: uuid
+        uploadedAt:
+          type: string
+          format: date-time
+        confirmedBy:
+          type: string
+          format: uuid
+        confirmedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    InvoiceSummary:
+      type: object
+      required: [id, status, fileType, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/InvoiceStatus"
+        fileType:
+          $ref: "#/components/schemas/InvoiceFileType"
+        vendorName:
+          type: string
+        invoiceNumber:
+          type: string
+        invoiceDate:
+          type: string
+          format: date
+        total:
+          $ref: "#/components/schemas/InvoiceAmount"
+        uploadedAt:
+          type: string
+          format: date-time
+
+    InvoiceList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceSummary"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    SaveInvoiceDraftRequest:
+      type: object
+      required: [lines, expectedVersion]
+      properties:
+        vendorName:
+          type: string
+          maxLength: 120
+        invoiceNumber:
+          type: string
+          maxLength: 60
+        invoiceDate:
+          type: string
+          format: date
+        subtotal:
+          $ref: "#/components/schemas/InvoiceAmount"
+        shipping:
+          $ref: "#/components/schemas/InvoiceAmount"
+        tax:
+          $ref: "#/components/schemas/InvoiceAmount"
+        total:
+          $ref: "#/components/schemas/InvoiceAmount"
+        lines:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        expectedVersion:
+          type: integer
+          format: int64
+
+    ConfirmInvoiceRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
 
     TokenScope:
       type: string
       description: |
         `read` reads everything a token can reach. Each `write:` scope allows changes in one
-        area. There's no scope for money.
+        area. `propose` lets an assistant suggest changes over MCP, which wait for staff to
+        approve. There's no scope for money.
       enum: [read, "write:pieces", "write:kilns", "write:maintenance", "write:schedule", "write:supplies",
-             "write:glazes", "write:notices"]
+             "write:glazes", "write:notices", propose]
 
     ApiToken:
       type: object
@@ -7238,6 +7730,127 @@ components:
         secret:
           type: string
           description: The token to paste into the client. Shown only this once.
+
+    PendingActionKind:
+      type: string
+      description: What an assistant proposed.
+      enum: [PURCHASE_REQUEST, MAINTENANCE_TASK]
+
+    PendingActionStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+
+    PendingAction:
+      type: object
+      description: |
+        A change an assistant proposed. `reason` is the assistant's own words, and `subjectName`
+        the item's or asset's name when it was proposed: show both as plain text.
+      required: [id, kind, status, subjectName, proposedBy, proposedAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/PendingActionKind"
+        status:
+          $ref: "#/components/schemas/PendingActionStatus"
+        reason:
+          type: string
+        subjectName:
+          type: string
+        purchaseRequest:
+          $ref: "#/components/schemas/ProposedPurchaseRequest"
+        maintenanceTask:
+          $ref: "#/components/schemas/ProposedMaintenanceTask"
+        proposedBy:
+          type: string
+          format: uuid
+          description: The person whose token the assistant used.
+        proposedByName:
+          type: string
+        proposedViaTokenId:
+          type: string
+          format: uuid
+        proposedViaTokenName:
+          type: string
+          description: The token's name, such as "Claude desktop".
+        proposedAt:
+          type: string
+          format: date-time
+        decidedByName:
+          type: string
+        decidedAt:
+          type: string
+          format: date-time
+        decisionNote:
+          type: string
+        resultId:
+          type: string
+          format: uuid
+          description: What approving made, the purchase request or the maintenance task.
+        version:
+          type: integer
+          format: int64
+
+    ProposedPurchaseRequest:
+      type: object
+      description: Present when the kind is PURCHASE_REQUEST.
+      required: [itemId, quantity]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          $ref: "#/components/schemas/Decimal"
+        note:
+          type: string
+
+    ProposedMaintenanceTask:
+      type: object
+      description: Present when the kind is MAINTENANCE_TASK.
+      required: [assetId, title]
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        everyDays:
+          type: integer
+          format: int32
+        everyFirings:
+          type: integer
+          format: int32
+
+    PendingActionList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingAction"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    DecidePendingActionRequest:
+      type: object
+      required: [decision, expectedVersion]
+      properties:
+        decision:
+          type: string
+          enum: [APPROVED, REJECTED]
+        expectedVersion:
+          type: integer
+          format: int64
+        note:
+          type: string
+          maxLength: 500
+          description: Why it was rejected. Ignored when approving.
 
     Problem:
       type: object

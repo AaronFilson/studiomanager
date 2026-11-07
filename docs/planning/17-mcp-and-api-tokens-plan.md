@@ -202,6 +202,31 @@ personal tokens.** Built and green. It differs from the plan above in these ways
   Showing "via <token name>" in histories needs `TenantContext`, `app.via_token` and contract
   changes, so it's left for a lane that owns those.
 
+**Step 4, 2026-11-06, on `f2-propose-tools` (V36, plan 20's lane F2): pending actions and propose
+tools.**
+- **Two kinds to start:** `propose_purchase_request` and `propose_maintenance_task`. Both follow
+  from what the read tools already show (`low_supplies`, and the new `maintenance_assets`), both
+  are undone by a click, and neither reaches members. `propose_notice` is left out: a notice goes
+  to members, so it's the riskiest to draft from untrusted text, and the notices module is mid
+  conversion (lane 2c).
+- **The `propose` scope.** The MCP area still needs only `read`; each propose tool checks the
+  token's `propose` scope on the call and answers `isError` without it. A person signed in to the
+  app is staff already and may propose.
+- **`pending_action`** has typed columns per kind, not a JSON payload: the database checks them,
+  and Hibernate maps them as embedded records without a JSON format mapper. Each proposal is
+  checked when it's made (the item or asset exists, the numbers are in range, firings only on
+  kilns), so a wrong one goes straight back to the assistant.
+- **Approving** runs `SupplyService.request` or `MaintenanceService.createTask` in the same
+  transaction, as the approver. If that refuses, nothing is saved and the suggestion stays
+  waiting. An approved purchase request is `REQUESTED`: the owner still approves the purchase.
+- **Attribution.** The approver is the actor of the change. The pending action records who
+  proposed it and through which token (`proposed_via_token`), read from the request's
+  `ApiTokenAuthentication`. When the `via-token-attribution` work merges, `Proposals` reads
+  `TenantContext.viaTokenId()` instead, in one place.
+- **The web inbox:** "Assistant suggestions", staff only, oldest first, capped at 100. Tokens
+  never reach it (`TokenPolicy`: `pending-actions` is `Never`), so a token can't approve its own
+  suggestion.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

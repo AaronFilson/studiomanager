@@ -32,8 +32,13 @@ public final class TokenPolicy {
   static final Map<String, Access> AREAS =
       Map.ofEntries(
           Map.entry("", READ_ONLY),
-          // The MCP endpoint is POST-only JSON-RPC, and every tool on it only reads (McpTools)
+          // The MCP endpoint is POST-only JSON-RPC. Its tools read, or propose changes for staff
+          // to approve; the propose tools also need the propose scope, checked per tool call
+          // (McpToolCalls)
           Map.entry("mcp", new Writable(TokenScope.READ)),
+          Map.entry(
+              "pending-actions",
+              new Never("A person approves assistant suggestions in the app, not with a token.")),
           Map.entry("today", READ_ONLY),
           Map.entry("activity", READ_ONLY),
           Map.entry("members", READ_ONLY),
@@ -76,6 +81,10 @@ public final class TokenPolicy {
           Map.entry("webhooks", ADMIN),
           Map.entry("api-tokens", ADMIN),
           Map.entry("ai-key", ADMIN),
+          // Reading an invoice spends the studio's AI key, and confirming one moves stock and money
+          Map.entry(
+              "invoices",
+              new Never("Invoices are read and confirmed while signed in, not with a token.")),
           Map.entry(
               "export",
               new Never("Download the studio's data while signed in, not with a token.")));

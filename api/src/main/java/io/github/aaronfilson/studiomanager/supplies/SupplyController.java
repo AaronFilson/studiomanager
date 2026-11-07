@@ -35,9 +35,16 @@ import org.springframework.web.bind.annotation.RestController;
 class SupplyController implements SuppliesApi {
 
   private final SupplyService supplies;
+  private final SupplyItems items;
+  private final SupplySales sales;
+  private final PurchaseRequests purchases;
 
-  SupplyController(SupplyService supplies) {
+  SupplyController(
+      SupplyService supplies, SupplyItems items, SupplySales sales, PurchaseRequests purchases) {
     this.supplies = supplies;
+    this.items = items;
+    this.sales = sales;
+    this.purchases = purchases;
   }
 
   @Override
@@ -49,7 +56,7 @@ class SupplyController implements SuppliesApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<SupplyItemDto> createSupply(UUID studioId, SaveSupplyRequestDto request) {
-    Item item = supplies.create(settings(request));
+    Item item = items.create(settings(request));
     return ResponseEntity.created(
             URI.create("/api/v1/studios/%s/supplies/%s".formatted(studioId, item.id())))
         .body(SupplyDtos.toDto(item));
@@ -61,7 +68,7 @@ class SupplyController implements SuppliesApi {
       UUID studioId, UUID itemId, UpdateSupplyRequestDto request) {
     return ResponseEntity.ok(
         SupplyDtos.toDto(
-            supplies.update(itemId, settings(request.getItem()), request.getExpectedVersion())));
+            items.update(itemId, settings(request.getItem()), request.getExpectedVersion())));
   }
 
   @Override
@@ -102,7 +109,7 @@ class SupplyController implements SuppliesApi {
       UUID studioId, UUID itemId, SellSupplyRequestDto request) {
     return ResponseEntity.ok(
         SupplyDtos.toDto(
-            supplies.sell(itemId, request.getMemberId(), new BigDecimal(request.getQuantity()))));
+            sales.sell(itemId, request.getMemberId(), new BigDecimal(request.getQuantity()))));
   }
 
   @Override
@@ -117,7 +124,7 @@ class SupplyController implements SuppliesApi {
   public ResponseEntity<PurchaseRequestDto> createPurchaseRequest(
       UUID studioId, CreatePurchaseRequestRequestDto request) {
     PurchaseRequest created =
-        supplies.request(
+        purchases.request(
             request.getItemId(),
             request.getQuantity() == null ? null : new BigDecimal(request.getQuantity()),
             request.getNote());
@@ -130,7 +137,7 @@ class SupplyController implements SuppliesApi {
       UUID studioId, UUID requestId, DecidePurchaseRequestDto request) {
     return ResponseEntity.ok(
         toDto(
-            supplies.decide(
+            purchases.decide(
                 requestId,
                 RequestStatus.valueOf(request.getTo().getValue()),
                 request.getExpectedVersion())));

@@ -1,52 +1,24 @@
 package io.github.aaronfilson.studiomanager.notify;
 
-import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
-import io.github.aaronfilson.studiomanager.kiln.FiringKind;
-import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
-import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
-import io.github.aaronfilson.studiomanager.maintenance.ProblemReported;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
-import io.github.aaronfilson.studiomanager.schedule.ShiftCovered;
-import io.github.aaronfilson.studiomanager.schedule.ShiftOffered;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
-import io.github.aaronfilson.studiomanager.studio.StudioService;
-import io.github.aaronfilson.studiomanager.studio.StudioView;
-import io.github.aaronfilson.studiomanager.supplies.SupplyRanOut;
-import io.github.aaronfilson.studiomanager.webhook.WebhookEndpointDisabled;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.Collection;
-import java.util.Comparator;
+import java.time.Clock;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import org.jspecify.annotations.Nullable;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.data.domain.Limit;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Members' inbox in each studio. Each notice is also emailed ({@link NotificationEmails}), through
- * the transactional outbox, so nothing is sent for work that rolled back.
- *
- * <p>The research behind this: the most specific complaint about an existing tracker was "ready"
- * emails going out before all of a member's pieces were out. So a firing produces exactly one
- * notice per maker, listing every piece of theirs it finished.
+ * Members' inbox in each studio, and notices from staff. Each notice is also emailed ({@link
+ * NotificationEmails}), through the transactional outbox, so nothing is sent for work that rolled
+ * back. Notices about what happens elsewhere are {@link NotificationListeners}.
  */
 @Service
 public class NotificationService {
@@ -54,61 +26,36 @@ public class NotificationService {
   /** The most notifications {@link #mine} returns. */
   static final int INBOX_LIMIT = 100;
 
-  private final JdbcClient jdbc;
-  private final StudioService studios;
+  private final NotificationRepository notifications;
+  private final Notices notices;
   private final StudioMembers members;
-  private final ApplicationEventPublisher events;
+  private final Clock clock;
 
   NotificationService(
-      JdbcClient jdbc,
-      StudioService studios,
-      StudioMembers members,
-      ApplicationEventPublisher events) {
-    this.jdbc = jdbc;
-    this.studios = studios;
+      NotificationRepository notifications, Notices notices, StudioMembers members, Clock clock) {
+    this.notifications = notifications;
+    this.notices = notices;
     this.members = members;
-    this.events = events;
+    this.clock = clock;
   }
 
   /** The caller's notifications in the bound studio, newest first. */
   @Transactional(readOnly = true)
   public Capped<NotificationView> mine() {
     return Capped.fromFetched(
-        jdbc.sql(
-                """
-                select id, kind, title, body, created_at, read_at from notification
-                where account_id = :me order by created_at desc limit :fetchSize
-                """)
-            .param("me", TenantContext.require().accountId())
-            .param("fetchSize", Capped.fetchSize(INBOX_LIMIT))
-            .query((rs, row) ->
-                new NotificationView(
-                    rs.getObject("id", UUID.class),
-                    NotificationView.Kind.valueOf(rs.getString("kind")),
-                    rs.getString("title"),
-                    rs.getString("body"),
-                    rs.getObject("created_at", OffsetDateTime.class).toInstant(),
-                    rs.getObject("read_at", OffsetDateTime.class) == null
-                        ? null
-                        : rs.getObject("read_at", OffsetDateTime.class).toInstant()))
-            .list(),
-        INBOX_LIMIT);
+            notifications.findInbox(
+                TenantContext.require().accountId(), Limit.of(Capped.fetchSize(INBOX_LIMIT))),
+            INBOX_LIMIT)
+        .map(Notification::toView);
   }
 
+  /** Marks one of the caller's notifications read. Reading it again changes nothing. */
   @Transactional
   public void markRead(UUID notificationId) {
-    int updated =
-        jdbc.sql(
-                """
-                update notification set read_at = coalesce(read_at, :now) where id = :id and account_id = :me
-                """)
-            .param("now", utc(now()))
-            .param("id", notificationId)
-            .param("me", TenantContext.require().accountId())
-            .update();
-    if (updated == 0) {
-      throw new NotFoundException("No such notification.");
-    }
+    notifications
+        .findByIdAndAccountId(notificationId, TenantContext.require().accountId())
+        .orElseThrow(() -> new NotFoundException("No such notification."))
+        .markRead(clock.instant());
   }
 
   /**
@@ -118,7 +65,8 @@ public class NotificationService {
   @Transactional
   public int broadcast(String title, String body) {
     TenantContext caller = TenantContext.require();
-    if (caller.role() == null || !caller.role().includes(StudioRole.STAFF)) {
+    StudioRole role = caller.role();
+    if (role == null || !role.includes(StudioRole.STAFF)) {
       throw new AccessDeniedException("Only staff can send studio notices.");
     }
     String cleanTitle = title.strip();
@@ -128,213 +76,7 @@ public class NotificationService {
           "A notice needs a title of 1 to 120 characters and at most 2,000 characters of text.");
     }
     List<UUID> everyone = members.list().stream().map(MemberView::accountId).toList();
-    insert(everyone, NotificationView.Kind.STUDIO_NOTICE, cleanTitle, cleanBody);
+    notices.send(everyone, NotificationView.Kind.STUDIO_NOTICE, cleanTitle, cleanBody);
     return everyone.size();
-  }
-
-  /** One notice per maker for the whole firing, listing each of their pieces it finished. */
-  @EventListener
-  void onFiringCompleted(FiringCompleted firing) {
-    var zone = studios.current().timeZone();
-    // "4 Nov 2026": unambiguous in every country the product serves
-    var dateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH).withZone(zone);
-    Map<UUID, List<FiringCompleted.FiredPiece>> byMaker =
-        firing.pieces().stream()
-            .collect(Collectors.groupingBy(FiringCompleted.FiredPiece::makerAccountId));
-    byMaker.forEach((maker, theirs) -> {
-      List<FiringCompleted.FiredPiece> sorted =
-          theirs.stream()
-              .sorted(Comparator.comparingInt(FiringCompleted.FiredPiece::number))
-              .toList();
-      int count = sorted.size();
-      String noun = count == 1 ? "piece is" : count + " pieces are";
-      String title =
-          firing.kind() == FiringKind.GLAZE
-              ? "Your %s ready to collect".formatted(noun)
-              : "Your %s bisque fired and ready to glaze".formatted(noun);
-      StringBuilder body = new StringBuilder();
-      for (FiringCompleted.FiredPiece piece : sorted) {
-        body.append("Piece ").append(piece.number());
-        if (piece.description() != null) {
-          body.append(": ").append(piece.description());
-        }
-        body.append('\n');
-      }
-      sorted.stream()
-          .map(FiringCompleted.FiredPiece::holdUntil)
-          .filter(Objects::nonNull)
-          .findFirst()
-          .ifPresent(hold ->
-              body.append("Please collect by ")
-                  .append(dateFormat.format(hold.minusSeconds(1)))
-                  .append('.'));
-      insert(List.of(maker), NotificationView.Kind.PIECES_READY, title, body.toString().strip());
-    });
-  }
-
-  /** One notice to each person the task falls to, with what to do and by when. */
-  @EventListener
-  void onMaintenanceDue(MaintenanceDue due) {
-    var dateFormat =
-        DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
-            .withZone(studios.current().timeZone());
-    String title = (due.status() == DueStatus.DUE ? "Due: " : "Due soon: ") + due.taskTitle();
-    StringBuilder body =
-        new StringBuilder(due.assetName()).append(": ").append(due.taskTitle()).append('\n');
-    if (due.dueAt() != null) {
-      body.append(
-              due.status() == DueStatus.DUE && !due.dueAt().isAfter(Instant.now())
-                  ? "It was due on "
-                  : "Due by ")
-          .append(dateFormat.format(due.dueAt()))
-          .append(".\n");
-    }
-    if (due.firingsLeft() != null) {
-      int left = due.firingsLeft();
-      body.append(
-              left <= 0
-                  ? "It's due by firing count."
-                  : left == 1 ? "1 firing left." : left + " firings left.")
-          .append('\n');
-    }
-    if (!due.checklist().isEmpty()) {
-      body.append('\n');
-      due.checklist().forEach(line -> body.append("- ").append(line).append('\n'));
-    }
-    body.append("\nMark it done on the Maintenance page when it's finished.");
-    insert(
-        due.recipients(),
-        NotificationView.Kind.MAINTENANCE_DUE,
-        clip(title, 120),
-        clip(body.toString(), 2000));
-  }
-
-  /**
-   * "B-Mix 5 is out": tells every member what to use instead, so nobody finds the empty shelf
-   * first. Sent as a studio notice, the same as one staff would write.
-   */
-  @EventListener
-  void onSupplyRanOut(SupplyRanOut ranOut) {
-    List<UUID> everyone = members.list().stream().map(MemberView::accountId).toList();
-    insert(
-        everyone,
-        NotificationView.Kind.STUDIO_NOTICE,
-        clip(ranOut.itemName() + " is out", 120),
-        clip(ranOut.substitute(), 2000));
-  }
-
-  /** "Mona needs cover: Monitor, Tue 3 Nov 6:00 pm", to everyone who could take it. */
-  @EventListener
-  void onShiftOffered(ShiftOffered offer) {
-    String when = shiftTime(offer.startsAt(), offer.endsAt());
-    insert(
-        offer.recipients(),
-        NotificationView.Kind.SHIFT_COVER,
-        clip(
-            "%s needs cover: %s"
-                .formatted(
-                    offer.holderName() == null ? "Someone" : offer.holderName(), offer.title()),
-            120),
-        "%s, %s.\n\nTake it on the Roster page if you can.".formatted(offer.title(), when));
-  }
-
-  /** Tells whoever asked for cover that they have it. */
-  @EventListener
-  void onShiftCovered(ShiftCovered covered) {
-    String who = covered.coveredByName() == null ? "Someone" : covered.coveredByName();
-    insert(
-        List.of(covered.previousHolder()),
-        NotificationView.Kind.SHIFT_COVER,
-        clip("%s is covering your shift".formatted(who), 120),
-        "%s is covering %s on %s. It's off your roster."
-            .formatted(who, covered.title(), shiftTime(covered.startsAt(), null)));
-  }
-
-  /** "Tue 3 Nov 2026, 6:00 pm–9:00 pm" in the studio's time zone. */
-  private String shiftTime(Instant start, @Nullable Instant end) {
-    var zone = studios.current().timeZone();
-    var day = DateTimeFormatter.ofPattern("EEE d MMM yyyy, h:mm a", Locale.ENGLISH).withZone(zone);
-    var time = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH).withZone(zone);
-    return end == null ? day.format(start) : day.format(start) + "–" + time.format(end);
-  }
-
-  /** Tells the staff and technicians what a member noticed, in the member's words. */
-  @EventListener
-  void onProblemReported(ProblemReported report) {
-    String what = report.assetName() == null ? "a problem" : "a problem with " + report.assetName();
-    String title = "Reported: " + (report.assetName() == null ? "a problem" : report.assetName());
-    String body =
-        "%s reported %s:\n\n%s\n\nSee it on the Maintenance page, and resolve it there once it's dealt with."
-            .formatted(
-                report.reportedByName() == null ? "A member" : report.reportedByName(),
-                what,
-                report.description());
-    insert(
-        report.recipients(),
-        NotificationView.Kind.PROBLEM_REPORTED,
-        clip(title, 120),
-        clip(body, 2000));
-  }
-
-  /** Tells staff that an integration stopped, so a broken Zap isn't found weeks later. */
-  @EventListener
-  void onWebhookEndpointDisabled(WebhookEndpointDisabled disabled) {
-    List<UUID> staff =
-        members.list().stream()
-            .filter(m -> m.role().includes(StudioRole.STAFF))
-            .map(MemberView::accountId)
-            .toList();
-    String body =
-        """
-        Webhooks to %s have been turned off.
-
-        %s
-
-        Fix the receiver, then turn the endpoint back on from the Webhooks page under Settings. \
-        Events from while it was off aren't sent again, but you can resend any of them from its log.\
-        """
-            .formatted(disabled.url(), disabled.reason());
-    insert(
-        staff,
-        NotificationView.Kind.WEBHOOK_DISABLED,
-        "A webhook was turned off",
-        clip(body, 2000));
-  }
-
-  private static String clip(String text, int max) {
-    return text.length() <= max ? text : text.substring(0, max - 1) + "…";
-  }
-
-  private void insert(
-      Collection<UUID> accountIds, NotificationView.Kind kind, String title, String body) {
-    StudioView studio = studios.current();
-    Instant now = now();
-    for (UUID accountId : accountIds) {
-      UUID id = Uuids.v7();
-      jdbc.sql(
-              """
-              insert into notification (id, studio_id, account_id, kind, title, body, created_at)
-              values (:id, :studioId, :accountId, :kind, :title, :body, :now)
-              """)
-          .param("id", id)
-          .param("studioId", studio.id())
-          .param("accountId", accountId)
-          .param("kind", kind.name())
-          .param("title", title)
-          .param("body", body)
-          .param("now", utc(now))
-          .update();
-      // Recorded in the outbox in this transaction, emailed after it commits
-      events.publishEvent(
-          new NotificationCreated(id, studio.id(), studio.name(), accountId, kind, title, body));
-    }
-  }
-
-  private static OffsetDateTime utc(Instant instant) {
-    return instant.atOffset(ZoneOffset.UTC);
-  }
-
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 }
