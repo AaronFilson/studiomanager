@@ -12,6 +12,8 @@ import io.github.aaronfilson.studiomanager.studio.StudioInvites;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
 import io.github.aaronfilson.studiomanager.studio.UnitSystem;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
+import org.springframework.modulith.events.core.EventPublicationRegistry;
 import org.springframework.stereotype.Service;
 
 /**
@@ -36,6 +39,11 @@ class DemoStudio {
   /** How long a demo token lasts. */
   static final int TOKEN_DAYS = 1;
 
+  /** The longest a reset waits for listeners to finish with the seed's events. */
+  static final Duration LISTENER_WAIT = Duration.ofSeconds(30);
+
+  private static final Duration LISTENER_POLL = Duration.ofMillis(200);
+
   // One reset at a time on this replica, so two clicks don't make two studios. Across replicas a
   // race can still make two; the next reset deletes both.
   private final ReentrantLock resetting = new ReentrantLock();
@@ -45,18 +53,24 @@ class DemoStudio {
   private final StudioInvites invites;
   private final ApiTokens tokens;
   private final DemoSeed seed;
+  private final EventPublicationRegistry publications;
+  private final Clock clock;
 
   DemoStudio(
       AccountResolver accounts,
       StudioService studios,
       StudioInvites invites,
       ApiTokens tokens,
-      DemoSeed seed) {
+      DemoSeed seed,
+      EventPublicationRegistry publications,
+      Clock clock) {
     this.accounts = accounts;
     this.studios = studios;
     this.invites = invites;
     this.tokens = tokens;
     this.seed = seed;
+    this.publications = publications;
+    this.clock = clock;
   }
 
   /** The studio after a reset. */
@@ -110,14 +124,37 @@ class DemoStudio {
         people.put(
             person, TenantContext.forAccount(accountId).inStudio(studio.id(), person.role()));
       }
+      Instant seeding = clock.instant();
       DemoSeed.Seeded seeded = seed.seed(people);
       // Last, so the admin isn't notified of everything the seed did
       if (!accountIds.containsValue(adminAccountId)) {
         join(inStudio, adminAccountId, StudioRole.OWNER);
       }
+      awaitListeners(seeding);
       return new Reset(studio.id(), studio.name(), seeded);
     } finally {
       resetting.unlock();
+    }
+  }
+
+  /**
+   * Waits, at most {@link #LISTENER_WAIT}, for the other modules' asynchronous listeners to finish
+   * with the events the seed published (the stream, notifications, webhooks). Otherwise the next
+   * reset could delete the studio under them, and each would fail and be retried for nothing.
+   */
+  private void awaitListeners(Instant since) {
+    Instant giveUp = clock.instant().plus(LISTENER_WAIT);
+    while (publications.findIncompletePublications().stream()
+        .anyMatch(publication -> !publication.getPublicationDate().isBefore(since))) {
+      if (clock.instant().isAfter(giveUp)) {
+        return;
+      }
+      try {
+        Thread.sleep(LISTENER_POLL);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      }
     }
   }
 
