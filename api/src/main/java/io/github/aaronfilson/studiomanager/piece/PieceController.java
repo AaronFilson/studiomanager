@@ -11,6 +11,7 @@ import io.github.aaronfilson.studiomanager.contract.PiecesApi;
 import io.github.aaronfilson.studiomanager.firing.PieceSizes;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -25,17 +26,19 @@ class PieceController implements PiecesApi {
 
   private final PieceService pieces;
   private final PiecePhotoService photos;
+  private final Clock clock;
 
-  PieceController(PieceService pieces, PiecePhotoService photos) {
+  PieceController(PieceService pieces, PiecePhotoService photos, Clock clock) {
     this.pieces = pieces;
     this.photos = photos;
+    this.clock = clock;
   }
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<PieceListDto> listPieces(
       UUID studioId, @Nullable PieceStageDto stage, @Nullable UUID maker) {
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     Capped<PieceDto> listed =
         pieces
             .list(stage == null ? null : PieceStage.valueOf(stage.name()), maker)
@@ -56,13 +59,13 @@ class PieceController implements PiecesApi {
                 PieceSizes.fromDto(request.getSize())));
     return ResponseEntity.created(
             URI.create("/api/v1/studios/%s/pieces/%s".formatted(studioId, piece.id())))
-        .body(PieceDtos.toDto(piece, Instant.now()));
+        .body(PieceDtos.toDto(piece, clock.instant()));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<PieceDto> getPiece(UUID studioId, UUID pieceId) {
-    return ResponseEntity.ok(PieceDtos.toDto(pieces.get(pieceId), Instant.now()));
+    return ResponseEntity.ok(PieceDtos.toDto(pieces.get(pieceId), clock.instant()));
   }
 
   @Override
@@ -75,7 +78,7 @@ class PieceController implements PiecesApi {
             PieceStage.valueOf(request.getTo().name()),
             request.getNote(),
             request.getExpectedVersion());
-    return ResponseEntity.ok(PieceDtos.toDto(piece, Instant.now()));
+    return ResponseEntity.ok(PieceDtos.toDto(piece, clock.instant()));
   }
 
   @Override
@@ -96,7 +99,7 @@ class PieceController implements PiecesApi {
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<PieceDto> completePhotoUpload(UUID studioId, UUID pieceId, UUID photoId) {
-    return ResponseEntity.ok(PieceDtos.toDto(photos.complete(pieceId, photoId), Instant.now()));
+    return ResponseEntity.ok(PieceDtos.toDto(photos.complete(pieceId, photoId), clock.instant()));
   }
 
   @Override

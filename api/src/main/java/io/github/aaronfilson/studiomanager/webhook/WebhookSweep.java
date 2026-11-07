@@ -4,14 +4,13 @@ import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
 import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
@@ -33,20 +32,23 @@ class WebhookSweep implements Sweep {
   static final SystemActor ACTOR = SystemActor.WEBHOOK_SWEEP;
   static final int BATCH = 200;
 
-  private final JdbcClient jdbc;
+  private final WebhookQueries queries;
   private final TransactionOperations transactions;
   private final WebhookSender sender;
   private final SweepRunner sweeps;
+  private final Clock clock;
 
   WebhookSweep(
-      JdbcClient jdbc,
+      WebhookQueries queries,
       TransactionOperations transactions,
       WebhookSender sender,
-      SweepRunner sweeps) {
-    this.jdbc = jdbc;
+      SweepRunner sweeps,
+      Clock clock) {
+    this.queries = queries;
     this.transactions = transactions;
     this.sender = sender;
     this.sweeps = sweeps;
+    this.clock = clock;
   }
 
   @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1M")
@@ -61,7 +63,7 @@ class WebhookSweep implements Sweep {
 
   @Override
   public void sweep() {
-    runAt(Instant.now());
+    runAt(clock.instant());
   }
 
   /** Attempts every delivery due at {@code now}, and returns how many arrived. */
@@ -69,14 +71,7 @@ class WebhookSweep implements Sweep {
     List<Due> due =
         TenantContext.callAs(
             TenantContext.system(ACTOR),
-            () ->
-                transactions.execute(tx ->
-                    jdbc.sql(
-                            "select delivery_id, studio_id from app.due_webhook_deliveries(:now, :max)")
-                        .param("now", now.atOffset(ZoneOffset.UTC))
-                        .param("max", BATCH)
-                        .query(Due.class)
-                        .list()));
+            () -> transactions.execute(tx -> queries.dueDeliveries(now, BATCH)));
     int arrived = 0;
     for (Due delivery : due == null ? List.<Due>of() : due) {
       TenantContext as = TenantContext.system(ACTOR, delivery.studioId());

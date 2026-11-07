@@ -2,44 +2,26 @@ package io.github.aaronfilson.studiomanager.piece;
 
 import io.github.aaronfilson.studiomanager.firing.FeeQuote;
 import io.github.aaronfilson.studiomanager.firing.FeeService;
-import io.github.aaronfilson.studiomanager.firing.PieceSize;
 import io.github.aaronfilson.studiomanager.platform.Capped;
-import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
-import io.github.aaronfilson.studiomanager.platform.Money;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.Uuids;
-import io.github.aaronfilson.studiomanager.platform.measure.Length;
-import io.github.aaronfilson.studiomanager.platform.measure.LengthUnit;
-import io.github.aaronfilson.studiomanager.platform.measure.Weight;
-import io.github.aaronfilson.studiomanager.platform.measure.WeightUnit;
-import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
-import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
-import io.github.aaronfilson.studiomanager.studio.StudioService;
-import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Currency;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.data.domain.Limit;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,11 +29,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Members' pieces in the bound studio. Staff see and move every piece; members see only their own
  * and can drop off only their own.
+ *
+ * <p>Other modules call this class; moves are {@link PieceMoves}, and turning pieces into views is
+ * {@link PieceViews}. The SQL this module keeps is in {@link PieceQueries} (ADR 21).
  */
 @Service
 public class PieceService {
-
-  static final int DEFAULT_HOLD_DAYS = 30;
 
   /** The most pieces {@link #list} returns. */
   public static final int LIST_LIMIT = 2000;
@@ -59,38 +42,35 @@ public class PieceService {
   /** The most pieces {@link #waitingIn} returns. */
   public static final int QUEUE_LIMIT = 1000;
 
-  private static final String SELECT_PIECE =
-      """
-      select id, number, maker_account_id, description, clay_body, maker_mark,
-             length_value, width_value, height_value, length_unit, weight_value, weight_unit,
-             stage, fee_amount, fee_currency, fee_schedule_version, fee_tax_category, fee_breakdown,
-             received_at, ready_at, hold_until, version
-      from piece
-      """;
-
-  private final JdbcClient jdbc;
+  private final PieceRepository pieces;
+  private final PieceQueries queries;
+  private final PieceTimeline timeline;
+  private final PieceViews views;
+  private final PieceMoves moves;
   private final FeeService fees;
-  private final StudioService studios;
   private final StudioMembers members;
-  private final AccountDirectory accounts;
-  private final BlobStore blobs;
   private final ApplicationEventPublisher events;
+  private final Clock clock;
 
   PieceService(
-      JdbcClient jdbc,
+      PieceRepository pieces,
+      PieceQueries queries,
+      PieceTimeline timeline,
+      PieceViews views,
+      PieceMoves moves,
       FeeService fees,
-      StudioService studios,
       StudioMembers members,
-      AccountDirectory accounts,
-      BlobStore blobs,
-      ApplicationEventPublisher events) {
-    this.jdbc = jdbc;
+      ApplicationEventPublisher events,
+      Clock clock) {
+    this.pieces = pieces;
+    this.queries = queries;
+    this.timeline = timeline;
+    this.views = views;
+    this.moves = moves;
     this.fees = fees;
-    this.studios = studios;
     this.members = members;
-    this.accounts = accounts;
-    this.blobs = blobs;
     this.events = events;
+    this.clock = clock;
   }
 
   /**
@@ -99,7 +79,8 @@ public class PieceService {
   @Transactional
   public PieceView intake(PieceIntake intake) {
     TenantContext caller = TenantContext.require();
-    UUID maker = intake.makerAccountId() == null ? caller.accountId() : intake.makerAccountId();
+    UUID requestedMaker = intake.makerAccountId();
+    UUID maker = requestedMaker == null ? caller.accountId() : requestedMaker;
     if (!maker.equals(caller.accountId())) {
       requireStaff(caller, "Only staff can take in a piece for someone else.");
       if (members.roleOf(maker).isEmpty()) {
@@ -107,54 +88,20 @@ public class PieceService {
       }
     }
     FeeQuote fee = fees.quote(intake.size());
-    int number =
-        jdbc.sql(
-                """
-                insert into piece_counter (studio_id, last_number) values (:studioId, 1)
-                on conflict (studio_id) do update set last_number = piece_counter.last_number + 1
-                returning last_number
-                """)
-            .param("studioId", caller.studioId())
-            .query(Integer.class)
-            .single();
-    UUID id = Uuids.v7();
-    Instant now = now();
-    PieceSize size = intake.size();
-    jdbc.sql(
-            """
-            insert into piece (id, studio_id, number, maker_account_id, description, clay_body, maker_mark,
-                               length_value, width_value, height_value, length_unit, weight_value, weight_unit,
-                               stage, fee_amount, fee_currency, fee_schedule_version, fee_tax_category,
-                               fee_breakdown, received_at, created_by, version)
-            values (:id, :studioId, :number, :maker, :description, :clayBody, :makerMark,
-                    :length, :width, :height, :lengthUnit, :weight, :weightUnit,
-                    'RECEIVED', :feeAmount, :feeCurrency, :feeVersion, :feeTaxCategory,
-                    :feeBreakdown, :receivedAt, :createdBy, 0)
-            """)
-        .param("id", id)
-        .param("studioId", caller.studioId())
-        .param("number", number)
-        .param("maker", maker)
-        .param("description", clean(intake.description(), 200, "description"))
-        .param("clayBody", clean(intake.clayBody(), 80, "clay body"))
-        .param("makerMark", clean(intake.makerMark(), 80, "maker's mark"))
-        .param("length", size.hasDimensions() ? size.length().value() : null)
-        .param("width", size.hasDimensions() ? size.width().value() : null)
-        .param("height", size.hasDimensions() ? size.height().value() : null)
-        .param("lengthUnit", size.hasDimensions() ? commonLengthUnit(size).name() : null)
-        .param("weight", size.weight() == null ? null : size.weight().value())
-        .param("weightUnit", size.weight() == null ? null : size.weight().unit().name())
-        .param("feeAmount", fee.amount().amount())
-        .param("feeCurrency", fee.amount().currency().getCurrencyCode())
-        .param("feeVersion", fee.scheduleVersion() == 0 ? null : fee.scheduleVersion())
-        .param("feeTaxCategory", fee.taxCategory())
-        .param("feeBreakdown", fee.breakdown())
-        .param("receivedAt", utc(now))
-        .param("createdBy", caller.accountId())
-        .update();
-    recordEvent(id, null, PieceStage.RECEIVED, null, caller.accountId(), now);
-    events.publishEvent(new PieceReceived(id, number, maker, fee.amount(), fee.taxCategory(), now));
-    return get(id);
+    Piece.Description described =
+        new Piece.Description(
+            clean(intake.description(), 200, "description"),
+            clean(intake.clayBody(), 80, "clay body"),
+            clean(intake.makerMark(), 80, "maker's mark"));
+    Instant now = clock.instant();
+    int number = queries.nextNumber(caller.requireStudioId());
+    Piece piece = pieces.save(new Piece(number, maker, described, intake.size(), fee, now));
+    timeline.record(piece.id(), null, PieceStage.RECEIVED, null, caller.accountId(), now);
+    // Listeners write rows that point at the piece, some through SQL (ADR 21)
+    pieces.flush();
+    events.publishEvent(
+        new PieceReceived(piece.id(), number, maker, fee.amount(), fee.taxCategory(), now));
+    return views.detailed(piece, timeline.of(piece.id()));
   }
 
   /** Pieces, newest first, optionally filtered. Members only ever see their own. */
@@ -162,53 +109,18 @@ public class PieceService {
   public Capped<PieceView> list(@Nullable PieceStage stage, @Nullable UUID maker) {
     TenantContext caller = TenantContext.require();
     UUID makerFilter = isStaff(caller) ? maker : caller.accountId();
-    Capped<PieceView> pieces =
+    Capped<Piece> found =
         Capped.fromFetched(
-            jdbc.sql(
-                    SELECT_PIECE
-                        + """
-                        where (cast(:stage as text) is null or stage = :stage)
-                          and (cast(:maker as uuid) is null or maker_account_id = :maker)
-                        order by number desc
-                        limit :fetchSize
-                        """)
-                .param("stage", stage == null ? null : stage.name())
-                .param("maker", makerFilter)
-                .param("fetchSize", Capped.fetchSize(LIST_LIMIT))
-                .query(PieceService::mapPiece)
-                .list(),
+            pieces.findNewest(stage, makerFilter, Limit.of(Capped.fetchSize(LIST_LIMIT))),
             LIST_LIMIT);
-    return pieces.withItems(withDetails(pieces.items(), List.of(), false));
+    return found.withItems(views.listed(found.items()));
   }
 
   /** One piece and its timeline. A member asking for someone else's piece gets a 404. */
   @Transactional(readOnly = true)
   public PieceView get(UUID pieceId) {
-    TenantContext caller = TenantContext.require();
-    PieceView piece =
-        jdbc.sql(SELECT_PIECE + "where id = :id")
-            .param("id", pieceId)
-            .query(PieceService::mapPiece)
-            .optional()
-            .filter(found -> isStaff(caller) || found.makerAccountId().equals(caller.accountId()))
-            .orElseThrow(() -> new NotFoundException("No such piece."));
-    List<PieceView.Event> timeline =
-        jdbc.sql(
-                """
-                select from_stage, to_stage, note, actor_account_id, occurred_at
-                from piece_event where piece_id = :id order by occurred_at, id
-                """)
-            .param("id", pieceId)
-            .query((rs, row) ->
-                new PieceView.Event(
-                    stageOrNull(rs.getString("from_stage")),
-                    PieceStage.valueOf(rs.getString("to_stage")),
-                    rs.getString("note"),
-                    rs.getObject("actor_account_id", UUID.class),
-                    null,
-                    instant(rs, "occurred_at")))
-            .list();
-    return withDetails(List.of(piece), timeline, true).getFirst();
+    Piece piece = findVisible(pieceId);
+    return views.detailed(piece, timeline.of(pieceId));
   }
 
   /**
@@ -223,36 +135,9 @@ public class PieceService {
       UUID pieceId, PieceStage target, @Nullable String note, long expectedVersion) {
     TenantContext caller = TenantContext.require();
     requireStaff(caller, "Only staff can move pieces.");
-    PieceView piece = get(pieceId);
-    if (!piece.stage().canMoveTo(target)) {
-      throw new InvalidInputException(
-          "A piece can't go from %s to %s.".formatted(piece.stage(), target));
-    }
-    Instant now = now();
-    Instant readyAt = piece.readyAt();
-    Instant holdUntil = piece.holdUntil();
-    if (target == PieceStage.READY) {
-      readyAt = now;
-      holdUntil = holdEnd(now, holdDays(), studios.current().timeZone());
-    }
-    int updated =
-        jdbc.sql(
-                """
-                update piece set stage = :stage, ready_at = :readyAt, hold_until = :holdUntil, version = version + 1
-                where id = :id and version = :version
-                """)
-            .param("stage", target.name())
-            .param("readyAt", readyAt == null ? null : utc(readyAt))
-            .param("holdUntil", holdUntil == null ? null : utc(holdUntil))
-            .param("id", pieceId)
-            .param("version", expectedVersion)
-            .update();
-    if (updated == 0) {
-      throw ConflictException.staleVersion(
-          "Someone else changed this piece at the same time. Reload and try again.");
-    }
-    recordEvent(pieceId, piece.stage(), target, clean(note, 500, "note"), caller.accountId(), now);
-    return get(pieceId);
+    Piece piece =
+        moves.move(pieceId, target, clean(note, 500, "note"), expectedVersion, caller.accountId());
+    return views.detailed(piece, timeline.of(pieceId));
   }
 
   /**
@@ -262,30 +147,19 @@ public class PieceService {
   @Transactional(readOnly = true)
   public Capped<WaitingPiece> waitingIn(PieceStage stage) {
     requireStaff(TenantContext.require(), "Only staff can see the kiln queue.");
-    Capped<WaitingPiece> waiting =
-        Capped.fromFetched(
-            jdbc.sql(
-                    """
-                    select p.*, e.since
-                    from (%s) p
-                    join lateral (select max(occurred_at) as since from piece_event
-                                  where piece_id = p.id and to_stage = p.stage) e on true
-                    where p.stage = :stage
-                    order by e.since, p.number
-                    limit :fetchSize
-                    """
-                        .formatted(SELECT_PIECE))
-                .param("stage", stage.name())
-                .param("fetchSize", Capped.fetchSize(QUEUE_LIMIT))
-                .query((rs, row) -> new WaitingPiece(mapPiece(rs, row), instant(rs, "since")))
-                .list(),
-            QUEUE_LIMIT);
-    List<WaitingPiece> waitingPieces = waiting.items();
-    List<PieceView> named =
-        withDetails(waitingPieces.stream().map(WaitingPiece::piece).toList(), List.of(), false);
-    List<WaitingPiece> result = new ArrayList<>(waitingPieces.size());
-    for (int i = 0; i < waitingPieces.size(); i++) {
-      result.add(new WaitingPiece(named.get(i), waitingPieces.get(i).since()));
+    Capped<PieceQueries.Waiting> waiting =
+        Capped.fromFetched(queries.waitingIn(stage, Capped.fetchSize(QUEUE_LIMIT)), QUEUE_LIMIT);
+    List<UUID> ids = waiting.items().stream().map(PieceQueries.Waiting::pieceId).toList();
+    Map<UUID, PieceView> byId =
+        views.listed(pieces.findAllInNumberOrder(ids)).stream()
+            .collect(Collectors.toMap(PieceView::id, Function.identity()));
+    List<WaitingPiece> result = new ArrayList<>(ids.size());
+    for (PieceQueries.Waiting entry : waiting.items()) {
+      PieceView piece = byId.get(entry.pieceId());
+      // Gone between the two reads only if it was removed meanwhile; pieces are never deleted
+      if (piece != null) {
+        result.add(new WaitingPiece(piece, entry.since()));
+      }
     }
     return waiting.withItems(result);
   }
@@ -300,12 +174,7 @@ public class PieceService {
     if (pieceIds.isEmpty()) {
       return List.of();
     }
-    List<PieceView> pieces =
-        jdbc.sql(SELECT_PIECE + "where id = any(:ids) order by number")
-            .param("ids", pieceIds.toArray(UUID[]::new))
-            .query(PieceService::mapPiece)
-            .list();
-    return withDetails(pieces, List.of(), false);
+    return views.listed(pieces.findAllInNumberOrder(pieceIds));
   }
 
   /**
@@ -318,56 +187,17 @@ public class PieceService {
       Collection<UUID> pieceIds, PieceStage from, PieceStage to, String note) {
     TenantContext caller = TenantContext.require();
     requireStaff(caller, "Only staff can move pieces.");
-    if (!from.canMoveTo(to)) {
-      throw new IllegalArgumentException("Pieces can't go from %s to %s".formatted(from, to));
-    }
-    Instant now = now();
-    Instant holdUntil =
-        to == PieceStage.READY ? holdEnd(now, holdDays(), studios.current().timeZone()) : null;
-    int updated =
-        jdbc.sql(
-                """
-                update piece
-                set stage = :to,
-                    ready_at = case when :to = 'READY' then :now else ready_at end,
-                    hold_until = case when :to = 'READY' then :holdUntil else hold_until end,
-                    version = version + 1
-                where id = any(:ids) and stage = :from
-                """)
-            .param("to", to.name())
-            .param("from", from.name())
-            .param("now", utc(now))
-            .param("holdUntil", holdUntil == null ? null : utc(holdUntil))
-            .param("ids", pieceIds.toArray(UUID[]::new))
-            .update();
-    if (updated != pieceIds.size()) {
-      throw ConflictException.staleVersion(
-          "Some of these pieces were moved by someone else. Reload and try again.");
-    }
-    for (UUID id : pieceIds) {
-      recordEvent(id, from, to, note, caller.accountId(), now);
-    }
-    List<PieceView> pieces =
-        jdbc.sql(SELECT_PIECE + "where id = any(:ids) order by number")
-            .param("ids", pieceIds.toArray(UUID[]::new))
-            .query(PieceService::mapPiece)
-            .list();
-    return withDetails(pieces, List.of(), false);
+    return views.listed(moves.advanceAll(pieceIds, from, to, note, caller.accountId()));
   }
 
   /** How many pieces are in each stage, and how many ready pieces are past their hold. */
   @Transactional(readOnly = true)
   public StageCounts counts() {
-    Map<PieceStage, Integer> byStage = new java.util.EnumMap<>(PieceStage.class);
-    jdbc.sql("select stage, count(*) as n from piece group by stage")
-        .query((rs, row) -> Map.entry(PieceStage.valueOf(rs.getString("stage")), rs.getInt("n")))
-        .list()
-        .forEach(e -> byStage.put(e.getKey(), e.getValue()));
-    int overdue =
-        jdbc.sql("select count(*) from piece where stage = 'READY' and hold_until <= :now")
-            .param("now", utc(now()))
-            .query(Integer.class)
-            .single();
+    Map<PieceStage, Integer> byStage = new EnumMap<>(PieceStage.class);
+    for (PieceStageCount count : pieces.countByStage()) {
+      byStage.put(count.stage(), Math.toIntExact(count.pieces()));
+    }
+    int overdue = Math.toIntExact(pieces.countPastHold(clock.instant()));
     return new StageCounts(byStage, overdue);
   }
 
@@ -383,10 +213,7 @@ public class PieceService {
 
   @Transactional(readOnly = true)
   public int holdDays() {
-    return jdbc.sql("select hold_days from piece_policy")
-        .query(Integer.class)
-        .optional()
-        .orElse(DEFAULT_HOLD_DAYS);
+    return moves.holdDays();
   }
 
   @Transactional
@@ -396,181 +223,22 @@ public class PieceService {
     if (days < 1 || days > 365) {
       throw new InvalidInputException("Hold pieces for 1 to 365 days.");
     }
-    jdbc.sql(
-            """
-            insert into piece_policy (studio_id, hold_days, updated_at) values (:studioId, :days, :now)
-            on conflict (studio_id) do update set hold_days = excluded.hold_days, updated_at = excluded.updated_at
-            """)
-        .param("studioId", caller.studioId())
-        .param("days", days)
-        .param("now", utc(now()))
-        .update();
+    queries.saveHoldDays(caller.requireStudioId(), days, clock.instant());
     return days;
   }
 
   /** The end of the studio's local day, {@code days} days after {@code readyAt}. */
   static Instant holdEnd(Instant readyAt, int days, ZoneId zone) {
-    LocalDate lastDay = readyAt.atZone(zone).toLocalDate().plusDays(days);
-    return lastDay.plusDays(1).atStartOfDay(zone).toInstant();
+    return PieceMoves.holdEnd(readyAt, days, zone);
   }
 
-  private void recordEvent(
-      UUID pieceId,
-      @Nullable PieceStage from,
-      PieceStage to,
-      @Nullable String note,
-      UUID actor,
-      Instant at) {
-    jdbc.sql(
-            """
-            insert into piece_event (id, studio_id, piece_id, from_stage, to_stage, note, actor_account_id, occurred_at)
-            values (:id, :studioId, :pieceId, :from, :to, :note, :actor, :at)
-            """)
-        .param("id", Uuids.v7())
-        .param("studioId", TenantContext.require().studioId())
-        .param("pieceId", pieceId)
-        .param("from", from == null ? null : from.name())
-        .param("to", to.name())
-        .param("note", note)
-        .param("actor", actor)
-        .param("at", utc(at))
-        .update();
-  }
-
-  /**
-   * Adds what the piece rows don't carry: people's names, and photos with signed URLs. With {@code
-   * allPhotos} false, each piece gets only its first photo, which keeps long lists small.
-   */
-  private List<PieceView> withDetails(
-      List<PieceView> pieces, List<PieceView.Event> timeline, boolean allPhotos) {
-    Map<UUID, List<PieceView.Photo>> photos = photosOf(pieces, allPhotos);
-    Set<UUID> ids = new HashSet<>();
-    pieces.forEach(piece -> ids.add(piece.makerAccountId()));
-    timeline.forEach(event -> {
-      if (event.actorAccountId() != null) {
-        ids.add(event.actorAccountId());
-      }
-    });
-    Map<UUID, String> names = accounts.displayNames(ids);
-    List<PieceView.Event> namedTimeline =
-        timeline.stream()
-            .map(e ->
-                new PieceView.Event(
-                    e.from(),
-                    e.to(),
-                    e.note(),
-                    e.actorAccountId(),
-                    e.actorAccountId() == null ? null : names.get(e.actorAccountId()),
-                    e.occurredAt()))
-            .toList();
-    List<PieceView> named = new ArrayList<>(pieces.size());
-    for (PieceView p : pieces) {
-      named.add(
-          new PieceView(
-              p.id(),
-              p.number(),
-              p.makerAccountId(),
-              names.get(p.makerAccountId()),
-              p.description(),
-              p.clayBody(),
-              p.makerMark(),
-              p.size(),
-              p.stage(),
-              p.fee(),
-              p.feeScheduleVersion(),
-              p.feeTaxCategory(),
-              p.feeBreakdown(),
-              p.receivedAt(),
-              p.readyAt(),
-              p.holdUntil(),
-              p.version(),
-              photos.getOrDefault(p.id(), List.of()),
-              namedTimeline));
-    }
-    return named;
-  }
-
-  private Map<UUID, List<PieceView.Photo>> photosOf(List<PieceView> pieces, boolean all) {
-    if (pieces.isEmpty()) {
-      return Map.of();
-    }
-    UUID studioId = TenantContext.require().studioId();
-    Map<UUID, List<PieceView.Photo>> byPiece = new HashMap<>();
-    jdbc.sql(
-            """
-            select %s id, piece_id, uploaded_by, ready_at
-            from piece_photo
-            where piece_id = any(:ids) and status = 'READY'
-            order by piece_id, created_at, id
-            """
-                .formatted(all ? "" : "distinct on (piece_id)"))
-        .param("ids", pieces.stream().map(PieceView::id).toArray(UUID[]::new))
-        .query((rs, row) -> {
-          UUID pieceId = rs.getObject("piece_id", UUID.class);
-          UUID photoId = rs.getObject("id", UUID.class);
-          return Map.entry(
-              pieceId,
-              new PieceView.Photo(
-                  photoId,
-                  blobs.readUrl(
-                      PhotoBlobs.full(studioId, pieceId, photoId), PhotoBlobs.CONTENT_TYPE),
-                  blobs.readUrl(
-                      PhotoBlobs.thumbnail(studioId, pieceId, photoId), PhotoBlobs.CONTENT_TYPE),
-                  rs.getObject("uploaded_by", UUID.class),
-                  instant(rs, "ready_at")));
-        })
-        .list()
-        .forEach(
-            e -> byPiece.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(e.getValue()));
-    return byPiece;
-  }
-
-  private static PieceView mapPiece(ResultSet rs, int row) throws SQLException {
-    String lengthUnit = rs.getString("length_unit");
-    PieceSize size =
-        new PieceSize(
-            length(rs.getBigDecimal("length_value"), lengthUnit),
-            length(rs.getBigDecimal("width_value"), lengthUnit),
-            length(rs.getBigDecimal("height_value"), lengthUnit),
-            weight(rs.getBigDecimal("weight_value"), rs.getString("weight_unit")));
-    Integer scheduleVersion = rs.getObject("fee_schedule_version", Integer.class);
-    return new PieceView(
-        rs.getObject("id", UUID.class),
-        rs.getInt("number"),
-        rs.getObject("maker_account_id", UUID.class),
-        null,
-        rs.getString("description"),
-        rs.getString("clay_body"),
-        rs.getString("maker_mark"),
-        size,
-        PieceStage.valueOf(rs.getString("stage")),
-        new Money(
-            rs.getBigDecimal("fee_amount"), Currency.getInstance(rs.getString("fee_currency"))),
-        scheduleVersion,
-        rs.getString("fee_tax_category"),
-        rs.getString("fee_breakdown"),
-        instant(rs, "received_at"),
-        instantOrNull(rs, "ready_at"),
-        instantOrNull(rs, "hold_until"),
-        rs.getLong("version"),
-        List.of(),
-        List.of());
-  }
-
-  private static @Nullable Length length(@Nullable BigDecimal value, @Nullable String unit) {
-    return value == null || unit == null ? null : new Length(value, LengthUnit.valueOf(unit));
-  }
-
-  private static @Nullable Weight weight(@Nullable BigDecimal value, @Nullable String unit) {
-    return value == null || unit == null ? null : new Weight(value, WeightUnit.valueOf(unit));
-  }
-
-  private static LengthUnit commonLengthUnit(PieceSize size) {
-    LengthUnit unit = size.length().unit();
-    if (size.width().unit() != unit || size.height().unit() != unit) {
-      throw new InvalidInputException("Give all three dimensions in the same unit.");
-    }
-    return unit;
+  /** A piece the caller may see: staff see every piece, members only their own. */
+  Piece findVisible(UUID pieceId) {
+    TenantContext caller = TenantContext.require();
+    return pieces
+        .findById(pieceId)
+        .filter(found -> isStaff(caller) || found.makerAccountId().equals(caller.accountId()))
+        .orElseThrow(() -> new NotFoundException("No such piece."));
   }
 
   private static @Nullable String clean(@Nullable String text, int maxLength, String field) {
@@ -586,33 +254,13 @@ public class PieceService {
   }
 
   private static boolean isStaff(TenantContext caller) {
-    return caller.role() != null && caller.role().includes(StudioRole.STAFF);
+    StudioRole role = caller.role();
+    return role != null && role.includes(StudioRole.STAFF);
   }
 
   private static void requireStaff(TenantContext caller, String message) {
     if (!isStaff(caller)) {
       throw new AccessDeniedException(message);
     }
-  }
-
-  private static @Nullable PieceStage stageOrNull(@Nullable String stage) {
-    return stage == null ? null : PieceStage.valueOf(stage);
-  }
-
-  private static Instant instant(ResultSet rs, String column) throws SQLException {
-    return rs.getObject(column, OffsetDateTime.class).toInstant();
-  }
-
-  private static @Nullable Instant instantOrNull(ResultSet rs, String column) throws SQLException {
-    OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
-    return value == null ? null : value.toInstant();
-  }
-
-  private static OffsetDateTime utc(Instant instant) {
-    return instant.atOffset(ZoneOffset.UTC);
-  }
-
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 }
