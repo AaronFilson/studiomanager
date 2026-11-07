@@ -11,10 +11,15 @@ import io.github.aaronfilson.studiomanager.platform.Uuids;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -27,9 +32,52 @@ import org.springframework.stereotype.Component;
 class LedgerQueries {
 
   private final JdbcClient jdbc;
+  private final Clock clock;
 
-  LedgerQueries(JdbcClient jdbc) {
+  LedgerQueries(JdbcClient jdbc, Clock clock) {
     this.jdbc = jdbc;
+    this.clock = clock;
+  }
+
+  /**
+   * Upsert: writes a journal entry's header unless one with this idempotency key exists, and
+   * returns its id only if it wrote it. Race-free in one statement, so the same key posted at the
+   * same moment from two transactions writes once and neither fails. Flush before calling.
+   */
+  Optional<UUID> insertEntry(
+      EntryKind kind,
+      LocalDate occurredOn,
+      String memo,
+      @Nullable UUID sourceId,
+      String idempotencyKey) {
+    TenantContext caller = TenantContext.require();
+    return jdbc.sql(
+            """
+            insert into journal_entry (id, studio_id, occurred_on, kind, memo, source_id, idempotency_key,
+                                       created_by, created_at)
+            values (:id, :studioId, :on, :kind, :memo, :source, :key, :by, :now)
+            on conflict (studio_id, idempotency_key) do nothing
+            returning id
+            """)
+        .param("id", Uuids.v7())
+        .param("studioId", caller.requireStudioId())
+        .param("on", occurredOn)
+        .param("kind", kind.name())
+        .param("memo", memo)
+        .param("source", sourceId)
+        .param("key", idempotencyKey)
+        .param("by", caller.accountId())
+        .param("now", clock.instant().atOffset(ZoneOffset.UTC))
+        .query(UUID.class)
+        .optional();
+  }
+
+  /** The id of the entry already posted with this key, after {@link #insertEntry} wrote none. */
+  UUID entryIdFor(String idempotencyKey) {
+    return jdbc.sql("select id from journal_entry where idempotency_key = :key")
+        .param("key", idempotencyKey)
+        .query(UUID.class)
+        .single();
   }
 
   /** Report: everyone who owes something or is in credit, largest first. Names not filled in. */
