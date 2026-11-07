@@ -47,6 +47,9 @@ dependencies {
     implementation("org.apache.httpcomponents.client5:httpclient5")
     // Reading invoices with the studio's own Claude key (docs/planning/16-invoice-ocr-plan.md)
     implementation(libs.anthropic)
+    // Google Document AI over REST, signed in keylessly from Azure by workload identity federation.
+    // Only the auth library: the gRPC client would bring gRPC and protobuf for one call.
+    implementation(libs.google.auth.oauth2.http)
     // MCP on the official SDK (ADR 22): the SDK handles the protocol, and Spring AI's WebMVC
     // transport only reads requests and writes responses. Not the Spring AI starter.
     implementation(libs.mcp)

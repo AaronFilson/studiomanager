@@ -272,6 +272,71 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/admin/invoice-readers:
+    get:
+      tags: [admin]
+      operationId: getInvoiceReaders
+      summary: The platform-paid invoice readers' rules and this month's use (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The rules and the use.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceReaderOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [admin]
+      operationId: setInvoiceReaders
+      summary: Change the platform-paid readers' rules and the studios' orders (platform admin only)
+      description: |
+        Replaces every rule and order. A platform reader left out is off. Applies on every replica
+        within about 15 seconds. A studio still has to consent before a platform reader reads its
+        invoices.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceReaderSettings"
+      responses:
+        "200":
+          description: The rules after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceReaderOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [admin]
+      operationId: resetInvoiceReaders
+      summary: Back to the defaults, on for the demo studio only (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The rules after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceReaderOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/studios:
     post:
       tags: [studios]
@@ -4058,6 +4123,41 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/invoices/{invoiceId}/compare-readers:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [invoices]
+      operationId: compareInvoiceReaders
+      summary: Read the invoice with every reader allowed for the studio, side by side (owner)
+      description: |
+        Runs each reader the studio may use now, one after another, and returns what each read,
+        how long it took and what it cost. The invoice's own draft doesn't change. Platform-paid
+        runs count toward the month's page caps. Waits for every reader, so it can take a minute.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: One result per reader, in the studio's order. Empty when none may read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReaderComparison"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/studios/{studioId}/invoices/{invoiceId}/confirm:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -7596,6 +7696,191 @@ components:
         version:
           type: integer
           format: int64
+
+    InvoiceReadOutcome:
+      type: string
+      enum: [READ, REFUSED_CREDENTIALS, UNAVAILABLE, UNREADABLE]
+
+    ComparedRead:
+      type: object
+      required: [reader, outcome, elapsedMs, lines, problems]
+      properties:
+        reader:
+          $ref: "#/components/schemas/InvoiceReader"
+        outcome:
+          $ref: "#/components/schemas/InvoiceReadOutcome"
+        note:
+          type: string
+          description: Why the reader couldn't read it.
+        elapsedMs:
+          type: integer
+          format: int64
+        pages:
+          type: integer
+          format: int32
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        costUsd:
+          type: string
+          description: The estimated cost in US dollars, from the configured prices.
+        vendorName:
+          type: string
+        invoiceNumber:
+          type: string
+        invoiceDate:
+          type: string
+          format: date
+        subtotal:
+          $ref: "#/components/schemas/InvoiceAmount"
+        shipping:
+          $ref: "#/components/schemas/InvoiceAmount"
+        tax:
+          $ref: "#/components/schemas/InvoiceAmount"
+        total:
+          $ref: "#/components/schemas/InvoiceAmount"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        problems:
+          type: array
+          description: What was dropped from the answer, and what doesn't add up.
+          items:
+            type: string
+
+    ReaderComparison:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComparedRead"
+
+    PlatformReaderScope:
+      type: string
+      description: Which studios a platform-paid reader may read for.
+      enum: [NONE, CHOSEN, ALL]
+
+    PlatformReaderRule:
+      type: object
+      required: [reader, enabled, scope, studioIds, studioMonthlyPages, platformMonthlyPages]
+      properties:
+        reader:
+          $ref: "#/components/schemas/InvoiceReader"
+        enabled:
+          type: boolean
+        scope:
+          $ref: "#/components/schemas/PlatformReaderScope"
+        studioIds:
+          type: array
+          description: The chosen studios, used when the scope is CHOSEN.
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+        studioMonthlyPages:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000000
+          description: Pages one studio may use in a calendar month (UTC).
+        platformMonthlyPages:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000000
+          description: Pages every studio together may use in a calendar month (UTC).
+
+    StudioReaderOrder:
+      type: object
+      required: [studioId, readers]
+      properties:
+        studioId:
+          type: string
+          format: uuid
+        readers:
+          type: array
+          description: The readers to try, first to last. The first that may read, reads.
+          minItems: 1
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/InvoiceReader"
+
+    InvoiceReaderSettings:
+      type: object
+      required: [readers, studioOrders]
+      properties:
+        readers:
+          type: array
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/PlatformReaderRule"
+        studioOrders:
+          type: array
+          description: Studios with their own order. Every other studio tries Claude, then Google, then Azure.
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/StudioReaderOrder"
+
+    StudioReaderUse:
+      type: object
+      required: [studioId, reads, pages, costUsd]
+      properties:
+        studioId:
+          type: string
+          format: uuid
+        studioName:
+          type: string
+        reads:
+          type: integer
+          format: int64
+        pages:
+          type: integer
+          format: int64
+        costUsd:
+          type: string
+
+    PlatformReaderUse:
+      type: object
+      required: [reader, reads, pages, costUsd, studios]
+      properties:
+        reader:
+          $ref: "#/components/schemas/InvoiceReader"
+        reads:
+          type: integer
+          format: int64
+        pages:
+          type: integer
+          format: int64
+        costUsd:
+          type: string
+          description: This month's estimated spend in US dollars, from the configured prices.
+        studios:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudioReaderUse"
+
+    InvoiceReaderOverview:
+      type: object
+      required: [settings, saved, monthStart, usage]
+      properties:
+        settings:
+          $ref: "#/components/schemas/InvoiceReaderSettings"
+        saved:
+          type: boolean
+          description: False while the defaults (on for the demo studio only) are in force.
+        monthStart:
+          type: string
+          format: date-time
+        usage:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformReaderUse"
 
     InvoiceSummary:
       type: object

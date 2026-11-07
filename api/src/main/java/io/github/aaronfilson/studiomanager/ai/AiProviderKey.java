@@ -55,6 +55,10 @@ class AiProviderKey {
     return status == AiKeys.Status.REJECTED;
   }
 
+  boolean allowsPlatformReaders() {
+    return allowPlatformReaders;
+  }
+
   /** Records what a check with the provider found. */
   void checked(AiKeys.Status found, @Nullable String reason, Instant now) {
     this.status = found;

@@ -1,0 +1,56 @@
+{
+  "status": "succeeded",
+  "createdDateTime": "2026-11-06T12:00:00Z",
+  "lastUpdatedDateTime": "2026-11-06T12:00:03Z",
+  "analyzeResult": {
+    "apiVersion": "2024-11-30",
+    "modelId": "prebuilt-invoice",
+    "content": "Riverbend Clay Supply ...",
+    "pages": [
+      {"pageNumber": 1, "angle": 0, "width": 8.5, "height": 11, "unit": "inch", "words": []}
+    ],
+    "documents": [
+      {
+        "docType": "invoice",
+        "confidence": 1,
+        "fields": {
+          "VendorName": {"type": "string", "valueString": "Riverbend Clay Supply", "content": "Riverbend Clay Supply", "confidence": 0.95},
+          "InvoiceId": {"type": "string", "valueString": "RB-20417", "content": "RB-20417", "confidence": 0.97},
+          "InvoiceDate": {"type": "date", "valueDate": "2026-10-14", "content": "Oct 14, 2026", "confidence": 0.97},
+          "SubTotal": {"type": "currency", "valueCurrency": {"amount": 212.5, "currencySymbol": "$", "currencyCode": "USD"}, "content": "$212.50"},
+          "TotalTax": {"type": "currency", "valueCurrency": {"amount": 17.53, "currencySymbol": "$", "currencyCode": "USD"}, "content": "$17.53"},
+          "InvoiceTotal": {"type": "currency", "valueCurrency": {"amount": 265.03, "currencySymbol": "$", "currencyCode": "USD"}, "content": "$265.03"},
+          "Items": {
+            "type": "array",
+            "valueArray": [
+              {
+                "type": "object",
+                "content": "WC-401 B-Mix 5 cone 5 clay, 50 lb box 5 box 32.50 162.50",
+                "valueObject": {
+                  "ProductCode": {"type": "string", "valueString": "WC-401", "content": "WC-401"},
+                  "Description": {"type": "string", "valueString": "B-Mix 5 cone 5 clay, 50 lb box", "content": "B-Mix 5 cone 5 clay, 50 lb box"},
+                  "Quantity": {"type": "number", "valueNumber": 5, "content": "5"},
+                  "Unit": {"type": "string", "valueString": "box", "content": "box"},
+                  "UnitPrice": {"type": "currency", "valueCurrency": {"amount": 32.5, "currencyCode": "USD"}, "content": "32.50"},
+                  "Amount": {"type": "currency", "valueCurrency": {"amount": 162.5, "currencyCode": "USD"}, "content": "162.50"}
+                }
+              },
+              {
+                "type": "object",
+                "content": "WC-415 Speckled Buff, 25 lb bag 2 bag 25.00 50.00",
+                "valueObject": {
+                  "ProductCode": {"type": "string", "valueString": "WC-415", "content": "WC-415"},
+                  "Description": {"type": "string", "valueString": "Speckled Buff, 25 lb bag", "content": "Speckled Buff, 25 lb bag"},
+                  "Quantity": {"type": "number", "valueNumber": 2, "content": "2"},
+                  "Unit": {"type": "string", "valueString": "bag", "content": "bag"},
+                  "UnitPrice": {"type": "currency", "content": "$25.00"},
+                  "Amount": {"type": "currency", "valueCurrency": {"amount": 50, "currencyCode": "USD"}, "content": "50.00"}
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

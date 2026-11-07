@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.invoice.SupplyMatcher.AliasKind;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +41,41 @@ class InvoiceQueries {
         .list()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /**
+   * Pages each platform-paid reader has read since a moment, for every studio together. Crosses
+   * tenants (ADR 10), so it goes through {@code app.platform_reader_pages}, which returns only
+   * totals (V38).
+   */
+  Map<InvoiceReaderKind, Long> platformPagesSince(Instant since) {
+    return jdbc
+        .sql("select reader, pages from app.platform_reader_pages(:since)")
+        .param("since", since.atOffset(ZoneOffset.UTC))
+        .query((rs, row) ->
+            Map.entry(InvoiceReaderKind.valueOf(rs.getString("reader")), rs.getLong("pages")))
+        .list()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /**
+   * Each studio's use of each platform-paid reader since a moment, for the admin page, through
+   * {@code app.platform_reader_usage_by_studio}, which refuses anyone not bound as an admin (V38).
+   */
+  List<PlatformReaderUsage.StudioUse> usageByStudioSince(Instant since) {
+    return jdbc.sql(
+            "select studio_id, reader, reads, pages, cost_usd"
+                + " from app.platform_reader_usage_by_studio(:since)")
+        .param("since", since.atOffset(ZoneOffset.UTC))
+        .query((rs, row) ->
+            new PlatformReaderUsage.StudioUse(
+                rs.getObject("studio_id", UUID.class),
+                InvoiceReaderKind.valueOf(rs.getString("reader")),
+                rs.getLong("reads"),
+                rs.getLong("pages"),
+                rs.getBigDecimal("cost_usd")))
+        .list();
   }
 
   /**
