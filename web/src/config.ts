@@ -1,6 +1,9 @@
 export interface AuthSettings {
   clientId: string;
-  /** e.g. `https://<subdomain>.ciamlogin.com/` */
+  /**
+   * e.g. `https://<subdomain>.ciamlogin.com/<tenant-id>/`. The tenant id is required: External ID
+   * serves no OpenID metadata at the bare host, and MSAL then fails with endpoints_resolution_error.
+   */
   authority: string;
   /** The authority's host. MSAL only trusts non-Microsoft-cloud authorities listed here. */
   knownAuthority: string;

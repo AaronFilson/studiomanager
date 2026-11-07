@@ -9,7 +9,7 @@ describe('readConfig', () => {
     const config = readConfig(
       {
         VITE_ENTRA_CLIENT_ID: ' spa-client-id ',
-        VITE_ENTRA_AUTHORITY: 'https://studiomanagerdev.ciamlogin.com/',
+        VITE_ENTRA_AUTHORITY: 'https://studiomanagerdev.ciamlogin.com/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/',
         VITE_API_SCOPES: 'api://api-client-id/access_as_user  openid',
         VITE_API_BASE_URL: 'https://api.example.com/',
       },
@@ -20,7 +20,7 @@ describe('readConfig', () => {
     expect(config.apiBaseUrl).toBe('https://api.example.com');
     expect(config.auth).toEqual({
       clientId: 'spa-client-id',
-      authority: 'https://studiomanagerdev.ciamlogin.com/',
+      authority: 'https://studiomanagerdev.ciamlogin.com/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/',
       knownAuthority: 'studiomanagerdev.ciamlogin.com',
       scopes: ['api://api-client-id/access_as_user', 'openid'],
     });

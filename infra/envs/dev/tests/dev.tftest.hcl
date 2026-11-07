@@ -102,7 +102,7 @@ run "wires_the_environment" {
   assert {
     condition = output.web_build_env == {
       VITE_ENTRA_CLIENT_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
-      VITE_ENTRA_AUTHORITY = "https://studiomanagerdev.ciamlogin.com/"
+      VITE_ENTRA_AUTHORITY = "https://studiomanagerdev.ciamlogin.com/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
       VITE_API_SCOPES      = "api://bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/access_as_user"
       VITE_API_BASE_URL    = output.api_url
     }
