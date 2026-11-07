@@ -109,11 +109,12 @@ class InvoiceApiTests {
         .bodyJson()
         .extractingPath("$.status")
         .isEqualTo("CONFIRMED");
-    assertThat(get(owner, path("/supplies/" + bMix)))
-        .bodyJson()
-        .extractingPath("$.onHand")
-        .asString()
-        .startsWith("5");
+    // There's no single-item read; the item comes from the supplies list
+    List<String> onHand =
+        JsonPath.read(
+            get(owner, path("/supplies")).getResponse().getContentAsString(),
+            "$[?(@.id == '%s')].onHand".formatted(bMix));
+    assertThat(onHand).singleElement().asString().startsWith("5");
 
     // The vendor's next invoice is matched by what staff confirmed: its SKU
     String next = upload("PDF", PDF);
