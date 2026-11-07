@@ -32,7 +32,8 @@ class TokenScopeTests {
             case TokenPolicy.Writable(TokenScope writeScope) ->
                 reading ? TokenScope.READ.permissions() : writeScope.permissions();
           };
-      if (allowed.isEmpty()) {
+      if (allowed.isEmpty() || needsAnOwnerOnlyPermission(operation)) {
+        // An owner-only operation is never a token's, whatever its area: no scope allows one
         continue;
       }
       for (String key : operation.permissions()) {
@@ -83,6 +84,12 @@ class TokenScopeTests {
               .as("%s allows mcp.use", scope)
               .isEqualTo(scope == TokenScope.READ);
         });
+  }
+
+  private static boolean needsAnOwnerOnlyPermission(PermissionContractTests.Operation operation) {
+    return operation.permissions().stream()
+        .map(key -> Permission.byKey(key).orElseThrow())
+        .anyMatch(Permission.ownerOnly()::contains);
   }
 
   private static String areaOf(String path) {
