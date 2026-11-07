@@ -60,6 +60,21 @@ run "the_app_and_the_migration_job_get_the_encryption_keys_from_secrets" {
   }
 }
 
+run "the_sweep_job_gets_the_encryption_keys_from_secrets" {
+  command = plan
+
+  # The sweep job is the API without a web server, so it needs both keys too
+  assert {
+    condition     = anytrue([for e in azurerm_container_app_job.sweep.template[0].container[0].env : e.name == "STUDIOMANAGER_WEBHOOK_SECRET_KEY" && e.secret_name == "webhook-secret-key"])
+    error_message = "The sweep job's webhook secret key must come from a secret."
+  }
+
+  assert {
+    condition     = anytrue([for e in azurerm_container_app_job.sweep.template[0].container[0].env : e.name == "STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY" && e.secret_name == "ai-key-encryption-key"])
+    error_message = "The sweep job's AI key encryption key must come from a secret."
+  }
+}
+
 run "api_runs_as_the_api_identity" {
   command = plan
 
@@ -132,5 +147,30 @@ run "migration_job_runs_as_the_migrator" {
   assert {
     condition     = azurerm_container_app_job.migrate.replica_retry_limit == 0
     error_message = "Migrations fail fast rather than retrying."
+  }
+}
+
+run "sweep_job_runs_every_six_hours_as_the_api" {
+  command = plan
+
+  assert {
+    condition     = azurerm_container_app_job.sweep.schedule_trigger_config[0].cron_expression == "0 */6 * * *"
+    error_message = "The sweep job runs on a 6-hourly cron by default (ADR 23)."
+  }
+
+  assert {
+    condition     = azurerm_container_app_job.sweep.identity[0].identity_ids == toset([var.api_identity.id])
+    error_message = "The sweep job runs as the API's identity, under row-level security like the API."
+  }
+
+  assert {
+    condition = alltrue([
+      for name, expected in {
+        SPRING_PROFILES_ACTIVE = "azure,sweep"
+        STUDIOMANAGER_DB_USER  = "id-studiomanager-test-api"
+        OTEL_TRACES_SAMPLER    = "parentbased_traceidratio"
+      } : { for e in azurerm_container_app_job.sweep.template[0].container[0].env : e.name => e.value }[name] == expected
+    ])
+    error_message = "The sweep job is the API with the sweep profile."
   }
 }

@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.schedule;
 
 import io.github.aaronfilson.studiomanager.access.Duty;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -105,9 +106,10 @@ public final class ScheduleModel {
       Instant creditedAt,
       @Nullable String creditedByName) {}
 
+  /**
+   * @param totalMinutes every entry counts, including any past the cap on {@code entries}
+   * @param entries the newest entries
+   */
   public record HoursLedger(
-      UUID accountId,
-      @Nullable String accountName,
-      int totalMinutes,
-      java.util.List<HoursEntry> entries) {}
+      UUID accountId, @Nullable String accountName, int totalMinutes, Capped<HoursEntry> entries) {}
 }

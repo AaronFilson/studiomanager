@@ -17,7 +17,8 @@ public enum SystemActor {
       "5157e000-0000-4000-8000-000000000002", "maintenance-reminders", StudioRole.STAFF),
   WEBHOOK_SWEEP("5157e000-0000-4000-8000-000000000003", "webhook-sweep", StudioRole.STAFF),
   UNCLAIMED_PIECES("5157e000-0000-4000-8000-000000000004", "unclaimed-pieces", StudioRole.STAFF),
-  PHOTO_CLEANUP("5157e000-0000-4000-8000-000000000005", "photo-cleanup", StudioRole.STAFF);
+  PHOTO_CLEANUP("5157e000-0000-4000-8000-000000000005", "photo-cleanup", StudioRole.STAFF),
+  CALL_LOG_PURGE("5157e000-0000-4000-8000-000000000006", "call-log-purge", StudioRole.STAFF);
 
   /** The issuer on every system account. No identity provider issues it, so no token can match. */
   public static final String ISSUER = "urn:studiomanager:system";

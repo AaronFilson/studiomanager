@@ -65,6 +65,7 @@ class ApiTokenController implements ApiTokensApi {
         .createdAt(utc(view.createdAt()))
         .expiresAt(utc(view.expiresAt()))
         .lastUsedAt(utcOrNull(view.lastUsedAt()))
+        .lastUsedFrom(view.lastUsedFrom())
         .revokedAt(utcOrNull(view.revokedAt()));
   }
 

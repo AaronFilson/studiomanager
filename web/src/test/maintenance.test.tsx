@@ -12,7 +12,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const studio = aStudio();
 
@@ -113,7 +113,7 @@ describe('maintenance', () => {
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
       http.get(`${API}/api/v1/studios/:studioId/maintenance/assets`, () => HttpResponse.json([kilnAsset])),
-      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/records`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/records`, () => HttpResponse.json(capped([]))),
       http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([element])),
       http.post(`${API}/api/v1/studios/:studioId/maintenance/assets/:assetId/records`, async ({ request }) => {
         logged = (await request.json()) as RecordRepairRequest;

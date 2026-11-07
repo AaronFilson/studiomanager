@@ -141,7 +141,7 @@ class MaintenanceReminderTests {
             .exchange()
             .getResponse()
             .getContentAsString();
-    return JsonPath.read(body, "$[?(@.kind == 'MAINTENANCE_DUE')].title");
+    return JsonPath.read(body, "$.items[?(@.kind == 'MAINTENANCE_DUE')].title");
   }
 
   private MvcTestResult post(TestUser user, String uri, String json) {

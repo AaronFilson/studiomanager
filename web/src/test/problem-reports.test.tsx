@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const report: ProblemReport = {
   id: 'p1',
@@ -49,7 +49,7 @@ describe('problem reports', () => {
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
       http.get(`${API}/api/v1/studios/:studioId/maintenance/assets`, () => HttpResponse.json([])),
-      http.get(`${API}/api/v1/studios/:studioId/maintenance/problem-reports`, () => HttpResponse.json([report])),
+      http.get(`${API}/api/v1/studios/:studioId/maintenance/problem-reports`, () => HttpResponse.json(capped([report]))),
       http.post(`${API}/api/v1/studios/:studioId/maintenance/problem-reports/:reportId/resolution`, async ({ request }) => {
         resolved = (await request.json()) as ResolveProblemRequest;
         return HttpResponse.json({ ...report, open: false, version: 1 });

@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { aPiece, aStudio, renderApp } from './renderApp';
-import { API, server } from './server';
+import { API, capped, server } from './server';
 
 const studio = aStudio();
 const kiln: Kiln = {
@@ -28,8 +28,8 @@ describe('kilns', () => {
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
       http.get(`${API}/api/v1/studios/:studioId/kilns`, () => HttpResponse.json([kiln])),
-      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, () => HttpResponse.json([])),
-      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/queue`, () => HttpResponse.json(queue)),
+      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, () => HttpResponse.json(capped([]))),
+      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/queue`, () => HttpResponse.json(capped(queue))),
       http.post(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, async ({ request }) => {
         loaded = (await request.json()) as LoadKilnRequest;
         const firing: Firing = {
@@ -68,7 +68,7 @@ describe('kilns', () => {
     };
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(aStudio({ myRole: 'MEMBER' }))),
-      http.get(`${API}/api/v1/studios/:studioId/notifications`, () => HttpResponse.json([notice])),
+      http.get(`${API}/api/v1/studios/:studioId/notifications`, () => HttpResponse.json(capped([notice]))),
     );
 
     renderApp(`/studios/${studio.id}`);

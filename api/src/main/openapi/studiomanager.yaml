@@ -27,6 +27,10 @@ tags:
       out of a token's reach.
   - name: account
     description: The signed-in person.
+  - name: admin
+    description: |
+      Running the service: live rate limits, boosts and the history of every change. Only people
+      with the Platform.Admin app role reach it, and never with an API token.
   - name: studios
     description: Studios (tenants) and membership in them.
   - name: members
@@ -93,6 +97,172 @@ paths:
                 $ref: "#/components/schemas/Me"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/admin/rate-limits:
+    get:
+      tags: [admin]
+      operationId: getRateLimits
+      summary: The rate limits, their defaults, and any boost (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The limits.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/rate-limits/normal:
+    put:
+      tags: [admin]
+      operationId: setNormalRateLimits
+      summary: Override the configured limits, live (platform admin only)
+      description: Applies on every replica within about 15 seconds, with no restart.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelRateLimits"
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [admin]
+      operationId: resetNormalRateLimits
+      summary: Back to the configured defaults (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/rate-limits/boost:
+    put:
+      tags: [admin]
+      operationId: scheduleRateLimitBoost
+      summary: Lift the limits for a while, now or later (platform admin only)
+      description: |
+        No limits for the unlimited minutes, then 8×, 4× and 2× the normal limits over the
+        easing minutes, a third each, then normal. Replaces any boost before it. A boost lasts at
+        most 4 hours in all, so it always ends on its own.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleBoostRequest"
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [admin]
+      operationId: endRateLimitBoost
+      summary: End the boost now, back to normal limits at once (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The limits after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/studios:
+    get:
+      tags: [admin]
+      operationId: listAdminStudios
+      summary: Every studio's id and name, for scoping a boost (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The studios, by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminStudio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/setting-changes:
+    get:
+      tags: [admin]
+      operationId: listSettingChanges
+      summary: Every change to the platform settings, newest first (platform admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: At most this many changes. Defaults to 50.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SettingChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/v1/studios:
     post:
@@ -474,13 +644,11 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Up to 500 pieces.
+          description: Up to 2,000 pieces, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Piece"
+                $ref: "#/components/schemas/PieceList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -929,13 +1097,11 @@ paths:
       summary: The asset's maintenance history, newest first (staff only)
       responses:
         "200":
-          description: Up to 500 records.
+          description: Up to 500 records, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/MaintenanceRecord"
+                $ref: "#/components/schemas/MaintenanceRecordList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1211,13 +1377,11 @@ paths:
             default: false
       responses:
         "200":
-          description: Up to 200 reports.
+          description: Up to 500 reports, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ProblemReport"
+                $ref: "#/components/schemas/ProblemReportList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1299,13 +1463,11 @@ paths:
             $ref: "#/components/schemas/FiringKind"
       responses:
         "200":
-          description: The queue.
+          description: The queue, up to 1,000 pieces, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/QueueEntry"
+                $ref: "#/components/schemas/QueueEntryList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1323,13 +1485,12 @@ paths:
       summary: The kiln's firing log, newest first (staff only)
       responses:
         "200":
-          description: Firings, without their pieces.
+          description: >-
+            Up to 500 firings, without their pieces, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Firing"
+                $ref: "#/components/schemas/FiringList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1431,13 +1592,11 @@ paths:
       summary: The caller's notifications in this studio, newest first
       responses:
         "200":
-          description: Up to 100 notifications.
+          description: Up to 100 notifications, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Notification"
+                $ref: "#/components/schemas/NotificationList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1713,13 +1872,11 @@ paths:
         - $ref: "#/components/parameters/To"
       responses:
         "200":
-          description: Bookings.
+          description: Up to 2,000 bookings, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Booking"
+                $ref: "#/components/schemas/BookingList"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1793,13 +1950,11 @@ paths:
         - $ref: "#/components/parameters/To"
       responses:
         "200":
-          description: Shifts.
+          description: Up to 2,000 shifts, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Shift"
+                $ref: "#/components/schemas/ShiftList"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -2071,13 +2226,11 @@ paths:
       summary: Prepaid balances with something left (staff only)
       responses:
         "200":
-          description: Balances.
+          description: Up to 2,000 balances, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/StoredValue"
+                $ref: "#/components/schemas/StoredValueList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2222,13 +2375,11 @@ paths:
       summary: Imported payouts, newest first (staff only)
       responses:
         "200":
-          description: Payouts.
+          description: Up to 1,000 payouts, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Payout"
+                $ref: "#/components/schemas/PayoutList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2386,13 +2537,12 @@ paths:
       summary: Everyone the studio pays, with what each is owed (staff only)
       responses:
         "200":
-          description: Payees, archived ones last.
+          description: >-
+            Up to 1,000 payees, archived ones last, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Payee"
+                $ref: "#/components/schemas/PayeeList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2689,13 +2839,11 @@ paths:
             default: false
       responses:
         "200":
-          description: Items.
+          description: Up to 2,000 items, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ConsignmentItem"
+                $ref: "#/components/schemas/ConsignmentItemList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2802,13 +2950,11 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Sales.
+          description: Up to 1,000 sales, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ConsignmentSale"
+                $ref: "#/components/schemas/ConsignmentSaleList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2973,13 +3119,11 @@ paths:
       summary: The item's stock history, newest first (staff only)
       responses:
         "200":
-          description: Movements.
+          description: Up to 1,000 movements, with `truncated` set when there were more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/StockMovement"
+                $ref: "#/components/schemas/StockMovementList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3328,13 +3472,13 @@ paths:
       summary: The last 30 days of deliveries to an endpoint, newest first (staff only)
       responses:
         "200":
-          description: The deliveries, each with its attempts.
+          description: >-
+            Up to 500 deliveries, each with its attempts, with `truncated` set when there were
+            more.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WebhookDelivery"
+                $ref: "#/components/schemas/WebhookDeliveryList"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3905,6 +4049,167 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    RateLimitValues:
+      type: object
+      description: One bucket's limits.
+      required: [burst, refillTokens, refillPeriodSeconds, dailyCap]
+      properties:
+        burst:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100000
+          description: Calls that can be made at once, without waiting.
+        refillTokens:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100000
+          description: Calls given back each refill period.
+        refillPeriodSeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3600
+        dailyCap:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10000000
+          description: Calls a day, however they're spread.
+
+    ChannelRateLimits:
+      type: object
+      description: The limits for MCP tool calls and for API token calls.
+      required: [mcp, token]
+      properties:
+        mcp:
+          $ref: "#/components/schemas/RateLimitValues"
+        token:
+          $ref: "#/components/schemas/RateLimitValues"
+
+    BoostStep:
+      type: object
+      required: [kind, startsAt, endsAt]
+      properties:
+        kind:
+          type: string
+          enum: [UNLIMITED, EASING]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        multiplier:
+          type: integer
+          format: int32
+          description: For an easing step, how many times the normal limits apply.
+
+    RateLimitBoost:
+      type: object
+      required: [startsAt, endsAt, unlimitedMinutes, easingMinutes, steps]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        studioId:
+          type: string
+          format: uuid
+          description: The one studio it lifts. Absent when it lifts every studio.
+        studioName:
+          type: string
+          description: That studio's name.
+        unlimitedMinutes:
+          type: integer
+          format: int32
+        easingMinutes:
+          type: integer
+          format: int32
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoostStep"
+
+    RateLimitOverview:
+      type: object
+      required: [now, defaults, normal]
+      properties:
+        now:
+          type: string
+          format: date-time
+          description: The server's time, to describe the boost against.
+        defaults:
+          $ref: "#/components/schemas/ChannelRateLimits"
+        override:
+          $ref: "#/components/schemas/ChannelRateLimits"
+        normal:
+          $ref: "#/components/schemas/ChannelRateLimits"
+        boost:
+          $ref: "#/components/schemas/RateLimitBoost"
+
+    ScheduleBoostRequest:
+      type: object
+      required: [unlimitedMinutes, easingMinutes]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+          description: When it starts, up to 30 days ahead. Now if absent or past.
+        studioId:
+          type: string
+          format: uuid
+          description: Lift only this studio. Every studio if absent.
+        unlimitedMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 240
+        easingMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 240
+
+    AdminStudio:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    SettingChange:
+      type: object
+      required: [key, version, changedById, changedAt]
+      properties:
+        key:
+          type: string
+        version:
+          type: integer
+          format: int64
+        oldValue:
+          type: object
+          additionalProperties: true
+          description: Absent when there was no override.
+        newValue:
+          type: object
+          additionalProperties: true
+          description: Absent when the change went back to the default.
+        changedById:
+          type: string
+          format: uuid
+        changedByName:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
+
     Me:
       type: object
       required: [account, memberships]
@@ -3915,6 +4220,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Membership"
+        platformAdmin:
+          type: boolean
+          description: Whether this person has the Platform.Admin app role, for the admin page.
 
     Account:
       type: object
@@ -5378,7 +5686,7 @@ components:
 
     HoursLedger:
       type: object
-      required: [accountId, totalMinutes, entries]
+      required: [accountId, totalMinutes, entries, truncated, limit]
       properties:
         accountId:
           type: string
@@ -5388,10 +5696,19 @@ components:
         totalMinutes:
           type: integer
           format: int32
+          description: Every entry counts, including any past the limit.
         entries:
           type: array
+          description: The newest entries, up to `limit`.
           items:
             $ref: "#/components/schemas/HoursEntry"
+        truncated:
+          type: boolean
+          description: There were more entries than `limit`; only the newest are listed.
+        limit:
+          type: integer
+          format: int32
+          description: The most entries this list returns.
 
     AdjustHoursRequest:
       type: object
@@ -6885,6 +7202,9 @@ components:
         lastUsedAt:
           type: string
           format: date-time
+        lastUsedFrom:
+          type: string
+          description: The address the token was last used from, such as `203.0.113.4`.
         revokedAt:
           type: string
           format: date-time
@@ -6921,16 +7241,275 @@ components:
 
     Problem:
       type: object
-      description: RFC 9457 problem details.
+      description: |
+        RFC 9457 problem details. `type` is a URI reference, `/problems/<code>`, and `code`
+        repeats its last part, so a client can act on the kind of problem without reading
+        `detail`, whose wording may change.
       properties:
         type:
           type: string
+          description: For example `/problems/stale-version`.
         title:
           type: string
+          description: A short, fixed summary of the kind of problem.
         status:
           type: integer
           format: int32
         detail:
           type: string
+          description: What went wrong this time, in words for a person.
         instance:
           type: string
+        code:
+          $ref: "#/components/schemas/ProblemCode"
+
+    ProblemCode:
+      type: string
+      description: |
+        The kind of problem:
+        - `invalid-input`: the request was well-formed but not acceptable, or couldn't be read (400).
+        - `unauthenticated`: no valid access token (401).
+        - `forbidden`: the caller may not do this (403).
+        - `not-found`: no such thing, or not one the caller may see (404).
+        - `stale-version`: someone else changed it since the caller read it; reload and try
+          again (409).
+        - `duplicate`: the same thing already exists (409).
+        - `conflict`: the request clashes with the current state in some other way (409).
+        - `other`: anything else.
+      enum:
+        - invalid-input
+        - unauthenticated
+        - forbidden
+        - not-found
+        - stale-version
+        - duplicate
+        - conflict
+        - other
+
+    # Capped lists. Each list below is cut at `limit` rows; `truncated` says whether anything
+    # was cut. Clients say so when it is set, and point at a filter or the studio export.
+
+    PieceList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Piece"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    QueueEntryList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueEntry"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    FiringList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Firing"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    MaintenanceRecordList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaintenanceRecord"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    ProblemReportList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemReport"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    NotificationList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    BookingList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    ShiftList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Shift"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    PayoutList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payout"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    StoredValueList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StoredValue"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    ConsignmentItemList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsignmentItem"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    ConsignmentSaleList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsignmentSale"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    PayeeList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payee"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    StockMovementList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockMovement"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32
+
+    WebhookDeliveryList:
+      type: object
+      required: [items, truncated, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+        truncated:
+          type: boolean
+          description: There were more than `limit`; only the first `limit` are listed.
+        limit:
+          type: integer
+          format: int32

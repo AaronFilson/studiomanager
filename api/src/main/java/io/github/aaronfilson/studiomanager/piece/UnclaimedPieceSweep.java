@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.piece;
 
+import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
+import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Instant;
@@ -23,20 +25,32 @@ import org.springframework.transaction.support.TransactionOperations;
  */
 @Component
 @ConditionalOnBooleanProperty(name = "studiomanager.pieces.unclaimed-sweep", matchIfMissing = true)
-class UnclaimedPieceSweep {
+class UnclaimedPieceSweep implements Sweep {
 
   private static final Logger log = LoggerFactory.getLogger(UnclaimedPieceSweep.class);
 
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
+  private final SweepRunner sweeps;
 
-  UnclaimedPieceSweep(JdbcClient jdbc, TransactionOperations transactions) {
+  UnclaimedPieceSweep(JdbcClient jdbc, TransactionOperations transactions, SweepRunner sweeps) {
     this.jdbc = jdbc;
     this.transactions = transactions;
+    this.sweeps = sweeps;
   }
 
   @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1H")
   public void run() {
+    sweeps.run(this);
+  }
+
+  @Override
+  public String name() {
+    return "unclaimed-pieces";
+  }
+
+  @Override
+  public void sweep() {
     runAt(Instant.now());
   }
 

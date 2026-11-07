@@ -162,7 +162,7 @@ class WebhookApiTests {
                         .uri(path("/webhooks/endpoints/" + endpointId + "/deliveries"))
                         .with(owner.token()))
                 .bodyJson()
-                .extractingPath("$[0].status")
+                .extractingPath("$.items[0].status")
                 .isEqualTo("DELIVERED"));
   }
 
@@ -232,11 +232,11 @@ class WebhookApiTests {
         .untilAsserted(() ->
             assertThat(deliveries(endpointId))
                 .bodyJson()
-                .extractingPath("$[0].attempts")
+                .extractingPath("$.items[0].attempts")
                 .isEqualTo(1));
     assertThat(deliveries(endpointId))
         .bodyJson()
-        .extractingPath("$[0].status")
+        .extractingPath("$.items[0].status")
         .isEqualTo("PENDING");
 
     answerWith.set(204);
@@ -247,7 +247,7 @@ class WebhookApiTests {
     assertThat(received.stream().map(r -> r.headers().get("webhook-id")).distinct()).hasSize(1);
     assertThat(deliveries(endpointId))
         .bodyJson()
-        .extractingPath("$[0].status")
+        .extractingPath("$.items[0].status")
         .isEqualTo("DELIVERED");
     assertThat(mvc.get().uri(path("/webhooks/endpoints")).with(owner.token()))
         .bodyJson()
@@ -270,7 +270,7 @@ class WebhookApiTests {
         .isEqualTo(false);
     assertThat(mvc.get().uri(path("/notifications")).with(owner.token()))
         .bodyJson()
-        .extractingPath("$[0].kind")
+        .extractingPath("$.items[0].kind")
         .isEqualTo("WEBHOOK_DISABLED");
 
     // Back on, a test goes through

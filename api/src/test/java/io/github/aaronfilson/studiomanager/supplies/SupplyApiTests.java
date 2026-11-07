@@ -160,9 +160,9 @@ class SupplyApiTests {
     assertThat(mvc.get().uri(path("/supplies/" + clay + "/movements")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[0].kind", k -> assertThat(k).isEqualTo("COUNTED"))
-        .hasPathSatisfying("$[0].quantity", q -> assertThat(q).isEqualTo("-1"))
-        .hasPathSatisfying("$[1].memberName", m -> assertThat(m).isEqualTo("Mo"));
+        .hasPathSatisfying("$.items[0].kind", k -> assertThat(k).isEqualTo("COUNTED"))
+        .hasPathSatisfying("$.items[0].quantity", q -> assertThat(q).isEqualTo("-1"))
+        .hasPathSatisfying("$.items[1].memberName", m -> assertThat(m).isEqualTo("Mo"));
     assertThat(move(owner, clay, "SOLD", "1")).hasStatus(HttpStatus.BAD_REQUEST);
   }
 
@@ -203,7 +203,7 @@ class SupplyApiTests {
             .exchange()
             .getResponse()
             .getContentAsString();
-    return JsonPath.read(body, "$[?(@.title =~ /.* is out/)].title");
+    return JsonPath.read(body, "$.items[?(@.title =~ /.* is out/)].title");
   }
 
   private MvcTestResult move(TestUser user, String item, String kind, String quantity) {

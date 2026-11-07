@@ -4,9 +4,10 @@ import io.github.aaronfilson.studiomanager.contract.NoticeRequestDto;
 import io.github.aaronfilson.studiomanager.contract.NoticeResultDto;
 import io.github.aaronfilson.studiomanager.contract.NotificationDto;
 import io.github.aaronfilson.studiomanager.contract.NotificationKindDto;
+import io.github.aaronfilson.studiomanager.contract.NotificationListDto;
 import io.github.aaronfilson.studiomanager.contract.NotificationsApi;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,9 +24,10 @@ class NotificationController implements NotificationsApi {
 
   @Override
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
-  public ResponseEntity<List<NotificationDto>> listMyNotifications(UUID studioId) {
-    return ResponseEntity.ok(
-        notifications.mine().stream()
+  public ResponseEntity<NotificationListDto> listMyNotifications(UUID studioId) {
+    Capped<NotificationDto> inbox =
+        notifications
+            .mine()
             .map(n ->
                 new NotificationDto()
                     .id(n.id())
@@ -33,8 +35,9 @@ class NotificationController implements NotificationsApi {
                     .title(n.title())
                     .body(n.body())
                     .createdAt(n.createdAt().atOffset(ZoneOffset.UTC))
-                    .readAt(n.readAt() == null ? null : n.readAt().atOffset(ZoneOffset.UTC)))
-            .toList());
+                    .readAt(n.readAt() == null ? null : n.readAt().atOffset(ZoneOffset.UTC)));
+    return ResponseEntity.ok(
+        new NotificationListDto(inbox.items(), inbox.truncated(), inbox.limit()));
   }
 
   @Override

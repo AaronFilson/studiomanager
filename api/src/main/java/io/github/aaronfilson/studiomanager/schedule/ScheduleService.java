@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.schedule;
 import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
+import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -49,6 +50,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class ScheduleService {
 
   static final Duration LONGEST_RANGE = Duration.ofDays(62);
+
+  /** The most bookings or shifts one range returns. */
+  static final int RANGE_LIMIT = 2000;
+
+  /** The most hours entries {@link #hours} lists. The total counts them all. */
+  static final int HOURS_ENTRIES_LIMIT = 1000;
 
   private final JdbcClient jdbc;
   private final AccessService access;
@@ -137,28 +144,34 @@ public class ScheduleService {
 
   /** Bookings that overlap [{@code from}, {@code to}), at most 62 days. */
   @Transactional(readOnly = true)
-  public List<Booking> bookings(Instant from, Instant to) {
+  public Capped<Booking> bookings(Instant from, Instant to) {
     requireRange(from, to);
     TenantContext caller = TenantContext.require();
     boolean staff = isStaff(caller);
-    List<Booking> found =
-        jdbc.sql(
-                """
-                select b.id, b.resource_id, r.name as resource_name, b.kind, b.title, b.starts_at, b.ends_at, b.account_id
-                from booking b join resource r on r.id = b.resource_id
-                where b.starts_at < :to and b.ends_at > :from
-                order by b.starts_at, r.name
-                limit 2000
-                """)
-            .param("from", utc(from))
-            .param("to", utc(to))
-            .query(ScheduleService::mapBooking)
-            .list();
+    Capped<Booking> found =
+        Capped.fromFetched(
+            jdbc.sql(
+                    """
+                    select b.id, b.resource_id, r.name as resource_name, b.kind, b.title, b.starts_at, b.ends_at, b.account_id
+                    from booking b join resource r on r.id = b.resource_id
+                    where b.starts_at < :to and b.ends_at > :from
+                    order by b.starts_at, r.name
+                    limit :fetchSize
+                    """)
+                .param("from", utc(from))
+                .param("to", utc(to))
+                .param("fetchSize", Capped.fetchSize(RANGE_LIMIT))
+                .query(ScheduleService::mapBooking)
+                .list(),
+            RANGE_LIMIT);
     Map<UUID, String> names =
         accounts.displayNames(
-            found.stream().map(Booking::accountId).filter(java.util.Objects::nonNull).toList());
-    List<Booking> shown = new ArrayList<>(found.size());
-    for (Booking b : found) {
+            found.items().stream()
+                .map(Booking::accountId)
+                .filter(java.util.Objects::nonNull)
+                .toList());
+    List<Booking> shown = new ArrayList<>(found.items().size());
+    for (Booking b : found.items()) {
       boolean mine = caller.accountId().equals(b.accountId());
       boolean hidden = !staff && !mine && b.kind() == BookingKind.RESERVATION;
       shown.add(
@@ -174,7 +187,7 @@ public class ScheduleService {
               hidden || b.accountId() == null ? null : names.get(b.accountId()),
               mine));
     }
-    return shown;
+    return found.withItems(shown);
   }
 
   /**
@@ -276,7 +289,7 @@ public class ScheduleService {
         .param("by", caller.accountId())
         .param("now", utc(now()))
         .update();
-    return bookings(startsAt, endsAt).stream()
+    return bookings(startsAt, endsAt).items().stream()
         .filter(b -> b.id().equals(id))
         .findFirst()
         .orElseThrow();
@@ -341,16 +354,21 @@ public class ScheduleService {
   }
 
   @Transactional(readOnly = true)
-  public List<Shift> shifts(Instant from, Instant to) {
+  public Capped<Shift> shifts(Instant from, Instant to) {
     requireRange(from, to);
-    return withNames(
-        jdbc.sql(
-                SELECT_SHIFT
-                    + "where starts_at < :to and ends_at > :from order by starts_at limit 2000")
-            .param("from", utc(from))
-            .param("to", utc(to))
-            .query(ScheduleService::mapShift)
-            .list());
+    Capped<Shift> found =
+        Capped.fromFetched(
+            jdbc.sql(
+                    SELECT_SHIFT
+                        + "where starts_at < :to and ends_at > :from order by starts_at"
+                        + " limit :fetchSize")
+                .param("from", utc(from))
+                .param("to", utc(to))
+                .param("fetchSize", Capped.fetchSize(RANGE_LIMIT))
+                .query(ScheduleService::mapShift)
+                .list(),
+            RANGE_LIMIT);
+    return found.withItems(withNames(found.items()));
   }
 
   /**
@@ -391,7 +409,7 @@ public class ScheduleService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this shift at the same time. Reload and try again.");
     }
     Shift assigned = shift(shiftId);
@@ -437,7 +455,7 @@ public class ScheduleService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this shift at the same time. Reload and try again.");
     }
     Shift result = shift(shiftId);
@@ -490,7 +508,7 @@ public class ScheduleService {
             .param("version", expectedVersion)
             .update();
     if (updated == 0) {
-      throw new ConflictException(
+      throw ConflictException.staleVersion(
           "Someone else changed this shift at the same time. Reload and try again.");
     }
     credit(caller, shift.accountId(), shift.minutes(), shift.title(), shiftId, now);
@@ -522,24 +540,28 @@ public class ScheduleService {
       throw new AccessDeniedException("You can see only your own hours.");
     }
     List<UUID> creditors = new ArrayList<>();
-    List<HoursEntry> raw =
-        jdbc.sql(
-                """
-                select id, minutes, note, shift_id, credited_at, credited_by from hours_entry
-                where account_id = :id order by credited_at desc limit 500
-                """)
-            .param("id", accountId)
-            .query((rs, row) -> {
-              creditors.add(rs.getObject("credited_by", UUID.class));
-              return new HoursEntry(
-                  rs.getObject("id", UUID.class),
-                  rs.getInt("minutes"),
-                  rs.getString("note"),
-                  rs.getObject("shift_id", UUID.class),
-                  instant(rs, "credited_at"),
-                  null);
-            })
-            .list();
+    Capped<HoursEntry> fetched =
+        Capped.fromFetched(
+            jdbc.sql(
+                    """
+                    select id, minutes, note, shift_id, credited_at, credited_by from hours_entry
+                    where account_id = :id order by credited_at desc limit :fetchSize
+                    """)
+                .param("id", accountId)
+                .param("fetchSize", Capped.fetchSize(HOURS_ENTRIES_LIMIT))
+                .query((rs, row) -> {
+                  creditors.add(rs.getObject("credited_by", UUID.class));
+                  return new HoursEntry(
+                      rs.getObject("id", UUID.class),
+                      rs.getInt("minutes"),
+                      rs.getString("note"),
+                      rs.getObject("shift_id", UUID.class),
+                      instant(rs, "credited_at"),
+                      null);
+                })
+                .list(),
+            HOURS_ENTRIES_LIMIT);
+    List<HoursEntry> raw = fetched.items();
     Set<UUID> ids = new HashSet<>(creditors);
     ids.add(accountId);
     Map<UUID, String> names = accounts.displayNames(ids);
@@ -560,7 +582,7 @@ public class ScheduleService {
             .param("id", accountId)
             .query(Integer.class)
             .single();
-    return new HoursLedger(accountId, names.get(accountId), total, entries);
+    return new HoursLedger(accountId, names.get(accountId), total, fetched.withItems(entries));
   }
 
   // ---- Internals

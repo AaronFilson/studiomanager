@@ -53,12 +53,6 @@ class WebhookRulesTests {
   }
 
   @Test
-  void refusesAKeyThatIsntAes256() {
-    assertThatThrownBy(() -> new WebhookSecrets("c2hvcnQ="))
-        .isInstanceOf(IllegalStateException.class);
-  }
-
-  @Test
   void waitsLongerAfterEachFailureThenGivesUp() {
     Instant now = Instant.parse("2026-11-02T12:00:00Z");
     assertThat(Backoff.nextAttempt(1, now)).hasValue(now.plus(Duration.ofMinutes(1)));

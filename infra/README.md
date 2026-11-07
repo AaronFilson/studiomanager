@@ -43,11 +43,12 @@ Then, once per environment, there's one manual database step that Terraform can'
 | Container Apps env | `cae-studiomanager-dev` | Consumption plan, logs to Log Analytics |
 | Container App | `ca-studiomanager-dev-api` | 0–2 replicas, port 8080, actuator probes |
 | Container Apps Job | `caj-studiomanager-dev-migrate` | Manual trigger; same image, `azure,migrate` profile |
+| Container Apps Job | `caj-studiomanager-dev-sweep` | Cron, every 6 hours; same image and identity as the API, `azure,sweep` profile (ADR 23) |
 | PostgreSQL | `psql-studiomanager-dev-<hash>` | 18, B1ms, database `studiomanager`, Entra auth only |
 | Storage | `ststudiomgrdev<hash>` | `piece-photos` container, no shared keys, CORS for the web origin |
 | Key Vault | `kv-studiomgr-dev-<hash>` | RBAC mode, empty for now |
 | Static Web App | `stapp-studiomanager-dev` | Free tier; serves `web/dist` |
-| Monitoring | `log-studiomanager-dev`, `appi-studiomanager-dev` | 0.5 GB/day ingestion cap |
+| Monitoring | `log-studiomanager-dev`, `appi-studiomanager-dev` | 0.15 GB/day ingestion cap; 10% of traces sampled |
 
 `<hash>` is the first 6 hex characters of `sha1("<subscription-id>-dev")`, so names are globally unique but stable.
 
@@ -135,7 +136,7 @@ Rough figures; check the Azure pricing pages before relying on them.
 | Container Apps (Consumption, scale to zero) | ~$0: the monthly free grant covers a pilot |
 | PostgreSQL Flexible B1ms + 32 GB | Free for 12 months on a free account (750 h/month), then roughly $15–25/month |
 | Static Web Apps Free, GHCR (public) | $0 |
-| Log Analytics / Application Insights | Small; the 0.5 GB/day cap bounds it |
+| Log Analytics / Application Insights | Small; the 0.15 GB/day cap bounds it, inside the free 5 GB a month |
 | Storage, Key Vault | Cents |
 | Entra External ID | Free up to the monthly active user allowance |
 

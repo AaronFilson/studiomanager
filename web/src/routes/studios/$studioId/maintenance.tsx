@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage, errorText } from '../../../components/ErrorMessage';
 import { MaintenanceTaskRow } from '../../../components/MaintenanceTaskRow';
 import { PartsPicker } from '../../../components/PartsPicker';
@@ -110,14 +111,15 @@ function OpenProblems({ studioId }: { studioId: string }) {
   if (reports.isError) {
     return <ErrorMessage error={reports.error} />;
   }
-  if (!reports.data?.length) {
+  if (!reports.data?.items.length) {
     return null;
   }
   return (
     <section className="card stack" aria-label="Reported problems">
       <h2>Reported problems</h2>
+      <CappedNote list={reports.data} noun="open reports" findTheRest="Resolve some of these to see older ones." />
       <ul className="studio-list">
-        {reports.data.map((r) => (
+        {reports.data.items.map((r) => (
           <li key={r.id}>
             <div>
               <strong>{r.assetName ?? 'Something else'}</strong>: {r.description}
@@ -382,9 +384,14 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
       <PartsPicker studioId={studioId} parts={parts} onChange={setParts} />
       {repair.isError && <ErrorMessage error={repair.error} />}
       {records.isError && <ErrorMessage error={records.error} />}
-      {records.isSuccess && records.data.length === 0 && <p>Nothing logged yet.</p>}
+      {records.isSuccess && records.data.items.length === 0 && <p>Nothing logged yet.</p>}
+      <CappedNote
+        list={records.data}
+        noun="records"
+        findTheRest="Export the history above to see older ones."
+      />
       <ol className="timeline" aria-label={`${asset.name} history`}>
-        {records.data?.map((r) => (
+        {records.data?.items.map((r) => (
           <li key={r.id}>
             <strong>{r.taskTitle ?? 'Repair'}</strong> · {formatDate(r.doneAt)}
             {r.doneByName && ` · ${r.doneByName}`}

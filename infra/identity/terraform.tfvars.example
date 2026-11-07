@@ -3,6 +3,11 @@ external_tenant_id        = "00000000-0000-0000-0000-000000000000"
 external_tenant_subdomain = "studiomanagerdev"
 environment               = "dev"
 
+# Who gets the Platform.Admin app role, for the /admin page: the owner's user object id.
+platform_admin_object_ids = [
+  # "00000000-0000-0000-0000-000000000000",
+]
+
 # Add the Static Web App origin after the first envs/dev apply, then apply again.
 web_origins = [
   "http://localhost:5173",

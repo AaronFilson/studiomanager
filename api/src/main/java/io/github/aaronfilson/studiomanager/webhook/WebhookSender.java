@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.http.SafeHttpClient;
 import io.github.aaronfilson.studiomanager.platform.http.SafeHttpClient.UnsafeUrlException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
@@ -45,18 +46,21 @@ class WebhookSender {
   private final SafeHttpClient http;
   private final WebhookSecrets secrets;
   private final ApplicationEventPublisher events;
+  private final MeterRegistry meters;
 
   WebhookSender(
       JdbcClient jdbc,
       TransactionOperations transactions,
       SafeHttpClient http,
       WebhookSecrets secrets,
-      ApplicationEventPublisher events) {
+      ApplicationEventPublisher events,
+      MeterRegistry meters) {
     this.jdbc = jdbc;
     this.transactions = transactions;
     this.http = http;
     this.secrets = secrets;
     this.events = events;
+    this.meters = meters;
   }
 
   /** {@link #attempt}, on another thread, so the request that caused the event isn't held up. */
@@ -66,7 +70,11 @@ class WebhookSender {
       attempt(as, deliveryId);
     } catch (RuntimeException e) {
       // The delivery is still PENDING, so the sweep tries it again
-      log.warn("Webhook delivery {} failed before it was recorded: {}", deliveryId, e.toString());
+      log.atWarn()
+          .setCause(e)
+          .addKeyValue("deliveryId", deliveryId)
+          .addKeyValue("studioId", as.studioId())
+          .log("Webhook delivery {} failed before it was recorded", deliveryId);
     }
   }
 
@@ -83,8 +91,12 @@ class WebhookSender {
             return false;
           }
           Outcome outcome = send(claimed);
-          Boolean arrived = transactions.execute(tx -> record(claimed, outcome, now()));
-          return Boolean.TRUE.equals(arrived);
+          DeliveryResult result = transactions.execute(tx -> record(claimed, outcome, now()));
+          if (result == null) {
+            return false;
+          }
+          countOutcome(result);
+          return result == DeliveryResult.DELIVERED;
         });
   }
 
@@ -135,7 +147,7 @@ class WebhookSender {
     }
   }
 
-  private boolean record(Claimed delivery, Outcome outcome, Instant now) {
+  private DeliveryResult record(Claimed delivery, Outcome outcome, Instant now) {
     jdbc.sql(
             """
             insert into webhook_attempt (id, studio_id, delivery_id, attempted_at, status_code, error, duration_ms,
@@ -168,7 +180,7 @@ class WebhookSender {
               "update webhook_endpoint set consecutive_failures = 0, failing_since = null where id = :id")
           .param("id", delivery.endpointId())
           .update();
-      return true;
+      return DeliveryResult.DELIVERED;
     }
     Optional<Instant> next =
         outcome.statusCode() != null && outcome.statusCode() == 410
@@ -211,7 +223,21 @@ class WebhookSender {
                   failing.consecutiveFailures(),
                   outcome.summary()));
     }
-    return false;
+    return next.isPresent() ? DeliveryResult.WILL_RETRY : DeliveryResult.GAVE_UP;
+  }
+
+  /**
+   * Counts {@code studiomanager.webhook.deliveries} by result: one per attempt, so the share that
+   * fail is a rate an alert can watch.
+   */
+  private void countOutcome(DeliveryResult result) {
+    String resultTag =
+        switch (result) {
+          case DELIVERED -> "delivered";
+          case WILL_RETRY -> "will_retry";
+          case GAVE_UP -> "gave_up";
+        };
+    meters.counter("studiomanager.webhook.deliveries", "result", resultTag).increment();
   }
 
   private void disable(Claimed delivery, String reason) {
@@ -285,4 +311,11 @@ class WebhookSender {
   }
 
   record Failing(int consecutiveFailures, OffsetDateTime failingSince) {}
+
+  /** How an attempt ended: it arrived, it will be tried again, or it won't be. */
+  enum DeliveryResult {
+    DELIVERED,
+    WILL_RETRY,
+    GAVE_UP
+  }
 }

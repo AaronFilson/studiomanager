@@ -1,11 +1,13 @@
 package io.github.aaronfilson.studiomanager.platform.security;
 
+import io.github.aaronfilson.studiomanager.platform.ProblemType;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -36,7 +38,7 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
       HttpServletRequest request, HttpServletResponse response, AuthenticationException ex)
       throws IOException, ServletException {
     bearerEntryPoint.commence(request, response, ex);
-    write(request, response, "A valid access token is required.");
+    write(request, response, ProblemType.UNAUTHENTICATED, "A valid access token is required.");
   }
 
   @Override
@@ -44,18 +46,28 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
       HttpServletRequest request, HttpServletResponse response, AccessDeniedException ex)
       throws IOException, ServletException {
     bearerAccessDenied.handle(request, response, ex);
-    write(request, response, ex.getMessage());
+    // Ours always carry a reason; Spring's own may not
+    write(
+        request,
+        response,
+        ProblemType.FORBIDDEN,
+        Objects.requireNonNullElse(ex.getMessage(), "You don't have access to this."));
   }
 
-  private void write(HttpServletRequest request, HttpServletResponse response, String detail)
+  private void write(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      ProblemType problemType,
+      String detail)
       throws IOException {
     HttpStatus status = HttpStatus.valueOf(response.getStatus());
     Map<String, Object> problem = new LinkedHashMap<>();
-    problem.put("type", "about:blank");
-    problem.put("title", status.getReasonPhrase());
+    problem.put("type", problemType.uri().toString());
+    problem.put("title", problemType.title());
     problem.put("status", status.value());
     problem.put("detail", detail);
     problem.put("instance", request.getRequestURI());
+    problem.put(ProblemType.CODE_PROPERTY, problemType.code());
     response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
     json.writeValue(response.getOutputStream(), problem);
   }

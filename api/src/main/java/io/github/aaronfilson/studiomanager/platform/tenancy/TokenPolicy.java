@@ -89,22 +89,26 @@ public final class TokenPolicy {
         area == null
             ? new Never("Tokens work only inside their studio.")
             : AREAS.getOrDefault(area, new Never("Tokens can't reach this part of the API."));
-    if (access instanceof Never never) {
-      return Optional.of(never.why());
-    }
-    // Reading anything a token can reach needs the read scope
-    if (method.equals("GET") || method.equals("HEAD")) {
-      return scopes.contains(TokenScope.READ) ? Optional.empty() : noRead();
-    }
-    if (access instanceof Writable writable) {
-      return scopes.contains(writable.scope())
-          ? Optional.empty()
-          : Optional.of("This token needs the %s scope.".formatted(writable.scope().wireName()));
-    }
-    return Optional.of("Tokens can only read this.");
+    boolean reading = method.equals("GET") || method.equals("HEAD");
+    // Exhaustive over the sealed Access: a new kind of access won't compile until it's handled
+    return switch (access) {
+      case Never(String why) -> Optional.of(why);
+      case ReadOnly() -> reading ? needsRead(scopes) : Optional.of("Tokens can only read this.");
+      case Writable(TokenScope writeScope) ->
+          reading ? needsRead(scopes) : needsScope(scopes, writeScope);
+    };
   }
 
-  private static Optional<String> noRead() {
-    return Optional.of("This token needs the read scope.");
+  /** Reading anything a token can reach needs the read scope. */
+  private static Optional<String> needsRead(Set<TokenScope> scopes) {
+    return scopes.contains(TokenScope.READ)
+        ? Optional.empty()
+        : Optional.of("This token needs the read scope.");
+  }
+
+  private static Optional<String> needsScope(Set<TokenScope> scopes, TokenScope writeScope) {
+    return scopes.contains(writeScope)
+        ? Optional.empty()
+        : Optional.of("This token needs the %s scope.".formatted(writeScope.wireName()));
   }
 }

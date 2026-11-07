@@ -20,6 +20,17 @@ variable "mobile_redirect_uri" {
   default     = "studiomanager://auth"
 }
 
+variable "platform_admin_object_ids" {
+  description = "Object ids of the users who get the Platform.Admin app role: the owner's account in the External ID tenant (Users > the account > Object ID)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for id in var.platform_admin_object_ids : can(regex("^[0-9a-fA-F-]{36}$", id))])
+    error_message = "Each entry is a user's object id, a GUID."
+  }
+}
+
 variable "web_origins" {
   description = "Origins the SPA is served from, without a trailing slash; each is registered as the redirect URI `<origin>/`. Add the Static Web App origin (https://<default-host-name>) after the first envs/<env> apply."
   type        = list(string)

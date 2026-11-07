@@ -55,8 +55,18 @@ public final class SafeHttpClient implements AutoCloseable {
 
   /** Thrown from the DNS lookup, so the refusal stops the connection itself. */
   private static final class BlockedAddressException extends UnknownHostException {
-    BlockedAddressException(String message) {
-      super(message);
+    private final String reason;
+
+    BlockedAddressException(String reason) {
+      super(reason);
+      this.reason = reason;
+    }
+
+    /**
+     * Why the address is refused: the message, which unlike {@link #getMessage()} is never null.
+     */
+    String reason() {
+      return reason;
     }
   }
 
@@ -117,7 +127,7 @@ public final class SafeHttpClient implements AutoCloseable {
     try {
       resolver.resolve(uri.getHost());
     } catch (BlockedAddressException e) {
-      throw new UnsafeUrlException(e.getMessage());
+      throw new UnsafeUrlException(e.reason());
     } catch (UnknownHostException e) {
       throw new UnsafeUrlException("%s doesn't resolve to any address.".formatted(uri.getHost()));
     }
@@ -138,7 +148,7 @@ public final class SafeHttpClient implements AutoCloseable {
       // The connection's own lookup checks again, so what was checked is what's connected to.
       resolver.resolve(uri.getHost());
     } catch (BlockedAddressException e) {
-      throw new UnsafeUrlException(e.getMessage());
+      throw new UnsafeUrlException(e.reason());
     }
     HttpPost post = new HttpPost(uri);
     headers.forEach(post::setHeader);
@@ -147,7 +157,7 @@ public final class SafeHttpClient implements AutoCloseable {
       return client.execute(
           post, response -> new Response(response.getCode(), read(response.getEntity())));
     } catch (BlockedAddressException e) {
-      throw new UnsafeUrlException(e.getMessage());
+      throw new UnsafeUrlException(e.reason());
     }
   }
 

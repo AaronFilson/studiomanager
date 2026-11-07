@@ -124,7 +124,7 @@ class NotificationEmailTests {
     assertThat(mvc.get().uri(path("/notifications")).with(member.token()))
         .hasStatusOk()
         .bodyJson()
-        .extractingPath("$[0].title")
+        .extractingPath("$.items[0].title")
         .isEqualTo("Glaze day");
     await().atMost(WAIT).until(() -> !emails.sentTo(owner.email()).isEmpty());
     assertThat(emails.sentTo(member.email())).isEmpty();

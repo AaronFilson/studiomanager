@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, client, configureApiClient, getMe, getStudio } from './index';
+import { ApiError, client, configureApiClient, getMe, getStudio, hasProblemCode } from './index';
 
 const studioId = '0b7f3f0e-6f1c-4c7a-9d55-1d2f2b8b4a10';
 
@@ -67,6 +67,29 @@ describe('configureApiClient', () => {
 
     expect(error).toMatchObject({ status: 400, title: 'Bad Request', detail: 'timeZone is not a valid IANA zone' });
     expect((error as ApiError).message).toBe('timeZone is not a valid IANA zone');
+  });
+
+  it('keeps the problem code, so callers can tell one 409 from another', async () => {
+    configureApiClient({ baseUrl: 'https://api.test', getAccessToken: () => Promise.resolve('t') });
+    stubFetch(
+      Response.json(
+        {
+          type: '/problems/stale-version',
+          title: 'Changed by someone else',
+          status: 409,
+          detail: 'Someone else changed this piece at the same time. Reload and try again.',
+          code: 'stale-version',
+        },
+        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    );
+
+    const error: unknown = await getStudio({ path: { studioId }, throwOnError: true }).catch((e: unknown) => e);
+
+    expect((error as ApiError).code).toBe('stale-version');
+    expect((error as ApiError).type).toBe('/problems/stale-version');
+    expect(hasProblemCode(error, 'stale-version')).toBe(true);
+    expect(hasProblemCode(error, 'duplicate')).toBe(false);
   });
 
   it('registers a single error interceptor across repeated calls', async () => {

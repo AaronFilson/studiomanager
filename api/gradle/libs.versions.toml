@@ -17,6 +17,9 @@ azure-identity-extensions = "1.2.10"
 azure-storage-blob = "12.36.0"
 azure-monitor = "7.4.0"
 anthropic = "3.6.0"
+mcp = "2.1.0"
+spring-ai = "2.0.2"
+bucket4j = "8.16.0"
 
 [libraries]
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
@@ -28,6 +31,9 @@ azure-storage-blob = { module = "com.azure:azure-storage-blob", version.ref = "a
 azure-monitor = { module = "com.azure.spring:spring-cloud-azure-starter-monitor", version.ref = "azure-monitor" }
 anthropic = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+mcp = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcp" }
+mcp-spring-webmvc = { module = "org.springframework.ai:mcp-spring-webmvc", version.ref = "spring-ai" }
+bucket4j = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4j" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
 [plugins]

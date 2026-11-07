@@ -1,0 +1,154 @@
+package io.github.aaronfilson.studiomanager.mcp;
+
+import io.github.aaronfilson.studiomanager.platform.ConflictException;
+import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.ratelimit.ApiCallLog;
+import io.github.aaronfilson.studiomanager.ratelimit.RateLimitSettings.Channel;
+import io.github.aaronfilson.studiomanager.ratelimit.RateLimiter;
+import io.modelcontextprotocol.common.McpTransportContext;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
+import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.BiFunction;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * Turns {@link McpTools} into the SDK's tool specifications. Every call is rate limited (plan 20,
+ * section 6) and logged, and a tool's own failure goes back to the model as an {@code isError}
+ * result it can read and act on.
+ *
+ * <p>Tools run on the request thread ({@code immediateExecution}, see {@link McpConfiguration}), so
+ * the tenant and the signed-in person are bound here exactly as in a controller.
+ */
+@Component
+class McpToolCalls {
+
+  private final McpTools tools;
+  private final RateLimiter limiter;
+  private final ApiCallLog callLog;
+  private final JsonMapper json;
+  private final Clock clock;
+
+  McpToolCalls(
+      McpTools tools, RateLimiter limiter, ApiCallLog callLog, JsonMapper json, Clock clock) {
+    this.tools = tools;
+    this.limiter = limiter;
+    this.callLog = callLog;
+    this.json = json;
+    this.clock = clock;
+  }
+
+  List<SyncToolSpecification> specifications() {
+    return tools.list().stream().map(this::specification).toList();
+  }
+
+  private SyncToolSpecification specification(McpTools.Tool tool) {
+    McpSchema.Tool definition =
+        McpSchema.Tool.builder(tool.name(), tool.inputSchema())
+            .title(tool.title())
+            .description(tool.description())
+            // Hints for the client: nothing here changes anything, and calling twice is harmless
+            .annotations(
+                McpSchema.ToolAnnotations.builder()
+                    .title(tool.title())
+                    .readOnlyHint(true)
+                    .destructiveHint(false)
+                    .idempotentHint(true)
+                    .openWorldHint(false)
+                    .build())
+            .build();
+    return SyncToolSpecification.builder()
+        .tool(definition)
+        .callHandler(new LimitedToolCall(tool))
+        .build();
+  }
+
+  /** One tool's handler: the rate limit, the call and the call log. */
+  private final class LimitedToolCall
+      implements BiFunction<McpTransportContext, CallToolRequest, CallToolResult> {
+
+    private final McpTools.Tool tool;
+
+    LimitedToolCall(McpTools.Tool tool) {
+      this.tool = tool;
+    }
+
+    @Override
+    public CallToolResult apply(McpTransportContext transportContext, CallToolRequest request) {
+      TenantContext caller = TenantContext.require();
+      UUID studioId = caller.studioId();
+      if (studioId == null) {
+        throw new AccessDeniedException("MCP tools run inside a studio.");
+      }
+      Map<String, Object> arguments = request.arguments() == null ? Map.of() : request.arguments();
+      String argumentsJson = json.writeValueAsString(arguments);
+      Instant started = clock.instant();
+      Optional<Duration> refusal = limiter.refusal(Channel.MCP, caller.accountId(), studioId);
+      if (refusal.isPresent()) {
+        long seconds = Math.max(1, (refusal.get().toMillis() + 999) / 1000);
+        log(caller, studioId, argumentsJson, ApiCallLog.Outcome.LIMITED, started);
+        return failure(
+            "Too many tool calls for now. Wait %d seconds before calling another tool, and tell the person you're waiting."
+                .formatted(seconds));
+      }
+      try {
+        JsonNode argumentsNode = json.valueToTree(arguments);
+        Object data = tool.call().apply(argumentsNode);
+        // Structured content for clients that read it, the same as text for those that don't
+        Map<String, Object> structured = Map.of("result", data);
+        CallToolResult result =
+            CallToolResult.builder()
+                .addTextContent(json.writeValueAsString(structured))
+                .structuredContent(structured)
+                .isError(false)
+                .build();
+        log(caller, studioId, argumentsJson, ApiCallLog.Outcome.OK, started);
+        return result;
+      } catch (InvalidInputException
+          | NotFoundException
+          | ConflictException
+          | AccessDeniedException toolFailure) {
+        log(caller, studioId, argumentsJson, ApiCallLog.Outcome.ERROR, started);
+        return failure(toolFailure.getMessage());
+      } catch (RuntimeException unexpected) {
+        log(caller, studioId, argumentsJson, ApiCallLog.Outcome.ERROR, started);
+        throw unexpected;
+      }
+    }
+
+    private void log(
+        TenantContext caller,
+        UUID studioId,
+        String argumentsJson,
+        ApiCallLog.Outcome outcome,
+        Instant started) {
+      callLog.record(
+          new ApiCallLog.Call(
+              studioId,
+              caller.accountId(),
+              Channel.MCP,
+              tool.name(),
+              argumentsJson,
+              outcome,
+              null,
+              Duration.between(started, clock.instant())));
+    }
+  }
+
+  private static CallToolResult failure(String message) {
+    return CallToolResult.builder().addTextContent(message).isError(true).build();
+  }
+}
