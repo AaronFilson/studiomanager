@@ -65,7 +65,7 @@ class SignInFlowTests {
     registry.add("studiomanager.bridge.entra-client-id", () -> ENTRA_CLIENT_ID);
     registry.add("studiomanager.bridge.entra-client-secret", () -> ENTRA_CLIENT_SECRET);
     registry.add("studiomanager.bridge.entra-redirect-uris", () -> ENTRA_REDIRECT);
-    registry.add("studiomanager.bridge.signing-keys", () -> TestKeys.pem(2048));
+    registry.add("studiomanager.bridge.signing-keys", () -> TestKeys.pem(TestKeys.ACCEPTED_BITS));
     registry.add("studiomanager.bridge.github-emails-uri", () -> github + "/user/emails");
     registry.add("spring.security.oauth2.client.registration.github.client-id", () -> "gh-client");
     registry.add(

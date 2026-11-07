@@ -7,6 +7,12 @@ import java.util.Base64;
 /** Fresh RSA keys as PKCS#8 PEM, the form the signing-keys secret takes. */
 final class TestKeys {
 
+  /** The smallest key the bridge accepts. */
+  static final int ACCEPTED_BITS = 2048;
+
+  /** Deliberately too short: only for checking that the bridge refuses it. */
+  static final int TOO_SHORT_BITS = 1024;
+
   private TestKeys() {}
 
   static String pem(int bits) {

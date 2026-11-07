@@ -10,8 +10,8 @@ class SigningKeysTests {
 
   @Test
   void theFirstKeySignsAndTheRestArePublishedWithoutTheirPrivateHalf() {
-    String current = TestKeys.pem(2048);
-    String retiring = TestKeys.pem(2048);
+    String current = TestKeys.pem(TestKeys.ACCEPTED_BITS);
+    String retiring = TestKeys.pem(TestKeys.ACCEPTED_BITS);
 
     SigningKeys keys = SigningKeys.fromPem(current + retiring);
 
@@ -24,7 +24,7 @@ class SigningKeysTests {
 
   @Test
   void theKeyIdIsStableForTheSameKey() {
-    String pem = TestKeys.pem(2048);
+    String pem = TestKeys.pem(TestKeys.ACCEPTED_BITS);
 
     assertThat(SigningKeys.fromPem(pem).signingKey().getKeyID())
         .isEqualTo(SigningKeys.fromPem(pem).signingKey().getKeyID());
@@ -39,7 +39,7 @@ class SigningKeysTests {
 
   @Test
   void refusesAShortKey() {
-    assertThatThrownBy(() -> SigningKeys.fromPem(TestKeys.pem(1024)))
+    assertThatThrownBy(() -> SigningKeys.fromPem(TestKeys.pem(TestKeys.TOO_SHORT_BITS)))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("2048");
   }
