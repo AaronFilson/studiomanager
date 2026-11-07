@@ -11,7 +11,12 @@ import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** One person's membership, and role, in one studio. */
+/**
+ * One person's membership, and role, in one studio.
+ *
+ * <p>No {@code @TenantId}: "my studios" reads a person's memberships in every studio with none
+ * bound (ADR 21). So queries in one studio name the studio themselves.
+ */
 @Entity
 @Table(name = "studio_membership")
 class StudioMembership {
@@ -29,6 +34,7 @@ class StudioMembership {
 
   @Version private @Nullable Long version;
 
+  @SuppressWarnings("NullAway.Init")
   protected StudioMembership() {}
 
   StudioMembership(UUID id, UUID studioId, UUID accountId, StudioRole role, Instant createdAt) {
@@ -37,5 +43,17 @@ class StudioMembership {
     this.accountId = accountId;
     this.role = role;
     this.createdAt = createdAt;
+  }
+
+  UUID accountId() {
+    return accountId;
+  }
+
+  StudioRole role() {
+    return role;
+  }
+
+  Instant createdAt() {
+    return createdAt;
   }
 }

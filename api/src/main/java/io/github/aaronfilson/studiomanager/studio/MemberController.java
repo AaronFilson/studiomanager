@@ -13,6 +13,7 @@ import io.github.aaronfilson.studiomanager.contract.StudioRoleDto;
 import io.github.aaronfilson.studiomanager.contract.StudioSummaryDto;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -25,9 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 class MemberController implements MembersApi {
 
   private final StudioMembers members;
+  private final StudioInvites invites;
+  private final Clock clock;
 
-  MemberController(StudioMembers members) {
+  MemberController(StudioMembers members, StudioInvites invites, Clock clock) {
     this.members = members;
+    this.invites = invites;
+    this.clock = clock;
   }
 
   @Override
@@ -47,7 +52,7 @@ class MemberController implements MembersApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<InviteDto> createInvite(UUID studioId, CreateInviteRequestDto request) {
-    InviteView invite = members.invite(StudioRole.valueOf(request.getRole().name()));
+    InviteView invite = invites.invite(StudioRole.valueOf(request.getRole().name()));
     return ResponseEntity.created(URI.create("/api/v1/invites/" + invite.code() + "/accept"))
         .body(
             new InviteDto()
@@ -60,9 +65,9 @@ class MemberController implements MembersApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<List<OpenInviteDto>> listOpenInvites(UUID studioId) {
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     return ResponseEntity.ok(
-        members.openInvites().stream().map(invite -> toDto(invite, now)).toList());
+        invites.openInvites().stream().map(invite -> toDto(invite, now)).toList());
   }
 
   @Override
@@ -71,7 +76,7 @@ class MemberController implements MembersApi {
       UUID studioId, EmailInvitesRequestDto request) {
     EmailInvitesResult result =
         members.emailInvites(request.getText(), StudioRole.valueOf(request.getRole().name()));
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     return ResponseEntity.ok(
         new EmailInvitesResultDto()
             .invited(result.invited().stream().map(invite -> toDto(invite, now)).toList())
@@ -87,19 +92,19 @@ class MemberController implements MembersApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<Void> revokeInvite(UUID studioId, UUID inviteId) {
-    members.revoke(inviteId);
+    invites.revoke(inviteId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<OpenInviteDto> resendInvite(UUID studioId, UUID inviteId) {
-    return ResponseEntity.ok(toDto(members.resend(inviteId), Instant.now()));
+    return ResponseEntity.ok(toDto(invites.resend(inviteId), clock.instant()));
   }
 
   @Override
   public ResponseEntity<MembershipDto> acceptInvite(String code) {
-    MembershipView membership = members.accept(code);
+    MembershipView membership = invites.accept(code);
     return ResponseEntity.ok(
         new MembershipDto()
             .studio(new StudioSummaryDto().id(membership.studioId()).name(membership.studioName()))

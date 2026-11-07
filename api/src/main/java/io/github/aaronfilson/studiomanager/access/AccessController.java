@@ -25,10 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 class AccessController implements AccessApi {
 
   private final AccessService access;
+  private final Certifications certifications;
   private final StudioAuthorization authorization;
 
-  AccessController(AccessService access, StudioAuthorization authorization) {
+  AccessController(
+      AccessService access, Certifications certifications, StudioAuthorization authorization) {
     this.access = access;
+    this.certifications = certifications;
     this.authorization = authorization;
   }
 
@@ -61,7 +64,7 @@ class AccessController implements AccessApi {
   public ResponseEntity<CertificationTypeDto> createCertificationType(
       UUID studioId, CreateCertificationTypeRequestDto request) {
     AccessService.CertificationType type =
-        access.createType(request.getName(), request.getValidMonths());
+        certifications.createType(request.getName(), request.getValidMonths());
     return ResponseEntity.created(
             URI.create("/api/v1/studios/%s/certification-types/%s".formatted(studioId, type.id())))
         .body(toDto(type));
@@ -73,11 +76,11 @@ class AccessController implements AccessApi {
       UUID studioId, @Nullable UUID accountId) {
     List<AccessService.Certification> found;
     if (accountId != null) {
-      found = access.certifications(accountId);
+      found = certifications.certifications(accountId);
     } else if (authorization.hasRole(studioId, StudioRole.STAFF)) {
-      found = access.allCertifications();
+      found = certifications.allCertifications();
     } else {
-      found = access.certifications(TenantContext.require().accountId());
+      found = certifications.certifications(TenantContext.require().accountId());
     }
     return ResponseEntity.ok(found.stream().map(AccessController::toDto).toList());
   }
@@ -86,13 +89,13 @@ class AccessController implements AccessApi {
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<CertificationDto> grantCertification(
       UUID studioId, UUID typeId, UUID accountId) {
-    return ResponseEntity.ok(toDto(access.grant(typeId, accountId)));
+    return ResponseEntity.ok(toDto(certifications.grant(typeId, accountId)));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<Void> revokeCertification(UUID studioId, UUID typeId, UUID accountId) {
-    access.revoke(typeId, accountId);
+    certifications.revoke(typeId, accountId);
     return ResponseEntity.noContent().build();
   }
 
