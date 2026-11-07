@@ -81,6 +81,9 @@ After the queue, the deferred plans are next. Each needs an owner's go-ahead:
 ## 3. Decisions (owner, 2026-11-07)
 
 1. **Mobile owner picker:** later, probably before the pilot, with a mobile members screen.
+   **Revised 2026-11-07:** mobile parity with the web is the next lane. That starts with the
+   members screen (invites, roles including custom roles, co-owners, billing contact), then the
+   other owner and staff pages the web has and mobile lacks.
 2. **Playwright against dev:** on every deploy. The assurance is worth waking the API.
 3. **Email domain:** not chosen yet; the owner is searching. Lane E builds everything that doesn't
    need the domain, and the runbook lists the steps for when it's known.
