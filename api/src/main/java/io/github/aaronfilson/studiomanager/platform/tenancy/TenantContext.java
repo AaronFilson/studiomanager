@@ -1,7 +1,10 @@
 package io.github.aaronfilson.studiomanager.platform.tenancy;
 
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -23,13 +26,18 @@ import org.jspecify.annotations.Nullable;
  * @param viaTokenId the personal API token the person is calling through, by REST or MCP; {@code
  *     null} when they signed in to the app themselves. Histories note it as "via &lt;token
  *     name&gt;".
+ * @param permissions what the caller may do in that studio (ADR 25); empty outside any one studio.
+ *     Until a studio's roles are stored (plan 21, lane R4) it is the role's {@linkplain
+ *     Permission#defaultsFor code defaults}. Only an OWNER may hold an owner-only permission, and a
+ *     job never holds more than its ceiling's defaults.
  */
 public record TenantContext(
     UUID accountId,
     @Nullable UUID studioId,
     @Nullable StudioRole role,
     PrincipalKind kind,
-    @Nullable UUID viaTokenId) {
+    @Nullable UUID viaTokenId,
+    Set<Permission> permissions) {
 
   private static final ScopedValue<TenantContext> CURRENT = ScopedValue.newInstance();
 
@@ -45,9 +53,19 @@ public record TenantContext(
   public TenantContext {
     Objects.requireNonNull(accountId, "accountId");
     Objects.requireNonNull(kind, "kind");
+    Objects.requireNonNull(permissions, "permissions");
     if ((studioId == null) != (role == null)) {
       throw new IllegalArgumentException("A studio and a role in it go together");
     }
+    EnumSet<Permission> held = EnumSet.noneOf(Permission.class);
+    held.addAll(permissions);
+    if (role == null && !held.isEmpty()) {
+      throw new IllegalArgumentException("Permissions are held in a studio");
+    }
+    if (role != StudioRole.OWNER && held.stream().anyMatch(Permission::isOwnerOnly)) {
+      throw new IllegalArgumentException("Only an owner holds an owner-only permission");
+    }
+    permissions = Collections.unmodifiableSet(held);
     if (kind == PrincipalKind.SYSTEM) {
       SystemActor actor =
           SystemActor.byAccountId(accountId)
@@ -57,12 +75,26 @@ public record TenantContext(
         throw new IllegalArgumentException(
             "%s can't act above %s".formatted(actor, actor.ceiling()));
       }
+      if (!Permission.defaultsFor(actor.ceiling()).containsAll(held)) {
+        throw new IllegalArgumentException(
+            "%s can't hold more than %s's defaults".formatted(actor, actor.ceiling()));
+      }
       if (viaTokenId != null) {
         throw new IllegalArgumentException("A job doesn't call through an API token");
       }
     } else if (SystemActor.byAccountId(accountId).isPresent()) {
       throw new IllegalArgumentException("A system account can't act as a person: " + accountId);
     }
+  }
+
+  /** A context holding its role's default permissions (plan 21, lane R1). */
+  public TenantContext(
+      UUID accountId,
+      @Nullable UUID studioId,
+      @Nullable StudioRole role,
+      PrincipalKind kind,
+      @Nullable UUID viaTokenId) {
+    this(accountId, studioId, role, kind, viaTokenId, defaultsOrNone(role));
   }
 
   /** A context with no API token: a person signed in to the app, or a job. */
@@ -102,7 +134,16 @@ public record TenantContext(
   /** The same person, calling through the personal API token {@code tokenId}. */
   public TenantContext viaToken(UUID tokenId) {
     Objects.requireNonNull(tokenId, "tokenId");
-    return new TenantContext(accountId, studioId, role, kind, tokenId);
+    return new TenantContext(accountId, studioId, role, kind, tokenId, permissions);
+  }
+
+  /** Whether the caller holds {@code permission} in the bound studio. */
+  public boolean holds(Permission permission) {
+    return permissions.contains(permission);
+  }
+
+  private static Set<Permission> defaultsOrNone(@Nullable StudioRole role) {
+    return role == null ? Set.of() : Permission.defaultsFor(role);
   }
 
   /**

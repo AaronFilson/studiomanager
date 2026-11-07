@@ -422,7 +422,7 @@ New studios get the same seed from `StudioService` when created.
 | R3 | `GET /me/permissions`, generated client, web and mobile `can()` hook; remove `isStaff` | M | R1 |
 | R4 | Tables, V38 seed, dual-write, cache, role_change_log, switch from shadow to enforcing | M | R2 |
 | R5 | Tokens and MCP: token = person ∩ scopes; `mcp.use`; per-tool permissions; tool listing filter | S | R2 |
-| R6 | Owner UI: roles page, edit STAFF and MEMBER sets, diff warning, audit log view; ADR 25 | M | R3, R4 |
+| R6 | Owner UI: roles page, edit STAFF and MEMBER sets, diff warning, audit log view; extends ADR 25 | M | R3, R4 |
 | R7 | Custom roles: create, rename, delete, assign; invites by role | M | R6 |
 | R8 | Co-owners: add and remove owners (`owners.manage`), last-owner trigger and lock, V14 replacement notifying every owner, owner-meant notices to all owners, billing contact, web and mobile owner picker | M | R4 |
 
@@ -433,6 +433,30 @@ New studios get the same seed from `StudioService` when created.
 3. R4, then R5 and R8 in parallel.
 4. R6, then R7.
 5. Pilot.
+
+### Status
+
+**R1 done (2026-11-07), branch `rbac-r1`.** No behaviour change, no migration.
+- `platform.tenancy.Permission`: the §4 catalogue, 64 constants with keys and a default grant
+  (`FLOOR`, `MEMBER`, `STAFF`, `DUTY_ONLY`, `OWNER_ONLY`); `defaultsFor(role)`, `ownerOnly()`,
+  `byKey(key)` (unknown keys are empty, for R4's "ignore, don't grant").
+- `TenantContext.permissions` (resolved from code defaults; the old constructors still work). It
+  refuses owner-only permissions on a non-owner and anything above a job's ceiling defaults.
+  R4 plugs in by building the context with the stored set plus duty grants instead of defaults.
+- `StudioPermissions.has/require` and `@studioAuthz.can(#studioId, 'PIECES_MOVE')`, for R2.
+- `Duty.grants()` (the table in §3), not yet added to a caller's permissions; R4 does that.
+- ADR 25. Tests: `PermissionTests`, `StudioPermissionsTests` (`can` equals `hasRole` for every
+  role and permission), `DutyTests`, `PermissionArchitectureTests` (role-branching allow-list
+  that R2 empties; every studio endpoint has `@PreAuthorize`), `PermissionContractTests`
+  (`x-permission` on operations, ratchet at 148 unnamed, which R2 brings to 0).
+
+Choices R1 made that the Decisions don't cover:
+- `maintenance.complete_assigned`, `schedule.shifts.take_duty` and `schedule.hours.log_own`
+  are in the catalogue as `DUTY_ONLY`: no role but OWNER holds them by default; duties grant them.
+- `money.own.read` is the `FLOOR` grant (every role, not editable), per decision 3, rather than an
+  editable MEMBER permission as the §4 table shows.
+- The contract names permissions with an `x-permission` extension on each operation.
+- The ADR for the model is 25 (R1); R6 extends it rather than writing it.
 
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
