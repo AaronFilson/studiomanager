@@ -101,6 +101,27 @@ describe('pieces', () => {
     expect(moved).toEqual({ to: 'BISQUE_FIRED', expectedVersion: 0, note: 'Cone 04' });
     expect(screen.getByRole('button', { name: 'Ready for pickup' })).toBeInTheDocument();
   });
+
+  it('names the API token a change came through', async () => {
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/pieces/:pieceId`, () =>
+        HttpResponse.json(
+          aPiece({
+            timeline: [
+              { to: 'RECEIVED', actorAccountId: 'a1', actorName: 'Olive', actorKind: 'PERSON', viaToken: 'Sync script', occurredAt: '2026-10-19T15:00:00Z' },
+            ],
+          }),
+        ),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/pieces`, () => HttpResponse.json(capped([]))),
+    );
+
+    renderApp(`/studios/${studio.id}/pieces/${aPiece().id}`);
+
+    const timeline = await screen.findByRole('region', { name: 'Timeline' });
+    expect(timeline).toHaveTextContent('Olive via Sync script');
+  });
 });
 
 describe('piece photos', () => {

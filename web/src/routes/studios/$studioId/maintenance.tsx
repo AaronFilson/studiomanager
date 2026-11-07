@@ -395,6 +395,7 @@ function History({ studioId, asset }: { studioId: string; asset: Asset }) {
           <li key={r.id}>
             <strong>{r.taskTitle ?? 'Repair'}</strong> · {formatDate(r.doneAt)}
             {r.doneByName && ` · ${r.doneByName}`}
+            {r.viaToken && ` via ${r.viaToken}`}
             {r.atFiring !== undefined && ` · at firing ${String(r.atFiring)}`}
             {r.cost && ` · ${formatMoney(r.cost, currency)}`}
             {r.note && <div>{r.note}</div>}
