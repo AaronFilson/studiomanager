@@ -3,7 +3,6 @@ import {
   createInviteMutation,
   type Duty,
   emailInvitesMutation,
-  getStudioOptions,
   grantCertificationMutation,
   listCertificationsOptions,
   listCertificationTypesOptions,
@@ -17,8 +16,9 @@ import {
   setDutiesMutation,
   type SkippedEmail,
   type StudioRole,
+  useCan,
 } from '@studiomanager/api-client';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
@@ -33,14 +33,15 @@ const allDuties: Duty[] = ['TECHNICIAN', 'MONITOR', 'WORK_EXCHANGE', 'VOLUNTEER_
 
 function MembersPage() {
   const { studioId } = Route.useParams();
-  const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
   const members = useQuery(listMembersOptions({ path: { studioId } }));
+  const roles = rolesFor(can('owners.manage'));
 
   return (
     <div className="stack">
       <h1>Members</h1>
-      <EmailInviteForm studioId={studioId} myRole={studio.myRole} />
-      <InviteForm studioId={studioId} myRole={studio.myRole} />
+      <EmailInviteForm studioId={studioId} roles={roles} />
+      <InviteForm studioId={studioId} roles={roles} />
       <OpenInvites studioId={studioId} />
       {members.isPending && <p>Loading members…</p>}
       {members.isError && <ErrorMessage error={members.error} />}
@@ -161,8 +162,9 @@ function CertificationTypeForm({ studioId }: { studioId: string }) {
   );
 }
 
-function rolesFor(myRole: StudioRole): StudioRole[] {
-  return myRole === 'OWNER' ? ['MEMBER', 'STAFF', 'OWNER'] : ['MEMBER', 'STAFF'];
+/** The roles the caller may invite someone as: owners only by someone who manages owners. */
+function rolesFor(managesOwners: boolean): StudioRole[] {
+  return managesOwners ? ['MEMBER', 'STAFF', 'OWNER'] : ['MEMBER', 'STAFF'];
 }
 
 const skipReasons: Record<SkippedEmail['reason'], string> = {
@@ -170,7 +172,7 @@ const skipReasons: Record<SkippedEmail['reason'], string> = {
   ALREADY_INVITED: 'already invited; resend it below',
 };
 
-function EmailInviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole }) {
+function EmailInviteForm({ studioId, roles }: { studioId: string; roles: StudioRole[] }) {
   const id = useId();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
@@ -211,7 +213,7 @@ function EmailInviteForm({ studioId, myRole }: { studioId: string; myRole: Studi
       <div className="field">
         <label htmlFor={`${id}-role`}>As</label>
         <select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as StudioRole)}>
-          {rolesFor(myRole).map((r) => (
+          {roles.map((r) => (
             <option key={r} value={r}>
               {roleLabel(r)}
             </option>
@@ -282,7 +284,7 @@ function OpenInvites({ studioId }: { studioId: string }) {
   );
 }
 
-function InviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole }) {
+function InviteForm({ studioId, roles }: { studioId: string; roles: StudioRole[] }) {
   const id = useId();
   const queryClient = useQueryClient();
   const [role, setRole] = useState<StudioRole>('MEMBER');
@@ -290,7 +292,6 @@ function InviteForm({ studioId, myRole }: { studioId: string; myRole: StudioRole
     ...createInviteMutation(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: listOpenInvitesQueryKey({ path: { studioId } }) }),
   });
-  const roles = rolesFor(myRole);
   const link = invite.data ? `${window.location.origin}/invites/${invite.data.code}` : undefined;
 
   return (

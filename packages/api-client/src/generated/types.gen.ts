@@ -825,6 +825,19 @@ export type NoticeResult = {
  */
 export type Duty = 'TECHNICIAN' | 'MONITOR' | 'WORK_EXCHANGE' | 'VOLUNTEER_OFFICER' | 'INSTRUCTOR';
 
+export type MyPermissions = {
+    role: StudioRole;
+    /**
+     * The role's display name, such as `Staff`.
+     */
+    roleName: string;
+    /**
+     * Permission keys the caller holds, such as `pieces.move`.
+     */
+    permissions: Array<string>;
+    duties: Array<Duty>;
+};
+
 export type MemberDuties = {
     accountId: string;
     duties: Array<Duty>;
@@ -5003,6 +5016,40 @@ export type SendNoticeResponses = {
 };
 
 export type SendNoticeResponse = SendNoticeResponses[keyof SendNoticeResponses];
+
+export type GetMyPermissionsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/me/permissions';
+};
+
+export type GetMyPermissionsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetMyPermissionsError = GetMyPermissionsErrors[keyof GetMyPermissionsErrors];
+
+export type GetMyPermissionsResponses = {
+    /**
+     * What the caller may do.
+     */
+    200: MyPermissions;
+};
+
+export type GetMyPermissionsResponse = GetMyPermissionsResponses[keyof GetMyPermissionsResponses];
 
 export type ListDutiesData = {
     body?: never;

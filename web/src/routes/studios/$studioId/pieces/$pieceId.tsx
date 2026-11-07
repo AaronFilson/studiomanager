@@ -1,12 +1,12 @@
 import {
   getPieceOptions,
   getPieceQueryKey,
-  getStudioOptions,
   listPiecesQueryKey,
   movePieceMutation,
   type PieceSize,
+  useCan,
 } from '@studiomanager/api-client';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
@@ -16,7 +16,6 @@ import {
   formatDate,
   formatDateTime,
   formatMoney,
-  isStaff,
   lengthUnitLabel,
   stageLabel,
   weightUnitLabel,
@@ -28,7 +27,7 @@ export const Route = createFileRoute('/studios/$studioId/pieces/$pieceId')({
 
 function PiecePage() {
   const { studioId, pieceId } = Route.useParams();
-  const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
   const piece = useQuery(getPieceOptions({ path: { studioId, pieceId } }));
   const queryClient = useQueryClient();
   const noteId = useId();
@@ -97,7 +96,7 @@ function PiecePage() {
 
       <PiecePhotos studioId={studioId} piece={p} />
 
-      {isStaff(studio.myRole) && p.nextStages.length > 0 && (
+      {can('pieces.move') && p.nextStages.length > 0 && (
         <section className="card stack" aria-labelledby={`${noteId}-title`}>
           <h2 id={`${noteId}-title`}>Move this piece</h2>
           <div className="field">

@@ -458,6 +458,26 @@ Choices R1 made that the Decisions don't cover:
 - The contract names permissions with an `x-permission` extension on each operation.
 - The ADR for the model is 25 (R1); R6 extends it rather than writing it.
 
+**R3 done (2026-11-07), branch `rbac-r3`.** No behaviour change.
+- `GET /api/v1/studios/{studioId}/me/permissions` (`getMyPermissions`, tag `permissions`,
+  `x-permission: studio.read`) returns `{ role, roleName, permissions, duties }`: the bound
+  context's permissions by `Permission.key()`, sorted, and the caller's duties. `roleName` is the
+  role's name in title case until R6 names roles. `MyPermissionsController` lives in `access`,
+  next to the duties it reads. `TokenPolicy` lists the `me` area as read-only.
+- `useCan(studioId)` in `@studiomanager/api-client`, shared by web and mobile: one React Query
+  query, cached and refetched on focus like the studio. `PermissionKey` names the keys the apps
+  check, so a typo doesn't compile. The web studio layout waits for it, so every page has the
+  answer on first render.
+- `isStaff` is gone from both apps, and so is every `myRole === 'OWNER'`. Nav links, the notice
+  form, calendar and roster editing (`schedule.manage`), glaze editing, supplies (and
+  `supplies.purchase.approve` for approving), piece moves (`pieces.move`), intake for others,
+  inviting owners (`owners.manage`), the AI key and export cards each check their own key.
+  `myRole` stays for display.
+- Web test fixtures serve permissions for the role the test's studio names (`test/permissions.ts`).
+  Test: `MyPermissionsApiTests` (each role gets exactly `defaultsFor`, duties listed, stranger 403).
+- Not yet: duty grants in the response's `permissions` (R4 adds them to the context). Until then,
+  a duty doesn't change what the apps show.
+
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
 queue.

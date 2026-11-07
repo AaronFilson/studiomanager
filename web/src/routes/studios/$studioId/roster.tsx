@@ -4,20 +4,20 @@ import {
   type Duty,
   getHoursOptions,
   getMeOptions,
-  getStudioOptions,
   listMembersOptions,
   listShiftsOptions,
   markShiftWorkedMutation,
   offerShiftMutation,
   type Shift,
+  useCan,
 } from '@studiomanager/api-client';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useMemo, useState } from 'react';
 
 import { CappedNote } from '../../../components/CappedNote';
 import { ErrorMessage } from '../../../components/ErrorMessage';
-import { dutyLabel, formatDate, formatTime, isStaff } from '../../../labels';
+import { dutyLabel, formatDate, formatTime } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/roster')({
   component: RosterPage,
@@ -33,9 +33,9 @@ function hours(minutes: number): string {
 
 function RosterPage() {
   const { studioId } = Route.useParams();
-  const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
   const me = useQuery(getMeOptions());
-  const staff = isStaff(studio.myRole);
+  const staff = can('schedule.manage');
   const { from, to, now } = useMemo(() => {
     const opened = new Date();
     const start = new Date(opened);
