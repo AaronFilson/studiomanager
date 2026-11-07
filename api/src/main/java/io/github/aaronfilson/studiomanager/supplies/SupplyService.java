@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.supplies;
 
+import io.github.aaronfilson.studiomanager.apitoken.ApiTokens;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -53,18 +54,21 @@ public class SupplyService {
   private final PurchaseRequestRepository requestRepository;
   private final StockMovements stock;
   private final AccountDirectory accounts;
+  private final ApiTokens tokens;
 
   SupplyService(
       SupplyItemRepository itemRepository,
       StockMovementRepository movementRepository,
       PurchaseRequestRepository requestRepository,
       StockMovements stock,
-      AccountDirectory accounts) {
+      AccountDirectory accounts,
+      ApiTokens tokens) {
     this.itemRepository = itemRepository;
     this.movementRepository = movementRepository;
     this.requestRepository = requestRepository;
     this.stock = stock;
     this.accounts = accounts;
+    this.tokens = tokens;
   }
 
   /**
@@ -139,22 +143,37 @@ public class SupplyService {
 
   private List<PurchaseRequest> views(List<PurchaseRequestEntity> requests) {
     List<UUID> people = new ArrayList<>();
+    List<UUID> viaTokens = new ArrayList<>();
     for (PurchaseRequestEntity request : requests) {
       people.add(request.requestedBy());
       UUID decider = request.decidedBy();
       if (decider != null) {
         people.add(decider);
       }
+      UUID requestedVia = request.requestedViaTokenId();
+      if (requestedVia != null) {
+        viaTokens.add(requestedVia);
+      }
+      UUID decidedVia = request.decidedViaTokenId();
+      if (decidedVia != null) {
+        viaTokens.add(decidedVia);
+      }
     }
     Map<UUID, String> names = accounts.displayNames(people);
+    Map<UUID, String> tokenNames = tokens.names(viaTokens);
     return requests.stream()
         .map(request ->
-            request.toView(names.get(request.requestedBy()), nameOf(request.decidedBy(), names)))
+            request.toView(
+                names.get(request.requestedBy()),
+                nameOf(request.requestedViaTokenId(), tokenNames),
+                nameOf(request.decidedBy(), names),
+                nameOf(request.decidedViaTokenId(), tokenNames)))
         .toList();
   }
 
-  private static @Nullable String nameOf(@Nullable UUID accountId, Map<UUID, String> names) {
-    return accountId == null ? null : names.get(accountId);
+  /** The name of an account or API token, looked up by id; null when there's no id. */
+  private static @Nullable String nameOf(@Nullable UUID id, Map<UUID, String> names) {
+    return id == null ? null : names.get(id);
   }
 
   // ---- Shared by this package's services

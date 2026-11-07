@@ -31,6 +31,7 @@ export function PieceDetail({ studioId, pieceId, staff }: { studioId: string; pi
           <Body muted>
             {formatDateTime(event.occurredAt)}
             {event.actorName ? ` · ${event.actorName}` : ''}
+            {event.viaToken ? ` via ${event.viaToken}` : ''}
           </Body>
           {event.note && <Body>{event.note}</Body>}
         </Card>

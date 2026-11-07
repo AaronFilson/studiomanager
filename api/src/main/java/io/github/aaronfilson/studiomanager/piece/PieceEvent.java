@@ -38,6 +38,9 @@ class PieceEvent {
   /** Null when the system made the change, such as a hold running out. */
   private @Nullable UUID actorAccountId;
 
+  /** The personal API token the actor made the change through; null when they used the app. */
+  private @Nullable UUID viaTokenId;
+
   private Instant occurredAt;
 
   @SuppressWarnings("NullAway.Init")
@@ -49,6 +52,7 @@ class PieceEvent {
       PieceStage toStage,
       @Nullable String note,
       UUID actorAccountId,
+      @Nullable UUID viaTokenId,
       Instant occurredAt) {
     this.id = Uuids.v7();
     this.pieceId = pieceId;
@@ -56,6 +60,7 @@ class PieceEvent {
     this.toStage = toStage;
     this.note = note;
     this.actorAccountId = actorAccountId;
+    this.viaTokenId = viaTokenId;
     this.occurredAt = occurredAt;
   }
 
@@ -63,7 +68,12 @@ class PieceEvent {
     return actorAccountId;
   }
 
-  PieceView.Event toView(@Nullable String actorName) {
-    return new PieceView.Event(fromStage, toStage, note, actorAccountId, actorName, occurredAt);
+  @Nullable UUID viaTokenId() {
+    return viaTokenId;
+  }
+
+  PieceView.Event toView(@Nullable String actorName, @Nullable String viaTokenName) {
+    return new PieceView.Event(
+        fromStage, toStage, note, actorAccountId, actorName, viaTokenName, occurredAt);
   }
 }

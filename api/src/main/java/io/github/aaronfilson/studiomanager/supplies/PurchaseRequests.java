@@ -46,7 +46,7 @@ public class PurchaseRequests {
   @Transactional
   public PurchaseRequest request(
       UUID itemId, @Nullable BigDecimal quantity, @Nullable String note) {
-    SupplyService.requireStaff();
+    TenantContext caller = SupplyService.requireStaff();
     SupplyItem item =
         itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("No such item."));
     BigDecimal amount =
@@ -56,7 +56,8 @@ public class PurchaseRequests {
     }
     PurchaseRequestEntity request =
         requestRepository.saveAndFlush(
-            new PurchaseRequestEntity(item, amount, SupplyService.clean(note)));
+            new PurchaseRequestEntity(
+                item, amount, SupplyService.clean(note), caller.viaTokenId()));
     return supplies.view(request);
   }
 
@@ -75,7 +76,12 @@ public class PurchaseRequests {
       throw ConflictException.staleVersion(
           "Someone else changed this request at the same time. Reload and try again.");
     }
-    request.moveTo(to, caller.role() == StudioRole.OWNER, caller.accountId(), clock.instant());
+    request.moveTo(
+        to,
+        caller.role() == StudioRole.OWNER,
+        caller.accountId(),
+        caller.viaTokenId(),
+        clock.instant());
     requestRepository.flush();
     if (to == RequestStatus.RECEIVED) {
       stock.adjust(

@@ -74,6 +74,7 @@ public final class PieceDtos {
                         .actorAccountId(event.actorAccountId())
                         .actorName(event.actorName())
                         .actorKind(actorKind(event.actorAccountId()))
+                        .viaToken(event.viaTokenName())
                         .occurredAt(event.occurredAt().atOffset(ZoneOffset.UTC)))
                 .toList());
   }

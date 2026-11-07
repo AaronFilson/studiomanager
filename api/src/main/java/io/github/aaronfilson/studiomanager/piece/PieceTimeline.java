@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.piece;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.Collection;
@@ -26,7 +27,7 @@ class PieceTimeline {
     this.entityManager = entityManager;
   }
 
-  /** Records one move of one piece. */
+  /** Records one move of one piece, and the API token it came through, if any. */
   void record(
       UUID pieceId,
       @Nullable PieceStage from,
@@ -34,7 +35,9 @@ class PieceTimeline {
       @Nullable String note,
       UUID actorAccountId,
       Instant at) {
-    entityManager.persist(new PieceEvent(pieceId, from, to, note, actorAccountId, at));
+    entityManager.persist(
+        new PieceEvent(
+            pieceId, from, to, note, actorAccountId, TenantContext.require().viaTokenId(), at));
   }
 
   /** Records the same move for many pieces, written as a batch of inserts. */

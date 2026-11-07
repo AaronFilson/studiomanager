@@ -56,6 +56,9 @@ class MaintenanceRecord implements Persistable<UUID> {
 
   private UUID doneBy;
 
+  /** The personal API token the work was logged through; null when it was logged in the app. */
+  private @Nullable UUID viaTokenId;
+
   private Instant doneAt;
 
   @OneToMany(mappedBy = "record", cascade = CascadeType.PERSIST)
@@ -78,6 +81,7 @@ class MaintenanceRecord implements Persistable<UUID> {
       List<String> checked,
       @Nullable Integer atFiring,
       UUID doneBy,
+      @Nullable UUID viaTokenId,
       Instant doneAt) {
     this.id = Uuids.v7();
     this.asset = asset;
@@ -87,6 +91,7 @@ class MaintenanceRecord implements Persistable<UUID> {
     this.checked = new ArrayList<>(checked);
     this.atFiring = atFiring;
     this.doneBy = doneBy;
+    this.viaTokenId = viaTokenId;
     this.doneAt = doneAt;
   }
 
@@ -120,7 +125,9 @@ class MaintenanceRecord implements Persistable<UUID> {
    * needs no query per row.
    */
   MaintenanceModel.WorkRecord toView(
-      @Nullable String doneByName, List<MaintenanceModel.PartUsed> used) {
+      @Nullable String doneByName,
+      @Nullable String viaTokenName,
+      List<MaintenanceModel.PartUsed> used) {
     MaintenanceTask completed = task;
     return new MaintenanceModel.WorkRecord(
         id,
@@ -133,8 +140,13 @@ class MaintenanceRecord implements Persistable<UUID> {
         atFiring,
         doneBy,
         doneByName,
+        viaTokenName,
         doneAt,
         used);
+  }
+
+  @Nullable UUID viaTokenId() {
+    return viaTokenId;
   }
 
   /** The parts used, as saved with this record. */

@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.piece;
 
+import io.github.aaronfilson.studiomanager.apitoken.ApiTokens;
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
@@ -9,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -24,16 +26,19 @@ class PieceViews {
   private final PiecePhotoRepository photos;
   private final AccountDirectory accounts;
   private final BlobStore blobs;
+  private final ApiTokens tokens;
 
   PieceViews(
       PieceQueries queries,
       PiecePhotoRepository photos,
       AccountDirectory accounts,
-      BlobStore blobs) {
+      BlobStore blobs,
+      ApiTokens tokens) {
     this.queries = queries;
     this.photos = photos;
     this.accounts = accounts;
     this.blobs = blobs;
+    this.tokens = tokens;
   }
 
   /** Pieces as lists show them: each with its first photo and no timeline. */
@@ -80,11 +85,17 @@ class PieceViews {
       }
     }
     Map<UUID, String> names = accounts.displayNames(people);
+    Map<UUID, String> tokenNames =
+        tokens.names(
+            timeline.stream().map(PieceEvent::viaTokenId).filter(Objects::nonNull).toList());
     List<PieceView.Event> namedTimeline =
         timeline.stream()
             .map(event -> {
               UUID actor = event.actorAccountId();
-              return event.toView(actor == null ? null : names.get(actor));
+              UUID viaToken = event.viaTokenId();
+              return event.toView(
+                  actor == null ? null : names.get(actor),
+                  viaToken == null ? null : tokenNames.get(viaToken));
             })
             .toList();
     return piece.toView(names.get(piece.makerAccountId()), allPhotos, namedTimeline);

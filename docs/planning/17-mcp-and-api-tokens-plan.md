@@ -227,6 +227,23 @@ tools.**
   never reach it (`TokenPolicy`: `pending-actions` is `Never`), so a token can't approve its own
   suggestion.
 
+**"Via token" attribution, 2026-11-06, on `via-token-attribution` (V37).**
+- `TenantContext` gains `viaTokenId`, set by `TenantContextFilter` for every token request, REST
+  and MCP alike. The call log now reads the token from it too, so there is one source.
+- The histories that record an actor, the piece timeline (`piece_event`) and maintenance records
+  (`maintenance_record`), store `via_token_id`. The API joins the token's name, so a revoked token
+  still shows it, and the contract adds an optional `viaToken` on `PieceEvent` and
+  `MaintenanceRecord`. Web and mobile show "Olive via Sync script", and the maintenance CSV's
+  "Done by" column does the same.
+- Purchase requests too, at the owner's call: `requested_via_token_id` and
+  `decided_via_token_id`, shown as `requestedViaToken` and `decidedViaToken`. Problem reports stay
+  out.
+- `Proposals` now reads the proposing token from `TenantContext.viaTokenId()`. Approving a
+  proposal happens in the app, so the change it makes records no token; the pending action keeps
+  which token proposed it.
+- **No `app.via_token` setting.** The app writes these histories itself, with no triggers, so the
+  id goes in the insert like the actor does. Add the setting if a trigger ever writes history.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

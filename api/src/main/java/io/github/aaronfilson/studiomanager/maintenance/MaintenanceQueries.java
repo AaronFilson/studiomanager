@@ -66,10 +66,12 @@ class MaintenanceQueries {
   List<ExportedRecord> recordsDoneBetween(Instant from, Instant to) {
     return jdbc.sql(
             """
-            select r.asset_id, a.name, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by, r.done_at
+            select r.asset_id, a.name, t.title, r.note, r.cost, r.checked, r.at_firing, r.done_by,
+                   v.name as via_token_name, r.done_at
             from maintenance_record r
             join asset a on a.id = r.asset_id
             left join maintenance_task t on t.id = r.task_id
+            left join api_token v on v.id = r.via_token_id
             where r.done_at >= :from and r.done_at < :to
             order by r.done_at, r.id
             """)
@@ -85,6 +87,7 @@ class MaintenanceQueries {
                 strings(rs.getArray("checked")),
                 rs.getObject("at_firing", Integer.class),
                 rs.getObject("done_by", UUID.class),
+                rs.getString("via_token_name"),
                 rs.getObject("done_at", OffsetDateTime.class).toInstant()))
         .list();
   }
@@ -92,6 +95,7 @@ class MaintenanceQueries {
   /**
    * @param ownName the asset's own name; null for a kiln, whose name lives on the kiln
    * @param taskTitle null for a repair
+   * @param viaTokenName the personal API token the work was logged through, if any
    */
   record ExportedRecord(
       UUID assetId,
@@ -102,6 +106,7 @@ class MaintenanceQueries {
       List<String> checked,
       @Nullable Integer atFiring,
       UUID doneBy,
+      @Nullable String viaTokenName,
       Instant doneAt) {}
 
   /**

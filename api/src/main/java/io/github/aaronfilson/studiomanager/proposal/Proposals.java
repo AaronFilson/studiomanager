@@ -3,7 +3,6 @@ package io.github.aaronfilson.studiomanager.proposal;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Asset;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
@@ -14,7 +13,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -110,18 +108,9 @@ public class Proposals {
     return action.toView(Map.of(), Map.of());
   }
 
-  /**
-   * The personal API token this request signed in with, if any.
-   *
-   * <p>When the {@code via-token-attribution} work lands, {@code TenantContext} carries this as its
-   * {@code viaTokenId}, and this reads it from there instead.
-   */
+  /** The personal API token this request signed in with, if any. */
   private static @Nullable UUID proposingToken() {
-    if (SecurityContextHolder.getContext().getAuthentication()
-        instanceof ApiTokenAuthentication tokenAuthentication) {
-      return tokenAuthentication.token().tokenId();
-    }
-    return null;
+    return TenantContext.require().viaTokenId();
   }
 
   private static void requireStaff() {

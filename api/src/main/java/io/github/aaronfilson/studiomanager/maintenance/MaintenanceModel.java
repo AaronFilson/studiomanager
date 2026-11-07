@@ -67,6 +67,7 @@ public final class MaintenanceModel {
       long version) {}
 
   /**
+   * @param viaTokenName the personal API token the work was logged through, if any
    * @param parts spare parts taken from supplies for this work
    */
   public record WorkRecord(
@@ -80,6 +81,7 @@ public final class MaintenanceModel {
       @Nullable Integer atFiring,
       UUID doneBy,
       @Nullable String doneByName,
+      @Nullable String viaTokenName,
       Instant doneAt,
       List<PartUsed> parts) {}
 

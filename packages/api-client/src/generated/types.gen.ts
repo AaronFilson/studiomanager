@@ -380,6 +380,10 @@ export type PieceEvent = {
      */
     actorName?: string;
     actorKind: ActorKind;
+    /**
+     * The name of the personal API token the person made the change through, by REST or an MCP tool, so it reads "Olive via Sync script". Absent when they used the app. A revoked token still shows its name.
+     */
+    viaToken?: string;
     occurredAt: string;
 };
 
@@ -723,6 +727,10 @@ export type MaintenanceRecord = {
     atFiring?: number;
     doneBy: string;
     doneByName?: string;
+    /**
+     * The name of the personal API token the work was logged through, by REST or an MCP tool. Absent when it was logged in the app. A revoked token still shows its name.
+     */
+    viaToken?: string;
     doneAt: string;
     parts: Array<PartUsed>;
     /**
@@ -1096,8 +1104,16 @@ export type PurchaseRequest = {
     status: PurchaseRequestStatus;
     requestedBy: string;
     requestedByName?: string;
+    /**
+     * The name of the personal API token the request was made through, so it reads "Olive via Sync script". Absent when it was made in the app. A revoked token still shows its name.
+     */
+    requestedViaToken?: string;
     requestedAt: string;
     decidedByName?: string;
+    /**
+     * The name of the personal API token the approval or rejection came through.
+     */
+    decidedViaToken?: string;
     version: number;
 };
 

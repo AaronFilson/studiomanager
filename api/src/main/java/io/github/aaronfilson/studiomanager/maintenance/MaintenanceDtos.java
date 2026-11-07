@@ -85,6 +85,7 @@ public final class MaintenanceDtos {
         .atFiring(record.atFiring())
         .doneBy(record.doneBy())
         .doneByName(record.doneByName())
+        .viaToken(record.viaTokenName())
         .doneAt(record.doneAt().atOffset(ZoneOffset.UTC))
         .parts(
             record.parts().stream()

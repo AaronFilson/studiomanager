@@ -80,4 +80,16 @@ class TenantContextTests {
             TenantContext.system(SystemActor.ACTIVITY_CONSUMER)
                 .inStudio(UUID.randomUUID(), StudioRole.MEMBER));
   }
+
+  @Test
+  void aPersonCanCallThroughATokenButAJobCant() {
+    UUID tokenId = UUID.randomUUID();
+    UUID studioId = UUID.randomUUID();
+    TenantContext viaToken = caller.viaToken(tokenId).inStudio(studioId, StudioRole.STAFF);
+    assertThat(viaToken.viaTokenId()).isEqualTo(tokenId);
+    assertThat(caller.viaTokenId()).isNull();
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () -> TenantContext.system(SystemActor.WEBHOOK_SWEEP, studioId).viaToken(tokenId));
+  }
 }

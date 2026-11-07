@@ -89,7 +89,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
       throw new AccessDeniedException(
           "API tokens are for staff. This token's owner isn't staff any more.");
     }
-    return caller.inStudio(token.studioId(), role);
+    return caller.inStudio(token.studioId(), role).viaToken(token.tokenId());
   }
 
   private static String areaOf(HttpServletRequest request) {

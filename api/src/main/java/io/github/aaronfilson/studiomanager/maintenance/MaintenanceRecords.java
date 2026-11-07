@@ -2,6 +2,7 @@ package io.github.aaronfilson.studiomanager.maintenance;
 
 import io.github.aaronfilson.studiomanager.access.AccessService;
 import io.github.aaronfilson.studiomanager.access.Duty;
+import io.github.aaronfilson.studiomanager.apitoken.ApiTokens;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUse;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.PartUsed;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.Task;
@@ -57,6 +58,7 @@ class MaintenanceRecords {
   private final AccessService access;
   private final AccountDirectory accounts;
   private final SupplyService supplies;
+  private final ApiTokens tokens;
   private final Clock clock;
 
   MaintenanceRecords(
@@ -67,6 +69,7 @@ class MaintenanceRecords {
       AccessService access,
       AccountDirectory accounts,
       SupplyService supplies,
+      ApiTokens tokens,
       Clock clock) {
     this.records = records;
     this.tasks = tasks;
@@ -75,6 +78,7 @@ class MaintenanceRecords {
     this.access = access;
     this.accounts = accounts;
     this.supplies = supplies;
+    this.tokens = tokens;
     this.clock = clock;
   }
 
@@ -142,7 +146,16 @@ class MaintenanceRecords {
             clock.instant());
     UUID doneBy = record.doneBy();
     return record.toView(
-        accounts.displayNames(List.of(doneBy)).get(doneBy), partsUsed(record.parts()));
+        accounts.displayNames(List.of(doneBy)).get(doneBy),
+        tokenName(record.viaTokenId()),
+        partsUsed(record.parts()));
+  }
+
+  private @Nullable String tokenName(@Nullable UUID tokenId) {
+    if (tokenId == null) {
+      return null;
+    }
+    return tokens.names(List.of(tokenId)).get(tokenId);
   }
 
   /** The asset's history, newest first, at most {@value #RECORDS_LIMIT}. */
@@ -153,11 +166,18 @@ class MaintenanceRecords {
         records.findNewestForAsset(assetId, Limit.of(Capped.fetchSize(RECORDS_LIMIT)));
     Map<UUID, String> names =
         accounts.displayNames(found.stream().map(MaintenanceRecord::doneBy).distinct().toList());
+    Map<UUID, String> tokenNames =
+        tokens.names(
+            found.stream().map(MaintenanceRecord::viaTokenId).filter(Objects::nonNull).toList());
     Map<UUID, List<PartUsed>> partsByRecord = partsByRecord(records.findPartsForAsset(assetId));
     return Capped.fromFetched(found, RECORDS_LIMIT)
-        .map(record ->
-            record.toView(
-                names.get(record.doneBy()), partsByRecord.getOrDefault(record.id(), List.of())));
+        .map(record -> {
+          UUID viaToken = record.viaTokenId();
+          return record.toView(
+              names.get(record.doneBy()),
+              viaToken == null ? null : tokenNames.get(viaToken),
+              partsByRecord.getOrDefault(record.id(), List.of()));
+        });
   }
 
   /**
@@ -196,9 +216,18 @@ class MaintenanceRecords {
               row.cost(),
               String.join("; ", row.checked()),
               row.atFiring(),
-              names.get(row.doneBy())));
+              doneByText(names.get(row.doneBy()), row.viaTokenName())));
     }
     return csv.toString();
+  }
+
+  /** "Olive", or "Olive via Sync script" when the work was logged through an API token. */
+  private static @Nullable String doneByText(
+      @Nullable String doneByName, @Nullable String viaTokenName) {
+    if (viaTokenName == null) {
+      return doneByName;
+    }
+    return doneByName + " via " + viaTokenName;
   }
 
   /**
@@ -228,6 +257,7 @@ class MaintenanceRecords {
             checked,
             atFiring,
             TenantContext.require().accountId(),
+            TenantContext.require().viaTokenId(),
             now);
     String movementNote =
         partsWereFor.length() > 200 ? partsWereFor.substring(0, 200) : partsWereFor;

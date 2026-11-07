@@ -53,9 +53,15 @@ class PurchaseRequestEntity {
 
   @CreatedBy private @Nullable UUID requestedBy;
 
+  /** The personal API token the request was made through; null when it was made in the app. */
+  private @Nullable UUID requestedViaTokenId;
+
   @CreatedDate private @Nullable Instant requestedAt;
 
   private @Nullable UUID decidedBy;
+
+  /** The personal API token the decision was made through; null when it was made in the app. */
+  private @Nullable UUID decidedViaTokenId;
 
   private @Nullable Instant decidedAt;
 
@@ -64,11 +70,16 @@ class PurchaseRequestEntity {
   @SuppressWarnings("NullAway.Init")
   protected PurchaseRequestEntity() {}
 
-  PurchaseRequestEntity(SupplyItem item, BigDecimal quantity, @Nullable String note) {
+  PurchaseRequestEntity(
+      SupplyItem item,
+      BigDecimal quantity,
+      @Nullable String note,
+      @Nullable UUID requestedViaTokenId) {
     this.id = Uuids.v7();
     this.item = item;
     this.quantity = quantity;
     this.note = note;
+    this.requestedViaTokenId = requestedViaTokenId;
     this.status = RequestStatus.REQUESTED;
   }
 
@@ -96,21 +107,27 @@ class PurchaseRequestEntity {
     return decidedBy;
   }
 
+  @Nullable UUID requestedViaTokenId() {
+    return requestedViaTokenId;
+  }
+
+  @Nullable UUID decidedViaTokenId() {
+    return decidedViaTokenId;
+  }
+
   /**
    * Moves the request on. The owner approves or rejects a new request; staff mark an approved one
    * ordered, and an approved or ordered one received.
    *
    * @param byOwner whether the person moving it is the studio's owner
+   * @param viaTokenId the personal API token the move comes through, if any
    */
-  void moveTo(RequestStatus to, boolean byOwner, UUID byAccountId, Instant now) {
+  void moveTo(
+      RequestStatus to, boolean byOwner, UUID byAccountId, @Nullable UUID viaTokenId, Instant now) {
     boolean allowed =
         switch (to) {
-          case APPROVED, REJECTED -> {
-            if (!byOwner) {
-              throw new AccessDeniedException("Only the owner approves purchases.");
-            }
-            yield status == RequestStatus.REQUESTED;
-          }
+          case APPROVED -> ownerDecides(byOwner);
+          case REJECTED -> ownerDecides(byOwner);
           case ORDERED -> status == RequestStatus.APPROVED;
           case RECEIVED -> status == RequestStatus.APPROVED || status == RequestStatus.ORDERED;
           case REQUESTED -> false;
@@ -121,19 +138,34 @@ class PurchaseRequestEntity {
     }
     boolean isDecision =
         switch (to) {
-          case APPROVED, REJECTED -> true;
-          case REQUESTED, ORDERED, RECEIVED -> false;
+          case APPROVED -> true;
+          case REJECTED -> true;
+          case REQUESTED -> false;
+          case ORDERED -> false;
+          case RECEIVED -> false;
         };
     if (isDecision) {
       this.decidedBy = byAccountId;
+      this.decidedViaTokenId = viaTokenId;
       this.decidedAt = now;
     }
     this.status = to;
   }
 
+  /** Only the owner approves or rejects, and only a request still waiting for a decision. */
+  private boolean ownerDecides(boolean byOwner) {
+    if (!byOwner) {
+      throw new AccessDeniedException("Only the owner approves purchases.");
+    }
+    return status == RequestStatus.REQUESTED;
+  }
+
   /** As the API shows it, with the names looked up by the caller. */
   SupplyModel.PurchaseRequest toView(
-      @Nullable String requestedByName, @Nullable String decidedByName) {
+      @Nullable String requestedByName,
+      @Nullable String requestedViaToken,
+      @Nullable String decidedByName,
+      @Nullable String decidedViaToken) {
     return new SupplyModel.PurchaseRequest(
         id,
         item.id(),
@@ -143,8 +175,10 @@ class PurchaseRequestEntity {
         status,
         requestedBy(),
         requestedByName,
+        requestedViaToken,
         Objects.requireNonNull(requestedAt, "A purchase request has a time once it's saved"),
         decidedByName,
+        decidedViaToken,
         version());
   }
 

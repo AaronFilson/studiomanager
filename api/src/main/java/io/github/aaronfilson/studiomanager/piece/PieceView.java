@@ -43,11 +43,15 @@ public record PieceView(
   /** A finished photo, with signed URLs that read it and its thumbnail. */
   public record Photo(UUID id, URI url, URI thumbnailUrl, UUID uploadedBy, Instant uploadedAt) {}
 
+  /**
+   * @param viaTokenName the personal API token the actor made the change through, if any
+   */
   public record Event(
       @Nullable PieceStage from,
       PieceStage to,
       @Nullable String note,
       @Nullable UUID actorAccountId,
       @Nullable String actorName,
+      @Nullable String viaTokenName,
       Instant occurredAt) {}
 }
