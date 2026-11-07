@@ -33,6 +33,11 @@ output "api_identity_name" {
   value       = azurerm_user_assigned_identity.api.name
 }
 
+output "api_identity_principal_id" {
+  description = "For infra/gcp: only this identity's tokens are exchanged for Google ones."
+  value       = azurerm_user_assigned_identity.api.principal_id
+}
+
 output "migrator_identity_name" {
   value = azurerm_user_assigned_identity.migrator.name
 }

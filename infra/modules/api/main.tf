@@ -4,8 +4,9 @@
 locals {
   port = 8080
 
-  # Settings the app and the job share. The job overrides who it connects as.
-  common_env = {
+  # Settings the app and the job share. The job overrides who it connects as. The invoice readers'
+  # settings are only needed where invoices are read, but sharing them keeps one environment.
+  common_env = merge(var.invoice_reader_env, {
     SPRING_PROFILES_ACTIVE              = "azure"
     STUDIOMANAGER_DB_HOST               = var.db_host
     STUDIOMANAGER_DB_NAME               = var.db_name
@@ -22,7 +23,7 @@ locals {
     # Keep a share of traces, following the caller's decision when there is one (plan 20)
     OTEL_TRACES_SAMPLER     = "parentbased_traceidratio"
     OTEL_TRACES_SAMPLER_ARG = tostring(var.trace_sampling_ratio)
-  }
+  })
 
   migrate_env = merge(local.common_env, {
     SPRING_PROFILES_ACTIVE         = "azure,migrate"

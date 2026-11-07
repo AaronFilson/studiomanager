@@ -124,6 +124,33 @@ run "api_runs_as_the_api_identity" {
   }
 }
 
+run "the_invoice_readers_settings_reach_the_app" {
+  command = plan
+
+  variables {
+    invoice_reader_env = {
+      STUDIOMANAGER_INVOICES_AZURE_ENDPOINT = "https://di-studiomanager-test.cognitiveservices.azure.com"
+    }
+  }
+
+  assert {
+    condition     = { for e in azurerm_container_app.api.template[0].container[0].env : e.name => e.value }["STUDIOMANAGER_INVOICES_AZURE_ENDPOINT"] == "https://di-studiomanager-test.cognitiveservices.azure.com"
+    error_message = "The app gets the invoice readers' settings."
+  }
+}
+
+run "only_invoice_settings_go_through_the_invoice_variable" {
+  command = plan
+
+  variables {
+    invoice_reader_env = {
+      SPRING_PROFILES_ACTIVE = "local"
+    }
+  }
+
+  expect_failures = [var.invoice_reader_env]
+}
+
 run "migration_job_runs_as_the_migrator" {
   command = plan
 

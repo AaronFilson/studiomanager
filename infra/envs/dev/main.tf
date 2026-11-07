@@ -86,6 +86,15 @@ module "email" {
   tags                       = local.tags
 }
 
+module "document_intelligence" {
+  source = "../../modules/document_intelligence"
+
+  name                = "di-${local.name}-${local.suffix}"
+  resource_group_name = data.azurerm_resource_group.env.name
+  location            = var.location
+  tags                = local.tags
+}
+
 module "key_vault" {
   source = "../../modules/key_vault"
 
@@ -151,7 +160,23 @@ module "api" {
   application_insights_connection_string = module.platform.application_insights_connection_string
   webhook_secret_key                     = random_bytes.webhook_secret_key.base64
   ai_key_encryption_key                  = random_bytes.ai_key_encryption_key.base64
+  invoice_reader_env                     = local.invoice_reader_env
   tags                                   = local.tags
+}
+
+# The platform-paid invoice readers (docs/planning/20, "Invoice readers"). Azure's endpoint comes
+# from the module above; Google's values come from `terraform output api_env` in infra/gcp, which
+# the owner applies by hand. Blank values leave a reader off.
+locals {
+  invoice_reader_env = {
+    STUDIOMANAGER_INVOICES_AZURE_ENDPOINT           = module.document_intelligence.endpoint
+    STUDIOMANAGER_INVOICES_DEMO_STUDIO_ID           = var.invoice_demo_studio_id
+    STUDIOMANAGER_INVOICES_GOOGLE_LOCATION          = var.google_invoice_reader.location
+    STUDIOMANAGER_INVOICES_GOOGLE_PROCESSOR_NAME    = var.google_invoice_reader.processor_name
+    STUDIOMANAGER_INVOICES_GOOGLE_WIF_AUDIENCE      = var.google_invoice_reader.workload_identity_audience
+    STUDIOMANAGER_INVOICES_GOOGLE_SERVICE_ACCOUNT   = var.google_invoice_reader.service_account_email
+    STUDIOMANAGER_INVOICES_GOOGLE_AZURE_TOKEN_SCOPE = var.google_invoice_reader.azure_token_scope
+  }
 }
 
 # --- Data-plane access for the API identity -----------------------------------------------
@@ -169,6 +194,15 @@ resource "azurerm_role_assignment" "api_blob" {
 resource "azurerm_role_assignment" "api_key_vault" {
   scope                            = module.key_vault.id
   role_definition_name             = "Key Vault Secrets User"
+  principal_id                     = azurerm_user_assigned_identity.api.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}
+
+# Lets the API read invoices with Document Intelligence as itself, with no key
+resource "azurerm_role_assignment" "api_document_intelligence" {
+  scope                            = module.document_intelligence.id
+  role_definition_name             = "Cognitive Services User"
   principal_id                     = azurerm_user_assigned_identity.api.principal_id
   principal_type                   = "ServicePrincipal"
   skip_service_principal_aad_check = true
