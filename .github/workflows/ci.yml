@@ -48,6 +48,24 @@ jobs:
           path: api/build/reports/tests/
           retention-days: 7
 
+      # JaCoCo: unit and integration tests together, since CI runs both
+      - name: Coverage summary
+        if: success()
+        run: |
+          report=build/reports/jacoco/test/jacocoTestReport.xml
+          line=$(grep -o '<counter type="LINE"[^>]*/>' "$report" | tail -1)
+          missed=$(echo "$line" | sed -E 's/.*missed="([0-9]+)".*/\1/')
+          covered=$(echo "$line" | sed -E 's/.*covered="([0-9]+)".*/\1/')
+          echo "### API line coverage: $(( 100 * covered / (covered + missed) ))% ($covered of $((covered + missed)) lines)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-coverage
+          path: api/build/reports/jacoco/test/
+          retention-days: 14
+
   web:
     name: Web, mobile and API client
     runs-on: ubuntu-latest

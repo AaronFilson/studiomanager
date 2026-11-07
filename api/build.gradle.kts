@@ -2,6 +2,8 @@ import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     java
+    // Test coverage, reported after every test run (plan 15). CI uploads the report.
+    jacoco
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.openapi.generator)
@@ -146,6 +148,21 @@ tasks.withType<Test> {
     if (startupRuns != "0") {
         testLogging.showStandardStreams = true
     }
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    // The contract classes are generated from the OpenAPI spec, not written here
+    classDirectories.setFrom(
+        sourceSets.main.get().output.classesDirs.asFileTree.matching { exclude("**/contract/**") },
+    )
 }
 
 tasks.withType<JavaCompile>().configureEach {

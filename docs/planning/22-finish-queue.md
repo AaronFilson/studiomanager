@@ -86,3 +86,64 @@ After the queue, the deferred plans are next. Each needs an owner's go-ahead:
    need the domain, and the runbook lists the steps for when it's known.
 
 All five lanes go in one PR (branch `finish-queue`), lane by lane, so CI checks the whole.
+
+## 4. Status (2026-11-07, PR #34)
+
+**A. Done.** Every API package is `@NullMarked`.
+- NullAway found 22 issues, all fixed.
+- The notable one is `PieceSize.box()`: all three dimensions or none, as plan 20 §2 suggested.
+
+**B. Done.** Error Prone's default checks and `-Werror` are on, for the API and the GitHub bridge,
+main and test code. They found 2 errors and 204 warnings.
+
+Fixed:
+- an `!=` on Azure's `EmailSendStatus`, which is an expandable string, not an enum;
+- two ignored `orElseThrow` results;
+- `split` without a limit;
+- locale-less `toLowerCase`;
+- `LedgerModel.Provider`, renamed `PaymentChannel`;
+- a few smaller ones.
+
+Suppressed, each with its reason in the code:
+- `UnusedVariable` on the 51 entity classes, whose fields Hibernate reads by reflection;
+- `ArrayRecordComponent` on two carrier records;
+- `ImmutableEnumChecker` on one private array;
+- `TypeParameterUnusedInFormals` on a Spring signature.
+
+`MissingSummary` is off, since records document their components with `@param` alone.
+
+**C. Done, with one change of plan.**
+- `studio.AccessChanged` is now an `access.changed` webhook (contract, web page, example payload)
+  and an `access.changed` event on the Kafka stream.
+- `WebhookApiTests.aRoleEditIsPostedAsAccessChanged` covers the webhook.
+- ADR 25 has an "After the lanes" section.
+- **`studio_membership.role` is kept, not dropped.** It's read in about 40 places: the JPQL that
+  finds owners and roles, the last-owner trigger (V40), `app.accept_invite` and the export.
+  V41's trigger keeps it equal to the base of `role_id`, so it can't drift. Dropping it would mean
+  rewriting those triggers and functions with no change in behaviour. ADR 25 records the choice;
+  plan 21 §6 step 6 is closed by it.
+
+**D. Built; the measurements wait for dev.**
+- `e2e/` has the Playwright smoke test, which `deploy-dev.yml` runs after every deploy.
+- `load-test.yml` runs the k6 token-limit test by hand.
+- `docs/runbooks/smoke-and-load.md` covers both, plus the one-time row-size and trace-volume
+  checks.
+- Still to do:
+  - the owner makes the `SMOKE_TOKEN` and sets `SMOKE_STUDIO_ID`;
+  - after that: one load-test run, the row sizes and the trace-volume check.
+  - Their numbers go here.
+
+**E. Built, apart from what needs the owner.**
+- `infra/modules/email` takes an optional `custom_domain` and `send_from_custom_domain` (two
+  applies). It's off in dev until the domain is chosen. `docs/runbooks/email-domain.md` has the
+  DNS and verification steps.
+- JaCoCo reports after every test run. CI writes the line coverage to the job summary and uploads
+  the report.
+- `docs/security/threat-model.md`, with its open items.
+- `docs/runbooks/demo-rehearsal.md`. The rehearsal itself is the owner's.
+- Google and GitHub sign-in are still off in dev. They need the owner's GitHub OAuth app and
+  Entra setup (`docs/runbooks/github-sign-in.md`).
+
+**Found along the way:** export downloads aren't recorded. Plan 21 §7 asked for every owner-only
+action to log its account. That needs a new log kind and a migration, so it's left for the next
+PR. The threat model lists it.
