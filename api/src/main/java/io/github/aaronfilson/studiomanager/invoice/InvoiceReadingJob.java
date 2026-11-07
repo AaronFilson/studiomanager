@@ -102,7 +102,7 @@ class InvoiceReadingJob {
       result = reader.read(new InvoiceFile(content, type));
       outcome = InvoiceRead.Outcome.READ;
     } catch (InvoiceReadException e) {
-      outcome = outcomeOf(e.failure());
+      outcome = InvoiceRead.Outcome.of(e.failure());
       note = e.getMessage();
     }
     long elapsed = clock.millis() - started;
@@ -156,14 +156,6 @@ class InvoiceReadingJob {
             invoices.flush();
           });
     });
-  }
-
-  private static InvoiceRead.Outcome outcomeOf(InvoiceReadException.Failure failure) {
-    return switch (failure) {
-      case REFUSED_CREDENTIALS -> InvoiceRead.Outcome.REFUSED_CREDENTIALS;
-      case UNAVAILABLE -> InvoiceRead.Outcome.UNAVAILABLE;
-      case UNREADABLE -> InvoiceRead.Outcome.UNREADABLE;
-    };
   }
 
   private static String shortened(String text) {

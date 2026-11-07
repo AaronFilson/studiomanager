@@ -162,6 +162,18 @@ class InvoiceApiTests {
   }
 
   @Test
+  void compareReadersRunsOnlyTheReadersTheStudioMayUse() throws Exception {
+    String invoice = upload("PNG", PNG);
+    awaitRead(invoice);
+
+    // No key, and the platform's readers are off by default: nobody may read
+    MvcTestResult compared = post(owner, path("/invoices/" + invoice + "/compare-readers"), "");
+
+    assertThat(compared).hasStatusOk();
+    assertThat(compared).bodyJson().extractingPath("$.results.length()").isEqualTo(0);
+  }
+
+  @Test
   void aKeyAnthropicRefusesIsMarkedAndTheInvoiceIsTypedIn() throws Exception {
     setKey(REFUSED_KEY);
     String invoice = upload("PDF", PDF);

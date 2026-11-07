@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. See docs/runbooks/google-document-ai.md.
+
+# The project created in step 2 of the runbook, with billing linked
+project_id  = "studiomanager-dev-000000"
+environment = "dev"
+
+# us or eu: where invoices are processed
+document_ai_location = "us"
+
+# `az account show --query tenantId -o tsv` (the subscription's tenant, not External ID)
+azure_tenant_id = "00000000-0000-0000-0000-000000000000"
+
+# `terraform output api_identity_principal_id` in infra/envs/dev
+api_principal_id = "00000000-0000-0000-0000-000000000000"

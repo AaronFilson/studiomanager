@@ -1,0 +1,54 @@
+name: Warm for an hour
+
+# Before a demo: keeps one API replica running for an hour, so nobody waits for a cold start,
+# then lets it scale to zero again. About $0.05 an hour. Scaling is an Azure setting, so it's
+# done here through the keyless deploy identity, not from the app (plan 20, section 7).
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+# One warm hour at a time; a second run waits rather than cutting the first one short.
+concurrency:
+  group: warm-api
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: rg-studiomanager-dev
+  CONTAINER_APP: ca-studiomanager-dev-api
+
+jobs:
+  warm:
+    name: Keep one API replica for an hour
+    # Skipped until Azure is set up; see docs/runbooks/first-deploy.md.
+    if: vars.AZURE_CLIENT_ID_DEPLOY != ''
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 80
+    permissions:
+      id-token: write
+    steps:
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Keep one replica running
+        run: az containerapp update --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" --min-replicas 1 --output none
+
+      - name: Wait an hour
+        run: sleep 3600
+
+      # The first sign-in's token may have expired during the hour, so sign in again. Runs even
+      # if the wait was cancelled, so the app never stays warm by mistake.
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        if: always()
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Scale to zero again
+        if: always()
+        run: az containerapp update --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" --min-replicas 0 --output none

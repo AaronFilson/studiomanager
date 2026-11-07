@@ -16,6 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type SubmitEvent, useId, useState } from 'react';
 
+import { CompareReaders } from './CompareReaders';
 import { ErrorMessage } from './ErrorMessage';
 
 const fileTypes: Record<string, InvoiceFileType> = {
@@ -148,13 +149,16 @@ function InvoiceReview({ studioId, invoiceId, onClosed }: { studioId: string; in
     return <p aria-live="polite">Reading the invoice…</p>;
   }
   return (
-    <DraftForm
-      key={invoice.data.version}
-      studioId={studioId}
-      invoice={invoice.data}
-      items={supplies.data ?? []}
-      onClosed={onClosed}
-    />
+    <>
+      <DraftForm
+        key={invoice.data.version}
+        studioId={studioId}
+        invoice={invoice.data}
+        items={supplies.data ?? []}
+        onClosed={onClosed}
+      />
+      <CompareReaders studioId={studioId} invoiceId={invoiceId} />
+    </>
   );
 }
 

@@ -42,6 +42,27 @@ reason, typed in by hand next to the image. The platform readers (lane F1g) plug
 The studio's consent for them is `ai_provider_key.allow_platform_readers` (renamed from
 `allow_google_fallback` in V35).
 
+**The platform's readers (lane F1g).**
+- **Google Document AI's Invoice Parser** over REST, with Spring's `RestClient` and only
+  `google-auth-library-oauth2-http`, not the gRPC client. Keyless from Azure: `IdentityPoolCredentials`
+  with an `IdentityPoolSubjectTokenSupplier` (`String getSubjectToken(ExternalAccountSupplierContext)`,
+  checked against 1.46.0) that hands over the managed identity's Entra token from `azure-identity`.
+  Google's STS trades it for a token that impersonates a service account holding
+  `roles/documentai.apiUser` (`infra/gcp`).
+- **Azure AI Document Intelligence's** `prebuilt-invoice` (API 2024-11-30) as the managed identity,
+  with *Cognitive Services User* and key auth off. Its result is polled only on the account's own
+  endpoint, since the token goes with each poll. The model has no shipping field.
+- Both ask for only what the mapping reads, and keep that as the raw answer. Failures name the
+  provider and status, never the body.
+- **The admin decides** (one `invoice-readers` key in the settings store, ADR 24): each reader on or
+  off, for no studios, chosen ones or all, under monthly page caps per studio and for the
+  platform, plus a per-studio order that `InvoiceReaders` follows. Defaults: on for the demo
+  studio only. A reader also needs the owner's `allow_platform_readers` and its own settings.
+  Pages are counted from `invoice_read`; the platform total and the admin's per-studio view cross
+  tenants through two `SECURITY DEFINER` functions (V38) that return only counts.
+- **Compare readers** runs one invoice through every reader the studio may use, records each run
+  like any other, and leaves the draft alone.
+
 **The gate and the checks.**
 - `InvoiceDrafts.sanitize` cleans text and cuts it short, drops amounts beyond 9,999,999.99,
   rounds to the column's scale, and drops dates before 2000 or more than a year ahead. What it
@@ -83,7 +104,10 @@ and writes a dated report into `docs/evals/`.
   - the optional payable on confirmation;
   - a page count before reading (a PDF over Claude's limit comes back as unreadable);
   - the server-side refusal fallback for Claude Opus 5.5;
-  - a Modulith scenario test for `InvoiceReceived` (the API test covers the event end to end).
+  - a Modulith scenario test for `InvoiceReceived` (the API test covers the event end to end);
+  - checking the Entra token's issuer and audience against Google's pool provider on the first
+    deploy (docs/runbooks/google-document-ai.md, step 6);
+  - consent for a studio with no Anthropic key: it's stored with the key today.
 
 ## In an interview
 

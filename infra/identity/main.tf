@@ -6,6 +6,10 @@ locals {
   spa_redirect_uris = [for origin in var.web_origins : "${origin}/"]
 }
 
+# Not here: the GitHub sign-in bridge's custom OIDC identity provider (ADR 20). The azuread
+# provider can't manage oidcIdentityProvider (a Microsoft Graph beta resource), and its body holds
+# a client secret this local state shouldn't. docs/runbooks/github-sign-in.md creates it.
+
 resource "random_uuid" "access_as_user_scope" {}
 
 resource "random_uuid" "platform_admin_role" {}

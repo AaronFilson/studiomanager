@@ -20,6 +20,16 @@ output "sweep_job_name" {
   value = module.api.sweep_job_name
 }
 
+output "bridge_container_app_name" {
+  description = "The GitHub sign-in bridge's Container App, or empty while github_sign_in is off."
+  value       = var.github_sign_in.enabled ? module.github_bridge[0].container_app_name : ""
+}
+
+output "bridge_issuer" {
+  description = "The bridge's issuer, for Entra's custom OIDC identity provider; empty while github_sign_in is off."
+  value       = var.github_sign_in.enabled ? module.github_bridge[0].issuer : ""
+}
+
 output "static_web_app_name" {
   value = azurerm_static_web_app.web.name
 }
@@ -31,6 +41,11 @@ output "static_web_app_hostname" {
 output "api_identity_name" {
   description = "Its Postgres role name. Create it once with pgaadauth_create_principal (docs/runbooks/first-deploy.md)."
   value       = azurerm_user_assigned_identity.api.name
+}
+
+output "api_identity_principal_id" {
+  description = "For infra/gcp: only this identity's tokens are exchanged for Google ones."
+  value       = azurerm_user_assigned_identity.api.principal_id
 }
 
 output "migrator_identity_name" {

@@ -1,7 +1,13 @@
-import type { RateLimitOverview, SettingChange } from '@studiomanager/api-client';
-import { screen } from '@testing-library/react';
+import type {
+  InvoiceReader,
+  InvoiceReaderOverview,
+  PlatformReaderRule,
+  RateLimitOverview,
+  SettingChange,
+} from '@studiomanager/api-client';
+import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { renderApp } from './renderApp';
 import { API, server } from './server';
@@ -30,10 +36,45 @@ const demoBoost = {
 
 const demoStudio = { id: '5d1c0000-0000-4000-8000-000000000001', name: 'Demo Clay Co.' };
 
+function readerRule(reader: InvoiceReader, overrides: Partial<PlatformReaderRule> = {}): PlatformReaderRule {
+  return {
+    reader,
+    enabled: true,
+    scope: 'CHOSEN',
+    studioIds: [demoStudio.id],
+    studioMonthlyPages: 50,
+    platformMonthlyPages: 400,
+    ...overrides,
+  };
+}
+
+function readers(overrides: Partial<InvoiceReaderOverview> = {}): InvoiceReaderOverview {
+  return {
+    settings: {
+      readers: [readerRule('GOOGLE_DOCUMENT_AI'), readerRule('AZURE_DOCUMENT_INTELLIGENCE')],
+      studioOrders: [],
+    },
+    saved: false,
+    monthStart: '2026-11-01T00:00:00Z',
+    usage: [
+      {
+        reader: 'GOOGLE_DOCUMENT_AI',
+        reads: 3,
+        pages: 4,
+        costUsd: '0.3000',
+        studios: [{ studioId: demoStudio.id, studioName: demoStudio.name, reads: 3, pages: 4, costUsd: '0.3000' }],
+      },
+      { reader: 'AZURE_DOCUMENT_INTELLIGENCE', reads: 0, pages: 0, costUsd: '0.0000', studios: [] },
+    ],
+    ...overrides,
+  };
+}
+
 function asAdmin(platformAdmin = true) {
   return [
     http.get(`${API}/api/v1/me`, () => HttpResponse.json({ account: { id: 'a1' }, memberships: [], platformAdmin })),
     http.get(`${API}/api/v1/admin/studios`, () => HttpResponse.json([demoStudio])),
+    http.get(`${API}/api/v1/admin/invoice-readers`, () => HttpResponse.json(readers())),
   ];
 }
 
@@ -169,5 +210,72 @@ describe('admin', () => {
     await user.click(screen.getByRole('button', { name: 'Back to defaults' }));
     expect(await screen.findByText('The configured defaults.')).toBeInTheDocument();
     expect(screen.getByLabelText('MCP tool calls: Burst')).toHaveValue(30);
+  });
+
+  it('resets the demo studio and shows a demo token once', async () => {
+    let resets = 0;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    server.use(
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+      http.post(`${API}/api/v1/admin/demo-studio/reset`, () => {
+        resets += 1;
+        return HttpResponse.json(demoStudio);
+      }),
+      http.post(`${API}/api/v1/admin/demo-studio/tokens`, () =>
+        HttpResponse.json(
+          {
+            studioId: demoStudio.id,
+            studioName: demoStudio.name,
+            name: 'Demo assistant',
+            secret: 'smpat_demo',
+            expiresAt: '2026-11-07T15:00:00Z',
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const { user } = renderApp('/admin');
+    await user.click(await screen.findByRole('button', { name: 'Reset the demo studio' }));
+    expect(await screen.findByText('Demo Clay Co. is fresh.')).toBeInTheDocument();
+    expect(resets).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: 'Make a demo token' }));
+    expect(await screen.findByLabelText('Demo token')).toHaveTextContent('smpat_demo');
+    expect(screen.getByText(/it won’t be shown again/)).toBeInTheDocument();
+
+    // A reset deletes the old token, so it stops being shown
+    await user.click(screen.getByRole('button', { name: 'Reset the demo studio' }));
+    await vi.waitFor(() => {
+      expect(screen.queryByLabelText('Demo token')).not.toBeInTheDocument();
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('shows each platform reader’s month and turns one off', async () => {
+    let sent: unknown;
+    server.use(
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+      http.put(`${API}/api/v1/admin/invoice-readers`, async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(readers({ settings: sent as InvoiceReaderOverview['settings'], saved: true }));
+      }),
+    );
+
+    const { user } = renderApp('/admin');
+    expect(await screen.findByText(/This month: 4 pages in 3 reads, about \$0\.3000/)).toBeInTheDocument();
+    const azure = screen.getByRole('group', { name: 'Azure Document Intelligence' });
+    await user.click(within(azure).getByRole('checkbox', { name: 'On' }));
+    await user.click(screen.getByRole('button', { name: 'Save readers' }));
+
+    expect(await screen.findByText(/Changed here\./)).toBeInTheDocument();
+    expect(sent).toEqual({
+      readers: [readerRule('GOOGLE_DOCUMENT_AI'), readerRule('AZURE_DOCUMENT_INTELLIGENCE', { enabled: false })],
+      studioOrders: [],
+    });
   });
 });

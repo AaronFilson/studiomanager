@@ -95,6 +95,17 @@ variable "ai_key_encryption_key" {
   sensitive   = true
 }
 
+variable "invoice_reader_env" {
+  description = "STUDIOMANAGER_INVOICES_* settings for the platform-paid invoice readers (Document Intelligence's endpoint, Google's processor and federation). A reader whose settings are blank stays off."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for name in keys(var.invoice_reader_env) : startswith(name, "STUDIOMANAGER_INVOICES_")])
+    error_message = "Only STUDIOMANAGER_INVOICES_* settings go here."
+  }
+}
+
 variable "min_replicas" {
   description = "0 lets the API scale to zero when idle; the first request then pays a cold start."
   type        = number

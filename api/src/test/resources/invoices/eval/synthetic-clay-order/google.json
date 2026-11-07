@@ -1,0 +1,78 @@
+{
+  "document": {
+    "uri": "",
+    "mimeType": "application/pdf",
+    "pages": [
+      {"pageNumber": 1}
+    ],
+    "entities": [
+      {"type": "supplier_name", "mentionText": "Riverbend Clay Supply", "confidence": 0.98, "id": "0"},
+      {"type": "invoice_id", "mentionText": "RB-20417", "confidence": 0.99, "id": "1"},
+      {
+        "type": "invoice_date",
+        "mentionText": "Oct 14, 2026",
+        "confidence": 0.97,
+        "id": "2",
+        "normalizedValue": {"text": "2026-10-14", "dateValue": {"year": 2026, "month": 10, "day": 14}}
+      },
+      {
+        "type": "net_amount",
+        "mentionText": "$212.50",
+        "id": "3",
+        "normalizedValue": {"text": "212.5", "moneyValue": {"currencyCode": "USD", "units": "212", "nanos": 500000000}}
+      },
+      {
+        "type": "freight_amount",
+        "mentionText": "$35.00",
+        "id": "4",
+        "normalizedValue": {"text": "35", "moneyValue": {"currencyCode": "USD", "units": "35"}}
+      },
+      {
+        "type": "total_tax_amount",
+        "mentionText": "$17.53",
+        "id": "5",
+        "normalizedValue": {"text": "17.53", "moneyValue": {"currencyCode": "USD", "units": "17", "nanos": 530000000}}
+      },
+      {
+        "type": "total_amount",
+        "mentionText": "$265.03",
+        "id": "6",
+        "normalizedValue": {"text": "265.03", "moneyValue": {"currencyCode": "USD", "units": "265", "nanos": 30000000}}
+      },
+      {
+        "type": "line_item",
+        "mentionText": "WC-401 B-Mix 5 cone 5 clay, 50 lb box 5 box 32.50 162.50",
+        "id": "7",
+        "properties": [
+          {"type": "line_item/product_code", "mentionText": "WC-401"},
+          {"type": "line_item/description", "mentionText": "B-Mix 5 cone 5 clay, 50 lb box"},
+          {"type": "line_item/quantity", "mentionText": "5", "normalizedValue": {"text": "5"}},
+          {"type": "line_item/unit", "mentionText": "box"},
+          {
+            "type": "line_item/unit_price",
+            "mentionText": "32.50",
+            "normalizedValue": {"text": "32.5", "moneyValue": {"currencyCode": "USD", "units": "32", "nanos": 500000000}}
+          },
+          {
+            "type": "line_item/amount",
+            "mentionText": "162.50",
+            "normalizedValue": {"text": "162.5", "moneyValue": {"currencyCode": "USD", "units": "162", "nanos": 500000000}}
+          }
+        ]
+      },
+      {
+        "type": "line_item",
+        "mentionText": "WC-415 Speckled Buff, 25 lb bag 2 bag 25.00 50.00",
+        "id": "8",
+        "properties": [
+          {"type": "line_item/product_code", "mentionText": "WC-415"},
+          {"type": "line_item/description", "mentionText": "Speckled Buff, 25 lb bag"},
+          {"type": "line_item/quantity", "mentionText": "2"},
+          {"type": "line_item/unit", "mentionText": "bag"},
+          {"type": "line_item/unit_price", "mentionText": "$25.00"},
+          {"type": "line_item/amount", "mentionText": "$50.00"}
+        ]
+      }
+    ]
+  }
+}

@@ -19,6 +19,8 @@ import tools.jackson.databind.json.JsonMapper;
  * <ul>
  *   <li>{@code expected.json}: the hand-written answer, in Claude's answer shape;
  *   <li>{@code claude.json}: what Claude answered, recorded by {@code LiveInvoiceEval};
+ *   <li>{@code google.json}, {@code azure.json}: what Google Document AI and Azure AI Document
+ *       Intelligence answered, recorded by {@code LiveDocumentServiceEval};
  *   <li>{@code invoice.pdf}, {@code .jpg} or {@code .png}: the invoice itself, for the live eval.
  * </ul>
  *
@@ -65,6 +67,38 @@ class InvoiceEvalTests {
     assertThat(lineAccuracy(scores)).isGreaterThanOrEqualTo(LINE_FLOOR);
   }
 
+  /**
+   * Google's and Azure's recorded answers ({@code google.json}, {@code azure.json}), through the
+   * same gate and scorer as Claude's. Azure's invoice model has no shipping field, so it can't
+   * score that one.
+   */
+  @Test
+  void recordedDocumentServiceAnswersScoreAtLeastTheFloor() throws IOException {
+    GoogleInvoiceReader google = DocumentServiceReaderTests.google();
+    AzureInvoiceReader azure = DocumentServiceReaderTests.azure();
+    List<InvoiceScorer.Score> googleScores = new ArrayList<>();
+    List<InvoiceScorer.Score> azureScores = new ArrayList<>();
+    for (Path folder : cases()) {
+      Path googleAnswer = folder.resolve("google.json");
+      if (Files.exists(googleAnswer)) {
+        googleScores.add(
+            scoreDraft(folder, google.toResult(Files.readString(googleAnswer)).draft()));
+      }
+      Path azureAnswer = folder.resolve("azure.json");
+      if (Files.exists(azureAnswer)) {
+        azureScores.add(
+            scoreDraft(folder, azure.toResult(azure.parse(Files.readString(azureAnswer))).draft()));
+      }
+    }
+
+    assertThat(googleScores).isNotEmpty();
+    assertThat(azureScores).isNotEmpty();
+    assertThat(fieldAccuracy(googleScores)).isGreaterThanOrEqualTo(FIELD_FLOOR);
+    assertThat(lineAccuracy(googleScores)).isGreaterThanOrEqualTo(LINE_FLOOR);
+    assertThat(fieldAccuracy(azureScores)).isGreaterThanOrEqualTo(FIELD_FLOOR);
+    assertThat(lineAccuracy(azureScores)).isGreaterThanOrEqualTo(LINE_FLOOR);
+  }
+
   @Test
   void theScorerCountsAMissedFieldAndAWrongLine() throws IOException {
     Path folder = CASES.resolve("synthetic-glaze-materials");
@@ -100,8 +134,11 @@ class InvoiceEvalTests {
   }
 
   private static InvoiceScorer.Score score(Path folder, Path recorded) {
-    InvoiceDraft read =
-        InvoiceDrafts.sanitize(answer(recorded).toDraft(), LocalDate.of(2026, 11, 6)).draft();
+    return scoreDraft(folder, answer(recorded).toDraft());
+  }
+
+  private static InvoiceScorer.Score scoreDraft(Path folder, InvoiceDraft draft) {
+    InvoiceDraft read = InvoiceDrafts.sanitize(draft, LocalDate.of(2026, 11, 6)).draft();
     return InvoiceScorer.score(expected(folder), read);
   }
 

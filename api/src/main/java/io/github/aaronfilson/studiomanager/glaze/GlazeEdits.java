@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Adding, changing and deleting recipes. Reading them is {@link GlazeBook}. */
 @Service
-class GlazeEdits {
+public class GlazeEdits {
 
   private static final BigDecimal MIN_SPECIFIC_GRAVITY = BigDecimal.ONE;
   private static final BigDecimal MAX_SPECIFIC_GRAVITY = new BigDecimal("2.5");

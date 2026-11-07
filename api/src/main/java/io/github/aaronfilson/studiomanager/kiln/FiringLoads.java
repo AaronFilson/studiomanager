@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** A kiln's queue, and building a load from it. */
 @Service
-class FiringLoads {
+public class FiringLoads {
 
   private final FiringRepository firings;
   private final KilnService kilns;
