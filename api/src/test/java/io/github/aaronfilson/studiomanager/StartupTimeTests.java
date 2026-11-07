@@ -26,7 +26,8 @@ class StartupTimeTests {
 
   @Test
   void printsStartupTimes() {
-    int runs = Integer.parseInt(System.getProperty("studiomanager.startup-runs", "0"));
+    // @EnabledIfSystemProperty has already checked it's a number from 2 to 99
+    int runs = Integer.getInteger("studiomanager.startup-runs", 0);
     try (PostgreSQLContainer postgres =
         new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"))
             .withCopyFileToContainer(

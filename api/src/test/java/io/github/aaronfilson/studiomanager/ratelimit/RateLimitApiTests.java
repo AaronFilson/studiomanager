@@ -68,8 +68,8 @@ class RateLimitApiTests {
     MvcTestResult refused = withToken(token, path("/kilns"));
     assertThat(refused).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
     assertThat(refused).headers().containsHeader(HttpHeaders.RETRY_AFTER);
-    assertThat(Long.parseLong(refused.getResponse().getHeader(HttpHeaders.RETRY_AFTER)))
-        .isPositive();
+    // A whole number of seconds, at least one
+    assertThat(refused.getResponse().getHeader(HttpHeaders.RETRY_AFTER)).matches("[1-9][0-9]*");
 
     // A second token of the same person shares the bucket
     assertThat(withToken(token("Second script"), path("/kilns")))

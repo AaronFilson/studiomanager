@@ -103,7 +103,8 @@ public class ApiCallLog {
               .param("createdAt", clock.instant().atOffset(ZoneOffset.UTC))
               .update());
     } catch (DataAccessException failure) {
-      log.warn("Couldn't log the {} call to {}", call.channel(), call.target(), failure);
+      // Not the target: on MCP it's the tool name the caller sent, which mustn't reach the log
+      log.warn("Couldn't record a {} call in the call log", call.channel(), failure);
     }
   }
 
