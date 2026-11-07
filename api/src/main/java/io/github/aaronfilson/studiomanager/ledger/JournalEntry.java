@@ -17,6 +17,8 @@ import org.jspecify.annotations.Nullable;
  * LedgerQueries#insertEntry}); this entity reads it and is what its {@link JournalLine}s point at.
  * Never changed: the table allows only inserts.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "journal_entry")
 class JournalEntry {

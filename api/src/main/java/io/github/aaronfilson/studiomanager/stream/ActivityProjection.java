@@ -169,8 +169,16 @@ class ActivityProjection {
                           amount = weekly_activity.amount + excluded.amount,
                           label = coalesce(excluded.label, weekly_activity.label)
             """)
+        // A list, since the label may be null
         .params(
-            java.sql.Timestamp.from(at), metric.name(), dimension, label, count, amount, studioId)
+            java.util.Arrays.asList(
+                java.sql.Timestamp.from(at),
+                metric.name(),
+                dimension,
+                label,
+                count,
+                amount,
+                studioId))
         .update();
   }
 }

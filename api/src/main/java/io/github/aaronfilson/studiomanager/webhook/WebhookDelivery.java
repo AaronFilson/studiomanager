@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * One event on its way to one endpoint. Created here; after that, claiming it and recording each
  * attempt is {@link WebhookQueries}' job, an atomic test-and-set that is safe across replicas.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "webhook_delivery")
 class WebhookDelivery {

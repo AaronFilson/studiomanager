@@ -24,6 +24,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * correction either way. Movements are only ever added (the table grants no update), so the entity
  * is immutable. The item is held by id: nothing here needs the item loaded.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Immutable
 @Table(name = "stock_movement")

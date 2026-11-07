@@ -16,6 +16,8 @@ import org.jspecify.annotations.Nullable;
  * in {@link AccessQueries}; this entity reads and removes grants. Named for its table; {@link
  * AccessService.Certification} is the view of it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "certification")
 class CertificationEntity {

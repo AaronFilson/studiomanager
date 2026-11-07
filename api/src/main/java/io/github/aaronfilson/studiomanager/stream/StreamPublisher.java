@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.stream;
 import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.piece.PieceReceived;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.studio.AccessChanged;
 import io.github.aaronfilson.studiomanager.studio.MemberJoined;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.supplies.SupplySold;
@@ -57,7 +58,7 @@ class StreamPublisher {
     }
     events.publishEvent(
         new StudioStreamEvent.FeeCharged(
-            TenantContext.require().studioId(),
+            TenantContext.require().requireStudioId(),
             piece.receivedAt().truncatedTo(ChronoUnit.SECONDS),
             piece.makerAccountId(),
             "piece",
@@ -74,7 +75,7 @@ class StreamPublisher {
     }
     events.publishEvent(
         new StudioStreamEvent.FeeCharged(
-            TenantContext.require().studioId(),
+            TenantContext.require().requireStudioId(),
             sale.soldAt().truncatedTo(ChronoUnit.SECONDS),
             sale.memberId(),
             "supply_sale",
@@ -88,6 +89,20 @@ class StreamPublisher {
   void on(MemberJoined joined) {
     events.publishEvent(
         new StudioStreamEvent.MemberJoined(joined.studioId(), now(), joined.accountId()));
+  }
+
+  @EventListener
+  void on(AccessChanged change) {
+    events.publishEvent(
+        new StudioStreamEvent.AccessChanged(
+            change.studioId(),
+            change.at().truncatedTo(ChronoUnit.SECONDS),
+            change.actorAccountId(),
+            change.viaTokenId(),
+            change.kind().name().toLowerCase(Locale.ROOT),
+            change.target(),
+            change.added(),
+            change.removed()));
   }
 
   private static Instant now() {

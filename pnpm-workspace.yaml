@@ -2,6 +2,7 @@ packages:
   - web
   - mobile
   - packages/*
+  - e2e
 
 # Dependency install scripts run only when listed true here. Both of these come in through the
 # Expo toolchain and ship prebuilt binaries per platform; their scripts only build from source.

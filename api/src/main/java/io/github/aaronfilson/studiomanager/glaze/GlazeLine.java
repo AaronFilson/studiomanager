@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  * One line of a recipe, at its position. The import-only columns ({@code amount_text}, {@code
  * chemistry}) aren't mapped: nothing here writes or shows them yet.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "glaze_line")
 class GlazeLine {

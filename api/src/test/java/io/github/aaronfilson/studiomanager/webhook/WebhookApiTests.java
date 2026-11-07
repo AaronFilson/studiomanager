@@ -203,6 +203,52 @@ class WebhookApiTests {
   }
 
   @Test
+  void aRoleEditIsPostedAsAccessChanged() throws Exception {
+    endpoint("access.changed");
+    String roles =
+        mvc.get()
+            .uri(path("/roles"))
+            .with(owner.token())
+            .exchange()
+            .getResponse()
+            .getContentAsString();
+    List<String> staff =
+        JsonPath.<List<String>>read(roles, "$.roles[?(@.key == 'staff')].permissions[*]").stream()
+            .filter(key -> !key.equals("notices.send"))
+            .toList();
+    assertThat(
+            mvc.put()
+                .uri(path("/roles/STAFF/permissions"))
+                .with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("permissions", staff))))
+        .hasStatusOk();
+
+    await().atMost(WAIT).until(() -> !received.isEmpty());
+    String body = received.peek().body();
+    assertThat((String) JsonPath.read(body, "$.type")).isEqualTo("access.changed");
+    assertThat((String) JsonPath.read(body, "$.data.kind")).isEqualTo("role_permissions");
+    assertThat(JsonPath.<List<String>>read(body, "$.data.removed")).containsExactly("notices.send");
+    assertThat(JsonPath.<List<String>>read(body, "$.data.added")).isEmpty();
+    assertThat((String) JsonPath.read(body, "$.data.changed_by.id")).isEqualTo(ownerId.toString());
+    assertThat((Boolean) JsonPath.read(body, "$.data.via_token")).isFalse();
+
+    // The example on the Webhooks page has the same keys as the real thing
+    String types =
+        mvc.get()
+            .uri(path("/webhooks/event-types"))
+            .with(owner.token())
+            .exchange()
+            .getResponse()
+            .getContentAsString();
+    List<Map<String, Object>> examples =
+        JsonPath.read(types, "$[?(@.type == 'access.changed')].example.data");
+    Map<String, Object> real = JsonPath.read(body, "$.data");
+    assertThat(examples).hasSize(1);
+    assertThat(examples.getFirst()).containsOnlyKeys(real.keySet());
+  }
+
+  @Test
   void workThatRolledBackSendsNothing() {
     endpoint("member.joined");
     TenantContext.callAs(

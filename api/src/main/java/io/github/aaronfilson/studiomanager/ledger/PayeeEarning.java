@@ -18,6 +18,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /** A share or fee a payee earned, with the journal entry that posted it. Written once. */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "payee_earning")
 @EntityListeners(AuditingEntityListener.class)

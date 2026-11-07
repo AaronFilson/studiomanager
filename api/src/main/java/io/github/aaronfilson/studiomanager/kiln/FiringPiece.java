@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * <p>{@code open} copies whether the firing is still loading or firing, so a unique index can stop
  * one piece being in two open loads.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "firing_piece")
 class FiringPiece {

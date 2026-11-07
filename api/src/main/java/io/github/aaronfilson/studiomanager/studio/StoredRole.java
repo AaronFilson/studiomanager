@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
  * StudioRole}, and any custom roles its owners make (lane R7), each at a base of STAFF or MEMBER.
  * What a role holds is in {@link StoredRolePermission}.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "studio_role")
 class StoredRole {

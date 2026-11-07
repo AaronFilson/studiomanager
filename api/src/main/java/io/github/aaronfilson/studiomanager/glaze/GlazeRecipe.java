@@ -40,6 +40,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * The import-only columns ({@code source_ref}, {@code source_rev}, {@code source_updated_at},
  * {@code promoted_from}) aren't mapped: nothing writes them yet.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "glaze_recipe")
 @EntityListeners(AuditingEntityListener.class)
@@ -223,7 +225,7 @@ class GlazeRecipe {
 
   private static boolean sameValue(@Nullable BigDecimal stored, @Nullable BigDecimal drafted) {
     if (stored == null || drafted == null) {
-      return stored == drafted;
+      return stored == null && drafted == null;
     }
     return stored.compareTo(drafted) == 0;
   }

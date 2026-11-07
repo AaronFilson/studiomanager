@@ -25,6 +25,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * columns ({@link WebhookQueries} counts failures in SQL), so updates write only the columns that
  * changed ({@code DynamicUpdate}) and neither overwrites the other.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "webhook_endpoint")
 @EntityListeners(AuditingEntityListener.class)

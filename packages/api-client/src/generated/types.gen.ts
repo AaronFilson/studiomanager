@@ -1752,7 +1752,7 @@ export type NecReport = {
     payees: Array<NecLine>;
 };
 
-export type WebhookEventType = 'pieces.ready' | 'fee.charged' | 'member.joined' | 'ping';
+export type WebhookEventType = 'pieces.ready' | 'fee.charged' | 'member.joined' | 'access.changed' | 'ping';
 
 export type WeeklyActivity = {
     /**

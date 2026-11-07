@@ -13,6 +13,8 @@ import org.jspecify.annotations.Nullable;
  * by {@link WebhookQueries#insertEvent}, whose {@code on conflict do nothing} is what makes a
  * listener that runs twice add nothing.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Immutable
 @Table(name = "webhook_event")

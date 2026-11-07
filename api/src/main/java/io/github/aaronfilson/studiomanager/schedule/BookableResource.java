@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
  * studio. The certification type belongs to the access module and the asset to maintenance, so both
  * are held by id, not mapped (ADR 21).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "resource")
 class BookableResource {

@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.piece.PieceReceived;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.studio.AccessChanged;
 import io.github.aaronfilson.studiomanager.studio.MemberJoined;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -103,7 +105,7 @@ class WebhookFanOut {
             "id",
             firing.firingId().toString(),
             "kind",
-            firing.kind().name().toLowerCase(),
+            firing.kind().name().toLowerCase(Locale.ROOT),
             "kiln",
             firing.kilnName(),
             "unloaded_at",
@@ -179,10 +181,37 @@ class WebhookFanOut {
         member(joined.accountId(), accounts.displayNames(ids), accounts.emails(ids));
     m.put(
         "role",
-        members.roleOf(joined.accountId()).map(role -> role.name().toLowerCase()).orElse("member"));
+        members
+            .roleOf(joined.accountId())
+            .map(role -> role.name().toLowerCase(Locale.ROOT))
+            .orElse("member"));
     data.put("member", m);
     data.put("joined_at", now().toString());
     events.publish(WebhookEventType.MEMBER_JOINED, "member.joined:" + joined.accountId(), data);
+  }
+
+  /**
+   * Inside the changing transaction, beside its access log row (plan 21 §7), so a rollback sends
+   * nothing. The target is a member, a role or the studio.
+   */
+  @EventListener
+  void on(AccessChanged change) {
+    Set<UUID> ids = Set.of(change.actorAccountId());
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("kind", change.kind().name().toLowerCase(Locale.ROOT));
+    data.put("target", change.target());
+    data.put("added", change.added());
+    data.put("removed", change.removed());
+    data.put(
+        "changed_by",
+        member(change.actorAccountId(), accounts.displayNames(ids), accounts.emails(ids)));
+    data.put("via_token", change.viaTokenId() != null);
+    data.put("changed_at", change.at().truncatedTo(ChronoUnit.SECONDS).toString());
+    events.publish(
+        WebhookEventType.ACCESS_CHANGED,
+        "access.changed:%s:%s:%s:%s"
+            .formatted(change.kind(), change.target(), change.at(), change.actorAccountId()),
+        data);
   }
 
   private Map<String, Object> charge(

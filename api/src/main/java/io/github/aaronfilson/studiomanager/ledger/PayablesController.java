@@ -25,7 +25,7 @@ import io.github.aaronfilson.studiomanager.contract.ReturnConsignmentRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SavePayeeRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SellConsignmentRequestDto;
 import io.github.aaronfilson.studiomanager.contract.TakeInConsignmentRequestDto;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentItem;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentSale;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.DiscountsFrom;
@@ -232,7 +232,7 @@ class PayablesController implements PayablesApi {
             itemId,
             request.getQuantity() == null ? 1 : request.getQuantity(),
             decimal(request.getPrice()),
-            Provider.valueOf(request.getProvider().getValue()));
+            PaymentChannel.valueOf(request.getProvider().getValue()));
     return ResponseEntity.status(HttpStatus.CREATED).body(toDto(sale));
   }
 

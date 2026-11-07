@@ -2,7 +2,7 @@ package io.github.aaronfilson.studiomanager.ledger;
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueBalance;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueMovement;
@@ -75,7 +75,7 @@ class StoredValues {
       @Nullable UUID holder,
       @Nullable String label,
       BigDecimal amount,
-      Provider provider,
+      PaymentChannel provider,
       @Nullable LocalDate expiresOn) {
     permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     ledger.requirePositive(amount);
@@ -118,10 +118,10 @@ class StoredValues {
     permissions.require(Permission.MONEY_STORED_VALUE_MANAGE, LedgerService.ONLY_STAFF);
     ledger.requireMember(memberId);
     ledger.requirePositive(amount);
-    // Lock the balance so two uses at once can't both spend it
-    storedValues
-        .findForUpdate(storedValueId)
-        .orElseThrow(() -> new NotFoundException("No such balance."));
+    // Lock the balance so two uses at once can't both spend it. Only the lock is wanted.
+    if (storedValues.findForUpdate(storedValueId).isEmpty()) {
+      throw new NotFoundException("No such balance.");
+    }
     StoredValueBalance balance = storedValue(storedValueId);
     UUID holder = balance.holder();
     if (holder != null && !holder.equals(memberId)) {

@@ -25,6 +25,18 @@ variable "communication_data_location" {
   default     = "United States"
 }
 
+variable "email_custom_domain" {
+  description = "The domain to send email from, once chosen (docs/runbooks/email-domain.md). Null: the Azure-managed domain only."
+  type        = string
+  default     = null
+}
+
+variable "email_send_from_custom_domain" {
+  description = "Send from email_custom_domain. Turn on in a second apply, after Azure shows the domain verified."
+  type        = bool
+  default     = false
+}
+
 variable "api_image" {
   description = "Image used only when the Container App and job are first created. CI rolls later images after migrations."
   type        = string

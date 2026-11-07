@@ -201,6 +201,8 @@ class WebhookSender {
     return (int) Math.min(Integer.MAX_VALUE, (System.nanoTime() - startedNanos) / 1_000_000);
   }
 
+  // A claimed delivery, carried from the claim to the send and never compared
+  @SuppressWarnings("ArrayRecordComponent")
   record Claimed(
       UUID id,
       UUID studioId,

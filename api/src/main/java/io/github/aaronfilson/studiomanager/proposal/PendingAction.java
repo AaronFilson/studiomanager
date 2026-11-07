@@ -31,6 +31,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * queue can say "Olive, through 'Claude desktop'". Whoever approves is the actor of the change it
  * makes.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "pending_action")
 @EntityListeners(AuditingEntityListener.class)
@@ -194,7 +196,8 @@ class PendingAction {
   void requirePending() {
     if (status != Status.PENDING) {
       throw new InvalidInputException(
-          "This suggestion was already %s.".formatted(status.name().toLowerCase()));
+          "This suggestion was already %s."
+              .formatted(status.name().toLowerCase(java.util.Locale.ROOT)));
     }
   }
 

@@ -13,6 +13,8 @@ import org.jspecify.annotations.Nullable;
  * One try at a delivery, for the delivery log. Written by {@link WebhookQueries#recordAttempt}, in
  * the same step that releases the delivery's claim.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Immutable
 @Table(name = "webhook_attempt")

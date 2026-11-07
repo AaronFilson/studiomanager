@@ -20,8 +20,8 @@ import io.github.aaronfilson.studiomanager.contract.SummaryLineDto;
 import io.github.aaronfilson.studiomanager.contract.TaxRateDto;
 import io.github.aaronfilson.studiomanager.contract.UseStoredValueRequestDto;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.MemberBalance;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Payout;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueBalance;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.TaxRate;
@@ -82,7 +82,7 @@ class LedgerController implements LedgerApi {
             ledger.recordPayment(
                 request.getMemberId(),
                 new BigDecimal(request.getAmount()),
-                Provider.valueOf(request.getProvider().getValue()),
+                PaymentChannel.valueOf(request.getProvider().getValue()),
                 request.getReference())));
   }
 
@@ -104,7 +104,7 @@ class LedgerController implements LedgerApi {
             request.getHolder(),
             request.getLabel(),
             new BigDecimal(request.getAmount()),
-            Provider.valueOf(request.getProvider().getValue()),
+            PaymentChannel.valueOf(request.getProvider().getValue()),
             request.getExpiresOn());
     return ResponseEntity.status(HttpStatus.CREATED).body(toDto(sold));
   }
@@ -161,7 +161,7 @@ class LedgerController implements LedgerApi {
     return ResponseEntity.ok(
         toDto(
             payouts.importPayout(
-                Provider.valueOf(request.getProvider().getValue()),
+                PaymentChannel.valueOf(request.getProvider().getValue()),
                 request.getExternalId(),
                 request.getArrivalOn(),
                 new BigDecimal(request.getGross()),

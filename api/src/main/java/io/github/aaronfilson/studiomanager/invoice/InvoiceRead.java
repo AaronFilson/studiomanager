@@ -19,6 +19,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * One run of a reader on an invoice: the outcome, the tokens or pages, the cost and the time.
  * Insert-only. The platform-paid readers' monthly caps are counted from these rows.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "invoice_read")
 @EntityListeners(AuditingEntityListener.class)

@@ -2,6 +2,8 @@ import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     java
+    // Test coverage, reported after every test run (plan 15). CI uploads the report.
+    jacoco
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.openapi.generator)
@@ -148,13 +150,29 @@ tasks.withType<Test> {
     }
 }
 
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    // The contract classes are generated from the OpenAPI spec, not written here
+    classDirectories.setFrom(
+        sourceSets.main.get().output.classesDirs.asFileTree.matching { exclude("**/contract/**") },
+    )
+}
+
 tasks.withType<JavaCompile>().configureEach {
-    // Warnings for now; -Werror comes at the end of plan 20
-    options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial"))
+    // Every javac lint and Error Prone warning fails the build (plan 20, "Finish")
+    options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
     options.errorprone {
-        // Only NullAway for now. Error Prone's own checks are sorted out at the end of plan 20.
-        disableAllChecks = true
         error("NullAway")
+        // Records document their components with @param alone, which is the normal form for a
+        // record; a summary sentence above it would only repeat the record's name.
+        disable("MissingSummary")
         disableWarningsInGeneratedCode = true
         excludedPaths = ".*/build/generated/.*"
         option("NullAway:JSpecifyMode", "true")

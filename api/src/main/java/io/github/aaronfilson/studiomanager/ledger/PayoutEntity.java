@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Payout;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -22,6 +22,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * A processor's deposit into the studio's bank, with the journal entry that posted it. Written
  * once. Named for its table; {@link Payout} is the view of it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "payout")
 @EntityListeners(AuditingEntityListener.class)
@@ -32,7 +34,7 @@ class PayoutEntity {
   @TenantId private @Nullable UUID studioId;
 
   @Enumerated(EnumType.STRING)
-  private Provider provider;
+  private PaymentChannel provider;
 
   private String externalId;
 
@@ -58,7 +60,7 @@ class PayoutEntity {
   protected PayoutEntity() {}
 
   PayoutEntity(
-      Provider provider,
+      PaymentChannel provider,
       String externalId,
       LocalDate arrivalOn,
       BigDecimal gross,

@@ -5,7 +5,7 @@ import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.truncate
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentItem;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentSale;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.MyConsignment;
@@ -107,7 +107,7 @@ class Consignments {
    */
   @Transactional
   public ConsignmentSale sell(
-      UUID itemId, int quantity, @Nullable BigDecimal price, Provider provider) {
+      UUID itemId, int quantity, @Nullable BigDecimal price, PaymentChannel provider) {
     permissions.require(Permission.MONEY_TAKE_PAYMENT, LedgerService.ONLY_STAFF);
     ConsignmentItemEntity entity = lockItem(itemId);
     LocalDate day = books.today();
@@ -165,7 +165,8 @@ class Consignments {
     List<Line> lines = new ArrayList<>();
     for (Line line :
         saleLines(payee.id(), sale.price(), sale.consignorAmount(), sale.tax(), sale.provider())) {
-      if (line.account() == LedgerAccount.PROCESSOR_CLEARING && sale.provider() != Provider.CASH) {
+      if (line.account() == LedgerAccount.PROCESSOR_CLEARING
+          && sale.provider() != PaymentChannel.CASH) {
         lines.add(Line.credit(LedgerAccount.REFUNDS, line.amount()).provider(sale.provider()));
       } else {
         lines.add(line.reversed());
@@ -238,7 +239,7 @@ class Consignments {
       BigDecimal paid,
       BigDecimal consignorAmount,
       BigDecimal tax,
-      Provider provider) {
+      PaymentChannel provider) {
     List<Line> lines = new ArrayList<>();
     lines.add(Line.debit(LedgerAccount.PROCESSOR_CLEARING, paid.add(tax)).provider(provider));
     if (consignorAmount.signum() != 0) {

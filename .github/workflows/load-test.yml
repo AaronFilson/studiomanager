@@ -1,0 +1,42 @@
+name: Load test
+
+# By hand only: it spends the token's rate-limit budget and keeps the API awake for a few minutes.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  token-limits:
+    name: k6, API token limits
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+    env:
+      K6_API_URL: ${{ vars.API_URL }}
+      K6_TOKEN: ${{ secrets.SMOKE_TOKEN }}
+      K6_STUDIO_ID: ${{ vars.SMOKE_STUDIO_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Settings are present
+        run: |
+          for name in K6_API_URL K6_TOKEN K6_STUDIO_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is empty. Set the dev environment's API_URL and SMOKE_STUDIO_ID variables and the SMOKE_TOKEN secret (docs/runbooks/smoke-and-load.md)."
+              exit 1
+            fi
+          done
+
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+
+      - run: k6 run --summary-export=k6-summary.json e2e/k6/token-limits.js
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: k6-summary
+          path: k6-summary.json

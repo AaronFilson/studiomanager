@@ -19,6 +19,8 @@ import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /** A slot someone must cover, such as "Monitor, Tuesday 6–9pm". */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "shift")
 @EntityListeners(AuditingEntityListener.class)

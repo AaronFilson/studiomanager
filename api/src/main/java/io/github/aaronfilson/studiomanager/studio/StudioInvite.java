@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The table has no version column: an invite is created, resent or withdrawn, never edited.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "studio_invite")
 class StudioInvite {

@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.Money;
 import io.github.aaronfilson.studiomanager.platform.measure.Length;
 import io.github.aaronfilson.studiomanager.platform.measure.LengthUnit;
+import io.github.aaronfilson.studiomanager.platform.measure.Weight;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Currency;
@@ -41,14 +42,15 @@ public final class FeeCalculator {
   }
 
   private static Priced perVolume(FeeRule.PerVolume rule, PieceSize size) {
-    if (!size.hasDimensions()) {
+    PieceSize.Box box = size.box();
+    if (box == null) {
       throw new InvalidInputException(
           "This studio prices by volume, so the piece needs its three dimensions.");
     }
     LengthUnit unit = rule.unit().lengthUnit;
-    BigDecimal length = roundUp(dimension(size.length(), unit), rule.rounding());
-    BigDecimal width = roundUp(dimension(size.width(), unit), rule.rounding());
-    BigDecimal height = roundUp(dimension(size.height(), unit), rule.rounding());
+    BigDecimal length = roundUp(dimension(box.length(), unit), rule.rounding());
+    BigDecimal width = roundUp(dimension(box.width(), unit), rule.rounding());
+    BigDecimal height = roundUp(dimension(box.height(), unit), rule.rounding());
     BigDecimal volume =
         length.multiply(width).multiply(height).divide(rule.unit().cubicLengthUnitsPerUnit);
     String working =
@@ -65,11 +67,12 @@ public final class FeeCalculator {
   }
 
   private static Priced perWeight(FeeRule.PerWeight rule, PieceSize size) {
-    if (size.weight() == null) {
+    Weight measured = size.weight();
+    if (measured == null) {
       throw new InvalidInputException(
           "This studio prices by weight, so the piece needs its weight.");
     }
-    BigDecimal weight = roundUp(size.weight().in(rule.unit()), rule.rounding());
+    BigDecimal weight = roundUp(measured.in(rule.unit()), rule.rounding());
     String working =
         "%s %s × %s".formatted(plain(weight), rule.unit().symbol(), plain(rule.rate()));
     return new Priced(weight.multiply(rule.rate()), working);

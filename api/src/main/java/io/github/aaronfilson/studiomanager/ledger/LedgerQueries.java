@@ -3,7 +3,7 @@ package io.github.aaronfilson.studiomanager.ledger;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.ClearingBalance;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.MemberBalance;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueBalance;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.StoredValueKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.SummaryLine;
@@ -160,7 +160,7 @@ class LedgerQueries {
             """)
         .query((rs, row) ->
             new ClearingBalance(
-                Provider.valueOf(rs.getString("provider")), rs.getBigDecimal("awaiting")))
+                PaymentChannel.valueOf(rs.getString("provider")), rs.getBigDecimal("awaiting")))
         .list();
   }
 

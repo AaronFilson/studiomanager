@@ -24,6 +24,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * version (a photo only ever goes from pending to ready, under the record's lock), so {@link
  * Persistable} tells Spring Data a new one apart from a loaded one.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "record_photo")
 @EntityListeners(AuditingEntityListener.class)

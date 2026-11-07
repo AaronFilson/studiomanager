@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
  * Something the studio stocks. Its stock isn't stored here: on hand is the sum of its {@link
  * StockMovement}s, so there's no number someone can forget to update.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "supply_item")
 class SupplyItem {

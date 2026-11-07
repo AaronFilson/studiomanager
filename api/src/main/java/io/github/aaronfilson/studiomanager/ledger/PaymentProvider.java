@@ -1,6 +1,6 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -15,7 +15,7 @@ import java.util.UUID;
  */
 public interface PaymentProvider {
 
-  Provider provider();
+  PaymentChannel provider();
 
   /** Charges {@code amount} against a member's saved card, returning the processor's charge id. */
   String charge(UUID memberId, BigDecimal amount, String description, String idempotencyKey);

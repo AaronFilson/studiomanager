@@ -112,12 +112,22 @@ members in them (`PUT /members/{accountId}/role`). The rules:
   values its names), `ROLE_PERMISSIONS` for a custom role's set, and `MEMBER_ROLE` naming built-in
   roles as `STAFF` and custom ones by key.
 
+## After the lanes (plan 22, lane C)
+
+- **Access changes go out.** `studio.AccessChanged` becomes an `access.changed` webhook, sent in
+  the changing transaction like `fee.charged`, and an `access.changed` event on the Kafka stream.
+  The stream event carries ids only; the webhook also carries who made the change, by name.
+- **`studio_membership.role` stays.** Plan 21 §6 meant to drop it once nothing read it. It is
+  still read by the JPQL that finds owners and roles, by the last-owner trigger (V40), by
+  `app.accept_invite` and by the export. V41's trigger keeps it equal to the base of `role_id`, so
+  it can't drift. It is kept on purpose, as the role's rank, beside `role_id`, which names the role.
+
 ## Consequences
 
 - One readable list says what can be granted, and the owner-only list is explicit.
 - `TenantContext` grows a field; every way of building it still works, with code defaults.
-- Until R2 lands, two vocabularies coexist (`hasRole` and `can`). The ArchUnit allow-list and the
-  contract ratchet make the remaining work visible and stop it growing.
+- R2 replaced every `hasRole` with `can`. The ArchUnit allow-list and the contract ratchet keep it
+  that way.
 - Rejected: per-person grants and denies (hard to reason about); a policy or relationship engine
   such as Cedar, OPA or OpenFGA (too much machinery for studios of three to twenty people);
   permissions in RLS (splits each rule between Java and SQL).

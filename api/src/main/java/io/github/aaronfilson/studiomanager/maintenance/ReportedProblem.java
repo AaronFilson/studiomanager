@@ -12,6 +12,8 @@ import org.hibernate.annotations.TenantId;
 import org.jspecify.annotations.Nullable;
 
 /** Something a member noticed, open until staff resolve it. */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "problem_report")
 class ReportedProblem {

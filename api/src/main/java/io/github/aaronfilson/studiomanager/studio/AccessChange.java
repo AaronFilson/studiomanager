@@ -14,6 +14,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * One row of the bound studio's access log ({@code role_change_log}): written once, never edited.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "role_change_log")
 class AccessChange {

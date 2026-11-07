@@ -52,7 +52,7 @@ public class MaintenanceService {
       Comparator.comparing(Task::status)
           .reversed()
           .thenComparing(MaintenanceService::dueAtOrLatest)
-          .thenComparing(MaintenanceService::firingsLeftOrMost);
+          .thenComparingInt(MaintenanceService::firingsLeftOrMost);
 
   private final MaintainedAssetRepository assets;
   private final MaintenanceTaskRepository tasks;

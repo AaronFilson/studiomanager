@@ -123,7 +123,7 @@ final class SupplyMatcher {
    */
   static Set<String> trigrams(String normalized) {
     Set<String> grams = new HashSet<>();
-    for (String word : normalized.split(" ")) {
+    for (String word : normalized.split(" ", -1)) {
       if (word.isEmpty()) {
         continue;
       }

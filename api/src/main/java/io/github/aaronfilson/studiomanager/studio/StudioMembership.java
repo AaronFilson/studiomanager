@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  * <p>No {@code @TenantId}: "my studios" reads a person's memberships in every studio with none
  * bound (ADR 21). So queries in one studio name the studio themselves.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "studio_membership")
 class StudioMembership {

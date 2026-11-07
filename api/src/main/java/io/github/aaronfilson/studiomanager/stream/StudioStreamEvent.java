@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -156,6 +157,66 @@ public sealed interface StudioStreamEvent {
 
     MemberJoined(UUID studioId, Instant occurredAt, UUID memberId) {
       this(idFor(TYPE + ":" + studioId + ":" + memberId), studioId, occurredAt, memberId);
+    }
+
+    @Override
+    public String type() {
+      return TYPE;
+    }
+
+    @Override
+    public int version() {
+      return 1;
+    }
+  }
+
+  /**
+   * Someone changed who may do what (plan 21 §7). {@code kind} is the access log's kind in lower
+   * case, such as {@code role_permissions}; {@code target} is a role key, a member's account id or
+   * "studio". {@code added} and {@code removed} are permission keys, duties or role names.
+   */
+  @JsonIgnoreProperties(
+      value = {"type", "version"},
+      allowGetters = true)
+  record AccessChanged(
+      UUID id,
+      UUID studioId,
+      Instant occurredAt,
+      UUID actorId,
+      @Nullable UUID viaTokenId,
+      String kind,
+      String target,
+      List<String> added,
+      List<String> removed)
+      implements StudioStreamEvent {
+
+    public static final String TYPE = "access.changed";
+
+    public AccessChanged {
+      added = List.copyOf(added);
+      removed = List.copyOf(removed);
+    }
+
+    AccessChanged(
+        UUID studioId,
+        Instant occurredAt,
+        UUID actorId,
+        @Nullable UUID viaTokenId,
+        String kind,
+        String target,
+        List<String> added,
+        List<String> removed) {
+      this(
+          idFor(
+              TYPE + ":" + studioId + ":" + kind + ":" + target + ":" + occurredAt + ":" + actorId),
+          studioId,
+          occurredAt,
+          actorId,
+          viaTokenId,
+          kind,
+          target,
+          added,
+          removed);
     }
 
     @Override

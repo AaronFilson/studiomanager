@@ -34,6 +34,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * <p>The measurements keep the value and unit they were entered in. The fee is a snapshot taken at
  * intake, so it is stored as its columns, not looked up again.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "piece")
 @EntityListeners(AuditingEntityListener.class)

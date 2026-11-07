@@ -83,6 +83,8 @@ module "email" {
   email_service_name         = "ecs-${local.name}"
   resource_group_name        = data.azurerm_resource_group.env.name
   data_location              = var.communication_data_location
+  custom_domain              = var.email_custom_domain
+  send_from_custom_domain    = var.email_send_from_custom_domain
   tags                       = local.tags
 }
 

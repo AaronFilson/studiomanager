@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -53,7 +54,7 @@ public class StudioExport {
 
   @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public byte[] zip(Instant now) {
-    UUID studioId = TenantContext.require().studioId();
+    UUID studioId = TenantContext.require().requireStudioId();
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
       List<String> tables = studioTables();
@@ -85,7 +86,7 @@ public class StudioExport {
             where n.nspname = 'public' and c.relkind = 'r'
             order by c.relname
             """)
-        .query(String.class)
+        .query((rs, row) -> rs.getString("relname"))
         .list();
   }
 
@@ -128,7 +129,7 @@ public class StudioExport {
     return names;
   }
 
-  private static Object cell(ResultSet rs, int column) throws SQLException {
+  private static @Nullable Object cell(ResultSet rs, int column) throws SQLException {
     String type = rs.getMetaData().getColumnTypeName(column);
     return switch (type) {
       case "int2", "int4", "int8", "numeric", "float4", "float8" -> rs.getObject(column);
@@ -160,8 +161,12 @@ public class StudioExport {
                 """
                 select account_id, role, created_at from studio_membership where studio_id = :studioId order by created_at
                 """)
-            .param("studioId", TenantContext.require().studioId())
-            .query(Membership.class)
+            .param("studioId", TenantContext.require().requireStudioId())
+            .query((rs, row) ->
+                new Membership(
+                    rs.getObject("account_id", UUID.class),
+                    rs.getString("role"),
+                    rs.getObject("created_at", OffsetDateTime.class)))
             .list();
     List<UUID> ids = rows.stream().map(Membership::accountId).toList();
     Map<UUID, String> names = accounts.displayNames(ids);

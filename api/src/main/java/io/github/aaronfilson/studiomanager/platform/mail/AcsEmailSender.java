@@ -48,7 +48,8 @@ class AcsEmailSender implements EmailSender {
     PollResponse<EmailSendResult> response =
         client.beginSend(message).waitForCompletion(SEND_TIMEOUT);
     EmailSendResult result = response.getValue();
-    if (result.getStatus() != EmailSendStatus.SUCCEEDED) {
+    // equals, not !=: EmailSendStatus is an expandable string, not a Java enum
+    if (!EmailSendStatus.SUCCEEDED.equals(result.getStatus())) {
       // Accepted but not delivered, such as a bad address: sending again wouldn't help
       log.warn(
           "Email {} ended {}: {}",

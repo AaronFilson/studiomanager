@@ -64,6 +64,11 @@ output "db_admin_group_name" {
   value = var.db_admin_group.display_name
 }
 
+output "email_domain_dns_records" {
+  description = "The DNS records to add for email_custom_domain, or null while none is set."
+  value       = module.email.custom_domain_verification_records
+}
+
 output "web_build_env" {
   description = "Build-time settings for the web app (VITE_* variables are public by design)."
   value = {

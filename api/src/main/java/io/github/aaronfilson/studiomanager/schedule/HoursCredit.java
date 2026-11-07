@@ -18,6 +18,8 @@ import org.springframework.data.domain.Persistable;
  * Minutes credited to someone, for a shift worked or as a correction. Insert-only, so the table has
  * no version; {@link Persistable} tells Spring Data a new one apart from a loaded one.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "hours_entry")
 class HoursCredit implements Persistable<UUID> {

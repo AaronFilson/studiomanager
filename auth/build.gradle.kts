@@ -49,10 +49,11 @@ tasks.withType<Test> {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial"))
+    // The same bar as the API: every lint and Error Prone warning fails the build
+    options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
     options.errorprone {
-        disableAllChecks = true
         error("NullAway")
+        disable("MissingSummary")
         option("NullAway:JSpecifyMode", "true")
         option("NullAway:OnlyNullMarked", "true")
     }

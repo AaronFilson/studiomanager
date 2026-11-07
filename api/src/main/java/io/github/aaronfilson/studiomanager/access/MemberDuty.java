@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  * Hibernate's key leaves it out, since {@code @TenantId} already limits every query to one studio.
  * Never updated, only granted and taken away (the table allows no update).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "member_duty")
 class MemberDuty {
