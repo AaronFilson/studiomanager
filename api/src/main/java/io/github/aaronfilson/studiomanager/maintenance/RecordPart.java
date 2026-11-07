@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  * A spare part used in one record. The supply item belongs to the supplies module, so it is held by
  * id, not mapped (ADR 21). Saved with its record, by cascade.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "maintenance_record_part")
 class RecordPart {

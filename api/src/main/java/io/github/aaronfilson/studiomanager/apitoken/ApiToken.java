@@ -23,6 +23,8 @@ import org.jspecify.annotations.Nullable;
  * ({@link ApiTokenQueries}), so updates here write only the columns that changed ({@code
  * DynamicUpdate}) and a revoke can't overwrite that.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "api_token")
 @DynamicUpdate
@@ -44,7 +46,10 @@ class ApiToken {
 
   private Instant createdAt;
 
-  /** The expiry it was given. It also stops working once unused for {@link #unusedFor}. */
+  /**
+   * The expiry it was given. It also stops working once unused for {@link ApiTokens#UNUSED_DAYS}
+   * days.
+   */
   private Instant expiresAt;
 
   private @Nullable Instant lastUsedAt;

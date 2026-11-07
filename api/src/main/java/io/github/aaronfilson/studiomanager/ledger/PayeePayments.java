@@ -9,7 +9,7 @@ import static io.github.aaronfilson.studiomanager.ledger.PayablesChecks.truncate
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Earning;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.EarningKind;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.Payee;
@@ -210,11 +210,12 @@ class PayeePayments {
   private static Line source(PaymentMethod method, BigDecimal amount, @Nullable UUID accountId) {
     return switch (method) {
       case CHECK, BANK_TRANSFER -> Line.credit(LedgerAccount.BANK, amount);
-      case CASH -> Line.credit(LedgerAccount.PROCESSOR_CLEARING, amount).provider(Provider.CASH);
+      case CASH ->
+          Line.credit(LedgerAccount.PROCESSOR_CLEARING, amount).provider(PaymentChannel.CASH);
       case PAYPAL ->
-          Line.credit(LedgerAccount.PROCESSOR_CLEARING, amount).provider(Provider.PAYPAL);
+          Line.credit(LedgerAccount.PROCESSOR_CLEARING, amount).provider(PaymentChannel.PAYPAL);
       case STRIPE ->
-          Line.credit(LedgerAccount.PROCESSOR_CLEARING, amount).provider(Provider.STRIPE);
+          Line.credit(LedgerAccount.PROCESSOR_CLEARING, amount).provider(PaymentChannel.STRIPE);
       case STUDIO_CREDIT ->
           Line.credit(LedgerAccount.MEMBER_RECEIVABLE, amount)
               .member(Objects.requireNonNull(accountId));

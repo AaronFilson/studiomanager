@@ -17,7 +17,7 @@ import io.github.aaronfilson.studiomanager.kiln.FiringView;
 import io.github.aaronfilson.studiomanager.kiln.KilnService;
 import io.github.aaronfilson.studiomanager.kiln.KilnService.KilnSettings;
 import io.github.aaronfilson.studiomanager.kiln.KilnView;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerService;
 import io.github.aaronfilson.studiomanager.maintenance.AssetChanges;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.AssetKind;
@@ -215,7 +215,7 @@ class DemoSeed {
             ledger.recordPayment(
                 context(as, DemoPeople.PRIYA).accountId(),
                 new BigDecimal("40.00"),
-                Provider.CASH,
+                PaymentChannel.CASH,
                 "at the desk"));
     TenantContext.callAs(
         staff,
@@ -223,7 +223,7 @@ class DemoSeed {
             ledger.recordPayment(
                 context(as, DemoPeople.SAM).accountId(),
                 new BigDecimal("25.00"),
-                Provider.SQUARE,
+                PaymentChannel.SQUARE,
                 "card reader"));
 
     return new Seeded(DemoPiece.ALL.size(), 3, 3, glazeCount, supplyCount);

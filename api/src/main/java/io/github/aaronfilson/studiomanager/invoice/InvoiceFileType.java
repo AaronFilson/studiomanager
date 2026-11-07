@@ -9,6 +9,9 @@ public enum InvoiceFileType {
   PNG("image/png", new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'});
 
   private final String mediaType;
+
+  // Private and never handed out or written, so the array can't change after construction
+  @SuppressWarnings("ImmutableEnumChecker")
   private final byte[] magic;
 
   InvoiceFileType(String mediaType, byte[] magic) {

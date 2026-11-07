@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  * receivable, which stored-value balance, which processor and which payee. They stay ids: balances
  * are sums in SQL, never walked through entities.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "journal_line")
 class JournalLine {
@@ -45,7 +47,7 @@ class JournalLine {
   private @Nullable UUID storedValueId;
 
   @Enumerated(EnumType.STRING)
-  private @Nullable Provider provider;
+  private @Nullable PaymentChannel provider;
 
   private @Nullable String taxCategory;
 

@@ -23,6 +23,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * <p>The fields that are null until the kiln is first saved ({@code studioId}, {@code createdAt},
  * {@code version}) are {@code @Nullable}; their accessors say when that's a bug.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "kiln")
 @EntityListeners(AuditingEntityListener.class)

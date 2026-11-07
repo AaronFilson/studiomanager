@@ -19,10 +19,27 @@ import java.util.Optional;
  */
 public final class PublicAddresses {
 
-  private record Block(byte[] prefix, int bits, String why) {
+  /**
+   * A class rather than a record: a record's equals would compare the prefix array by reference.
+   */
+  private static final class Block {
+
+    private final byte[] prefix;
+    private final int bits;
+    private final String why;
+
+    private Block(byte[] prefix, int bits, String why) {
+      this.prefix = prefix;
+      this.bits = bits;
+      this.why = why;
+    }
+
+    String why() {
+      return why;
+    }
 
     static Block of(String cidr, String why) {
-      String[] parts = cidr.split("/");
+      String[] parts = cidr.split("/", -1);
       try {
         return new Block(
             InetAddress.getByName(parts[0]).getAddress(), Integer.parseInt(parts[1]), why);

@@ -15,6 +15,8 @@ import org.jspecify.annotations.Nullable;
  * also holds {@code studio_id}; Hibernate's leaves it out, since {@code @TenantId} already limits
  * every query to one studio. Added and removed, never updated.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "studio_role_permission")
 class StoredRolePermission {

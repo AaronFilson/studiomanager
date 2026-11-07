@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  * One line of an invoice. The supply item stays a {@code UUID}: it's another module's table (ADR
  * 21, rule 2).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "invoice_line")
 class InvoiceLine {

@@ -16,6 +16,8 @@ import org.jspecify.annotations.Nullable;
  * One entry in a piece's timeline: a move from one stage to another, who made it and when. The
  * timeline is append-only, so the entity is immutable. {@link PieceTimeline} writes and reads it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Immutable
 @Table(name = "piece_event")

@@ -31,6 +31,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * A supplier invoice in the bound studio's inbox, from upload to confirmation. Hibernate fills
  * {@code studio_id} ({@code TenantId}); auditing fills who uploaded it and when (ADR 21).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "invoice")
 @EntityListeners(AuditingEntityListener.class)

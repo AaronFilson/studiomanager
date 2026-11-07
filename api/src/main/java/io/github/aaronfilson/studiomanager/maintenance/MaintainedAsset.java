@@ -22,6 +22,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * has no name or down state of its own; both come from the kiln, which belongs to the kiln module
  * and is held here by id only (ADR 21).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "asset")
 @EntityListeners(AuditingEntityListener.class)

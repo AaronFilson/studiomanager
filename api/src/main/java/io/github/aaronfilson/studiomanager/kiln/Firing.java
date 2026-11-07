@@ -32,6 +32,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * One load of a kiln, from loading to unloading or cancelling. Its status changes are methods here,
  * so the rules for which change is allowed when live with the data.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "firing")
 @EntityListeners(AuditingEntityListener.class)

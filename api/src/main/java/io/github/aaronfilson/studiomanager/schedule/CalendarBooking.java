@@ -31,6 +31,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  *
  * <p>A firing belongs to the kiln module, so it is held by id, not mapped (ADR 21).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "booking")
 @EntityListeners(AuditingEntityListener.class)

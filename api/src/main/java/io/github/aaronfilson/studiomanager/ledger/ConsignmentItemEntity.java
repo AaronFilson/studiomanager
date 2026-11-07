@@ -25,6 +25,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * Work taken in to sell for an artist, with the terms copied from the payee when it came in. Named
  * for its table; {@link ConsignmentItem} is the view of it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "consignment_item")
 @EntityListeners(AuditingEntityListener.class)

@@ -149,12 +149,13 @@ tasks.withType<Test> {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    // Warnings for now; -Werror comes at the end of plan 20
-    options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial"))
+    // Every javac lint and Error Prone warning fails the build (plan 20, "Finish")
+    options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
     options.errorprone {
-        // Only NullAway for now. Error Prone's own checks are sorted out at the end of plan 20.
-        disableAllChecks = true
         error("NullAway")
+        // Records document their components with @param alone, which is the normal form for a
+        // record; a summary sentence above it would only repeat the record's name.
+        disable("MissingSummary")
         disableWarningsInGeneratedCode = true
         excludedPaths = ".*/build/generated/.*"
         option("NullAway:JSpecifyMode", "true")

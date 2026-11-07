@@ -1,6 +1,6 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.PayablesModel.ConsignmentSale;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -24,6 +24,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * A sale of consigned work, with the journal entry that posted it and, once refunded, the one that
  * reversed it. Named for its table; {@link ConsignmentSale} is the view of it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "consignment_sale")
 @EntityListeners(AuditingEntityListener.class)
@@ -47,7 +49,7 @@ class ConsignmentSaleEntity {
   private BigDecimal tax;
 
   @Enumerated(EnumType.STRING)
-  private Provider provider;
+  private PaymentChannel provider;
 
   private LocalDate soldOn;
 
@@ -69,7 +71,7 @@ class ConsignmentSaleEntity {
       BigDecimal price,
       BigDecimal consignorAmount,
       BigDecimal tax,
-      Provider provider,
+      PaymentChannel provider,
       LocalDate soldOn,
       UUID entryId) {
     this.id = id;
@@ -104,7 +106,7 @@ class ConsignmentSaleEntity {
     return tax;
   }
 
-  Provider provider() {
+  PaymentChannel provider() {
     return provider;
   }
 

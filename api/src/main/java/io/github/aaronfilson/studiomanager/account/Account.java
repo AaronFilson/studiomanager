@@ -12,6 +12,8 @@ import org.jspecify.annotations.Nullable;
  * A person, as known to the identity provider. Global rather than per-studio, because one person
  * can belong to several studios. Written by {@link AccountService}'s upsert.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "account")
 class Account {

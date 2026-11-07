@@ -25,6 +25,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * {@link Payee} is the view of it, with what they're owed. The table has no version column, and the
  * contract sends none, so the last save wins, as before.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "payee")
 @EntityListeners(AuditingEntityListener.class)

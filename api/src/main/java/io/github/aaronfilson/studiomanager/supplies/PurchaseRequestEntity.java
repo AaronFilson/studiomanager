@@ -31,6 +31,8 @@ import org.springframework.security.access.AccessDeniedException;
  *
  * <p>Who asked and when are filled by auditing ({@code @CreatedBy}, {@code @CreatedDate}).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "purchase_request")
 @EntityListeners(AuditingEntityListener.class)

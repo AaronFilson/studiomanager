@@ -12,6 +12,8 @@ import org.jspecify.annotations.Nullable;
  * A kind of sign-off the bound studio gives, such as "Kiln loading". Named for its table; {@link
  * AccessService.CertificationType} is the view of it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "certification_type")
 class CertificationTypeEntity {

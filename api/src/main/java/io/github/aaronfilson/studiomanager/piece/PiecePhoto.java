@@ -16,6 +16,8 @@ import org.jspecify.annotations.Nullable;
  * A photo of a piece. PENDING from handing out the upload URLs until both images are checked, then
  * READY. The images themselves are in Blob Storage, named from the ids ({@link PhotoBlobs}).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "piece_photo")
 class PiecePhoto {

@@ -12,7 +12,7 @@ public final class LedgerModel {
   private LedgerModel() {}
 
   /** Where money came from or went. CASH is the till; the rest are processors. */
-  public enum Provider {
+  public enum PaymentChannel {
     STRIPE,
     SQUARE,
     SHOPIFY,
@@ -52,7 +52,7 @@ public final class LedgerModel {
       BigDecimal amount,
       @Nullable UUID member,
       @Nullable UUID storedValue,
-      @Nullable Provider provider,
+      @Nullable PaymentChannel provider,
       @Nullable String taxCategory,
       @Nullable UUID payee) {
 
@@ -72,7 +72,7 @@ public final class LedgerModel {
       return new Line(account, amount, member, id, provider, taxCategory, payee);
     }
 
-    public Line provider(Provider p) {
+    public Line provider(PaymentChannel p) {
       return new Line(account, amount, member, storedValue, p, taxCategory, payee);
     }
 
@@ -111,7 +111,7 @@ public final class LedgerModel {
       BigDecimal expired,
       BigDecimal closing) {}
 
-  public record ClearingBalance(Provider provider, BigDecimal awaitingPayout) {}
+  public record ClearingBalance(PaymentChannel provider, BigDecimal awaitingPayout) {}
 
   /** One account's totals on one day: what the export and accounting sync post. */
   public record SummaryLine(
@@ -123,7 +123,7 @@ public final class LedgerModel {
 
   public record Payout(
       UUID id,
-      Provider provider,
+      PaymentChannel provider,
       String externalId,
       LocalDate arrivalOn,
       BigDecimal gross,

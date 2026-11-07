@@ -3,8 +3,8 @@ package io.github.aaronfilson.studiomanager.ledger;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.ClearingBalance;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Payout;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
@@ -55,7 +55,7 @@ class Payouts {
    */
   @Transactional
   public Payout importPayout(
-      Provider provider,
+      PaymentChannel provider,
       String externalId,
       LocalDate arrivalOn,
       BigDecimal gross,
@@ -64,7 +64,7 @@ class Payouts {
       BigDecimal adjustments,
       BigDecimal net) {
     permissions.require(Permission.MONEY_PAYOUTS, LedgerService.ONLY_STAFF);
-    if (provider == Provider.CASH) {
+    if (provider == PaymentChannel.CASH) {
       throw new InvalidInputException(
           "Cash isn't paid out by a processor; record a bank deposit instead.");
     }

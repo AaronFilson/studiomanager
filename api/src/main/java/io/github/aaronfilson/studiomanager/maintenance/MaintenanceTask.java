@@ -33,6 +33,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * <p>{@code reminded_for} is claimed by one atomic statement in {@link MaintenanceQueries}, so it
  * is mapped read-only: a flush of this entity never writes it back.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "maintenance_task")
 @EntityListeners(AuditingEntityListener.class)

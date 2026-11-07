@@ -12,6 +12,8 @@ import org.hibernate.annotations.TenantId;
 import org.jspecify.annotations.Nullable;
 
 /** A message to one member in one studio. Hibernate fills {@code studio_id} (ADR 21). */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "notification")
 class Notification {

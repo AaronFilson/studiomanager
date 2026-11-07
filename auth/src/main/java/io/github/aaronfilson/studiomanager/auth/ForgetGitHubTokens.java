@@ -15,6 +15,8 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepo
 final class ForgetGitHubTokens implements OAuth2AuthorizedClientRepository {
 
   @Override
+  // The signature is Spring's (OAuth2AuthorizedClientRepository); an override can't change it
+  @SuppressWarnings("TypeParameterUnusedInFormals")
   public <T extends OAuth2AuthorizedClient> @Nullable T loadAuthorizedClient(
       String clientRegistrationId, Authentication principal, HttpServletRequest request) {
     return null;

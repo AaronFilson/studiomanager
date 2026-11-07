@@ -14,6 +14,8 @@ import org.jspecify.annotations.Nullable;
  * A tax category's rate from a date onwards. Read here; setting one is an upsert in {@link
  * LedgerQueries}. Named for its table; {@link TaxRate} is the view of it.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "tax_rate")
 class TaxRateEntity {

@@ -28,6 +28,8 @@ import org.springframework.data.domain.Persistable;
  * evidence for an insurer, so the table has no version; {@link Persistable} tells Spring Data a new
  * one apart from a loaded one, so saving it inserts rather than merges.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "maintenance_record")
 class MaintenanceRecord implements Persistable<UUID> {

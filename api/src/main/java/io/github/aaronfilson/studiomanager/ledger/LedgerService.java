@@ -3,7 +3,7 @@ package io.github.aaronfilson.studiomanager.ledger;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Line;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.MemberBalance;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.SummaryLine;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
@@ -60,7 +60,7 @@ public class LedgerService {
   /** A member pays some or all of what they owe, at the desk or online. */
   @Transactional
   public MemberBalance recordPayment(
-      UUID memberId, BigDecimal amount, Provider provider, @Nullable String reference) {
+      UUID memberId, BigDecimal amount, PaymentChannel provider, @Nullable String reference) {
     TenantContext caller = permissions.require(Permission.MONEY_TAKE_PAYMENT, ONLY_STAFF);
     requireMember(memberId);
     requirePositive(amount);

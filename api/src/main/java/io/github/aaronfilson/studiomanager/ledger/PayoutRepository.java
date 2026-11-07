@@ -1,6 +1,6 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,5 +15,5 @@ interface PayoutRepository extends JpaRepository<PayoutEntity, UUID> {
   List<PayoutEntity> findNewestFirst(Limit limit);
 
   @Query("select p from PayoutEntity p where p.provider = :provider and p.externalId = :externalId")
-  Optional<PayoutEntity> findImported(Provider provider, String externalId);
+  Optional<PayoutEntity> findImported(PaymentChannel provider, String externalId);
 }

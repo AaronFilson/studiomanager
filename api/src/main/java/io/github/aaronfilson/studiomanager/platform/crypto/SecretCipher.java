@@ -75,8 +75,12 @@ public final class SecretCipher {
     Map<Integer, SecretKeySpec> keysByVersion = new LinkedHashMap<>();
     int currentVersion = 0;
     SecretKeySpec currentKey = null;
-    for (String entry : keyring.split(",")) {
+    for (String entry : keyring.split(",", -1)) {
       String trimmedEntry = entry.strip();
+      if (trimmedEntry.isEmpty()) {
+        // A trailing or doubled comma, as split without a limit used to drop silently
+        continue;
+      }
       int separator = trimmedEntry.indexOf(':');
       int version =
           separator < 0 ? 1 : parseVersion(propertyName, trimmedEntry.substring(0, separator));

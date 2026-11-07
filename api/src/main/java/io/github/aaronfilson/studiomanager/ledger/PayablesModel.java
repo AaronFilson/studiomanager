@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.EntryKind;
-import io.github.aaronfilson.studiomanager.ledger.LedgerModel.Provider;
+import io.github.aaronfilson.studiomanager.ledger.LedgerModel.PaymentChannel;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -111,7 +111,7 @@ public final class PayablesModel {
       BigDecimal price,
       BigDecimal consignorAmount,
       BigDecimal tax,
-      Provider provider,
+      PaymentChannel provider,
       LocalDate soldOn,
       @Nullable LocalDate refundedOn) {}
 

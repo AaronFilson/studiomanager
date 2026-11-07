@@ -21,6 +21,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * What's left on it is a sum of journal lines, so it is read in SQL ({@code LedgerQueries}); the
  * entity is for selling one and for locking it while it's spent.
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "stored_value")
 @EntityListeners(AuditingEntityListener.class)

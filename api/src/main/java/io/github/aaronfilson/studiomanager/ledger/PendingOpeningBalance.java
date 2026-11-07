@@ -19,6 +19,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * An opening balance held for someone invited by email, posted once they join. The invite is the
  * studio module's, so it is held by id (ADR 21).
  */
+// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+@SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "pending_opening_balance")
 @EntityListeners(AuditingEntityListener.class)

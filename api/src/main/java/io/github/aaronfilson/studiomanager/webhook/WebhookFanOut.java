@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -103,7 +104,7 @@ class WebhookFanOut {
             "id",
             firing.firingId().toString(),
             "kind",
-            firing.kind().name().toLowerCase(),
+            firing.kind().name().toLowerCase(Locale.ROOT),
             "kiln",
             firing.kilnName(),
             "unloaded_at",
@@ -179,7 +180,10 @@ class WebhookFanOut {
         member(joined.accountId(), accounts.displayNames(ids), accounts.emails(ids));
     m.put(
         "role",
-        members.roleOf(joined.accountId()).map(role -> role.name().toLowerCase()).orElse("member"));
+        members
+            .roleOf(joined.accountId())
+            .map(role -> role.name().toLowerCase(Locale.ROOT))
+            .orElse("member"));
     data.put("member", m);
     data.put("joined_at", now().toString());
     events.publish(WebhookEventType.MEMBER_JOINED, "member.joined:" + joined.accountId(), data);
