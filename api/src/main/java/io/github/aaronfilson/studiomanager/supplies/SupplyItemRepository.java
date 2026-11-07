@@ -18,7 +18,9 @@ import org.springframework.data.jpa.repository.Query;
  */
 interface SupplyItemRepository extends JpaRepository<SupplyItem, UUID> {
 
-  /** The item with its stock; {@code :onOrder} names the request statuses that count as on order. */
+  /**
+   * The item with its stock; {@code :onOrder} names the request statuses that count as on order.
+   */
   String WITH_STOCK =
       """
       select new io.github.aaronfilson.studiomanager.supplies.SupplyItemStock(

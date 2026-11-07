@@ -69,7 +69,8 @@ class GlazePersistenceTests {
     create("Shino");
     create("Temmoku");
     StatementCounts.Counted<?> forThree =
-        statements.of(() -> TenantContext.callAs(inStudio(), () -> book.list(GlazeBook.Filter.STUDIO)));
+        statements.of(
+            () -> TenantContext.callAs(inStudio(), () -> book.list(GlazeBook.Filter.STUDIO)));
 
     assertThat(TenantContext.callAs(inStudio(), () -> book.list(GlazeBook.Filter.STUDIO)))
         .hasSize(3)

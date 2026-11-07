@@ -48,7 +48,8 @@ class PurchaseRequests {
     SupplyService.requireStaff();
     SupplyItem item =
         itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("No such item."));
-    BigDecimal amount = quantity != null ? SupplyService.positive(quantity) : item.reorderQuantity();
+    BigDecimal amount =
+        quantity != null ? SupplyService.positive(quantity) : item.reorderQuantity();
     if (amount == null) {
       throw new InvalidInputException("How many? This item has no usual reorder quantity.");
     }
@@ -73,8 +74,7 @@ class PurchaseRequests {
       throw ConflictException.staleVersion(
           "Someone else changed this request at the same time. Reload and try again.");
     }
-    request.moveTo(
-        to, caller.role() == StudioRole.OWNER, caller.accountId(), clock.instant());
+    request.moveTo(to, caller.role() == StudioRole.OWNER, caller.accountId(), clock.instant());
     requestRepository.flush();
     if (to == RequestStatus.RECEIVED) {
       stock.adjust(

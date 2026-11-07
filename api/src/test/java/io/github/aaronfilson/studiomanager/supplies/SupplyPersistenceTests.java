@@ -76,8 +76,7 @@ class SupplyPersistenceTests {
     move(item.toString(), "USED", "1");
     long forThree = count(() -> supplies.movements(item));
 
-    assertThat(TenantContext.callAs(inStudio(), () -> supplies.movements(item)).items())
-        .hasSize(3);
+    assertThat(TenantContext.callAs(inStudio(), () -> supplies.movements(item)).items()).hasSize(3);
     assertThat(forThree).isEqualTo(forOne);
   }
 
@@ -106,7 +105,10 @@ class SupplyPersistenceTests {
   void aTakenNameIsAnInputErrorOnCreateAndOnRename() throws Exception {
     create("Twin");
     String other = create("Other");
-    assertThat(post(path("/supplies"), "{\"name\": \"Twin\", \"category\": \"CLAY\", \"unit\": \"bag\"}"))
+    assertThat(
+            post(
+                path("/supplies"),
+                "{\"name\": \"Twin\", \"category\": \"CLAY\", \"unit\": \"bag\"}"))
         .hasStatus(HttpStatus.BAD_REQUEST);
     assertThat(
             put(

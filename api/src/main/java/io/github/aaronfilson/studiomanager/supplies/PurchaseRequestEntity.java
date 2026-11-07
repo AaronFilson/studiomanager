@@ -117,8 +117,7 @@ class PurchaseRequestEntity {
         };
     if (!allowed) {
       throw new InvalidInputException(
-          "A %s request can't become %s."
-              .formatted(lowerCase(status), lowerCase(to)));
+          "A %s request can't become %s.".formatted(lowerCase(status), lowerCase(to)));
     }
     boolean isDecision =
         switch (to) {

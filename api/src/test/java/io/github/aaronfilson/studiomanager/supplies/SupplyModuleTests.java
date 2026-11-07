@@ -72,7 +72,8 @@ class SupplyModuleTests {
         TenantContext.callAs(
                 signedIn,
                 () ->
-                    studios.create("Module Supplies", UnitSystem.METRIC, "Europe/London", "GB", null))
+                    studios.create(
+                        "Module Supplies", UnitSystem.METRIC, "Europe/London", "GB", null))
             .id();
     owner = signedIn.inStudio(studioId, StudioRole.OWNER);
   }

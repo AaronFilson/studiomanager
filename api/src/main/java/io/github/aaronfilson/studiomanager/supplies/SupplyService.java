@@ -28,12 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Clay and supplies in the bound studio: what other modules read, and the one change they make
- * (maintenance uses parts). Stock on hand is the sum of movements, never a stored number someone can
- * forget to update.
+ * (maintenance uses parts). Stock on hand is the sum of movements, never a stored number someone
+ * can forget to update.
  *
- * <p>The other changes are in this package, one service per use case: {@link SupplyItems},
- * {@link StockMovements}, {@link SupplySales} and {@link PurchaseRequests}. Each list here is a
- * fixed number of queries however long it is.
+ * <p>The other changes are in this package, one service per use case: {@link SupplyItems}, {@link
+ * StockMovements}, {@link SupplySales} and {@link PurchaseRequests}. Each list here is a fixed
+ * number of queries however long it is.
  */
 @Service
 public class SupplyService {
@@ -42,7 +42,8 @@ public class SupplyService {
   static final int STOCK_HISTORY_LIMIT = 1000;
 
   /** Requests whose stock is on its way: approved or ordered, and not yet received. */
-  static final Set<RequestStatus> ON_ORDER = EnumSet.of(RequestStatus.APPROVED, RequestStatus.ORDERED);
+  static final Set<RequestStatus> ON_ORDER =
+      EnumSet.of(RequestStatus.APPROVED, RequestStatus.ORDERED);
 
   private static final Set<RequestStatus> OPEN =
       EnumSet.of(RequestStatus.REQUESTED, RequestStatus.APPROVED, RequestStatus.ORDERED);
@@ -118,7 +119,9 @@ public class SupplyService {
         accounts.displayNames(
             fetched.stream().map(StockMovement::memberId).filter(Objects::nonNull).toList());
     return Capped.fromFetched(
-        fetched.stream().map(movement -> movement.toView(nameOf(movement.memberId(), names))).toList(),
+        fetched.stream()
+            .map(movement -> movement.toView(nameOf(movement.memberId(), names)))
+            .toList(),
         STOCK_HISTORY_LIMIT);
   }
 
@@ -146,8 +149,7 @@ public class SupplyService {
     Map<UUID, String> names = accounts.displayNames(people);
     return requests.stream()
         .map(request ->
-            request.toView(
-                names.get(request.requestedBy()), nameOf(request.decidedBy(), names)))
+            request.toView(names.get(request.requestedBy()), nameOf(request.decidedBy(), names)))
         .toList();
   }
 

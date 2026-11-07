@@ -32,7 +32,9 @@ interface GlazeRecipeRepository extends JpaRepository<GlazeRecipe, UUID> {
       """)
   List<GlazeRecipe> findOwnedByWithLines(UUID ownerAccountId);
 
-  /** Members' recipes shared with the studio by someone else. Only a member's recipe can be shared. */
+  /**
+   * Members' recipes shared with the studio by someone else. Only a member's recipe can be shared.
+   */
   @Query(
       """
       select r from GlazeRecipe r left join fetch r.lines

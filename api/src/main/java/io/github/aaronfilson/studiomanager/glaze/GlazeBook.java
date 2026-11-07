@@ -117,8 +117,7 @@ public class GlazeBook {
   /** One recipe as the API returns it, to {@code caller}. */
   Recipe view(GlazeRecipe recipe, TenantContext caller) {
     UUID owner = recipe.ownerAccountId();
-    Map<UUID, String> ownerNames =
-        owner == null ? Map.of() : accounts.displayNames(List.of(owner));
+    Map<UUID, String> ownerNames = owner == null ? Map.of() : accounts.displayNames(List.of(owner));
     return view(recipe, caller, ownerNames);
   }
 
