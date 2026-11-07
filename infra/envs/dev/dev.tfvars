@@ -1,9 +1,9 @@
 # Non-secret settings for dev. Replace the REPLACE_ME values once (see
 # docs/runbooks/first-deploy.md); validation fails the plan until you do.
 
-environment             = "dev"
 # West US, near the owner. Static Web Apps isn't offered in westus, so it uses the nearest region
 # that has it.
+environment             = "dev"
 location                = "westus"
 static_web_app_location = "westus2"
 
