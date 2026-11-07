@@ -3,11 +3,30 @@
 _Planned 2026-11-06, from the owner's note: "I will need RBAC system for the future so a studio
 owner can set who and how things work." This is a plan only. No code changes with it._
 
+_Revised 2026-11-07 with the owner's answers: several co-owners, money split, MEMBER editable,
+every lane before the pilot. See "Decisions (2026-11-07)"._
+
+## Decisions (2026-11-07)
+
+1. **Several co-owners.** A studio has one or more owners. It always has at least one (§7).
+2. **Money is split** into `money.take_payment` and `money.refund_and_adjust` / `money.payouts`.
+   STAFF get both by default, so nothing changes on day one.
+3. **MEMBER is an editable set,** like STAFF, above a fixed self-service floor: a member can
+   always read their own pieces, balance, consignment and bookings.
+4. **All lanes, R1 to R8, ship before the pilot** (§8).
+5. **Owner-only permissions stay with owners.** They can never be given to any other role.
+6. **Duties grant fixed permissions in code.** MONITOR's proposed grants are kept.
+7. **No per-person overrides.** Make a role instead.
+8. **Tokens and MCP:** staff-only by default, as `api_tokens.own` and `mcp.use`, which the
+   owners may give to any role.
+9. **Changes apply within about a minute** (cache).
+
 ## Summary
 
 - Keep the three roles (OWNER, STAFF, MEMBER). Behind them, put a catalogue of named permissions.
 - Each studio gets one editable permission set per role, seeded so day one behaves exactly as
   today. The owner can then add custom roles built from the same catalogue.
+- A studio can have several co-owners, and always has at least one.
 - Duties stay what they are: jobs that grant a few narrow permissions, on top of a role.
 - Every action checks one permission in one place in the API. RLS stays tenant-only.
 - API tokens are capped by the person's live permissions and their own scopes. The web and mobile
@@ -136,12 +155,13 @@ How comparable products do it:
 - **GitHub** organizations: fixed base roles, plus custom roles built from a list of
   fine-grained permissions on top of a base role
   ([docs](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/about-custom-organization-roles)).
-- **Shopify** staff: the owner ticks permissions per staff member, and since 2024 saves them as
-  reusable roles ([docs](https://help.shopify.com/en/manual/your-account/users/roles)).
-- **Square** Team: permission sets the owner edits and assigns to team members; the account
-  owner always has everything ([docs](https://squareup.com/help/us/en/article/5822-employee-permissions)).
-- Studio software (Mindbody, Momence) uses staff permission levels the owner edits, the same
-  shape as B and C.
+- **Shopify** staff: roles bundle the permissions a job needs; the store creates and assigns them
+  under Settings > Users > Roles ([docs](https://help.shopify.com/en/manual/your-account/users/roles)).
+- **Square** Team: the account owner, and team members with team-management permission, create
+  and edit permission sets and assign them to team members
+  ([docs](https://squareup.com/help/us/en/article/5822-employee-permissions)).
+
+_Links checked 2026-11-07._
 
 The common pattern is named roles built from a fixed permission list, with an owner who always
 has everything. Per-person overrides are rare and mostly replaced by "make another role".
@@ -153,7 +173,7 @@ has everything. Per-person overrides are rare and mostly replaced by "make anoth
 - No D. If a person needs something special, the owner makes a role for it. One place to look.
 - Duties stay separate from roles. A duty says what job someone does on a shift or task; it
   also grants a few narrow permissions, fixed in code (below). Owners can't edit what a duty
-  grants in the first version (open question 4).
+  grants (decision 6).
 - Certifications stay facts, checked by the action (booking), not permissions.
 
 ### How roles, duties and certifications combine
@@ -164,7 +184,7 @@ has everything. Per-person overrides are rare and mostly replaced by "make anoth
 | Duty | Grants |
 |---|---|
 | TECHNICIAN | `maintenance.complete_assigned`, `maintenance.reports.resolve`, gets problem alerts |
-| MONITOR | `schedule.shifts.take_duty`, `pieces.intake_for_others` (proposed; open question 4) |
+| MONITOR | `schedule.shifts.take_duty`, `pieces.intake_for_others` |
 | WORK_EXCHANGE | `schedule.shifts.take_duty`, `schedule.hours.log_own` |
 | VOLUNTEER_OFFICER | `schedule.shifts.take_duty` |
 | INSTRUCTOR | `schedule.shifts.take_duty` |
@@ -174,7 +194,7 @@ has everything. Per-person overrides are rare and mostly replaced by "make anoth
 ## 4. Permission catalogue
 
 Names are `area.action`. "Own" variants mean the row must be the caller's. Each lists the
-default (S = staff, M = member, O = owner-only). Owner always has every permission.
+default (S = staff, M = member, O = owner-only). Every owner always has every permission.
 
 | Area | Permission | Default |
 |---|---|---|
@@ -206,7 +226,7 @@ default (S = staff, M = member, O = owner-only). Owner always has every permissi
 | Money | `money.own.read` (own balance, own consignment) | M |
 | Money | `money.read` (ledger, reports) | S |
 | Money | `money.take_payment`, `money.stored_value.manage` | S |
-| Money | `money.refund_and_adjust`, `money.payouts`, `money.payables.manage`, `money.tax_rates.edit` | S (open question 3) |
+| Money | `money.refund_and_adjust`, `money.payouts`, `money.payables.manage`, `money.tax_rates.edit` | S (split from take-payment, decision 2) |
 | Notices | `notices.read` | M |
 | Notices | `notices.send` | S |
 | Overview | `today.read`, `activity.read` | S |
@@ -214,6 +234,15 @@ default (S = staff, M = member, O = owner-only). Owner always has every permissi
 | Integrations | `api_tokens.own` (make and revoke your own) | S |
 | Integrations | `api_tokens.manage_all` | O |
 | Integrations | `mcp.use`, `proposals.create`, `proposals.review` | S |
+| Owners | `owners.manage` (add or remove co-owners) | O |
+
+**Self-service floor.** These can't be removed from MEMBER or any role: read your own pieces,
+balance, consignment, bookings, certifications and notifications. They aren't in the editable
+set; the check is "it's yours".
+
+**Owner-only** (O) permissions belong to the OWNER role alone and can never be added to another
+role (decision 5): `studio.export`, `studio.ai_key.manage`, `studio.roles.manage`,
+`api_tokens.manage_all`, `supplies.purchase.approve`, `owners.manage`.
 
 About 55 permissions. Defaults reproduce today's checks one for one, so seeding is mechanical.
 The catalogue is code (a Java enum), not data: adding one is a migration plus a code change, and
@@ -252,7 +281,10 @@ the owner only chooses among them.
 - Exception kept as is: SECURITY DEFINER functions (ADR 10) check `app.principal_kind`. If one
   later needs a permission, set `app.permissions` as a text array in the same `set_config` call
   and check it there. Not needed now.
-- V14 (find the owner for reminders) stays: there is always exactly one OWNER-flag holder (§6).
+- V14's reminder query joins `studio_membership` on `role = 'OWNER'` and was written for one
+  owner. With co-owners it must notify **every** owner: a new migration replaces it to return all
+  owners (by the OWNER system role's `role_id`), and the reminder sender sends to each. A test
+  covers a studio with two owners.
 
 ### Caching
 
@@ -305,10 +337,10 @@ role_change_log        (id, studio_id, actor_account_id, via_token_id, kind, tar
 
 - All tenant tables, with the usual `studio_id` RLS policy and `@TenantId`.
 - `base` is the rank a custom role sits at, for two rules: who may assign it, and the job
-  ceiling. A custom role's permissions must be a subset of what its base's defaults could hold;
-  owner-only permissions (`studio.roles.manage`, `studio.export`, `studio.ai_key.manage`,
-  `api_tokens.manage_all`) can't be given to any role except OWNER (open question 2).
-- The OWNER role is a system role with every permission, not editable.
+  ceiling. Owner-only permissions (§4) can't be given to any role except OWNER (decision 5); the
+  API refuses them and the database has a check against the owner-only list.
+- The OWNER role is a system role with every permission, not editable. Any number of members may
+  hold it.
 
 ### Migration, no behaviour change
 
@@ -333,14 +365,38 @@ New studios get the same seed from `StudioService` when created.
   `role_change_log` row in the same transaction, with before and after, and "via token" when
   relevant.
 - Each also publishes a Modulith event, so the activity stream and webhooks (plan 10) can show it.
-- The owner sees the log on the roles page. Kept for the life of the studio.
+- Every owner sees the log on the roles page, with the acting account on each row. Kept for the life of the studio.
 
 ### Can't lock out
 
-- Exactly one person holds OWNER, as now. Owner transfer is a separate, explicit action that
-  demotes the old owner to STAFF in the same transaction (open question 1).
+- **A studio always has at least one owner.** The last owner can't leave, be removed, or be
+  demoted. The API refuses it with a plain message ("Add another owner first"), and a deferred
+  database trigger on `studio_membership` refuses any transaction that would leave a studio with
+  no OWNER, so a bug or a race can't get past it either.
+- **Any owner can add or remove other owners** (`owners.manage`). Promoting someone to OWNER, or
+  demoting an owner, needs that permission; no other role can hold it. An owner may demote
+  themselves while another owner remains.
+- Two owners demoting each other at once: both transactions take a lock on the studio's owner
+  rows (`SELECT ... FOR UPDATE` on the OWNER memberships), so the second sees the first's result
+  and is refused if it would leave none.
 - The OWNER role always has every permission; no UI or API can edit it.
 - `studio.roles.manage` is owner-only, so no one else can change permissions, including their own.
+
+### Accountability with several owners
+
+- **Every owner holds every owner-only permission.** There's no "primary" owner inside a studio.
+  Each can manage the AI key, export, approve purchases, manage roles and add or remove owners.
+- **Who did what is recorded, not who is "the" owner.** Every owner-only action (AI key set or
+  removed, export downloaded, owner added or removed, role edited, purchase approved) writes the
+  acting account to `role_change_log` or the area's own history, as tokens already do with "via".
+- **The AI key** stays the studio's key. The log records which owner set it and when. Any owner
+  can replace or remove it.
+- **Billing** (when the platform charges): the studio has one billing contact, an account that
+  must be an owner. If that owner stops being an owner, the API asks the remaining owners to pick
+  one; until then notices go to every owner.
+- **Notices meant for "the owner"** (maintenance reminders through V14, purchase requests
+  waiting for approval, owner-added alerts) go to every owner.
+- Adding or removing an owner notifies every owner, so a co-owner can't be added quietly.
 - Nobody can assign a role they couldn't hold themselves (today's "can't invite above your own
   role", generalised: the assigned role's permissions must be a subset of the caller's).
 - A role in use can't be deleted until its members are moved.
@@ -368,51 +424,23 @@ New studios get the same seed from `StudioService` when created.
 | R5 | Tokens and MCP: token = person ∩ scopes; `mcp.use`; per-tool permissions; tool listing filter | S | R2 |
 | R6 | Owner UI: roles page, edit STAFF and MEMBER sets, diff warning, audit log view; ADR 25 | M | R3, R4 |
 | R7 | Custom roles: create, rename, delete, assign; invites by role | M | R6 |
-| R8 | Owner transfer flow, if the owner wants it (open question 1) | S | R4 |
+| R8 | Co-owners: add and remove owners (`owners.manage`), last-owner trigger and lock, V14 replacement notifying every owner, owner-meant notices to all owners, billing contact, web and mobile owner picker | M | R4 |
 
-R1 to R5 change no behaviour and can ship before any studio needs custom permissions. R6 and R7
-are the features the owner asked for. Sizes: S ≈ a day, M ≈ two to four days, L ≈ a week.
+**Every lane ships before the pilot** (decision 4). Order:
+
+1. R1.
+2. R2 and R3 in parallel (R2 can split per module).
+3. R4, then R5 and R8 in parallel.
+4. R6, then R7.
+5. Pilot.
+
+R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
+day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
+queue.
 
 ## 9. Open questions for the owner
 
-1. **One owner or several?** Today exactly one OWNER per studio.
-   - (a) Keep one, add a "transfer ownership" action. (b) Allow several co-owners.
-   - **Recommend (a).** Simple lock-out rules and one person accountable for billing and the AI
-     key. Co-op studios can give a "Board" custom role nearly everything except the owner-only
-     four.
-2. **Can any role besides the owner get the owner-only permissions** (export, AI key, manage
-   roles, everyone's tokens)?
-   - (a) Never. (b) The owner may grant them to a custom role.
-   - **Recommend (a)** for the first version. Revisit with (1) if co-ops ask.
-3. **How finely to split money?** One `money.*` for staff today.
-   - (a) One permission for all money. (b) Split take-payment from refund/adjust/payout.
-     (c) Split further per screen.
-   - **Recommend (b).** "Front desk can take payments but not refund" is the most common ask in
-     studio and retail software. Default both on for STAFF so nothing changes.
-4. **Should owners edit what a duty grants?**
-   - (a) No, duties grant fixed permissions in code. (b) Yes, each duty gets an editable set like
-     a role.
-   - **Recommend (a)** now. Custom roles cover the rest. Confirm the proposed MONITOR grants
-     (intake for others), or leave MONITOR granting only shift-taking.
-5. **Per-person overrides?**
-   - (a) None; make a role. (b) Allow grant/deny per person.
-   - **Recommend (a).** One place to look when asking "why can Sam do this?".
-6. **Should members' defaults be editable too** (for example, stop members booking, or let them
-   see the member list)?
-   - (a) Yes, MEMBER is an editable set like STAFF. (b) No, only staff and custom roles.
-   - **Recommend (a),** with the self-service floor fixed: a member can always read their own
-     pieces, balance and bookings.
-7. **API tokens and MCP for non-staff?** Today only staff can make tokens or use MCP.
-   - (a) Keep staff-only by default, but as a permission the owner can give to any role.
-     (b) Open to members by default.
-   - **Recommend (a).** Members using an assistant on their own pieces is a good later feature,
-     but the token policy needs a "members" review first.
-8. **How quickly must a change take effect?**
-   - (a) Within a minute (cache), (b) instantly (no cache, one more query per request).
-   - **Recommend (a)** while there's one replica it is effectively instant anyway.
-9. **When does this ship?** Before the pilot, or after?
-   - **Recommend** R1 to R5 before the pilot (cleanup with no behaviour change, and it fits plan
-     20's "clean before production"), and R6 to R7 when a pilot studio asks.
+None open. All nine were answered on 2026-11-07; see "Decisions (2026-11-07)" at the top.
 
 ## References
 
