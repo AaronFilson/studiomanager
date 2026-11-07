@@ -119,10 +119,9 @@ class StoredValues {
     ledger.requireMember(memberId);
     ledger.requirePositive(amount);
     // Lock the balance so two uses at once can't both spend it. Only the lock is wanted.
-    var _ =
-        storedValues
-            .findForUpdate(storedValueId)
-            .orElseThrow(() -> new NotFoundException("No such balance."));
+    if (storedValues.findForUpdate(storedValueId).isEmpty()) {
+      throw new NotFoundException("No such balance.");
+    }
     StoredValueBalance balance = storedValue(storedValueId);
     UUID holder = balance.holder();
     if (holder != null && !holder.equals(memberId)) {

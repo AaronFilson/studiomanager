@@ -28,7 +28,7 @@ test('the landing page loads without errors', async ({ page }) => {
 test('Sign in goes to the External ID authority', async ({ page }) => {
   await page.goto('/');
   // Stop at the identity provider: the request leaving the site is what's checked
-  const leaving = page.waitForRequest((request) => request.url().includes('ciamlogin.com'));
+  const leaving = page.waitForRequest((request) => new URL(request.url()).hostname.endsWith('.ciamlogin.com'));
   await page.getByRole('button', { name: 'Sign in' }).click();
   const request = await leaving;
 

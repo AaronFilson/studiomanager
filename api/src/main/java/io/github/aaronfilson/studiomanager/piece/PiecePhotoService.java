@@ -137,8 +137,9 @@ public class PiecePhotoService {
    * Serializes photo changes on one piece, so two uploads at once can't both take the last place.
    */
   private void lockPiece(UUID pieceId) {
-    var _ =
-        pieceRows.findAndLock(pieceId).orElseThrow(() -> new NotFoundException("No such piece."));
+    if (pieceRows.findAndLock(pieceId).isEmpty()) {
+      throw new NotFoundException("No such piece.");
+    }
   }
 
   private static String tooMany() {
