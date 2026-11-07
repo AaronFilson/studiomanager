@@ -75,14 +75,14 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<List<AssetDto>> listAssets(UUID studioId) {
     return ResponseEntity.ok(
         maintenance.assets(clock.instant()).stream().map(MaintenanceDtos::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<AssetDto> createAsset(UUID studioId, SaveAssetRequestDto request) {
     var asset =
         assetChanges.createAsset(
@@ -96,7 +96,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<AssetDto> updateAsset(
       UUID studioId, UUID assetId, UpdateAssetRequestDto request) {
     return ResponseEntity.ok(
@@ -110,14 +110,14 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<Void> archiveAsset(UUID studioId, UUID assetId) {
     assetChanges.archiveAsset(assetId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<AssetDto> setAssetAvailability(
       UUID studioId, UUID assetId, AssetAvailabilityRequestDto request) {
     return ResponseEntity.ok(
@@ -126,7 +126,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<MaintenanceTaskDto> createMaintenanceTask(
       UUID studioId, UUID assetId, SaveMaintenanceTaskRequestDto request) {
     var task = taskChanges.createTask(assetId, settings(request));
@@ -136,7 +136,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<MaintenanceTaskDto> updateMaintenanceTask(
       UUID studioId, UUID taskId, UpdateMaintenanceTaskRequestDto request) {
     return ResponseEntity.ok(
@@ -146,7 +146,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<Void> archiveMaintenanceTask(UUID studioId, UUID taskId) {
     taskChanges.archiveTask(taskId);
     return ResponseEntity.noContent().build();
@@ -154,7 +154,7 @@ class MaintenanceController implements MaintenanceApi {
 
   /** Members may call this; the service lets through only staff and the task's assignee. */
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_READ')")
   public ResponseEntity<MaintenanceTaskDto> completeMaintenanceTask(
       UUID studioId, UUID taskId, CompleteMaintenanceTaskRequestDto request) {
     return ResponseEntity.ok(
@@ -168,7 +168,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<MaintenanceRecordDto> recordRepair(
       UUID studioId, UUID assetId, RecordRepairRequestDto request) {
     var record =
@@ -178,7 +178,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<MaintenanceRecordListDto> listMaintenanceRecords(
       UUID studioId, UUID assetId) {
     Map<UUID, List<RecordPhotoService.Photo>> photos = recordPhotos.photosOf(assetId);
@@ -191,7 +191,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<PhotoUploadDto> startRecordPhotoUpload(UUID studioId, UUID recordId) {
     RecordPhotoService.Upload upload = recordPhotos.startUpload(recordId);
     return ResponseEntity.status(201)
@@ -206,7 +206,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<Void> completeRecordPhotoUpload(
       UUID studioId, UUID recordId, UUID photoId) {
     recordPhotos.complete(recordId, photoId);
@@ -214,7 +214,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<List<SuggestedMaintenanceTaskDto>> listSuggestedMaintenanceTasks(
       UUID studioId, UUID assetId) {
     return ResponseEntity.ok(
@@ -232,7 +232,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_MANAGE')")
   public ResponseEntity<String> exportMaintenanceRecords(
       LocalDate from, LocalDate to, UUID studioId) {
     return ResponseEntity.ok()
@@ -244,7 +244,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_READ')")
   public ResponseEntity<List<ReportableAssetDto>> listReportableAssets(UUID studioId) {
     return ResponseEntity.ok(
         problems.reportable().stream()
@@ -258,7 +258,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_READ')")
   public ResponseEntity<ProblemReportListDto> listProblemReports(
       UUID studioId, @Nullable Boolean open) {
     Capped<ProblemReportDto> reports =
@@ -268,7 +268,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_REPORT_PROBLEM')")
   public ResponseEntity<ProblemReportDto> reportProblem(
       UUID studioId, ReportProblemRequestDto request) {
     return ResponseEntity.status(201)
@@ -278,7 +278,7 @@ class MaintenanceController implements MaintenanceApi {
 
   /** Members may call this; the service lets through only staff. */
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_READ')")
   public ResponseEntity<ProblemReportDto> resolveProblemReport(
       UUID studioId, UUID reportId, ResolveProblemRequestDto request) {
     return ResponseEntity.ok(
@@ -287,7 +287,7 @@ class MaintenanceController implements MaintenanceApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MAINTENANCE_READ')")
   public ResponseEntity<List<MaintenanceTaskDto>> listMyMaintenanceTasks(UUID studioId) {
     return ResponseEntity.ok(
         maintenance.myTasks(clock.instant()).stream().map(MaintenanceDtos::toDto).toList());

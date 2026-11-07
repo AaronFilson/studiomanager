@@ -30,7 +30,7 @@ class ActivityController implements ActivityApi {
 
   /** Empty while streaming is off, as the contract says: totals kept from before would be stale. */
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'ACTIVITY_READ')")
   public ResponseEntity<WeeklyActivityDto> getWeeklyActivity(UUID studioId, Integer weeks) {
     if (!streaming) {
       return ResponseEntity.ok(new WeeklyActivityDto().streaming(false).weeks(List.of()));

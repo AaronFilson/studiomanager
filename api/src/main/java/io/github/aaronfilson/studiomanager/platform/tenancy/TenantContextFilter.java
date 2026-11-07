@@ -85,7 +85,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
         });
     TenantContext caller = TenantContext.forAccount(token.accountId());
     StudioRole role = roleIn(token.studioId(), caller);
-    if (!role.includes(StudioRole.STAFF)) {
+    if (!StudioPermissions.roleHolds(role, Permission.API_TOKENS_OWN)) {
       throw new AccessDeniedException(
           "API tokens are for staff. This token's owner isn't staff any more.");
     }

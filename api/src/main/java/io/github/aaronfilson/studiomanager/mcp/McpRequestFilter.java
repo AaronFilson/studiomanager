@@ -1,7 +1,7 @@
 package io.github.aaronfilson.studiomanager.mcp;
 
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioAuthorization;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,7 +48,7 @@ class McpRequestFilter implements HandlerFilterFunction<ServerResponse, ServerRe
     // The tools act on whatever studio is bound, so make sure it's the one in the URL, and that
     // the caller is staff there. The tenant filter already refuses anyone who isn't a member.
     boolean boundHere = studioId.equals(TenantContext.require().studioId());
-    if (!boundHere || !studioAuthz.hasRole(studioId, StudioRole.STAFF)) {
+    if (!boundHere || !studioAuthz.can(studioId, Permission.MCP_USE)) {
       throw new AccessDeniedException("The MCP server is for staff of this studio.");
     }
     // No server-to-client stream: a stateless server answers each POST and keeps nothing open

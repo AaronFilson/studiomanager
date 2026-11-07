@@ -8,11 +8,20 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.MergedAnnotations;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,41 +37,37 @@ class PermissionArchitectureTests {
 
   private static final String TENANCY = "io.github.aaronfilson.studiomanager.platform.tenancy";
 
+  private static final Pattern CAN =
+      Pattern.compile("^@studioAuthz\\.can\\(#studioId, '(\\w+)'\\)$");
+  private static final Pattern OPERATION_ID = Pattern.compile("^      operationId:\\s*(\\S+)\\s*$");
+  private static final Pattern X_PERMISSION =
+      Pattern.compile("^      x-permission:\\s*(\\S+)\\s*$");
+
   /**
-   * Classes that still compare or switch on {@link StudioRole} outside {@code platform.tenancy} (or
-   * name a role to assign it). Lane R2 replaces them with permissions and empties this list; it may
-   * only shrink.
+   * Classes outside {@code platform.tenancy} that name a {@link StudioRole} constant only to give
+   * someone that role, never to decide what the caller may do. ArchUnit can't tell reading a
+   * constant to assign it from reading it to compare, so they are listed by hand (plan 21, lane
+   * R2):
+   *
+   * <ul>
+   *   <li>{@code studio.StudioService}: a studio's creator becomes its owner.
+   *   <li>{@code importer.ImportService}: imported people are invited as members.
+   *   <li>{@code studio.InviteEmails}, {@code webhook.WebhookFanOut}, {@code
+   *       ledger.OpeningBalances}: bind a context in a role to do work after a commit.
+   *   <li>{@code demo.DemoPeople}, {@code demo.DemoStudio}: the demo seed's cast, and finding the
+   *       studio its owner owns.
+   * </ul>
+   *
+   * <p>Every access decision checks a {@code Permission}. This list may only shrink.
    */
-  private static final Set<String> STILL_BRANCHING_ON_ROLE =
+  private static final Set<String> ASSIGNS_A_ROLE =
       Set.of(
-          "access.AccessController",
-          "access.AccessService",
-          "ai.AiKeys",
-          "apitoken.ApiTokens",
           "demo.DemoPeople",
           "demo.DemoStudio",
-          "glaze.GlazeBook",
           "importer.ImportService",
-          "ledger.LedgerService",
           "ledger.OpeningBalances",
-          "ledger.PayablesChecks",
-          "maintenance.MaintenanceRecords",
-          "maintenance.MaintenanceReminders",
-          "maintenance.ProblemReportService",
-          "mcp.McpRequestFilter",
-          "notify.NotificationListeners",
-          "notify.NotificationService",
-          "piece.PieceService",
-          "proposal.PendingActionReview",
-          "proposal.Proposals",
-          "schedule.ScheduleService",
           "studio.InviteEmails",
-          "studio.StudioInvites",
           "studio.StudioService",
-          "supplies.PurchaseRequests",
-          "supplies.SupplyService",
-          "today.TodayService",
-          "webhook.WebhookEndpoints",
           "webhook.WebhookFanOut");
 
   private final JavaClasses classes =
@@ -86,7 +91,7 @@ class PermissionArchitectureTests {
     }
     assertThat(branching)
         .as("Check a Permission through StudioPermissions instead of comparing roles")
-        .isSubsetOf(STILL_BRANCHING_ON_ROLE);
+        .isSubsetOf(ASSIGNS_A_ROLE);
   }
 
   @Test
@@ -108,6 +113,66 @@ class PermissionArchitectureTests {
       }
     }
     assertThat(unchecked).as("Studio endpoints without @PreAuthorize").isEmpty();
+  }
+
+  @Test
+  void everyStudioEndpointChecksAPermission() {
+    Set<String> byRole = new TreeSet<>();
+    for (JavaClass javaClass : classes) {
+      if (!javaClass.isAnnotatedWith(RestController.class)) {
+        continue;
+      }
+      for (JavaMethod method : javaClass.getMethods()) {
+        Method handler = method.reflect();
+        PreAuthorize check = handler.getAnnotation(PreAuthorize.class);
+        if (check != null
+            && takesStudioId(handler)
+            && !check.value().startsWith("@studioAuthz.can(#studioId, '")) {
+          byRole.add(shortName(javaClass) + "." + handler.getName());
+        }
+      }
+    }
+    assertThat(byRole).as("Studio endpoints not checking @studioAuthz.can").isEmpty();
+  }
+
+  @Test
+  void theContractNamesThePermissionEachEndpointChecks() throws IOException {
+    Map<String, String> named = contractPermissions();
+    Map<String, String> different = new TreeMap<>();
+    for (JavaClass javaClass : classes) {
+      if (!javaClass.isAnnotatedWith(RestController.class)) {
+        continue;
+      }
+      for (JavaMethod method : javaClass.getMethods()) {
+        Method handler = method.reflect();
+        PreAuthorize check = handler.getAnnotation(PreAuthorize.class);
+        Matcher can = check == null ? null : CAN.matcher(check.value());
+        if (can != null && can.matches()) {
+          String checked = Permission.valueOf(can.group(1)).key();
+          String inContract = named.get(handler.getName());
+          if (!checked.equals(inContract)) {
+            different.put(handler.getName(), checked + " checked, " + inContract + " named");
+          }
+        }
+      }
+    }
+    assertThat(different).as("x-permission in the contract against @studioAuthz.can").isEmpty();
+  }
+
+  /** Each operation's x-permission in the contract, by operationId. */
+  private static Map<String, String> contractPermissions() throws IOException {
+    Map<String, String> named = new HashMap<>();
+    String operationId = "";
+    for (String line : Files.readAllLines(Path.of("src/main/openapi/studiomanager.yaml"))) {
+      Matcher operation = OPERATION_ID.matcher(line);
+      Matcher permission = X_PERMISSION.matcher(line);
+      if (operation.matches()) {
+        operationId = operation.group(1);
+      } else if (permission.matches()) {
+        named.put(operationId, permission.group(1));
+      }
+    }
+    return named;
   }
 
   private static boolean branchesOnRole(String member) {

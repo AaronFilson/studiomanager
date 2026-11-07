@@ -2,6 +2,8 @@ package io.github.aaronfilson.studiomanager.ledger;
 
 import io.github.aaronfilson.studiomanager.ledger.LedgerModel.TaxRate;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -18,10 +20,12 @@ class TaxRates {
 
   private final TaxRateRepository rates;
   private final LedgerQueries queries;
+  private final StudioPermissions permissions;
 
-  TaxRates(TaxRateRepository rates, LedgerQueries queries) {
+  TaxRates(TaxRateRepository rates, LedgerQueries queries, StudioPermissions permissions) {
     this.rates = rates;
     this.queries = queries;
+    this.permissions = permissions;
   }
 
   @Transactional(readOnly = true)
@@ -35,7 +39,8 @@ class TaxRates {
    */
   @Transactional
   public TaxRate setTaxRate(String taxCategory, BigDecimal rate, LocalDate effectiveFrom) {
-    TenantContext caller = LedgerService.requireStaff();
+    TenantContext caller =
+        permissions.require(Permission.MONEY_TAX_RATES_EDIT, LedgerService.ONLY_STAFF);
     String category = taxCategory == null ? "" : taxCategory.strip();
     if (category.isEmpty() || category.length() > 40) {
       throw new InvalidInputException("Name the tax category in 1 to 40 characters.");

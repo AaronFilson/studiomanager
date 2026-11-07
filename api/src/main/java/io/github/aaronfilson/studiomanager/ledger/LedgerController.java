@@ -54,13 +54,13 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_READ')")
   public ResponseEntity<List<MemberBalanceDto>> listBalances(UUID studioId) {
     return ResponseEntity.ok(ledger.balances().stream().map(LedgerController::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_OWN_READ')")
   public ResponseEntity<StatementDto> getStatement(UUID studioId, UUID accountId) {
     MemberBalance balance = ledger.balanceOf(accountId);
     return ResponseEntity.ok(
@@ -74,7 +74,7 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_TAKE_PAYMENT')")
   public ResponseEntity<MemberBalanceDto> recordPayment(
       UUID studioId, RecordPaymentRequestDto request) {
     return ResponseEntity.ok(
@@ -87,7 +87,7 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_STORED_VALUE_MANAGE')")
   public ResponseEntity<StoredValueListDto> listStoredValues(UUID studioId) {
     Capped<StoredValueDto> balances = storedValues.storedValues().map(LedgerController::toDto);
     return ResponseEntity.ok(
@@ -95,7 +95,7 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_STORED_VALUE_MANAGE')")
   public ResponseEntity<StoredValueDto> sellStoredValue(
       UUID studioId, SellStoredValueRequestDto request) {
     StoredValueBalance sold =
@@ -110,13 +110,13 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_STORED_VALUE_MANAGE')")
   public ResponseEntity<StoredValueDto> findGiftCard(UUID studioId, String code) {
     return ResponseEntity.ok(toDto(storedValues.giftCard(code)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_STORED_VALUE_MANAGE')")
   public ResponseEntity<StoredValueDto> useStoredValue(
       UUID studioId, UUID storedValueId, UseStoredValueRequestDto request) {
     return ResponseEntity.ok(
@@ -126,13 +126,13 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_STORED_VALUE_MANAGE')")
   public ResponseEntity<StoredValueDto> expireStoredValue(UUID studioId, UUID storedValueId) {
     return ResponseEntity.ok(toDto(storedValues.expireStoredValue(storedValueId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_READ')")
   public ResponseEntity<List<StoredValueMovementDto>> getStoredValueMovements(
       LocalDate from, LocalDate to, UUID studioId) {
     return ResponseEntity.ok(
@@ -149,14 +149,14 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYOUTS')")
   public ResponseEntity<PayoutListDto> listPayouts(UUID studioId) {
     Capped<PayoutDto> listed = payouts.payouts().map(LedgerController::toDto);
     return ResponseEntity.ok(new PayoutListDto(listed.items(), listed.truncated(), listed.limit()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYOUTS')")
   public ResponseEntity<PayoutDto> importPayout(UUID studioId, ImportPayoutRequestDto request) {
     return ResponseEntity.ok(
         toDto(
@@ -172,7 +172,7 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYOUTS')")
   public ResponseEntity<List<ClearingBalanceDto>> getClearing(UUID studioId) {
     return ResponseEntity.ok(
         payouts.clearing().stream()
@@ -184,7 +184,7 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_READ')")
   public ResponseEntity<List<SummaryLineDto>> getLedgerSummary(
       LocalDate from, LocalDate to, UUID studioId) {
     return ResponseEntity.ok(
@@ -200,7 +200,7 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_READ')")
   public ResponseEntity<String> exportJournal(LocalDate from, LocalDate to, UUID studioId) {
     return ResponseEntity.ok()
         .contentType(new MediaType("text", "csv", java.nio.charset.StandardCharsets.UTF_8))
@@ -211,13 +211,13 @@ class LedgerController implements LedgerApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_READ')")
   public ResponseEntity<List<TaxRateDto>> listTaxRates(UUID studioId) {
     return ResponseEntity.ok(taxRates.taxRates().stream().map(LedgerController::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_TAX_RATES_EDIT')")
   public ResponseEntity<TaxRateDto> setTaxRate(UUID studioId, SetTaxRateRequestDto request) {
     return ResponseEntity.ok(
         toDto(

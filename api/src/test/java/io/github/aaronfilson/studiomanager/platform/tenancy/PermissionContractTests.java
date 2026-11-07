@@ -18,11 +18,8 @@ import org.junit.jupiter.api.Test;
  */
 class PermissionContractTests {
 
-  /**
-   * Studio operations not yet naming a permission. Lane R2 names one on each as it moves that
-   * module's checks to permissions; this may only go down, to zero.
-   */
-  private static final int STILL_UNNAMED = 148;
+  /** Studio operations not naming a permission: none since lane R2, and it stays that way. */
+  private static final int STILL_UNNAMED = 0;
 
   private static final Pattern PATH = Pattern.compile("^  (/\\S+):\\s*$");
   private static final Pattern OPERATION =

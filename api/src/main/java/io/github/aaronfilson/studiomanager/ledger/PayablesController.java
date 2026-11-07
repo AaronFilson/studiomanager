@@ -72,28 +72,28 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<PayeeListDto> listPayees(UUID studioId) {
     Capped<PayeeDto> payees = payables.payees().map(PayablesController::toDto);
     return ResponseEntity.ok(new PayeeListDto(payees.items(), payees.truncated(), payees.limit()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<PayeeDto> createPayee(UUID studioId, SavePayeeRequestDto request) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(toDto(payables.createPayee(changes(request))));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<PayeeDto> updatePayee(
       UUID studioId, UUID payeeId, SavePayeeRequestDto request) {
     return ResponseEntity.ok(toDto(payables.updatePayee(payeeId, changes(request))));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<PayeeStatementDto> getPayeeStatement(
       LocalDate from, LocalDate to, UUID studioId, UUID payeeId) {
     var statement = reports.statement(payeeId, from, to);
@@ -117,7 +117,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<EarningDto> recordEarning(
       UUID studioId, UUID payeeId, RecordEarningRequestDto request) {
     var earning =
@@ -143,7 +143,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<PayeePaymentDto> payPayee(
       UUID studioId, UUID payeeId, PayPayeeRequestDto request) {
     var payment =
@@ -167,7 +167,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<ConsignmentItemListDto> listConsignmentItems(
       UUID studioId, Boolean dueBack, @Nullable UUID payeeId, Boolean all) {
     Capped<ConsignmentItemDto> items =
@@ -179,7 +179,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<List<PayeePaymentDto>> payPayees(
       UUID studioId, PaymentRunRequestDto request) {
     List<PaymentRunLine> lines =
@@ -196,7 +196,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_OWN_READ')")
   public ResponseEntity<MyConsignmentDto> getMyConsignment(UUID studioId) {
     MyConsignment mine = consignments.myConsignment();
     return ResponseEntity.ok(
@@ -209,7 +209,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<ConsignmentItemDto> takeInConsignment(
       UUID studioId, TakeInConsignmentRequestDto request) {
     ConsignmentItem item =
@@ -224,7 +224,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_TAKE_PAYMENT')")
   public ResponseEntity<ConsignmentSaleDto> sellConsignment(
       UUID studioId, UUID itemId, SellConsignmentRequestDto request) {
     ConsignmentSale sale =
@@ -237,14 +237,14 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<ConsignmentItemDto> returnConsignment(
       UUID studioId, UUID itemId, ReturnConsignmentRequestDto request) {
     return ResponseEntity.ok(toDto(consignments.returnToArtist(itemId, request.getQuantity())));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<ConsignmentSaleListDto> listConsignmentSales(
       UUID studioId, @Nullable UUID payeeId) {
     Capped<ConsignmentSaleDto> sales =
@@ -254,13 +254,13 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_REFUND_AND_ADJUST')")
   public ResponseEntity<ConsignmentSaleDto> refundConsignmentSale(UUID studioId, UUID saleId) {
     return ResponseEntity.ok(toDto(consignments.refund(saleId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<NecReportDto> getNecReport(Integer year, UUID studioId) {
     NecReport report = reports.necReport(year);
     return ResponseEntity.ok(
@@ -282,7 +282,7 @@ class PayablesController implements PayablesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'MONEY_PAYABLES_MANAGE')")
   public ResponseEntity<String> exportNecReport(Integer year, UUID studioId) {
     return ResponseEntity.ok()
         .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))

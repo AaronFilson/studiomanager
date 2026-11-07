@@ -55,13 +55,13 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_READ')")
   public ResponseEntity<List<ResourceDto>> listResources(UUID studioId) {
     return ResponseEntity.ok(schedule.resources().stream().map(ScheduleController::toDto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_MANAGE')")
   public ResponseEntity<ResourceDto> createResource(
       UUID studioId, CreateResourceRequestDto request) {
     Resource resource =
@@ -77,7 +77,7 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_READ')")
   public ResponseEntity<BookingListDto> listBookings(
       OffsetDateTime from, OffsetDateTime to, UUID studioId) {
     Capped<BookingDto> calendar =
@@ -87,7 +87,7 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_BOOK_OWN')")
   public ResponseEntity<BookingDto> createBooking(UUID studioId, CreateBookingRequestDto request) {
     BookingDto booking =
         ScheduleDtos.toDto(
@@ -106,14 +106,14 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_BOOK_OWN')")
   public ResponseEntity<Void> cancelBooking(UUID studioId, UUID bookingId) {
     bookingChanges.cancelBooking(bookingId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_READ')")
   public ResponseEntity<ShiftListDto> listShifts(
       OffsetDateTime from, OffsetDateTime to, UUID studioId) {
     Capped<ShiftDto> roster =
@@ -122,7 +122,7 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_MANAGE')")
   public ResponseEntity<List<ShiftDto>> createShifts(
       UUID studioId, CreateShiftsRequestDto request) {
     Duty duty = request.getDuty() == null ? null : Duty.valueOf(request.getDuty().name());
@@ -141,7 +141,7 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_SHIFTS_TAKE_OPEN')")
   public ResponseEntity<ShiftDto> assignShift(
       UUID studioId, UUID shiftId, AssignShiftRequestDto request) {
     return ResponseEntity.ok(
@@ -151,7 +151,7 @@ class ScheduleController implements ScheduleApi {
 
   /** Members may call this; the service lets through only whoever has the shift, and staff. */
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_SHIFTS_TAKE_OPEN')")
   public ResponseEntity<ShiftDto> offerShift(
       UUID studioId, UUID shiftId, OfferShiftRequestDto request) {
     return ResponseEntity.ok(
@@ -160,7 +160,7 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_HOURS_MANAGE')")
   public ResponseEntity<ShiftDto> markShiftWorked(
       UUID studioId, UUID shiftId, VersionRequestDto request) {
     return ResponseEntity.ok(
@@ -168,13 +168,13 @@ class ScheduleController implements ScheduleApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_READ')")
   public ResponseEntity<HoursLedgerDto> getHours(UUID studioId, UUID accountId) {
     return ResponseEntity.ok(toDto(schedule.hours(accountId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'SCHEDULE_HOURS_MANAGE')")
   public ResponseEntity<HoursLedgerDto> adjustHours(
       UUID studioId, UUID accountId, AdjustHoursRequestDto request) {
     return ResponseEntity.ok(

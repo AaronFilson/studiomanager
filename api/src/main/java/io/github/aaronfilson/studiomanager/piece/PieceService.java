@@ -5,7 +5,8 @@ import io.github.aaronfilson.studiomanager.firing.FeeService;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.time.Clock;
@@ -22,7 +23,6 @@ import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Limit;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +51,7 @@ public class PieceService {
   private final StudioMembers members;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   PieceService(
       PieceRepository pieces,
@@ -61,7 +62,9 @@ public class PieceService {
       FeeService fees,
       StudioMembers members,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.pieces = pieces;
     this.queries = queries;
     this.timeline = timeline;
@@ -82,7 +85,8 @@ public class PieceService {
     UUID requestedMaker = intake.makerAccountId();
     UUID maker = requestedMaker == null ? caller.accountId() : requestedMaker;
     if (!maker.equals(caller.accountId())) {
-      requireStaff(caller, "Only staff can take in a piece for someone else.");
+      permissions.require(
+          Permission.PIECES_INTAKE_FOR_OTHERS, "Only staff can take in a piece for someone else.");
       if (members.roleOf(maker).isEmpty()) {
         throw new InvalidInputException("The maker isn't a member of this studio.");
       }
@@ -108,7 +112,7 @@ public class PieceService {
   @Transactional(readOnly = true)
   public Capped<PieceView> list(@Nullable PieceStage stage, @Nullable UUID maker) {
     TenantContext caller = TenantContext.require();
-    UUID makerFilter = isStaff(caller) ? maker : caller.accountId();
+    UUID makerFilter = seesEveryPiece(caller) ? maker : caller.accountId();
     Capped<Piece> found =
         Capped.fromFetched(
             pieces.findNewest(stage, makerFilter, Limit.of(Capped.fetchSize(LIST_LIMIT))),
@@ -133,8 +137,8 @@ public class PieceService {
   @Transactional
   public PieceView move(
       UUID pieceId, PieceStage target, @Nullable String note, long expectedVersion) {
-    TenantContext caller = TenantContext.require();
-    requireStaff(caller, "Only staff can move pieces.");
+    TenantContext caller =
+        permissions.require(Permission.PIECES_MOVE, "Only staff can move pieces.");
     Piece piece =
         moves.move(pieceId, target, clean(note, 500, "note"), expectedVersion, caller.accountId());
     return views.detailed(piece, timeline.of(pieceId));
@@ -146,7 +150,7 @@ public class PieceService {
    */
   @Transactional(readOnly = true)
   public Capped<WaitingPiece> waitingIn(PieceStage stage) {
-    requireStaff(TenantContext.require(), "Only staff can see the kiln queue.");
+    permissions.require(Permission.FIRINGS_MANAGE, "Only staff can see the kiln queue.");
     Capped<PieceQueries.Waiting> waiting =
         Capped.fromFetched(queries.waitingIn(stage, Capped.fetchSize(QUEUE_LIMIT)), QUEUE_LIMIT);
     List<UUID> ids = waiting.items().stream().map(PieceQueries.Waiting::pieceId).toList();
@@ -170,7 +174,7 @@ public class PieceService {
    */
   @Transactional(readOnly = true)
   public List<PieceView> listByIds(Collection<UUID> pieceIds) {
-    requireStaff(TenantContext.require(), "Only staff can see what's in a load.");
+    permissions.require(Permission.FIRINGS_MANAGE, "Only staff can see what's in a load.");
     if (pieceIds.isEmpty()) {
       return List.of();
     }
@@ -185,8 +189,8 @@ public class PieceService {
   @Transactional
   public List<PieceView> advanceAll(
       Collection<UUID> pieceIds, PieceStage from, PieceStage to, String note) {
-    TenantContext caller = TenantContext.require();
-    requireStaff(caller, "Only staff can move pieces.");
+    TenantContext caller =
+        permissions.require(Permission.PIECES_MOVE, "Only staff can move pieces.");
     return views.listed(moves.advanceAll(pieceIds, from, to, note, caller.accountId()));
   }
 
@@ -218,8 +222,9 @@ public class PieceService {
 
   @Transactional
   public int setHoldDays(int days) {
-    TenantContext caller = TenantContext.require();
-    requireStaff(caller, "Only staff can change how long pieces are held.");
+    TenantContext caller =
+        permissions.require(
+            Permission.PIECES_POLICY_EDIT, "Only staff can change how long pieces are held.");
     if (days < 1 || days > 365) {
       throw new InvalidInputException("Hold pieces for 1 to 365 days.");
     }
@@ -237,7 +242,8 @@ public class PieceService {
     TenantContext caller = TenantContext.require();
     return pieces
         .findById(pieceId)
-        .filter(found -> isStaff(caller) || found.makerAccountId().equals(caller.accountId()))
+        .filter(
+            found -> seesEveryPiece(caller) || found.makerAccountId().equals(caller.accountId()))
         .orElseThrow(() -> new NotFoundException("No such piece."));
   }
 
@@ -253,14 +259,11 @@ public class PieceService {
     return stripped;
   }
 
-  private static boolean isStaff(TenantContext caller) {
-    StudioRole role = caller.role();
-    return role != null && role.includes(StudioRole.STAFF);
-  }
-
-  private static void requireStaff(TenantContext caller, String message) {
-    if (!isStaff(caller)) {
-      throw new AccessDeniedException(message);
-    }
+  /**
+   * Whether {@code caller} sees everyone's pieces rather than only their own. Whoever may move
+   * pieces through the studio sees them all; the catalogue has no separate permission for it.
+   */
+  private static boolean seesEveryPiece(TenantContext caller) {
+    return caller.holds(Permission.PIECES_MOVE);
   }
 }

@@ -23,7 +23,7 @@ class NotificationController implements NotificationsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'NOTICES_READ')")
   public ResponseEntity<NotificationListDto> listMyNotifications(UUID studioId) {
     Capped<NotificationDto> inbox =
         notifications
@@ -41,14 +41,14 @@ class NotificationController implements NotificationsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'NOTICES_READ')")
   public ResponseEntity<Void> markNotificationRead(UUID studioId, UUID notificationId) {
     notifications.markRead(notificationId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'NOTICES_SEND')")
   public ResponseEntity<NoticeResultDto> sendNotice(UUID studioId, NoticeRequestDto request) {
     return ResponseEntity.ok(
         new NoticeResultDto().sent(notifications.broadcast(request.getTitle(), request.getBody())));

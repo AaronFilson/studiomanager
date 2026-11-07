@@ -7,6 +7,7 @@ import io.github.aaronfilson.studiomanager.glaze.GlazeBook.Recipe;
 import io.github.aaronfilson.studiomanager.glaze.GlazeBook.Unit;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
@@ -45,7 +46,7 @@ public class GlazeEdits {
     UUID ownerAccountId =
         switch (ownerKind) {
           case STUDIO -> {
-            if (!GlazeBook.isStaff(caller)) {
+            if (!caller.holds(Permission.GLAZES_STUDIO_EDIT)) {
               throw new AccessDeniedException("Only staff can add a studio glaze.");
             }
             yield null;

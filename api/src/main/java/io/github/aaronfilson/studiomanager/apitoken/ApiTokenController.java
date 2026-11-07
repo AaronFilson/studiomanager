@@ -29,13 +29,13 @@ class ApiTokenController implements ApiTokensApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'API_TOKENS_OWN')")
   public ResponseEntity<List<ApiTokenDto>> listApiTokens(UUID studioId) {
     return ResponseEntity.ok(tokens.list().stream().map(ApiTokenController::dto).toList());
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'API_TOKENS_OWN')")
   public ResponseEntity<CreatedApiTokenDto> createApiToken(
       UUID studioId, CreateApiTokenRequestDto request) {
     Set<TokenScope> scopes = EnumSet.noneOf(TokenScope.class);
@@ -48,7 +48,7 @@ class ApiTokenController implements ApiTokensApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'API_TOKENS_OWN')")
   public ResponseEntity<Void> revokeApiToken(UUID studioId, UUID tokenId) {
     tokens.revoke(tokenId);
     return ResponseEntity.noContent().build();

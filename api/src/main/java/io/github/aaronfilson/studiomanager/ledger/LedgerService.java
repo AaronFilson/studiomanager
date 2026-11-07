@@ -8,7 +8,8 @@ import io.github.aaronfilson.studiomanager.ledger.LedgerModel.SummaryLine;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import java.math.BigDecimal;
@@ -39,13 +40,16 @@ public class LedgerService {
   private final StudioBooks books;
   private final StudioMembers members;
   private final AccountDirectory accounts;
+  private final StudioPermissions permissions;
 
   LedgerService(
       Journal journal,
       LedgerQueries queries,
       StudioBooks books,
       StudioMembers members,
-      AccountDirectory accounts) {
+      AccountDirectory accounts,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.journal = journal;
     this.queries = queries;
     this.books = books;
@@ -57,7 +61,7 @@ public class LedgerService {
   @Transactional
   public MemberBalance recordPayment(
       UUID memberId, BigDecimal amount, Provider provider, @Nullable String reference) {
-    TenantContext caller = requireStaff();
+    TenantContext caller = permissions.require(Permission.MONEY_TAKE_PAYMENT, ONLY_STAFF);
     requireMember(memberId);
     requirePositive(amount);
     String memo =
@@ -77,7 +81,7 @@ public class LedgerService {
   /** Everyone who owes something (or is in credit), largest first. Staff only. */
   @Transactional(readOnly = true)
   public List<MemberBalance> balances() {
-    requireStaff();
+    permissions.require(Permission.MONEY_READ, ONLY_STAFF);
     List<MemberBalance> raw = queries.memberBalances();
     Map<UUID, String> names =
         accounts.displayNames(raw.stream().map(MemberBalance::memberId).toList());
@@ -99,7 +103,7 @@ public class LedgerService {
    */
   @Transactional(readOnly = true)
   public List<SummaryLine> dailySummary(LocalDate from, LocalDate to) {
-    requireStaff();
+    permissions.require(Permission.MONEY_READ, ONLY_STAFF);
     requireDateRange(from, to);
     return queries.dailySummary(from, to);
   }
@@ -137,21 +141,11 @@ public class LedgerService {
     return text.length() <= max ? text : text.substring(0, max);
   }
 
-  static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    if (!isStaff(caller)) {
-      throw new AccessDeniedException("Only staff can do this.");
-    }
-    return caller;
-  }
-
-  static boolean isStaff(TenantContext caller) {
-    StudioRole role = caller.role();
-    return role != null && role.includes(StudioRole.STAFF);
-  }
+  /** Why a change only staff may make was refused. */
+  static final String ONLY_STAFF = "Only staff can do this.";
 
   private MemberBalance balanceOf(UUID memberId, TenantContext caller) {
-    if (!memberId.equals(caller.accountId()) && !isStaff(caller)) {
+    if (!memberId.equals(caller.accountId()) && !caller.holds(Permission.MONEY_READ)) {
       throw new AccessDeniedException("You can see only your own balance.");
     }
     return new MemberBalance(

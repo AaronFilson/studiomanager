@@ -35,7 +35,7 @@ class PieceController implements PiecesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_READ')")
   public ResponseEntity<PieceListDto> listPieces(
       UUID studioId, @Nullable PieceStageDto stage, @Nullable UUID maker) {
     Instant now = clock.instant();
@@ -47,7 +47,7 @@ class PieceController implements PiecesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_INTAKE_OWN')")
   public ResponseEntity<PieceDto> intakePiece(UUID studioId, IntakePieceRequestDto request) {
     PieceView piece =
         pieces.intake(
@@ -63,13 +63,13 @@ class PieceController implements PiecesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_READ')")
   public ResponseEntity<PieceDto> getPiece(UUID studioId, UUID pieceId) {
     return ResponseEntity.ok(PieceDtos.toDto(pieces.get(pieceId), clock.instant()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_MOVE')")
   public ResponseEntity<PieceDto> movePiece(
       UUID studioId, UUID pieceId, MovePieceRequestDto request) {
     PieceView piece =
@@ -82,7 +82,7 @@ class PieceController implements PiecesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_INTAKE_OWN')")
   public ResponseEntity<PhotoUploadDto> startPhotoUpload(UUID studioId, UUID pieceId) {
     PiecePhotoService.PhotoUpload upload = photos.startUpload(pieceId);
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -97,26 +97,26 @@ class PieceController implements PiecesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_INTAKE_OWN')")
   public ResponseEntity<PieceDto> completePhotoUpload(UUID studioId, UUID pieceId, UUID photoId) {
     return ResponseEntity.ok(PieceDtos.toDto(photos.complete(pieceId, photoId), clock.instant()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_INTAKE_OWN')")
   public ResponseEntity<Void> deletePhoto(UUID studioId, UUID pieceId, UUID photoId) {
     photos.delete(pieceId, photoId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_READ')")
   public ResponseEntity<PiecePolicyDto> getPiecePolicy(UUID studioId) {
     return ResponseEntity.ok(new PiecePolicyDto().holdDays(pieces.holdDays()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_POLICY_EDIT')")
   public ResponseEntity<PiecePolicyDto> savePiecePolicy(UUID studioId, PiecePolicyDto request) {
     return ResponseEntity.ok(
         new PiecePolicyDto().holdDays(pieces.setHoldDays(request.getHoldDays())));

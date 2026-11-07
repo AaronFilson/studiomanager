@@ -5,6 +5,8 @@ import io.github.aaronfilson.studiomanager.access.AccessService.CertificationTyp
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import java.time.Clock;
@@ -29,6 +31,7 @@ class Certifications {
   private final StudioService studios;
   private final AccountDirectory accounts;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   Certifications(
       AccessService access,
@@ -37,7 +40,8 @@ class Certifications {
       AccessQueries queries,
       StudioService studios,
       AccountDirectory accounts,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.access = access;
     this.types = types;
     this.certifications = certifications;
@@ -45,11 +49,12 @@ class Certifications {
     this.studios = studios;
     this.accounts = accounts;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   @Transactional
   public CertificationType createType(String name, @Nullable Integer validMonths) {
-    AccessService.requireStaff();
+    requireCertify();
     String cleaned = name.strip();
     if (cleaned.isEmpty() || cleaned.length() > 60) {
       throw new InvalidInputException("Name the certification in 1 to 60 characters.");
@@ -76,7 +81,7 @@ class Certifications {
    */
   @Transactional
   public Certification grant(UUID typeId, UUID accountId) {
-    TenantContext caller = AccessService.requireStaff();
+    TenantContext caller = requireCertify();
     access.requireMember(accountId);
     CertificationType type = access.type(typeId);
     Instant now = clock.instant();
@@ -94,7 +99,7 @@ class Certifications {
 
   @Transactional
   public void revoke(UUID typeId, UUID accountId) {
-    AccessService.requireStaff();
+    requireCertify();
     certifications
         .findById(new CertificationEntity.Key(typeId, accountId))
         .ifPresent(certifications::delete);
@@ -104,7 +109,7 @@ class Certifications {
   @Transactional(readOnly = true)
   public List<Certification> certifications(UUID accountId) {
     TenantContext caller = TenantContext.require();
-    if (!accountId.equals(caller.accountId()) && !AccessService.isStaff(caller)) {
+    if (!accountId.equals(caller.accountId()) && !caller.holds(Permission.MEMBERS_CERTIFY)) {
       throw new AccessDeniedException("You can see only your own certifications.");
     }
     return withNames(certifications.findRowsFor(accountId));
@@ -113,8 +118,12 @@ class Certifications {
   /** Every certification in the studio, for staff. */
   @Transactional(readOnly = true)
   public List<Certification> allCertifications() {
-    AccessService.requireStaff();
+    requireCertify();
     return withNames(certifications.findAllRows());
+  }
+
+  private TenantContext requireCertify() {
+    return permissions.require(Permission.MEMBERS_CERTIFY, "Only staff can do this.");
   }
 
   private List<Certification> withNames(List<CertificationRow> rows) {

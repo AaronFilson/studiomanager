@@ -3,7 +3,8 @@ package io.github.aaronfilson.studiomanager.supplies;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.PurchaseRequest;
@@ -28,13 +29,16 @@ public class PurchaseRequests {
   private final StockMovements stock;
   private final SupplyService supplies;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   PurchaseRequests(
       PurchaseRequestRepository requestRepository,
       SupplyItemRepository itemRepository,
       StockMovements stock,
       SupplyService supplies,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.requestRepository = requestRepository;
     this.itemRepository = itemRepository;
     this.stock = stock;
@@ -46,7 +50,8 @@ public class PurchaseRequests {
   @Transactional
   public PurchaseRequest request(
       UUID itemId, @Nullable BigDecimal quantity, @Nullable String note) {
-    TenantContext caller = SupplyService.requireStaff();
+    TenantContext caller =
+        permissions.require(Permission.SUPPLIES_PURCHASE_REQUEST, SupplyService.ONLY_STAFF);
     SupplyItem item =
         itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("No such item."));
     BigDecimal amount =
@@ -67,7 +72,8 @@ public class PurchaseRequests {
    */
   @Transactional
   public PurchaseRequest decide(UUID requestId, RequestStatus to, long expectedVersion) {
-    TenantContext caller = SupplyService.requireStaff();
+    TenantContext caller =
+        permissions.require(Permission.SUPPLIES_PURCHASE_REQUEST, SupplyService.ONLY_STAFF);
     PurchaseRequestEntity request =
         requestRepository
             .findWithItem(requestId)
@@ -78,7 +84,7 @@ public class PurchaseRequests {
     }
     request.moveTo(
         to,
-        caller.role() == StudioRole.OWNER,
+        caller.holds(Permission.SUPPLIES_PURCHASE_APPROVE),
         caller.accountId(),
         caller.viaTokenId(),
         clock.instant());

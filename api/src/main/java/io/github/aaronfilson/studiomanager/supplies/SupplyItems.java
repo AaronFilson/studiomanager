@@ -4,6 +4,8 @@ import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.ItemSettings;
 import java.util.UUID;
@@ -17,15 +19,18 @@ public class SupplyItems {
 
   private final SupplyItemRepository itemRepository;
   private final SupplyService supplies;
+  private final StudioPermissions permissions;
 
-  SupplyItems(SupplyItemRepository itemRepository, SupplyService supplies) {
+  SupplyItems(
+      SupplyItemRepository itemRepository, SupplyService supplies, StudioPermissions permissions) {
     this.itemRepository = itemRepository;
     this.supplies = supplies;
+    this.permissions = permissions;
   }
 
   @Transactional
   public Item create(ItemSettings settings) {
-    SupplyService.requireStaff();
+    permissions.require(Permission.SUPPLIES_MANAGE, SupplyService.ONLY_STAFF);
     ItemSettings checked = check(settings);
     SupplyItem item = new SupplyItem(checked);
     saveNamed(item, checked.name());
@@ -34,7 +39,7 @@ public class SupplyItems {
 
   @Transactional
   public Item update(UUID id, ItemSettings settings, long expectedVersion) {
-    SupplyService.requireStaff();
+    permissions.require(Permission.SUPPLIES_MANAGE, SupplyService.ONLY_STAFF);
     ItemSettings checked = check(settings);
     SupplyItem item =
         itemRepository.findById(id).orElseThrow(() -> new NotFoundException("No such item."));

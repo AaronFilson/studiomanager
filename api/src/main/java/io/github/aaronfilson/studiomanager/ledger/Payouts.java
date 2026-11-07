@@ -9,6 +9,8 @@ import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -31,12 +33,19 @@ class Payouts {
   private final LedgerQueries queries;
   private final Journal journal;
   private final StudioBooks books;
+  private final StudioPermissions permissions;
 
-  Payouts(PayoutRepository payouts, LedgerQueries queries, Journal journal, StudioBooks books) {
+  Payouts(
+      PayoutRepository payouts,
+      LedgerQueries queries,
+      Journal journal,
+      StudioBooks books,
+      StudioPermissions permissions) {
     this.payouts = payouts;
     this.queries = queries;
     this.journal = journal;
     this.books = books;
+    this.permissions = permissions;
   }
 
   /**
@@ -54,7 +63,7 @@ class Payouts {
       BigDecimal fees,
       BigDecimal adjustments,
       BigDecimal net) {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_PAYOUTS, LedgerService.ONLY_STAFF);
     if (provider == Provider.CASH) {
       throw new InvalidInputException(
           "Cash isn't paid out by a processor; record a bank deposit instead.");
@@ -106,7 +115,7 @@ class Payouts {
 
   @Transactional(readOnly = true)
   public Capped<Payout> payouts() {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_PAYOUTS, LedgerService.ONLY_STAFF);
     return Capped.fromFetched(
             payouts.findNewestFirst(Limit.of(Capped.fetchSize(PAYOUTS_LIMIT))), PAYOUTS_LIMIT)
         .map(PayoutEntity::toView);
@@ -115,7 +124,7 @@ class Payouts {
   /** Money each processor has taken for the studio but not yet paid out. */
   @Transactional(readOnly = true)
   public List<ClearingBalance> clearing() {
-    LedgerService.requireStaff();
+    permissions.require(Permission.MONEY_PAYOUTS, LedgerService.ONLY_STAFF);
     return queries.clearing();
   }
 

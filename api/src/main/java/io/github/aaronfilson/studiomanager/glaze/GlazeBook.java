@@ -2,7 +2,7 @@ package io.github.aaronfilson.studiomanager.glaze;
 
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -124,14 +124,9 @@ public class GlazeBook {
   /** Whether {@code caller} may change the recipe: staff for a studio glaze, else its owner. */
   static boolean canEdit(TenantContext caller, GlazeRecipe recipe) {
     return switch (recipe.ownerKind()) {
-      case STUDIO -> isStaff(caller);
+      case STUDIO -> caller.holds(Permission.GLAZES_STUDIO_EDIT);
       case MEMBER -> caller.accountId().equals(recipe.ownerAccountId());
     };
-  }
-
-  static boolean isStaff(TenantContext caller) {
-    StudioRole role = caller.role();
-    return role != null && role.includes(StudioRole.STAFF);
   }
 
   private static Recipe view(

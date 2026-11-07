@@ -3,6 +3,8 @@ package io.github.aaronfilson.studiomanager.studio;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
@@ -31,16 +33,19 @@ public class StudioService {
   private final StudioMembershipRepository memberships;
   private final TransactionOperations transactions;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   StudioService(
       StudioRepository studios,
       StudioMembershipRepository memberships,
       TransactionOperations transactions,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
     this.studios = studios;
     this.memberships = memberships;
     this.transactions = transactions;
     this.clock = clock;
+    this.permissions = permissions;
   }
 
   /**
@@ -118,9 +123,9 @@ public class StudioService {
    */
   @Transactional
   public void deleteCurrent() {
-    TenantContext caller = TenantContext.require();
-    UUID studioId = caller.requireStudioId();
-    if (caller.role() != StudioRole.OWNER) {
+    UUID studioId = TenantContext.require().requireStudioId();
+    // Deleting the studio removes every owner with it, so it takes the owners' own permission
+    if (!permissions.has(Permission.OWNERS_MANAGE)) {
       throw new AccessDeniedException("Only an owner can delete a studio.");
     }
     Studio studio =

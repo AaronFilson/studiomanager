@@ -5,7 +5,8 @@ import io.github.aaronfilson.studiomanager.kiln.FiringKind;
 import io.github.aaronfilson.studiomanager.maintenance.DueStatus;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceDue;
 import io.github.aaronfilson.studiomanager.maintenance.ProblemReported;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.schedule.ShiftCovered;
 import io.github.aaronfilson.studiomanager.schedule.ShiftOffered;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
@@ -196,7 +197,8 @@ class NotificationListeners {
   void onWebhookEndpointDisabled(WebhookEndpointDisabled disabled) {
     List<UUID> staff =
         members.list().stream()
-            .filter(member -> member.role().includes(StudioRole.STAFF))
+            .filter(
+                member -> StudioPermissions.roleHolds(member.role(), Permission.WEBHOOKS_MANAGE))
             .map(MemberView::accountId)
             .toList();
     String body =

@@ -31,7 +31,7 @@ class PendingActionController implements PendingActionsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PROPOSALS_REVIEW')")
   public ResponseEntity<PendingActionListDto> listPendingActions(UUID studioId) {
     requireBoundTo(studioId);
     Capped<PendingActionDto> waiting = review.waiting().map(PendingActionController::toDto);
@@ -40,7 +40,7 @@ class PendingActionController implements PendingActionsApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'PROPOSALS_REVIEW')")
   public ResponseEntity<PendingActionDto> decidePendingAction(
       UUID studioId, UUID actionId, DecidePendingActionRequestDto request) {
     requireBoundTo(studioId);

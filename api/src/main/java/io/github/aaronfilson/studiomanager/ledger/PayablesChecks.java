@@ -1,27 +1,15 @@
 package io.github.aaronfilson.studiomanager.ledger;
 
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Currency;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.access.AccessDeniedException;
 
 /** The checks payables' use cases share, with the messages they have always given. */
 final class PayablesChecks {
 
   private PayablesChecks() {}
-
-  static TenantContext requireStaff() {
-    TenantContext caller = TenantContext.require();
-    StudioRole role = caller.role();
-    if (role == null || !role.includes(StudioRole.STAFF)) {
-      throw new AccessDeniedException("Only staff can do this.");
-    }
-    return caller;
-  }
 
   static void requireMoney(BigDecimal amount, Currency currency) {
     if (amount.signum() <= 0) {

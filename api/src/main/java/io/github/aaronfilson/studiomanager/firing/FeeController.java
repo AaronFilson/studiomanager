@@ -29,13 +29,13 @@ class FeeController implements FeesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FEES_READ')")
   public ResponseEntity<FeeScheduleDto> getFeeSchedule(UUID studioId) {
     return ResponseEntity.ok(toDto(fees.current()));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FEES_EDIT')")
   public ResponseEntity<FeeScheduleDto> saveFeeSchedule(
       UUID studioId, SaveFeeScheduleRequestDto request) {
     FeeRule rule =
@@ -53,7 +53,7 @@ class FeeController implements FeesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.isMember(#studioId)")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FEES_READ')")
   public ResponseEntity<FeeQuoteDto> quoteFee(UUID studioId, PieceSizeDto size) {
     FeeQuote quote = fees.quote(PieceSizes.fromDto(size));
     return ResponseEntity.ok(

@@ -8,7 +8,8 @@ import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
-import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioPermissions;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.MemberView;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
@@ -20,7 +21,6 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Limit;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +45,7 @@ public class ProblemReportService {
   private final AccountDirectory accounts;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final StudioPermissions permissions;
 
   ProblemReportService(
       ReportedProblemRepository problems,
@@ -53,7 +54,9 @@ public class ProblemReportService {
       StudioMembers members,
       AccountDirectory accounts,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      StudioPermissions permissions) {
+    this.permissions = permissions;
     this.problems = problems;
     this.maintenance = maintenance;
     this.access = access;
@@ -101,17 +104,19 @@ public class ProblemReportService {
     return Capped.fromFetched(
         views(
             problems.findNewest(
-                isStaff(caller), caller.accountId(), openOnly, Limit.of(Capped.fetchSize(LIMIT)))),
+                seesEveryReport(caller),
+                caller.accountId(),
+                openOnly,
+                Limit.of(Capped.fetchSize(LIMIT)))),
         LIMIT);
   }
 
   /** Closes a report, saying what was done or why nothing was. Staff only. */
   @Transactional
   public ProblemReport resolve(UUID reportId, @Nullable String resolution, long expectedVersion) {
-    TenantContext caller = TenantContext.require();
-    if (!isStaff(caller)) {
-      throw new AccessDeniedException("Only staff can resolve a problem report.");
-    }
+    TenantContext caller =
+        permissions.require(
+            Permission.MAINTENANCE_REPORTS_RESOLVE, "Only staff can resolve a problem report.");
     ReportedProblem problem = find(caller, reportId);
     String cleaned = resolution == null || resolution.isBlank() ? null : resolution.strip();
     if (cleaned != null && cleaned.length() > 1000) {
@@ -127,7 +132,7 @@ public class ProblemReportService {
 
   private ReportedProblem find(TenantContext caller, UUID reportId) {
     return problems
-        .findVisible(reportId, isStaff(caller), caller.accountId())
+        .findVisible(reportId, seesEveryReport(caller), caller.accountId())
         .orElseThrow(() -> new NotFoundException("No such report."));
   }
 
@@ -161,7 +166,8 @@ public class ProblemReportService {
   private List<UUID> recipients(UUID reporter) {
     Stream<UUID> staff =
         members.list().stream()
-            .filter(member -> member.role().includes(StudioRole.STAFF))
+            .filter(member ->
+                StudioPermissions.roleHolds(member.role(), Permission.MAINTENANCE_REPORTS_RESOLVE))
             .map(MemberView::accountId);
     Stream<UUID> technicians =
         access.allDuties().entrySet().stream()
@@ -174,8 +180,8 @@ public class ProblemReportService {
         .toList();
   }
 
-  private static boolean isStaff(TenantContext caller) {
-    StudioRole role = caller.role();
-    return role != null && role.includes(StudioRole.STAFF);
+  /** Whoever resolves reports sees every one; anyone else only their own. */
+  private static boolean seesEveryReport(TenantContext caller) {
+    return caller.holds(Permission.MAINTENANCE_REPORTS_RESOLVE);
   }
 }

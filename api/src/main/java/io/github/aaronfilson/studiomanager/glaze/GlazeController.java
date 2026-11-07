@@ -36,7 +36,7 @@ class GlazeController implements GlazesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'GLAZES_READ')")
   public ResponseEntity<List<GlazeRecipeDto>> listGlazes(GlazeListFilterDto owner, UUID studioId) {
     return ResponseEntity.ok(
         book.list(GlazeBook.Filter.valueOf(owner.getValue())).stream()
@@ -45,7 +45,7 @@ class GlazeController implements GlazesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'GLAZES_OWN_EDIT')")
   public ResponseEntity<GlazeRecipeDto> createGlaze(UUID studioId, SaveGlazeRequestDto request) {
     GlazeBook.OwnerKind kind =
         request.getOwnerKind() == null
@@ -55,13 +55,13 @@ class GlazeController implements GlazesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'GLAZES_READ')")
   public ResponseEntity<GlazeRecipeDto> getGlaze(UUID studioId, UUID glazeId) {
     return ResponseEntity.ok(dto(book.get(glazeId)));
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'GLAZES_OWN_EDIT')")
   public ResponseEntity<GlazeRecipeDto> updateGlaze(
       UUID studioId, UUID glazeId, SaveGlazeRequestDto request) {
     Integer version = request.getVersion();
@@ -72,14 +72,14 @@ class GlazeController implements GlazesApi {
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'GLAZES_OWN_EDIT')")
   public ResponseEntity<Void> deleteGlaze(UUID studioId, UUID glazeId) {
     edits.delete(glazeId);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @PreAuthorize("@studioAuthz.hasRole(#studioId, 'MEMBER')")
+  @PreAuthorize("@studioAuthz.can(#studioId, 'GLAZES_READ')")
   public ResponseEntity<GlazeBatchDto> getGlazeBatch(
       String size, WeightUnitDto unit, UUID studioId, UUID glazeId) {
     var batch =
