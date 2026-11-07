@@ -10,6 +10,7 @@ import {
   type PieceStage,
   quoteFeeMutation,
   type Studio,
+  useCan,
   type WeightUnit,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -18,7 +19,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { CappedNote } from '../../../../components/CappedNote';
 import { ErrorMessage } from '../../../../components/ErrorMessage';
-import { formatDate, formatMoney, isStaff, stageLabel } from '../../../../labels';
+import { formatDate, formatMoney, stageLabel } from '../../../../labels';
 
 const stages: PieceStage[] = ['RECEIVED', 'BISQUE_FIRED', 'GLAZED', 'READY', 'UNCLAIMED', 'PICKED_UP', 'DISPOSED'];
 
@@ -31,7 +32,9 @@ function PiecesPage() {
   const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
   const [stage, setStage] = useState<PieceStage | ''>('');
   const pieces = useQuery(listPiecesOptions({ path: { studioId }, query: stage ? { stage } : undefined }));
-  const staff = isStaff(studio.myRole);
+  const { can } = useCan(studioId);
+  // Whoever moves pieces through the studio sees everyone's, with the maker
+  const staff = can('pieces.move');
 
   return (
     <div className="stack">
@@ -107,7 +110,8 @@ function PieceTable({ pieces, studioId, showMaker }: { pieces: Piece[]; studioId
 function IntakeForm({ studio }: { studio: Studio }) {
   const id = useId();
   const queryClient = useQueryClient();
-  const staff = isStaff(studio.myRole);
+  const { can } = useCan(studio.id);
+  const staff = can('pieces.intake_for_others');
   const metric = studio.unitSystem === 'METRIC';
   const lengthUnit: LengthUnit = metric ? 'CENTIMETRE' : 'INCH';
   const weightUnit: WeightUnit = metric ? 'KILOGRAM' : 'POUND';

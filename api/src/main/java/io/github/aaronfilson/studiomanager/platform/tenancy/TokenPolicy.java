@@ -39,6 +39,8 @@ public final class TokenPolicy {
           Map.entry(
               "pending-actions",
               new Never("A person approves assistant suggestions in the app, not with a token.")),
+          // The caller's own permissions in the studio (plan 21 §5)
+          Map.entry("me", READ_ONLY),
           Map.entry("today", READ_ONLY),
           Map.entry("activity", READ_ONLY),
           Map.entry("members", READ_ONLY),

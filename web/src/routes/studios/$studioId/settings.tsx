@@ -14,6 +14,7 @@ import {
   savePiecePolicyMutation,
   setTaxRateMutation,
   type Studio,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -31,6 +32,7 @@ export const Route = createFileRoute('/studios/$studioId/settings')({
 function SettingsPage() {
   const { studioId } = Route.useParams();
   const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
   const fees = useQuery(getFeeScheduleOptions({ path: { studioId } }));
   const policy = useQuery(getPiecePolicyOptions({ path: { studioId } }));
 
@@ -43,8 +45,8 @@ function SettingsPage() {
       {policy.isSuccess && <HoldForm key={policy.data.holdDays} studioId={studioId} holdDays={policy.data.holdDays} />}
       <TaxForm studioId={studioId} />
       <ApiTokensCard studioId={studioId} />
-      {studio.myRole === 'OWNER' && <AiKeyCard studioId={studioId} />}
-      {studio.myRole === 'OWNER' && <ExportCard studioId={studioId} />}
+      {can('studio.ai_key.manage') && <AiKeyCard studioId={studioId} />}
+      {can('studio.export') && <ExportCard studioId={studioId} />}
     </div>
   );
 }

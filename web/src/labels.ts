@@ -76,7 +76,6 @@ const dutyLabels: Record<Duty, string> = {
 
 export const dutyLabel = (duty: Duty): string => dutyLabels[duty];
 
-export const isStaff = (role: StudioRole): boolean => role === 'OWNER' || role === 'STAFF';
 
 const assetKindLabels: Record<AssetKind, string> = {
   KILN: 'Kiln',

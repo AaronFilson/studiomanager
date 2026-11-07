@@ -1,17 +1,16 @@
 import {
   createGlazeMutation,
-  getStudioOptions,
   listGlazesOptions,
   type GlazeListFilter,
   type GlazeRecipe,
+  useCan,
 } from '@studiomanager/api-client';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { ErrorMessage } from '../../../../components/ErrorMessage';
 import { atmosphereLabel, GlazeForm } from '../../../../components/GlazeForm';
-import { isStaff } from '../../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/glazes/')({
   component: GlazeBookPage,
@@ -25,8 +24,8 @@ const tabs: { filter: GlazeListFilter; label: string }[] = [
 
 function GlazeBookPage() {
   const { studioId } = Route.useParams();
-  const { data: studio } = useSuspenseQuery(getStudioOptions({ path: { studioId } }));
-  const staff = isStaff(studio.myRole);
+  const { can } = useCan(studioId);
+  const staff = can('glazes.studio.edit');
   const [filter, setFilter] = useState<GlazeListFilter>('STUDIO');
   const [adding, setAdding] = useState(false);
   const glazes = useQuery(listGlazesOptions({ path: { studioId }, query: { owner: filter } }));

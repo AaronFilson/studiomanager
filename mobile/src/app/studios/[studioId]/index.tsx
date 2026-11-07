@@ -1,15 +1,14 @@
-import { getStudioOptions } from '@studiomanager/api-client';
-import { useQuery } from '@tanstack/react-query';
+import { useCan } from '@studiomanager/api-client';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { PieceList } from '../../../features/PieceList';
-import { isStaff } from '../../../labels';
 import { Screen } from '../../../ui';
 
 export default function PiecesScreen() {
   const { studioId } = useLocalSearchParams<{ studioId: string }>();
-  const studio = useQuery(getStudioOptions({ path: { studioId } }));
-  const staff = studio.data ? isStaff(studio.data.myRole) : false;
+  const { can } = useCan(studioId);
+  // Whoever moves pieces through the studio sees everyone's
+  const staff = can('pieces.move');
 
   return (
     <Screen>

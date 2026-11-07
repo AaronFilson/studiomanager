@@ -2,7 +2,6 @@ import type {
   LengthUnit,
   MaintenanceTask,
   PieceStage,
-  StudioRole,
   UnitSystem,
   WeightUnit,
 } from '@studiomanager/api-client';
@@ -19,8 +18,6 @@ const stageLabels: Record<PieceStage, string> = {
 };
 
 export const stageLabel = (stage: PieceStage): string => stageLabels[stage];
-
-export const isStaff = (role: StudioRole): boolean => role === 'OWNER' || role === 'STAFF';
 
 /** The units a studio measures pieces in by default. */
 export function defaultUnits(system: UnitSystem): { length: LengthUnit; weight: WeightUnit } {

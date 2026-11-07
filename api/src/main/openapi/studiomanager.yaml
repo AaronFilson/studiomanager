@@ -62,6 +62,8 @@ tags:
     description: Members' inbox, and notices from staff.
   - name: access
     description: Duties (technician, monitor, work exchange…) and certifications on equipment.
+  - name: permissions
+    description: What the caller may do in a studio, so the apps show only what they can use.
   - name: schedule
     description: The studio calendar, the staffing roster, and credited hours.
   - name: today
@@ -1774,6 +1776,29 @@ paths:
                 $ref: "#/components/schemas/NoticeResult"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/me/permissions:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [permissions]
+      operationId: getMyPermissions
+      summary: The caller's role, permissions and duties in a studio
+      description: |
+        The apps show or hide things by these keys. Hiding is convenience only; every operation
+        still checks its own `x-permission`.
+      x-permission: studio.read
+      responses:
+        "200":
+          description: What the caller may do.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyPermissions"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -5832,6 +5857,25 @@ components:
       type: string
       description: A job on top of a member's role.
       enum: [TECHNICIAN, MONITOR, WORK_EXCHANGE, VOLUNTEER_OFFICER, INSTRUCTOR]
+
+    MyPermissions:
+      type: object
+      required: [role, roleName, permissions, duties]
+      properties:
+        role:
+          $ref: "#/components/schemas/StudioRole"
+        roleName:
+          type: string
+          description: The role's display name, such as `Staff`.
+        permissions:
+          type: array
+          description: Permission keys the caller holds, such as `pieces.move`.
+          items:
+            type: string
+        duties:
+          type: array
+          items:
+            $ref: "#/components/schemas/Duty"
 
     MemberDuties:
       type: object
