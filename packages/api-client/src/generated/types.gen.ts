@@ -1854,6 +1854,109 @@ export type Invoice = {
     version: number;
 };
 
+export type InvoiceReadOutcome = 'READ' | 'REFUSED_CREDENTIALS' | 'UNAVAILABLE' | 'UNREADABLE';
+
+export type ComparedRead = {
+    reader: InvoiceReader;
+    outcome: InvoiceReadOutcome;
+    /**
+     * Why the reader couldn't read it.
+     */
+    note?: string;
+    elapsedMs: number;
+    pages?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    /**
+     * The estimated cost in US dollars, from the configured prices.
+     */
+    costUsd?: string;
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    subtotal?: InvoiceAmount;
+    shipping?: InvoiceAmount;
+    tax?: InvoiceAmount;
+    total?: InvoiceAmount;
+    lines: Array<InvoiceLine>;
+    /**
+     * What was dropped from the answer, and what doesn't add up.
+     */
+    problems: Array<string>;
+};
+
+export type ReaderComparison = {
+    results: Array<ComparedRead>;
+};
+
+/**
+ * Which studios a platform-paid reader may read for.
+ */
+export type PlatformReaderScope = 'NONE' | 'CHOSEN' | 'ALL';
+
+export type PlatformReaderRule = {
+    reader: InvoiceReader;
+    enabled: boolean;
+    scope: PlatformReaderScope;
+    /**
+     * The chosen studios, used when the scope is CHOSEN.
+     */
+    studioIds: Array<string>;
+    /**
+     * Pages one studio may use in a calendar month (UTC).
+     */
+    studioMonthlyPages: number;
+    /**
+     * Pages every studio together may use in a calendar month (UTC).
+     */
+    platformMonthlyPages: number;
+};
+
+export type StudioReaderOrder = {
+    studioId: string;
+    /**
+     * The readers to try, first to last. The first that may read, reads.
+     */
+    readers: Array<InvoiceReader>;
+};
+
+export type InvoiceReaderSettings = {
+    readers: Array<PlatformReaderRule>;
+    /**
+     * Studios with their own order. Every other studio tries Claude, then Google, then Azure.
+     */
+    studioOrders: Array<StudioReaderOrder>;
+};
+
+export type StudioReaderUse = {
+    studioId: string;
+    studioName?: string;
+    reads: number;
+    pages: number;
+    costUsd: string;
+};
+
+export type PlatformReaderUse = {
+    reader: InvoiceReader;
+    reads: number;
+    pages: number;
+    /**
+     * This month's estimated spend in US dollars, from the configured prices.
+     */
+    costUsd: string;
+    studios: Array<StudioReaderUse>;
+};
+
+export type InvoiceReaderOverview = {
+    settings: InvoiceReaderSettings;
+    /**
+     * False while the defaults (on for the demo studio only) are in force.
+     */
+    saved: boolean;
+    monthStart: string;
+    usage: Array<PlatformReaderUse>;
+};
+
 export type InvoiceSummary = {
     id: string;
     status: InvoiceStatus;
@@ -2241,6 +2344,39 @@ export type InvoiceWritable = {
     version: number;
 };
 
+export type ComparedReadWritable = {
+    reader: InvoiceReader;
+    outcome: InvoiceReadOutcome;
+    /**
+     * Why the reader couldn't read it.
+     */
+    note?: string;
+    elapsedMs: number;
+    pages?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    /**
+     * The estimated cost in US dollars, from the configured prices.
+     */
+    costUsd?: string;
+    vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    subtotal?: InvoiceAmount;
+    shipping?: InvoiceAmount;
+    tax?: InvoiceAmount;
+    total?: InvoiceAmount;
+    lines: Array<InvoiceLineWritable>;
+    /**
+     * What was dropped from the answer, and what doesn't add up.
+     */
+    problems: Array<string>;
+};
+
+export type ReaderComparisonWritable = {
+    results: Array<ComparedReadWritable>;
+};
+
 export type SaveInvoiceDraftRequestWritable = {
     vendorName?: string;
     invoiceNumber?: string;
@@ -2548,6 +2684,97 @@ export type ListSettingChangesResponses = {
 };
 
 export type ListSettingChangesResponse = ListSettingChangesResponses[keyof ListSettingChangesResponses];
+
+export type ResetInvoiceReadersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/invoice-readers';
+};
+
+export type ResetInvoiceReadersErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ResetInvoiceReadersError = ResetInvoiceReadersErrors[keyof ResetInvoiceReadersErrors];
+
+export type ResetInvoiceReadersResponses = {
+    /**
+     * The rules after the change.
+     */
+    200: InvoiceReaderOverview;
+};
+
+export type ResetInvoiceReadersResponse = ResetInvoiceReadersResponses[keyof ResetInvoiceReadersResponses];
+
+export type GetInvoiceReadersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/invoice-readers';
+};
+
+export type GetInvoiceReadersErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetInvoiceReadersError = GetInvoiceReadersErrors[keyof GetInvoiceReadersErrors];
+
+export type GetInvoiceReadersResponses = {
+    /**
+     * The rules and the use.
+     */
+    200: InvoiceReaderOverview;
+};
+
+export type GetInvoiceReadersResponse = GetInvoiceReadersResponses[keyof GetInvoiceReadersResponses];
+
+export type SetInvoiceReadersData = {
+    body: InvoiceReaderSettings;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/invoice-readers';
+};
+
+export type SetInvoiceReadersErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type SetInvoiceReadersError = SetInvoiceReadersErrors[keyof SetInvoiceReadersErrors];
+
+export type SetInvoiceReadersResponses = {
+    /**
+     * The rules after the change.
+     */
+    200: InvoiceReaderOverview;
+};
+
+export type SetInvoiceReadersResponse = SetInvoiceReadersResponses[keyof SetInvoiceReadersResponses];
 
 export type CreateStudioData = {
     body: CreateStudioRequest;
@@ -8422,6 +8649,49 @@ export type CompleteInvoiceUploadResponses = {
 };
 
 export type CompleteInvoiceUploadResponse = CompleteInvoiceUploadResponses[keyof CompleteInvoiceUploadResponses];
+
+export type CompareInvoiceReadersData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}/compare-readers';
+};
+
+export type CompareInvoiceReadersErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CompareInvoiceReadersError = CompareInvoiceReadersErrors[keyof CompareInvoiceReadersErrors];
+
+export type CompareInvoiceReadersResponses = {
+    /**
+     * One result per reader, in the studio's order. Empty when none may read.
+     */
+    200: ReaderComparison;
+};
+
+export type CompareInvoiceReadersResponse = CompareInvoiceReadersResponses[keyof CompareInvoiceReadersResponses];
 
 export type ConfirmInvoiceData = {
     body: ConfirmInvoiceRequest;
