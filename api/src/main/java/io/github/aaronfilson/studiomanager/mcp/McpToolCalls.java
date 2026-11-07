@@ -88,13 +88,16 @@ class McpToolCalls {
   }
 
   /**
-   * Why the caller can't run this tool, or empty if they can. A propose tool needs the {@code
-   * propose} scope when the caller signed in with a token; a person signed in to the app is staff
-   * already ({@link McpRequestFilter}), and may propose.
+   * Why the caller can't run this tool, or empty if they can. The caller must hold the tool's
+   * permission. A token's context holds only what its person holds and its scopes allow, so a
+   * propose tool also needs the {@code propose} scope; that case gets its own message.
    */
-  private static Optional<String> scopeRefusal(McpTools.Tool tool) {
+  private static Optional<String> refusal(McpTools.Tool tool, TenantContext caller) {
+    if (caller.holds(tool.permission())) {
+      return Optional.empty();
+    }
     return switch (tool.access()) {
-      case READ -> Optional.empty();
+      case READ -> Optional.of(roleRefusal(tool));
       case PROPOSE -> {
         if (SecurityContextHolder.getContext().getAuthentication()
                 instanceof ApiTokenAuthentication tokenAuthentication
@@ -102,12 +105,17 @@ class McpToolCalls {
           yield Optional.of(
               "This token can't propose changes. Ask the person to make a token with the propose scope.");
         }
-        yield Optional.empty();
+        yield Optional.of(roleRefusal(tool));
       }
     };
   }
 
-  /** One tool's handler: the rate limit, the scope, the call and the call log. */
+  private static String roleRefusal(McpTools.Tool tool) {
+    return "This person can't use %s here: it needs the %s permission."
+        .formatted(tool.name(), tool.permission().key());
+  }
+
+  /** One tool's handler: the rate limit, the permission, the call and the call log. */
   private final class LimitedToolCall
       implements BiFunction<McpTransportContext, CallToolRequest, CallToolResult> {
 
@@ -135,10 +143,10 @@ class McpToolCalls {
             "Too many tool calls for now. Wait %d seconds before calling another tool, and tell the person you're waiting."
                 .formatted(seconds));
       }
-      Optional<String> scopeRefusal = scopeRefusal(tool);
-      if (scopeRefusal.isPresent()) {
+      Optional<String> permissionRefusal = refusal(tool, caller);
+      if (permissionRefusal.isPresent()) {
         log(caller, studioId, argumentsJson, ApiCallLog.Outcome.ERROR, started);
-        return failure(scopeRefusal.get());
+        return failure(permissionRefusal.get());
       }
       try {
         JsonNode argumentsNode = json.valueToTree(arguments);

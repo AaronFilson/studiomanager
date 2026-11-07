@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.EnumSet;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.server.PathContainer;
@@ -73,7 +74,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
   /**
    * A token works only in its own studio, only where {@link TokenPolicy} allows its scopes, and
-   * only while its person is still staff there: their live role is the ceiling.
+   * only while its person holds {@code api_tokens.own} there. It holds what its person holds now
+   * and its scopes allow ({@link TokenScope#allowedBy}), resolved on every request, so a change to
+   * the person's role or their role's set applies to the token at once (plan 21 §5).
    */
   private TenantContext tokenContext(
       HttpServletRequest request, ApiTokenResolver.ResolvedToken token) {
@@ -89,9 +92,12 @@ public class TenantContextFilter extends OncePerRequestFilter {
     TenantContext person = inStudio(TenantContext.forAccount(token.accountId()), token.studioId());
     if (!person.holds(Permission.API_TOKENS_OWN)) {
       throw new AccessDeniedException(
-          "API tokens are for staff. This token's owner isn't staff any more.");
+          "This token's owner may no longer use API tokens in this studio.");
     }
-    return person.viaToken(token.tokenId());
+    EnumSet<Permission> held = EnumSet.noneOf(Permission.class);
+    held.addAll(person.permissions());
+    held.retainAll(TokenScope.allowedBy(token.scopes()));
+    return person.viaToken(token.tokenId()).withPermissions(held);
   }
 
   /**

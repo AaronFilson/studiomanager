@@ -553,6 +553,45 @@ Left for later lanes:
 - The last-owner trigger and lock (R8). Modulith events for access changes, and showing the log
   (R6).
 
+**R5 done (2026-11-07), branch `rbac-r5`.** No migration; no change for any REST call a token
+could make before.
+- `TokenScope.permissions()` is the one place scopes meet permissions, an explicit case per scope:
+  `read` allows what reading the reachable areas needs, including the permissions that decide how
+  much a reader sees (`pieces.move` shows everyone's pieces, `firings.manage` the kiln queue,
+  `schedule.manage` everyone's bookings, `members.duties.manage` the duty list, and so on), plus
+  `mcp.use` and the floor's `money.own.read` (a person's own statement, under `members`). Each
+  `write:*` scope allows its area's permissions; `propose` allows `proposals.create` alone.
+- `TenantContextFilter` builds a token's context as the person's resolved permissions ∩
+  `TokenScope.allowedBy(scopes)`, on every request, after checking the person still holds
+  `api_tokens.own`. `TokenPolicy` stays the area and method gate; its never areas are unchanged.
+- `TokenScopeTests` walks the contract: every operation a token reaches names a permission its
+  scope allows (GET by `read`, writes by the area's write scope), so the cap takes nothing away
+  that `TokenPolicy` allowed. It also checks no scope allows money (beyond your own), access,
+  tokens, webhooks, imports, invoices, the export, the AI key, reviewing suggestions or
+  `owners.manage`.
+- `GET /me/permissions` with a token answers the token's narrowed set (it reads the bound
+  context), so a client sees what the token, not the person, may do.
+- MCP: `McpRequestFilter` already checked `mcp.use` (R2); a token now holds it only with `read`.
+  Each `McpTools.Tool` declares the permission of its REST twin (`studio_today` `today.read`,
+  `kilns` `kilns.read`, `open_firings` `firings.manage`, `low_supplies`
+  `supplies.purchase.request`, `maintenance_due` and `maintenance_assets` `maintenance.manage`,
+  `problem_reports` `maintenance.read`, the glaze tools `glazes.read`, the propose tools
+  `proposals.create`), and `McpToolCalls` refuses a call without it as a readable `isError`
+  result. The propose scope's own message stays.
+- Token creation already required `api_tokens.own` (R2). A token never exceeds its person: the
+  person's role is read per request (not cached), and role sets are cached a minute but dropped on
+  commit (R4). A membership's role change needs no cache drop.
+- Messages no longer say "for staff" for tokens and MCP, since owners may grant both to any role.
+- Tests: `TokenScopeTests` (unit); `TokenPermissionsTests` (integration: a member granted
+  `api_tokens.own` and `mcp.use` by the stored set uses `kilns` but not `maintenance_due`; a read
+  token's `/me/permissions` drops the person's writes, and an owner's drops money and owner-only;
+  promoting the member applies to the token on the next request, and taking `mcp.use` or
+  `api_tokens.own` from the role turns the token away).
+
+Not done: hiding tools a caller can't run from `tools/list`. The SDK's stateless server serves one
+fixed list, so filtering it per caller means rewriting its JSON-RPC responses; a refused call is a
+clear result instead. Revisit if the SDK gains a per-request tool list.
+
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
 queue.

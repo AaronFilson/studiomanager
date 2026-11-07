@@ -26,7 +26,7 @@ class PermissionContractTests {
       Pattern.compile("^    (get|put|post|patch|delete):\\s*$");
   private static final Pattern NAMED = Pattern.compile("^      x-permission:\\s*(\\S+)\\s*$");
 
-  private record Operation(String path, String method, List<String> permissions) {}
+  record Operation(String path, String method, List<String> permissions) {}
 
   @Test
   void everyNamedPermissionIsInTheCatalogue() throws IOException {
@@ -49,7 +49,8 @@ class PermissionContractTests {
     assertThat(unnamed).as("studio operations without x-permission").isEqualTo(STILL_UNNAMED);
   }
 
-  private static List<Operation> studioOperations() throws IOException {
+  /** The contract's studio operations, each with the permissions it names. */
+  static List<Operation> studioOperations() throws IOException {
     List<String> lines = Files.readAllLines(Path.of("src/main/openapi/studiomanager.yaml"));
     List<Operation> operations = new ArrayList<>();
     String path = "";
