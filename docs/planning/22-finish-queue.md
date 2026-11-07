@@ -144,6 +144,6 @@ Suppressed, each with its reason in the code:
 - Google and GitHub sign-in are still off in dev. They need the owner's GitHub OAuth app and
   Entra setup (`docs/runbooks/github-sign-in.md`).
 
-**Found along the way:** export downloads aren't recorded. Plan 21 §7 asked for every owner-only
-action to log its account. That needs a new log kind and a migration, so it's left for the next
-PR. The threat model lists it.
+**Found along the way:** export downloads weren't recorded. Plan 21 §7 asked for every owner-only
+action to log its account. Fixed in the next PR: V42 adds `STUDIO_EXPORTED` to the access history
+(ADR 25, "After the lanes").

@@ -117,6 +117,10 @@ members in them (`PUT /members/{accountId}/role`). The rules:
 - **Access changes go out.** `studio.AccessChanged` becomes an `access.changed` webhook, sent in
   the changing transaction like `fee.charged`, and an `access.changed` event on the Kafka stream.
   The stream event carries ids only; the webhook also carries who made the change, by name.
+- **Export downloads are logged** (V42) as `STUDIO_EXPORTED` in the same log, target `studio`,
+  value the file's name. It isn't a change of access, but it is the owner-only action co-owners
+  most need to see, and this log already has the account, the token, the roles page and the
+  webhook. A separate audit log would duplicate all four.
 - **`studio_membership.role` stays.** Plan 21 §6 meant to drop it once nothing read it. It is
   still read by the JPQL that finds owners and roles, by the last-owner trigger (V40), by
   `app.accept_invite` and by the export. V41's trigger keeps it equal to the base of `role_id`, so

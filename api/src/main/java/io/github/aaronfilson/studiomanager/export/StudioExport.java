@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.export;
 import io.github.aaronfilson.studiomanager.platform.Csv;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.studio.AccessChangeLog;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -46,10 +47,22 @@ public class StudioExport {
 
   private final JdbcClient jdbc;
   private final AccountDirectory accounts;
+  private final AccessChangeLog accessLog;
 
-  StudioExport(JdbcClient jdbc, AccountDirectory accounts) {
+  StudioExport(JdbcClient jdbc, AccountDirectory accounts, AccessChangeLog accessLog) {
     this.jdbc = jdbc;
     this.accounts = accounts;
+    this.accessLog = accessLog;
+  }
+
+  /**
+   * Records that the caller downloaded the export, in the access history (plan 21 §7). Its own
+   * transaction, since {@link #zip} is read-only; called after the ZIP is built and before it's
+   * sent, so a download that can't be logged isn't sent.
+   */
+  @Transactional
+  public void recordDownload(String filename) {
+    accessLog.record(AccessChangeLog.Kind.STUDIO_EXPORTED, "studio", List.of(), List.of(filename));
   }
 
   @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)

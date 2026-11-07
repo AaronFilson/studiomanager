@@ -2072,8 +2072,8 @@ paths:
       x-permission: studio.roles.manage
       summary: Every change to who may do what, newest first (owners only)
       description: |
-        Role permissions, members' duties and roles, and the billing contact, each with the
-        account that made it. Kept for the life of the studio; this lists the newest.
+        Role permissions, members' duties and roles, the billing contact, and downloads of the
+        studio's export, each with the account that made it. Kept for the life of the studio; this lists the newest.
       responses:
         "200":
           description: The newest changes.
@@ -6590,7 +6590,9 @@ components:
         - `BILLING_CONTACT`: the studio's billing contact; added and removed are accounts.
         - `ROLE_CREATED`, `ROLE_RENAMED`, `ROLE_DELETED`: a custom role; the target is its key,
           added and removed are its names.
-      enum: [ROLE_PERMISSIONS, MEMBER_DUTIES, MEMBER_ROLE, BILLING_CONTACT, ROLE_CREATED, ROLE_RENAMED, ROLE_DELETED]
+        - `STUDIO_EXPORTED`: someone downloaded the studio's export; the target is `studio`, added
+          is the file's name.
+      enum: [ROLE_PERMISSIONS, MEMBER_DUTIES, MEMBER_ROLE, BILLING_CONTACT, ROLE_CREATED, ROLE_RENAMED, ROLE_DELETED, STUDIO_EXPORTED]
 
     AccessChange:
       type: object

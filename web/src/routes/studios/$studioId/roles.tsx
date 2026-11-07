@@ -360,6 +360,8 @@ function describeChange(change: AccessChange, labels: Map<string, string>, roleN
       return `renamed the role ${change.removed.join(', ')} to ${change.added.join(', ')}`;
     case 'ROLE_DELETED':
       return `deleted the role ${change.removed.join(', ')}`;
+    case 'STUDIO_EXPORTED':
+      return "downloaded the studio's data";
   }
 }
 

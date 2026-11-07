@@ -1519,8 +1519,8 @@ export const listAccessChangesQueryKey = (options: Options<ListAccessChangesData
 /**
  * Every change to who may do what, newest first (owners only)
  *
- * Role permissions, members' duties and roles, and the billing contact, each with the
- * account that made it. Kept for the life of the studio; this lists the newest.
+ * Role permissions, members' duties and roles, the billing contact, and downloads of the
+ * studio's export, each with the account that made it. Kept for the life of the studio; this lists the newest.
  *
  */
 export const listAccessChangesOptions = (options: Options<ListAccessChangesData>) => queryOptions<ListAccessChangesResponse, ListAccessChangesError, ListAccessChangesResponse, ReturnType<typeof listAccessChangesQueryKey>>({

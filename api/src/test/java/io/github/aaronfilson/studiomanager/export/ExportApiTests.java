@@ -97,6 +97,47 @@ class ExportApiTests {
   }
 
   @Test
+  void aDownloadIsInTheAccessHistoryWithItsAccount() throws Exception {
+    UUID studio = createStudio(alice, "Alice's Clay");
+
+    MvcTestResult result =
+        mvc.get().uri("/api/v1/studios/{id}/export", studio).with(alice.token()).exchange();
+    assertThat(result).hasStatusOk();
+
+    String history =
+        mvc.get()
+            .uri("/api/v1/studios/{id}/roles/history", studio)
+            .with(alice.token())
+            .exchange()
+            .getResponse()
+            .getContentAsString();
+    List<Map<String, Object>> exports =
+        JsonPath.read(history, "$.items[?(@.kind == 'STUDIO_EXPORTED')]");
+    assertThat(exports).hasSize(1);
+    assertThat(exports.get(0))
+        .containsEntry("actorName", alice.name())
+        .containsEntry("target", "studio");
+    assertThat(exports.get(0).get("added").toString()).contains("studio-export-");
+  }
+
+  @Test
+  void aRefusedExportIsNotLogged() throws Exception {
+    UUID studio = createStudio(alice, "Alice's Clay");
+    assertThat(mvc.get().uri("/api/v1/studios/{id}/export", studio).with(bob.token()))
+        .hasStatus(HttpStatus.FORBIDDEN);
+
+    String history =
+        mvc.get()
+            .uri("/api/v1/studios/{id}/roles/history", studio)
+            .with(alice.token())
+            .exchange()
+            .getResponse()
+            .getContentAsString();
+    List<Object> exports = JsonPath.read(history, "$.items[?(@.kind == 'STUDIO_EXPORTED')]");
+    assertThat(exports).isEmpty();
+  }
+
+  @Test
   void onlyTheOwnerMayExport() throws Exception {
     UUID studio = createStudio(alice, "Alice's Clay");
     String code =

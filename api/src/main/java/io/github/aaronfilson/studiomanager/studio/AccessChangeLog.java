@@ -46,7 +46,12 @@ public class AccessChangeLog {
     /** A custom role was renamed; the target is its key, the values its names. */
     ROLE_RENAMED,
     /** A custom role was deleted; the target is its key, the value its name. */
-    ROLE_DELETED
+    ROLE_DELETED,
+    /**
+     * Someone downloaded the studio's export; the target is "studio", the value the file's name.
+     * Not a change of access, but the owner-only action co-owners most need to see.
+     */
+    STUDIO_EXPORTED
   }
 
   /**
