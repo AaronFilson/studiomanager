@@ -56,4 +56,8 @@ class StudioMembership {
   Instant createdAt() {
     return createdAt;
   }
+
+  void changeRole(StudioRole newRole) {
+    this.role = newRole;
+  }
 }

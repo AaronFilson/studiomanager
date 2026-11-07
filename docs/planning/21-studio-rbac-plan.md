@@ -592,6 +592,39 @@ Not done: hiding tools a caller can't run from `tools/list`. The SDK's stateless
 fixed list, so filtering it per caller means rewriting its JSON-RPC responses; a refused call is a
 clear result instead. Revisit if the SDK gains a per-request tool list.
 
+**R8 done (2026-11-07), branch `rbac-r8`.** Migration V40; several co-owners per studio.
+- Endpoints (tag `members`, all `x-permission: owners.manage`, under `members` so `TokenPolicy`'s
+  read-only `members` area covers them): `PUT` and `DELETE /members/{accountId}/owner`
+  (`addOwner`, `removeOwner`), `GET` and `PUT /members/billing-contact` (`getBillingContact`,
+  `setBillingContact`). Removing an owner makes them STAFF; an owner may remove themselves
+  (stepping down) while another owner remains.
+- Last owner: `StudioService.removeOwner` locks the studio's OWNER memberships
+  (`SELECT ... FOR UPDATE` through `@Lock(PESSIMISTIC_WRITE)`) before deciding, refuses the last
+  one with 409 "... Add another owner first.", and refuses a caller who stopped being an owner
+  since their request began (403). Of two owners demoting each other at once, the second waits,
+  sees the first's result and is refused. V40's deferred constraint trigger
+  `studio_membership_keeps_an_owner` refuses at commit any transaction that leaves a studio with
+  no OWNER, past the API too; a deleted studio is skipped.
+- Billing contact: `studio.billing_contact_account_id`, set to the creator for new studios and to
+  the earliest owner for existing ones. It must be an owner (API 409, and the same trigger, also on
+  `studio`). Demoting the contact clears it; `GET` then answers `chooseNeeded: true` and the
+  owners' notice asks them to pick one.
+- Notices: a new `OWNERS_CHANGED` kind goes to every owner (found by `roleHolds(..., owners.manage)`,
+  which only owners hold) and the person concerned, when an owner is added or removed, including
+  someone accepting an OWNER invite (after commit, from `StudioService.onMemberJoined`).
+  `role_change_log` gains `MEMBER_ROLE` and `BILLING_CONTACT` rows.
+- V14: its single-owner lookup was already replaced by V25 (studio ids only), and the reminder
+  goes to every `maintenance.manage` holder, so every owner. V40 changes no reminder SQL;
+  `MaintenanceReminderTests.aStudioWithTwoOwnersRemindsBoth` covers a two-owner studio. No other
+  SQL or notice picks "the" owner; purchase requests have no notice yet.
+- Web: the members page shows owners "Make … an owner", "Remove … as owner" / "Step down as
+  owner" (not offered to the only owner) and a Billing contact card, all behind
+  `can('owners.manage')`.
+- Tests: `CoOwnerTests` (add and notices, staff refused, last owner refused at the API and at the
+  trigger, concurrent mutual demotion leaves one owner, billing contact handover and trigger, owner
+  invite notice), the two-owner reminder test, and web `members.test.tsx`.
+- Not done: the mobile owner picker (the mobile app has no members screen yet).
+
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
 queue.

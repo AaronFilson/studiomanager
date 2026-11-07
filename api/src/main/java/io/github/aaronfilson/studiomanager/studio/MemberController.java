@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.studio;
 
+import io.github.aaronfilson.studiomanager.contract.BillingContactDto;
 import io.github.aaronfilson.studiomanager.contract.CreateInviteRequestDto;
 import io.github.aaronfilson.studiomanager.contract.EmailInvitesRequestDto;
 import io.github.aaronfilson.studiomanager.contract.EmailInvitesResultDto;
@@ -8,6 +9,7 @@ import io.github.aaronfilson.studiomanager.contract.MemberDto;
 import io.github.aaronfilson.studiomanager.contract.MembersApi;
 import io.github.aaronfilson.studiomanager.contract.MembershipDto;
 import io.github.aaronfilson.studiomanager.contract.OpenInviteDto;
+import io.github.aaronfilson.studiomanager.contract.SetBillingContactRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SkippedEmailDto;
 import io.github.aaronfilson.studiomanager.contract.StudioRoleDto;
 import io.github.aaronfilson.studiomanager.contract.StudioSummaryDto;
@@ -17,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,11 +30,14 @@ class MemberController implements MembersApi {
 
   private final StudioMembers members;
   private final StudioInvites invites;
+  private final StudioService studios;
   private final Clock clock;
 
-  MemberController(StudioMembers members, StudioInvites invites, Clock clock) {
+  MemberController(
+      StudioMembers members, StudioInvites invites, StudioService studios, Clock clock) {
     this.members = members;
     this.invites = invites;
+    this.studios = studios;
     this.clock = clock;
   }
 
@@ -47,6 +53,38 @@ class MemberController implements MembersApi {
                     .role(StudioRoleDto.valueOf(member.role().name()))
                     .joinedAt(member.joinedAt().atOffset(ZoneOffset.UTC)))
             .toList());
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<Void> addOwner(UUID studioId, UUID accountId) {
+    studios.addOwner(studioId, accountId);
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<Void> removeOwner(UUID studioId, UUID accountId) {
+    studios.removeOwner(studioId, accountId);
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<BillingContactDto> getBillingContact(UUID studioId) {
+    return ResponseEntity.ok(billingContactDto(studios.billingContact(studioId)));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'OWNERS_MANAGE')")
+  public ResponseEntity<BillingContactDto> setBillingContact(
+      UUID studioId, SetBillingContactRequestDto request) {
+    studios.setBillingContact(studioId, request.getAccountId());
+    return ResponseEntity.ok(billingContactDto(studios.billingContact(studioId)));
+  }
+
+  private static BillingContactDto billingContactDto(Optional<UUID> contact) {
+    return new BillingContactDto().accountId(contact.orElse(null)).chooseNeeded(contact.isEmpty());
   }
 
   @Override
