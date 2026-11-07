@@ -65,6 +65,9 @@ function StudioLayout() {
             <Link to="/studios/$studioId/supplies" params={{ studioId }}>
               Supplies
             </Link>
+            <Link to="/studios/$studioId/suggestions" params={{ studioId }}>
+              Assistant suggestions
+            </Link>
             <Link to="/studios/$studioId/money" params={{ studioId }}>
               Money
             </Link>

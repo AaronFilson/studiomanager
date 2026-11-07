@@ -16,11 +16,13 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -164,6 +166,19 @@ public class ApiTokens implements ApiTokenResolver {
               token.name(),
               caller.accountId()));
     }
+  }
+
+  /**
+   * The names of these tokens in the bound studio, for saying which token did something ("through
+   * 'Claude desktop'"). Revoked tokens keep their names; ids not found are left out.
+   */
+  @Transactional(readOnly = true)
+  public Map<UUID, String> names(Collection<UUID> tokenIds) {
+    if (tokenIds.isEmpty()) {
+      return Map.of();
+    }
+    return tokens.findAllById(tokenIds).stream()
+        .collect(Collectors.toMap(ApiToken::id, ApiToken::name));
   }
 
   private @Nullable String ownerName(ApiToken token) {

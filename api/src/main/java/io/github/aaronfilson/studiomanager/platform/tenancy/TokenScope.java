@@ -12,7 +12,9 @@ public enum TokenScope {
   WRITE_SCHEDULE("write:schedule"),
   WRITE_SUPPLIES("write:supplies"),
   WRITE_GLAZES("write:glazes"),
-  WRITE_NOTICES("write:notices");
+  WRITE_NOTICES("write:notices"),
+  /** Suggest changes over MCP, which wait for staff to approve them in the app. */
+  PROPOSE("propose");
 
   private final String wireName;
 

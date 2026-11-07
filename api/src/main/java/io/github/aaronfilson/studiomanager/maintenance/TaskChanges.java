@@ -11,9 +11,12 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Setting up, changing and archiving the recurring tasks on an asset. */
+/**
+ * Setting up, changing and archiving the recurring tasks on an asset. Public: an approved assistant
+ * suggestion (the proposal module) sets a task up through it.
+ */
 @Service
-class TaskChanges {
+public class TaskChanges {
 
   private final MaintenanceTaskRepository tasks;
   private final MaintenanceService reads;

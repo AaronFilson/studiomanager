@@ -1876,10 +1876,11 @@ export type ConfirmInvoiceRequest = {
 
 /**
  * `read` reads everything a token can reach. Each `write:` scope allows changes in one
- * area. There's no scope for money.
+ * area. `propose` lets an assistant suggest changes over MCP, which wait for staff to
+ * approve. There's no scope for money.
  *
  */
-export type TokenScope = 'read' | 'write:pieces' | 'write:kilns' | 'write:maintenance' | 'write:schedule' | 'write:supplies' | 'write:glazes' | 'write:notices';
+export type TokenScope = 'read' | 'write:pieces' | 'write:kilns' | 'write:maintenance' | 'write:schedule' | 'write:supplies' | 'write:glazes' | 'write:notices' | 'propose';
 
 export type ApiToken = {
     id: string;
@@ -1919,6 +1920,84 @@ export type CreatedApiToken = {
      * The token to paste into the client. Shown only this once.
      */
     secret: string;
+};
+
+/**
+ * What an assistant proposed.
+ */
+export type PendingActionKind = 'PURCHASE_REQUEST' | 'MAINTENANCE_TASK';
+
+export type PendingActionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/**
+ * A change an assistant proposed. `reason` is the assistant's own words, and `subjectName`
+ * the item's or asset's name when it was proposed: show both as plain text.
+ *
+ */
+export type PendingAction = {
+    id: string;
+    kind: PendingActionKind;
+    status: PendingActionStatus;
+    reason?: string;
+    subjectName: string;
+    purchaseRequest?: ProposedPurchaseRequest;
+    maintenanceTask?: ProposedMaintenanceTask;
+    /**
+     * The person whose token the assistant used.
+     */
+    proposedBy: string;
+    proposedByName?: string;
+    proposedViaTokenId?: string;
+    /**
+     * The token's name, such as "Claude desktop".
+     */
+    proposedViaTokenName?: string;
+    proposedAt: string;
+    decidedByName?: string;
+    decidedAt?: string;
+    decisionNote?: string;
+    /**
+     * What approving made, the purchase request or the maintenance task.
+     */
+    resultId?: string;
+    version: number;
+};
+
+/**
+ * Present when the kind is PURCHASE_REQUEST.
+ */
+export type ProposedPurchaseRequest = {
+    itemId: string;
+    quantity: Decimal;
+    note?: string;
+};
+
+/**
+ * Present when the kind is MAINTENANCE_TASK.
+ */
+export type ProposedMaintenanceTask = {
+    assetId: string;
+    title: string;
+    everyDays?: number;
+    everyFirings?: number;
+};
+
+export type PendingActionList = {
+    items: Array<PendingAction>;
+    /**
+     * There were more than `limit`; only the first `limit` are listed.
+     */
+    truncated: boolean;
+    limit: number;
+};
+
+export type DecidePendingActionRequest = {
+    decision: 'APPROVED' | 'REJECTED';
+    expectedVersion: number;
+    /**
+     * Why it was rejected. Ignored when approving.
+     */
+    note?: string;
 };
 
 /**
@@ -7854,6 +7933,87 @@ export type RevokeApiTokenResponses = {
 };
 
 export type RevokeApiTokenResponse = RevokeApiTokenResponses[keyof RevokeApiTokenResponses];
+
+export type ListPendingActionsData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/pending-actions';
+};
+
+export type ListPendingActionsErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListPendingActionsError = ListPendingActionsErrors[keyof ListPendingActionsErrors];
+
+export type ListPendingActionsResponses = {
+    /**
+     * The waiting suggestions.
+     */
+    200: PendingActionList;
+};
+
+export type ListPendingActionsResponse = ListPendingActionsResponses[keyof ListPendingActionsResponses];
+
+export type DecidePendingActionData = {
+    body: DecidePendingActionRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        actionId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/pending-actions/{actionId}/decision';
+};
+
+export type DecidePendingActionErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type DecidePendingActionError = DecidePendingActionErrors[keyof DecidePendingActionErrors];
+
+export type DecidePendingActionResponses = {
+    /**
+     * The decided suggestion.
+     */
+    200: PendingAction;
+};
+
+export type DecidePendingActionResponse = DecidePendingActionResponses[keyof DecidePendingActionResponses];
 
 export type DeleteAiKeyData = {
     body?: never;

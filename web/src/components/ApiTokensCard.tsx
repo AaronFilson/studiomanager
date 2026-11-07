@@ -13,6 +13,7 @@ import { ErrorMessage } from './ErrorMessage';
 
 const scopeChoices: { scope: TokenScope; label: string }[] = [
   { scope: 'read', label: 'Read everything a token can reach' },
+  { scope: 'propose', label: 'Suggest changes for staff to approve (AI assistants)' },
   { scope: 'write:pieces', label: 'Change pieces' },
   { scope: 'write:kilns', label: 'Change kilns and firings' },
   { scope: 'write:maintenance', label: 'Change maintenance' },

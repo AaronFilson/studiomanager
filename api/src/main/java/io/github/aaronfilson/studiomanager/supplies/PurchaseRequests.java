@@ -17,10 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Asking for more of an item, and carrying the request through: the owner approves or rejects it,
- * then staff mark it ordered and received, which puts the stock on the shelf.
+ * then staff mark it ordered and received, which puts the stock on the shelf. Public: an approved
+ * assistant suggestion (the proposal module) asks through it.
  */
 @Service
-class PurchaseRequests {
+public class PurchaseRequests {
 
   private final PurchaseRequestRepository requestRepository;
   private final SupplyItemRepository itemRepository;

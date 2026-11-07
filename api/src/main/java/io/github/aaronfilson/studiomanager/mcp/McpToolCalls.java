@@ -3,7 +3,9 @@ package io.github.aaronfilson.studiomanager.mcp;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TokenScope;
 import io.github.aaronfilson.studiomanager.ratelimit.ApiCallLog;
 import io.github.aaronfilson.studiomanager.ratelimit.RateLimitSettings.Channel;
 import io.github.aaronfilson.studiomanager.ratelimit.RateLimiter;
@@ -21,6 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -60,15 +63,7 @@ class McpToolCalls {
         McpSchema.Tool.builder(tool.name(), tool.inputSchema())
             .title(tool.title())
             .description(tool.description())
-            // Hints for the client: nothing here changes anything, and calling twice is harmless
-            .annotations(
-                McpSchema.ToolAnnotations.builder()
-                    .title(tool.title())
-                    .readOnlyHint(true)
-                    .destructiveHint(false)
-                    .idempotentHint(true)
-                    .openWorldHint(false)
-                    .build())
+            .annotations(annotations(tool))
             .build();
     return SyncToolSpecification.builder()
         .tool(definition)
@@ -76,7 +71,43 @@ class McpToolCalls {
         .build();
   }
 
-  /** One tool's handler: the rate limit, the call and the call log. */
+  /**
+   * Hints for the client. No tool is destructive or reaches outside the studio. A read tool changes
+   * nothing, so calling it twice is harmless; a propose tool records a suggestion each time.
+   */
+  private static McpSchema.ToolAnnotations annotations(McpTools.Tool tool) {
+    McpSchema.ToolAnnotations.Builder hints =
+        McpSchema.ToolAnnotations.builder()
+            .title(tool.title())
+            .destructiveHint(false)
+            .openWorldHint(false);
+    return switch (tool.access()) {
+      case READ -> hints.readOnlyHint(true).idempotentHint(true).build();
+      case PROPOSE -> hints.readOnlyHint(false).idempotentHint(false).build();
+    };
+  }
+
+  /**
+   * Why the caller can't run this tool, or empty if they can. A propose tool needs the {@code
+   * propose} scope when the caller signed in with a token; a person signed in to the app is staff
+   * already ({@link McpRequestFilter}), and may propose.
+   */
+  private static Optional<String> scopeRefusal(McpTools.Tool tool) {
+    return switch (tool.access()) {
+      case READ -> Optional.empty();
+      case PROPOSE -> {
+        if (SecurityContextHolder.getContext().getAuthentication()
+                instanceof ApiTokenAuthentication tokenAuthentication
+            && !tokenAuthentication.token().scopes().contains(TokenScope.PROPOSE)) {
+          yield Optional.of(
+              "This token can't propose changes. Ask the person to make a token with the propose scope.");
+        }
+        yield Optional.empty();
+      }
+    };
+  }
+
+  /** One tool's handler: the rate limit, the scope, the call and the call log. */
   private final class LimitedToolCall
       implements BiFunction<McpTransportContext, CallToolRequest, CallToolResult> {
 
@@ -103,6 +134,11 @@ class McpToolCalls {
         return failure(
             "Too many tool calls for now. Wait %d seconds before calling another tool, and tell the person you're waiting."
                 .formatted(seconds));
+      }
+      Optional<String> scopeRefusal = scopeRefusal(tool);
+      if (scopeRefusal.isPresent()) {
+        log(caller, studioId, argumentsJson, ApiCallLog.Outcome.ERROR, started);
+        return failure(scopeRefusal.get());
       }
       try {
         JsonNode argumentsNode = json.valueToTree(arguments);
