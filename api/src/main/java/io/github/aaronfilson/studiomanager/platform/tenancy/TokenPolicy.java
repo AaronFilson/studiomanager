@@ -76,6 +76,10 @@ public final class TokenPolicy {
           Map.entry("webhooks", ADMIN),
           Map.entry("api-tokens", ADMIN),
           Map.entry("ai-key", ADMIN),
+          // Reading an invoice spends the studio's AI key, and confirming one moves stock and money
+          Map.entry(
+              "invoices",
+              new Never("Invoices are read and confirmed while signed in, not with a token.")),
           Map.entry(
               "export",
               new Never("Download the studio's data while signed in, not with a token.")));

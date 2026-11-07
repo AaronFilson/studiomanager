@@ -13,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -42,8 +43,19 @@ public class AiKeys {
       Status status,
       @Nullable String reason,
       @Nullable Instant checkedAt,
-      boolean allowGoogleFallback,
+      boolean allowPlatformReaders,
       Instant setAt) {}
+
+  /**
+   * The studio's key, decrypted for one read. Its {@code toString} never shows the key, so it can't
+   * leak into a log line or an exception message by accident.
+   */
+  public record StudioKey(String secret) {
+    @Override
+    public String toString() {
+      return "StudioKey[redacted]";
+    }
+  }
 
   private final JdbcClient jdbc;
   private final TransactionOperations transactions;
@@ -67,7 +79,7 @@ public class AiKeys {
   }
 
   /** Saves (or replaces) the key, untested. Deliberately not echoed back. */
-  public KeyStatus set(Provider provider, String apiKey, boolean allowGoogleFallback) {
+  public KeyStatus set(Provider provider, String apiKey, boolean allowPlatformReaders) {
     TenantContext caller = requireOwner();
     String key = apiKey == null ? "" : apiKey.strip();
     if (!key.startsWith("sk-ant-")
@@ -81,18 +93,18 @@ public class AiKeys {
       jdbc.sql(
               """
               insert into ai_provider_key (studio_id, provider, key_ciphertext, last_four, status,
-                                           allow_google_fallback, set_by, set_at)
-              values (:studio, :provider, :secret, :lastFour, 'UNTESTED', :fallback, :by, :now)
+                                           allow_platform_readers, set_by, set_at)
+              values (:studio, :provider, :secret, :lastFour, 'UNTESTED', :platformReaders, :by, :now)
               on conflict (studio_id) do update set provider = excluded.provider,
                   key_ciphertext = excluded.key_ciphertext, last_four = excluded.last_four, status = 'UNTESTED',
-                  status_reason = null, checked_at = null, allow_google_fallback = excluded.allow_google_fallback,
+                  status_reason = null, checked_at = null, allow_platform_readers = excluded.allow_platform_readers,
                   set_by = excluded.set_by, set_at = excluded.set_at
               """)
           .param("studio", caller.studioId())
           .param("provider", provider.name())
           .param("secret", cipher.encrypt(caller.studioId(), key))
           .param("lastFour", key.substring(key.length() - 4))
-          .param("fallback", allowGoogleFallback)
+          .param("platformReaders", allowPlatformReaders)
           .param("by", caller.accountId())
           .param("now", now().atOffset(ZoneOffset.UTC))
           .update();
@@ -155,10 +167,34 @@ public class AiKeys {
     });
   }
 
+  /**
+   * The bound studio's key, for reading one invoice: empty when there is none, or when Anthropic
+   * has refused it. For the invoice reader, which runs as a system job, so no owner check here; the
+   * key never leaves the server.
+   */
+  public Optional<StudioKey> keyForReading() {
+    UUID studioId = TenantContext.require().requireStudioId();
+    return transactions.execute(tx ->
+        jdbc.sql("select key_ciphertext from ai_provider_key where status <> 'REJECTED'")
+            .query(byte[].class)
+            .optional()
+            .map(stored -> new StudioKey(cipher.decrypt(studioId, stored))));
+  }
+
+  /** Marks the bound studio's key refused, after the provider answered 401 or 403 to a read. */
+  public void markRefused(String reason) {
+    transactions.executeWithoutResult(tx ->
+        jdbc.sql(
+                "update ai_provider_key set status = 'REJECTED', status_reason = :reason, checked_at = :now")
+            .param("reason", reason)
+            .param("now", now().atOffset(ZoneOffset.UTC))
+            .update());
+  }
+
   private Optional<KeyStatus> find() {
     return jdbc.sql(
             """
-            select provider, last_four, status, status_reason, checked_at, allow_google_fallback, set_at
+            select provider, last_four, status, status_reason, checked_at, allow_platform_readers, set_at
             from ai_provider_key
             """)
         .query((rs, row) -> {
@@ -169,7 +205,7 @@ public class AiKeys {
               Status.valueOf(rs.getString("status")),
               rs.getString("status_reason"),
               checked == null ? null : checked.toInstant(),
-              rs.getBoolean("allow_google_fallback"),
+              rs.getBoolean("allow_platform_readers"),
               rs.getObject("set_at", OffsetDateTime.class).toInstant());
         })
         .optional();
