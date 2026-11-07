@@ -55,11 +55,13 @@ and staff notices have to arrive by email. An email is a side effect outside the
   - It binds the studio before starting that transaction, because RLS reads the tenant when a
     transaction begins. So it's a plain `@Async @TransactionalEventListener` instead of an
     `@ApplicationModuleListener`, and the registry still tracks it.
-- **Open at first deploy:**
-  - The API identity needs a role on the Communication Services resource to send. Microsoft's
-    built-in role list has no Communication Services entry, and reports conflict on custom roles.
-    Find the role then, assign it in `infra/envs/dev`, and add it to the deploy identity's
-    allow-list in `infra/bootstrap`.
+- **The sending role (settled at first deploy, 2026-11-06).** No built-in role is a narrow fit,
+  so `infra/bootstrap` defines a custom role, "Studio Manager Email Sender", with the three
+  permissions Microsoft's email documentation names (`CommunicationServices/Read`,
+  `CommunicationServices/Write`, `EmailServices/write`), and puts it on the deploy identity's
+  allow-list. `infra/envs/dev` assigns it to the API identity on the Communication Services
+  resource, directly: group assignments aren't honoured for managed identities.
+- **Open before a pilot:**
   - The Azure-managed sender domain has low limits and an unfamiliar address. Before a real pilot,
     verify a custom domain.
 - Members can't yet opt out of studio-notice emails. Add a preference if the pilot asks for it.

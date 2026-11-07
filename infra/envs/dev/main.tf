@@ -174,8 +174,13 @@ resource "azurerm_role_assignment" "api_key_vault" {
   skip_service_principal_aad_check = true
 }
 
-# TODO(first deploy): the API identity needs a role on module.email.communication_service_id
-# to send. Which one is unconfirmed: Microsoft's built-in role list has no Communication
-# Services entry, and reports conflict on whether a custom role works. Find it with
-# `az role definition list --query "[?contains(roleName, 'Communication')]"`, assign it here,
-# and add its ID to assignable_role_ids in infra/bootstrap. See docs/adr/0011.
+# Lets the API send email with its own identity. The custom role is defined in infra/bootstrap,
+# and assigned directly to the identity: Communication Services doesn't honour group assignments
+# for managed identities.
+resource "azurerm_role_assignment" "api_email" {
+  scope                            = module.email.communication_service_id
+  role_definition_name             = "Studio Manager Email Sender"
+  principal_id                     = azurerm_user_assigned_identity.api.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}

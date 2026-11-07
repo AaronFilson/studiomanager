@@ -15,12 +15,16 @@ locals {
   github_oidc_issuer   = "https://token.actions.githubusercontent.com"
   github_oidc_audience = ["api://AzureADTokenExchange"]
 
+  # A fixed id for the custom email role, so the allow-list below can name it before it exists
+  email_sender_role_id = uuidv5("url", "https://github.com/AaronFilson/studiomanager/roles/email-sender")
+
   # Roles the deploy identity may hand out inside an environment resource group, and only to
   # service principals (managed identities). Anything else, like Owner, is refused by Azure.
   assignable_role_ids = [
     "ba92f5b4-2d11-453d-a403-e96b0029c9fe", # Storage Blob Data Contributor
     "4633458b-17de-408a-b874-0445c86b69e6", # Key Vault Secrets User
     "3913510d-42f4-4e42-8a64-420c390055eb", # Monitoring Metrics Publisher
+    local.email_sender_role_id,             # Studio Manager Email Sender (below)
   ]
   assignable_role_list = join(", ", local.assignable_role_ids)
 
@@ -199,6 +203,27 @@ resource "azurerm_role_assignment" "plan_reader" {
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.github_plan.principal_id
   principal_type       = "ServicePrincipal"
+}
+
+# Sending email through Communication Services with Entra ID needs a role on the resource, and
+# no built-in role is a narrow fit. These are the permissions Microsoft's email documentation
+# names. Defined here because only an Owner can create role definitions; the environment assigns
+# it to the API identity on its Communication Services resource.
+resource "azurerm_role_definition" "email_sender" {
+  role_definition_id = local.email_sender_role_id
+  name               = "Studio Manager Email Sender"
+  description        = "Send email through an Azure Communication Services resource with Microsoft Entra ID."
+  scope              = "/subscriptions/${var.subscription_id}"
+
+  permissions {
+    actions = [
+      "Microsoft.Communication/CommunicationServices/Read",
+      "Microsoft.Communication/CommunicationServices/Write",
+      "Microsoft.Communication/EmailServices/write",
+    ]
+  }
+
+  assignable_scopes = [for group in azurerm_resource_group.env : group.id]
 }
 
 # A second Microsoft Entra admin on each Postgres server, for people (the first is the
