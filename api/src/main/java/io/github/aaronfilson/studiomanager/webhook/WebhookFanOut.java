@@ -9,6 +9,7 @@ import io.github.aaronfilson.studiomanager.studio.MemberJoined;
 import io.github.aaronfilson.studiomanager.studio.StudioMembers;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.supplies.SupplySold;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -42,18 +43,21 @@ class WebhookFanOut {
   private final StudioService studios;
   private final StudioMembers members;
   private final TransactionOperations transactions;
+  private final Clock clock;
 
   WebhookFanOut(
       WebhookEvents events,
       AccountDirectory accounts,
       StudioService studios,
       StudioMembers members,
-      TransactionOperations transactions) {
+      TransactionOperations transactions,
+      Clock clock) {
     this.events = events;
     this.accounts = accounts;
     this.studios = studios;
     this.members = members;
     this.transactions = transactions;
+    this.clock = clock;
   }
 
   /**
@@ -82,8 +86,8 @@ class WebhookFanOut {
                 p.put("id", piece.pieceId().toString());
                 p.put("number", piece.number());
                 p.put("description", piece.description());
-                p.put(
-                    "collect_by", piece.holdUntil() == null ? null : piece.holdUntil().toString());
+                Instant collectBy = piece.holdUntil();
+                p.put("collect_by", collectBy == null ? null : collectBy.toString());
                 return p;
               })
               .toList();
@@ -162,24 +166,23 @@ class WebhookFanOut {
         TenantContext.forAccount(joined.accountId()).inStudio(joined.studioId(), StudioRole.MEMBER);
     TenantContext.callAs(
         member,
-        () ->
-            transactions.execute(tx -> {
-              Set<UUID> ids = Set.of(joined.accountId());
-              Map<String, Object> data = new LinkedHashMap<>();
-              Map<String, Object> m =
-                  member(joined.accountId(), accounts.displayNames(ids), accounts.emails(ids));
-              m.put(
-                  "role",
-                  members
-                      .roleOf(joined.accountId())
-                      .map(role -> role.name().toLowerCase())
-                      .orElse("member"));
-              data.put("member", m);
-              data.put("joined_at", now().toString());
-              events.publish(
-                  WebhookEventType.MEMBER_JOINED, "member.joined:" + joined.accountId(), data);
-              return null;
-            }));
+        () -> {
+          transactions.executeWithoutResult(tx -> publishJoined(joined));
+          return joined;
+        });
+  }
+
+  private void publishJoined(MemberJoined joined) {
+    Set<UUID> ids = Set.of(joined.accountId());
+    Map<String, Object> data = new LinkedHashMap<>();
+    Map<String, Object> m =
+        member(joined.accountId(), accounts.displayNames(ids), accounts.emails(ids));
+    m.put(
+        "role",
+        members.roleOf(joined.accountId()).map(role -> role.name().toLowerCase()).orElse("member"));
+    data.put("member", m);
+    data.put("joined_at", now().toString());
+    events.publish(WebhookEventType.MEMBER_JOINED, "member.joined:" + joined.accountId(), data);
   }
 
   private Map<String, Object> charge(
@@ -209,7 +212,7 @@ class WebhookFanOut {
     return m;
   }
 
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.SECONDS);
+  private Instant now() {
+    return clock.instant().truncatedTo(ChronoUnit.SECONDS);
   }
 }

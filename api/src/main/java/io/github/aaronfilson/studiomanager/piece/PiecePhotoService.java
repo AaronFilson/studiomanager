@@ -2,17 +2,15 @@ package io.github.aaronfilson.studiomanager.piece;
 
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
-import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
 import io.github.aaronfilson.studiomanager.platform.storage.UploadedImages;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import jakarta.persistence.EntityManager;
 import java.net.URI;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * straight to Blob Storage, then checks what arrived before showing it.
  *
  * <p>Anyone who can see a piece can add and remove its photos: staff for any piece, members for
- * their own. Seeing a piece is checked by {@link PieceService#get}, which hides other members'
- * pieces behind a 404.
+ * their own. Seeing a piece is checked by {@link PieceService#findVisible}, which hides other
+ * members' pieces behind a 404.
  */
 @Service
 public class PiecePhotoService {
@@ -32,14 +30,26 @@ public class PiecePhotoService {
   static final int MAX_THUMBNAIL_BYTES = UploadedImages.MAX_THUMBNAIL_BYTES;
   static final Duration UPLOAD_WINDOW = UploadedImages.UPLOAD_WINDOW;
 
-  private final JdbcClient jdbc;
+  private final PiecePhotoRepository photos;
+  private final PieceRepository pieceRows;
   private final PieceService pieces;
   private final BlobStore blobs;
+  private final EntityManager entityManager;
+  private final Clock clock;
 
-  PiecePhotoService(JdbcClient jdbc, PieceService pieces, BlobStore blobs) {
-    this.jdbc = jdbc;
+  PiecePhotoService(
+      PiecePhotoRepository photos,
+      PieceRepository pieceRows,
+      PieceService pieces,
+      BlobStore blobs,
+      EntityManager entityManager,
+      Clock clock) {
+    this.photos = photos;
+    this.pieceRows = pieceRows;
     this.pieces = pieces;
     this.blobs = blobs;
+    this.entityManager = entityManager;
+    this.clock = clock;
   }
 
   /**
@@ -49,39 +59,21 @@ public class PiecePhotoService {
   @Transactional
   public PhotoUpload startUpload(UUID pieceId) {
     TenantContext caller = TenantContext.require();
-    pieces.get(pieceId);
+    UUID studioId = caller.requireStudioId();
+    pieces.findVisible(pieceId);
     lockPiece(pieceId);
-    Instant now = now();
-    int taken =
-        jdbc.sql(
-                """
-                select count(*) from piece_photo
-                where piece_id = :pieceId and (status = 'READY' or created_at > :windowStart)
-                """)
-            .param("pieceId", pieceId)
-            .param("windowStart", now.minus(UPLOAD_WINDOW).atOffset(ZoneOffset.UTC))
-            .query(Integer.class)
-            .single();
-    if (taken >= MAX_PHOTOS) {
+    Instant now = clock.instant();
+    if (photos.countTaken(pieceId, now.minus(UPLOAD_WINDOW)) >= MAX_PHOTOS) {
       throw new ConflictException(tooMany());
     }
-    UUID photoId = Uuids.v7();
-    jdbc.sql(
-            """
-            insert into piece_photo (id, studio_id, piece_id, status, uploaded_by, created_at)
-            values (:id, :studioId, :pieceId, 'PENDING', :uploadedBy, :now)
-            """)
-        .param("id", photoId)
-        .param("studioId", caller.studioId())
-        .param("pieceId", pieceId)
-        .param("uploadedBy", caller.accountId())
-        .param("now", now.atOffset(ZoneOffset.UTC))
-        .update();
+    // Persisted, not saved: a photo has no version, so save would look it up first
+    PiecePhoto photo = new PiecePhoto(pieceId, caller.accountId(), now);
+    entityManager.persist(photo);
     Instant expiresAt = now.plus(UPLOAD_WINDOW);
     return new PhotoUpload(
-        photoId,
-        blobs.uploadUrl(PhotoBlobs.full(caller.studioId(), pieceId, photoId), expiresAt),
-        blobs.uploadUrl(PhotoBlobs.thumbnail(caller.studioId(), pieceId, photoId), expiresAt),
+        photo.id(),
+        blobs.uploadUrl(PhotoBlobs.full(studioId, pieceId, photo.id()), expiresAt),
+        blobs.uploadUrl(PhotoBlobs.thumbnail(studioId, pieceId, photo.id()), expiresAt),
         expiresAt,
         MAX_PHOTO_BYTES,
         MAX_THUMBNAIL_BYTES);
@@ -93,17 +85,11 @@ public class PiecePhotoService {
    */
   @Transactional
   public PieceView complete(UUID pieceId, UUID photoId) {
-    UUID studioId = TenantContext.require().studioId();
-    pieces.get(pieceId);
+    UUID studioId = TenantContext.require().requireStudioId();
+    pieces.findVisible(pieceId);
     lockPiece(pieceId);
-    String status =
-        jdbc.sql("select status from piece_photo where id = :id and piece_id = :pieceId")
-            .param("id", photoId)
-            .param("pieceId", pieceId)
-            .query(String.class)
-            .optional()
-            .orElseThrow(() -> new NotFoundException("No such photo."));
-    if (status.equals("READY")) {
+    PiecePhoto photo = find(pieceId, photoId);
+    if (photo.isReady()) {
       return pieces.get(pieceId);
     }
     long size =
@@ -111,40 +97,23 @@ public class PiecePhotoService {
             blobs, PhotoBlobs.full(studioId, pieceId, photoId), MAX_PHOTO_BYTES, "photo");
     UploadedImages.check(
         blobs, PhotoBlobs.thumbnail(studioId, pieceId, photoId), MAX_THUMBNAIL_BYTES, "thumbnail");
-    int ready =
-        jdbc.sql("select count(*) from piece_photo where piece_id = :pieceId and status = 'READY'")
-            .param("pieceId", pieceId)
-            .query(Integer.class)
-            .single();
-    if (ready >= MAX_PHOTOS) {
+    if (photos.countReady(pieceId) >= MAX_PHOTOS) {
       throw new ConflictException(tooMany());
     }
-    jdbc.sql(
-            """
-            update piece_photo set status = 'READY', byte_size = :size, ready_at = :now
-            where id = :id and status = 'PENDING'
-            """)
-        .param("size", size)
-        .param("now", now().atOffset(ZoneOffset.UTC))
-        .param("id", photoId)
-        .update();
+    photo.markReady(Math.toIntExact(size), clock.instant());
+    photos.flush();
     return pieces.get(pieceId);
   }
 
   /** Removes a photo, finished or not, and its images. */
   @Transactional
   public void delete(UUID pieceId, UUID photoId) {
-    UUID studioId = TenantContext.require().studioId();
-    pieces.get(pieceId);
-    int deleted =
-        jdbc.sql("delete from piece_photo where id = :id and piece_id = :pieceId")
-            .param("id", photoId)
-            .param("pieceId", pieceId)
-            .update();
-    if (deleted == 0) {
-      throw new NotFoundException("No such photo.");
-    }
-    // Inside the transaction: if storage fails, the row comes back and the delete can be retried
+    UUID studioId = TenantContext.require().requireStudioId();
+    pieces.findVisible(pieceId);
+    photos.delete(find(pieceId, photoId));
+    // Written before the images go: if storage fails, the transaction rolls the row back and the
+    // delete can be retried
+    photos.flush();
     blobs.delete(PhotoBlobs.full(studioId, pieceId, photoId));
     blobs.delete(PhotoBlobs.thumbnail(studioId, pieceId, photoId));
   }
@@ -158,21 +127,20 @@ public class PiecePhotoService {
       int maxPhotoBytes,
       int maxThumbnailBytes) {}
 
+  private PiecePhoto find(UUID pieceId, UUID photoId) {
+    return photos
+        .findByIdAndPieceId(photoId, pieceId)
+        .orElseThrow(() -> new NotFoundException("No such photo."));
+  }
+
   /**
    * Serializes photo changes on one piece, so two uploads at once can't both take the last place.
    */
   private void lockPiece(UUID pieceId) {
-    jdbc.sql("select id from piece where id = :id for update")
-        .param("id", pieceId)
-        .query(UUID.class)
-        .single();
+    pieceRows.findAndLock(pieceId).orElseThrow(() -> new NotFoundException("No such piece."));
   }
 
   private static String tooMany() {
     return "A piece can have at most %d photos. Remove one to add another.".formatted(MAX_PHOTOS);
-  }
-
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 }

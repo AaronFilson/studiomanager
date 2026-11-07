@@ -9,23 +9,21 @@ import io.github.aaronfilson.studiomanager.platform.http.SafeHttpClient.UnsafeUr
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
-import java.sql.Array;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import jakarta.persistence.EntityManager;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.data.domain.Limit;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,29 +40,38 @@ public class WebhookEndpoints {
   /** The most deliveries {@link #deliveries} returns. */
   static final int DELIVERY_LOG_LIMIT = 500;
 
-  private final JdbcClient jdbc;
+  private final WebhookEndpointRepository endpoints;
+  private final WebhookDeliveryRepository deliveryLog;
+  private final EntityManager entityManager;
   private final TransactionOperations transactions;
   private final SafeHttpClient http;
   private final WebhookSecrets secrets;
   private final WebhookEvents events;
   private final WebhookSender sender;
   private final StudioService studios;
+  private final Clock clock;
 
   WebhookEndpoints(
-      JdbcClient jdbc,
+      WebhookEndpointRepository endpoints,
+      WebhookDeliveryRepository deliveryLog,
+      EntityManager entityManager,
       TransactionOperations transactions,
       SafeHttpClient http,
       WebhookSecrets secrets,
       WebhookEvents events,
       WebhookSender sender,
-      StudioService studios) {
-    this.jdbc = jdbc;
+      StudioService studios,
+      Clock clock) {
+    this.endpoints = endpoints;
+    this.deliveryLog = deliveryLog;
+    this.entityManager = entityManager;
     this.transactions = transactions;
     this.http = http;
     this.secrets = secrets;
     this.events = events;
     this.sender = sender;
     this.studios = studios;
+    this.clock = clock;
   }
 
   public record EndpointView(
@@ -104,38 +111,33 @@ public class WebhookEndpoints {
   @Transactional(readOnly = true)
   public List<EndpointView> list() {
     requireStaff();
-    return jdbc.sql(SELECT_ENDPOINT + " order by created_at")
-        .query(WebhookEndpoints::endpoint)
-        .list();
+    Instant now = clock.instant();
+    return endpoints.findAllInOrder().stream().map(endpoint -> endpoint.toView(now)).toList();
   }
 
   @Transactional
   public CreatedEndpoint create(String url, @Nullable String description, List<String> eventTypes) {
-    TenantContext caller = requireStaff();
-    Integer count = jdbc.sql("select count(*) from webhook_endpoint").query(Integer.class).single();
-    if (count >= MAX_ENDPOINTS) {
+    requireStaff();
+    if (endpoints.count() >= MAX_ENDPOINTS) {
       throw new InvalidInputException(
           "A studio can have up to %d webhook endpoints. Delete one first."
               .formatted(MAX_ENDPOINTS));
     }
     String cleanUrl = checkUrl(url);
+    // The secret is encrypted bound to the endpoint's id, so the id comes first
     UUID id = Uuids.v7();
     String secret = WebhookSecrets.newSecret();
-    jdbc.sql(
-            """
-            insert into webhook_endpoint (id, studio_id, url, description, event_types, secret, created_by, created_at)
-            values (:id, :studioId, :url, :description, :types, :secret, :by, :now)
-            """)
-        .param("id", id)
-        .param("studioId", caller.studioId())
-        .param("url", cleanUrl)
-        .param("description", cleanDescription(description))
-        .param("types", types(eventTypes))
-        .param("secret", secrets.encrypt(id, secret))
-        .param("by", caller.accountId())
-        .param("now", now().atOffset(ZoneOffset.UTC))
-        .update();
-    return new CreatedEndpoint(get(id), secret);
+    WebhookEndpoint endpoint =
+        new WebhookEndpoint(
+            id,
+            cleanUrl,
+            cleanDescription(description),
+            types(eventTypes),
+            secrets.encrypt(id, secret));
+    // Persisted, not saved: an endpoint has no version, so save would look it up first
+    entityManager.persist(endpoint);
+    endpoints.flush();
+    return new CreatedEndpoint(endpoint.toView(clock.instant()), secret);
   }
 
   /** Changes what's given; turning an endpoint back on clears its failures. */
@@ -147,64 +149,33 @@ public class WebhookEndpoints {
       @Nullable List<String> eventTypes,
       @Nullable Boolean enabled) {
     requireStaff();
-    EndpointView current = get(id);
-    jdbc.sql(
-            """
-            update webhook_endpoint set url = :url, description = :description, event_types = :types,
-                   enabled = :enabled,
-                   consecutive_failures = case when :reenable then 0 else consecutive_failures end,
-                   failing_since = case when :reenable then null else failing_since end,
-                   disabled_reason = case when :enabled then null else disabled_reason end
-            where id = :id
-            """)
-        .param("url", url == null ? current.url() : checkUrl(url))
-        .param(
-            "description",
-            description == null ? current.description() : cleanDescription(description))
-        .param(
-            "types",
-            eventTypes == null
-                ? current.eventTypes().stream()
-                    .map(WebhookEventType::wireName)
-                    .toArray(String[]::new)
-                : types(eventTypes))
-        .param("enabled", enabled == null ? current.enabled() : enabled)
-        .param("reenable", enabled != null && enabled && !current.enabled())
-        .param("id", id)
-        .update();
-    return get(id);
+    WebhookEndpoint endpoint = find(id);
+    endpoint.change(
+        url == null ? endpoint.url() : checkUrl(url),
+        description == null ? endpoint.description() : cleanDescription(description),
+        eventTypes == null ? endpoint.eventTypes() : types(eventTypes),
+        enabled == null ? endpoint.enabled() : enabled);
+    endpoints.flush();
+    return endpoint.toView(clock.instant());
   }
 
   @Transactional
   public void delete(UUID id) {
     requireStaff();
-    if (jdbc.sql("delete from webhook_endpoint where id = :id").param("id", id).update() == 0) {
-      throw new NotFoundException("No such webhook endpoint.");
-    }
+    endpoints.delete(find(id));
   }
 
   /** A new secret. The old one still signs, alongside it, for {@link #ROTATION_OVERLAP}. */
   @Transactional
   public RotatedSecret rotateSecret(UUID id) {
     requireStaff();
-    byte[] old =
-        jdbc.sql("select secret from webhook_endpoint where id = :id for update")
-            .param("id", id)
-            .query(byte[].class)
-            .optional()
+    WebhookEndpoint endpoint =
+        endpoints
+            .findAndLock(id)
             .orElseThrow(() -> new NotFoundException("No such webhook endpoint."));
     String secret = WebhookSecrets.newSecret();
-    Instant until = now().plus(ROTATION_OVERLAP);
-    jdbc.sql(
-            """
-            update webhook_endpoint set secret = :secret, previous_secret = :old, previous_secret_until = :until
-            where id = :id
-            """)
-        .param("secret", secrets.encrypt(id, secret))
-        .param("old", old)
-        .param("until", until.atOffset(ZoneOffset.UTC))
-        .param("id", id)
-        .update();
+    Instant until = clock.instant().plus(ROTATION_OVERLAP);
+    endpoint.rotateSecret(secrets.encrypt(id, secret), until);
     return new RotatedSecret(secret, until);
   }
 
@@ -212,45 +183,40 @@ public class WebhookEndpoints {
   public DeliveryView test(UUID id) {
     TenantContext caller = requireStaff();
     UUID deliveryId =
-        transactions.execute(tx -> {
-          EndpointView endpoint = get(id);
-          if (!endpoint.enabled()) {
-            throw new InvalidInputException("Turn the endpoint on before sending a test.");
-          }
-          var studio = studios.current();
-          Map<String, Object> data = new LinkedHashMap<>();
-          data.put(
-              "message",
-              "A test from " + studio.name() + ". If you can see this, the webhook works.");
-          return events
-              .record(WebhookEventType.PING, "ping:" + Uuids.v7(), data, List.of(id))
-              .orElseThrow()
-              .deliveryIds()
-              .getFirst();
-        });
+        Objects.requireNonNull(
+            transactions.execute(tx -> {
+              WebhookEndpoint endpoint = find(id);
+              if (!endpoint.enabled()) {
+                throw new InvalidInputException("Turn the endpoint on before sending a test.");
+              }
+              var studio = studios.current();
+              Map<String, Object> data = new LinkedHashMap<>();
+              data.put(
+                  "message",
+                  "A test from " + studio.name() + ". If you can see this, the webhook works.");
+              return events
+                  .record(WebhookEventType.PING, "ping:" + Uuids.v7(), data, List.of(id))
+                  .orElseThrow()
+                  .deliveryIds()
+                  .getFirst();
+            }));
     sender.attempt(caller, deliveryId);
-    return transactions.execute(tx -> delivery(deliveryId));
+    return Objects.requireNonNull(transactions.execute(tx -> delivery(deliveryId)));
   }
 
   /** The last 30 days of deliveries to an endpoint, newest first. */
   @Transactional(readOnly = true)
   public Capped<DeliveryView> deliveries(UUID endpointId) {
     requireStaff();
-    get(endpointId);
-    Capped<UUID> ids =
+    find(endpointId);
+    Capped<WebhookDelivery> found =
         Capped.fromFetched(
-            jdbc.sql(
-                    """
-                    select id from webhook_delivery where endpoint_id = :id and created_at > :since
-                    order by created_at desc limit :fetchSize
-                    """)
-                .param("id", endpointId)
-                .param("since", now().minus(LOG_DAYS).atOffset(ZoneOffset.UTC))
-                .param("fetchSize", Capped.fetchSize(DELIVERY_LOG_LIMIT))
-                .query(UUID.class)
-                .list(),
+            deliveryLog.findLog(
+                endpointId,
+                clock.instant().minus(LOG_DAYS),
+                Limit.of(Capped.fetchSize(DELIVERY_LOG_LIMIT))),
             DELIVERY_LOG_LIMIT);
-    return ids.map(this::delivery);
+    return found.withItems(withAttempts(found.items()));
   }
 
   /**
@@ -259,104 +225,52 @@ public class WebhookEndpoints {
   public DeliveryView resend(UUID deliveryId) {
     TenantContext caller = requireStaff();
     UUID newId =
-        transactions.execute(tx -> {
-          Original original =
-              jdbc.sql(
-                      """
-                      select d.endpoint_id, d.event_id, e.enabled from webhook_delivery d
-                      join webhook_endpoint e on e.id = d.endpoint_id where d.id = :id
-                      """)
-                  .param("id", deliveryId)
-                  .query(Original.class)
-                  .optional()
-                  .orElseThrow(() -> new NotFoundException("No such delivery."));
-          if (!original.enabled()) {
-            throw new InvalidInputException("Turn the endpoint on before resending to it.");
-          }
-          return events.addDelivery(
-              caller.studioId(), original.endpointId(), original.eventId(), now());
-        });
+        Objects.requireNonNull(
+            transactions.execute(tx -> {
+              WebhookDelivery original =
+                  deliveryLog
+                      .findById(deliveryId)
+                      .orElseThrow(() -> new NotFoundException("No such delivery."));
+              if (!find(original.endpointId()).enabled()) {
+                throw new InvalidInputException("Turn the endpoint on before resending to it.");
+              }
+              return events.addDelivery(original.endpointId(), original.eventId(), clock.instant());
+            }));
     sender.attempt(caller, newId);
-    return transactions.execute(tx -> delivery(newId));
+    return Objects.requireNonNull(transactions.execute(tx -> delivery(newId)));
   }
-
-  private record Original(UUID endpointId, UUID eventId, boolean enabled) {}
 
   private DeliveryView delivery(UUID id) {
-    List<AttemptView> attempts =
-        jdbc.sql(
-                """
-                select attempted_at, status_code, error, duration_ms, response_excerpt from webhook_attempt
-                where delivery_id = :id order by attempted_at desc
-                """)
-            .param("id", id)
-            .query((rs, row) ->
-                new AttemptView(
-                    instant(rs, "attempted_at"),
-                    (Integer) rs.getObject("status_code"),
-                    rs.getString("error"),
-                    rs.getInt("duration_ms"),
-                    rs.getString("response_excerpt")))
-            .list();
-    return jdbc.sql(
-            """
-            select d.id, ev.id as event_id, ev.type, d.status, d.attempts, d.created_at, d.next_attempt_at,
-                   d.delivered_at
-            from webhook_delivery d join webhook_event ev on ev.id = d.event_id
-            where d.id = :id
-            """)
-        .param("id", id)
-        .query((rs, row) ->
-            new DeliveryView(
-                rs.getObject("id", UUID.class),
-                WebhookEvents.wireId(rs.getObject("event_id", UUID.class)),
-                WebhookEventType.fromWireName(rs.getString("type")).orElseThrow(),
-                rs.getString("status"),
-                rs.getInt("attempts"),
-                instant(rs, "created_at"),
-                instantOrNull(rs, "next_attempt_at"),
-                instantOrNull(rs, "delivered_at"),
-                attempts))
-        .optional()
-        .orElseThrow(() -> new NotFoundException("No such delivery."));
+    WebhookDelivery found =
+        deliveryLog.findWithEvent(id).orElseThrow(() -> new NotFoundException("No such delivery."));
+    return withAttempts(List.of(found)).getFirst();
   }
 
-  private EndpointView get(UUID id) {
-    return jdbc.sql(SELECT_ENDPOINT + " where id = :id")
-        .param("id", id)
-        .query(WebhookEndpoints::endpoint)
-        .optional()
+  /** Each delivery with its attempts, newest first: one query for the attempts of them all. */
+  private List<DeliveryView> withAttempts(List<WebhookDelivery> found) {
+    if (found.isEmpty()) {
+      return List.of();
+    }
+    Map<UUID, List<AttemptView>> attemptsByDelivery =
+        deliveryLog.findAttempts(found.stream().map(WebhookDelivery::id).toList()).stream()
+            .collect(
+                Collectors.groupingBy(
+                    WebhookAttempt::deliveryId,
+                    Collectors.mapping(WebhookAttempt::toView, Collectors.toList())));
+    List<DeliveryView> views = new ArrayList<>(found.size());
+    for (WebhookDelivery delivery : found) {
+      views.add(delivery.toView(attemptsByDelivery.getOrDefault(delivery.id(), List.of())));
+    }
+    return views;
+  }
+
+  private WebhookEndpoint find(UUID id) {
+    return endpoints
+        .findById(id)
         .orElseThrow(() -> new NotFoundException("No such webhook endpoint."));
   }
 
-  private static final String SELECT_ENDPOINT =
-      """
-      select id, url, description, event_types, enabled, disabled_reason, consecutive_failures,
-             case when previous_secret_until > now() then previous_secret_until end as previous_secret_until,
-             created_at
-      from webhook_endpoint
-      """;
-
-  private static EndpointView endpoint(ResultSet rs, int row) throws SQLException {
-    Array array = rs.getArray("event_types");
-    List<WebhookEventType> types =
-        Arrays.stream((String[]) array.getArray())
-            .map(name -> WebhookEventType.fromWireName(name).orElse(null))
-            .filter(java.util.Objects::nonNull)
-            .toList();
-    return new EndpointView(
-        rs.getObject("id", UUID.class),
-        rs.getString("url"),
-        rs.getString("description"),
-        types,
-        rs.getBoolean("enabled"),
-        rs.getString("disabled_reason"),
-        rs.getInt("consecutive_failures"),
-        instantOrNull(rs, "previous_secret_until"),
-        instant(rs, "created_at"));
-  }
-
-  private String checkUrl(String url) {
+  private String checkUrl(@Nullable String url) {
     String clean = url == null ? "" : url.strip();
     if (clean.length() < 8 || clean.length() > 2000) {
       throw new InvalidInputException("Enter the full https:// address the webhook should go to.");
@@ -364,7 +278,8 @@ public class WebhookEndpoints {
     try {
       return http.check(clean).toString();
     } catch (UnsafeUrlException e) {
-      throw new InvalidInputException(e.getMessage());
+      throw new InvalidInputException(
+          Objects.requireNonNullElse(e.getMessage(), "That address can't receive webhooks."));
     }
   }
 
@@ -379,7 +294,7 @@ public class WebhookEndpoints {
     return clean;
   }
 
-  private static String[] types(List<String> names) {
+  private static List<String> types(List<String> names) {
     Set<String> unique = new LinkedHashSet<>();
     for (String name : names) {
       WebhookEventType type =
@@ -393,27 +308,15 @@ public class WebhookEndpoints {
     if (unique.isEmpty()) {
       throw new InvalidInputException("Choose at least one event to send.");
     }
-    return unique.toArray(String[]::new);
+    return List.copyOf(unique);
   }
 
   private static TenantContext requireStaff() {
     TenantContext caller = TenantContext.require();
-    if (caller.role() == null || !caller.role().includes(StudioRole.STAFF)) {
+    StudioRole role = caller.role();
+    if (role == null || !role.includes(StudioRole.STAFF)) {
       throw new AccessDeniedException("Only staff can manage webhooks.");
     }
     return caller;
-  }
-
-  private static Instant instant(ResultSet rs, String column) throws SQLException {
-    return rs.getObject(column, OffsetDateTime.class).toInstant();
-  }
-
-  private static @Nullable Instant instantOrNull(ResultSet rs, String column) throws SQLException {
-    OffsetDateTime at = rs.getObject(column, OffsetDateTime.class);
-    return at == null ? null : at.toInstant();
-  }
-
-  private static Instant now() {
-    return Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 }
