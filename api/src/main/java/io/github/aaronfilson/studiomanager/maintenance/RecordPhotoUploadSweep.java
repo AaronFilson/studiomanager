@@ -5,15 +5,13 @@ import io.github.aaronfilson.studiomanager.platform.sweep.Sweep;
 import io.github.aaronfilson.studiomanager.platform.sweep.SweepRunner;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
@@ -34,17 +32,23 @@ class RecordPhotoUploadSweep implements Sweep {
 
   static final Duration ABANDONED_AFTER = Duration.ofDays(1);
 
-  private final JdbcClient jdbc;
+  private final MaintenanceQueries queries;
   private final TransactionOperations transactions;
   private final BlobStore blobs;
   private final SweepRunner sweeps;
+  private final Clock clock;
 
   RecordPhotoUploadSweep(
-      JdbcClient jdbc, TransactionOperations transactions, BlobStore blobs, SweepRunner sweeps) {
-    this.jdbc = jdbc;
+      MaintenanceQueries queries,
+      TransactionOperations transactions,
+      BlobStore blobs,
+      SweepRunner sweeps,
+      Clock clock) {
+    this.queries = queries;
     this.transactions = transactions;
     this.blobs = blobs;
     this.sweeps = sweeps;
+    this.clock = clock;
   }
 
   @Scheduled(initialDelayString = "PT5M", fixedDelayString = "PT1H")
@@ -59,29 +63,21 @@ class RecordPhotoUploadSweep implements Sweep {
 
   @Override
   public void sweep() {
-    runAt(Instant.now());
+    runAt(clock.instant());
   }
 
   /** Removes uploads started more than a day before {@code now}, and returns how many. */
   public int runAt(Instant now) {
-    List<Abandoned> taken =
+    List<MaintenanceQueries.AbandonedPhoto> taken =
         TenantContext.callAs(
             TenantContext.system(SystemActor.PHOTO_CLEANUP),
             () ->
                 transactions.execute(tx ->
-                    jdbc.sql(
-                            "select studio_id, record_id, photo_id from app.take_abandoned_record_photo_uploads(:before)")
-                        .param("before", now.minus(ABANDONED_AFTER).atOffset(ZoneOffset.UTC))
-                        .query((rs, row) ->
-                            new Abandoned(
-                                rs.getObject("studio_id", UUID.class),
-                                rs.getObject("record_id", UUID.class),
-                                rs.getObject("photo_id", UUID.class)))
-                        .list()));
+                    queries.takeAbandonedPhotoUploads(now.minus(ABANDONED_AFTER))));
     if (taken == null || taken.isEmpty()) {
       return 0;
     }
-    for (Abandoned photo : taken) {
+    for (MaintenanceQueries.AbandonedPhoto photo : taken) {
       try {
         blobs.delete(RecordPhotoService.full(photo.studioId(), photo.recordId(), photo.photoId()));
         blobs.delete(
@@ -97,6 +93,4 @@ class RecordPhotoUploadSweep implements Sweep {
     log.info("Removed {} abandoned record photo uploads", taken.size());
     return taken.size();
   }
-
-  private record Abandoned(UUID studioId, UUID recordId, UUID photoId) {}
 }
