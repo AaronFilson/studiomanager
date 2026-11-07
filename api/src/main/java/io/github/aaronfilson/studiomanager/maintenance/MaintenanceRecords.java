@@ -46,7 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
  * #records}; the export reads through {@link MaintenanceQueries#recordsDoneBetween}.
  */
 @Service
-class MaintenanceRecords {
+public class MaintenanceRecords {
 
   /** The most records {@link #records} returns. */
   static final int RECORDS_LIMIT = 500;

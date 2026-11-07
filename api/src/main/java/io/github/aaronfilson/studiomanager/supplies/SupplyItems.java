@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Adding items and changing their settings. Staff only. */
 @Service
-class SupplyItems {
+public class SupplyItems {
 
   private final SupplyItemRepository itemRepository;
   private final SupplyService supplies;

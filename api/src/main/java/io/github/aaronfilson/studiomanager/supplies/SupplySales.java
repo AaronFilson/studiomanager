@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * their balance in the same transaction.
  */
 @Service
-class SupplySales {
+public class SupplySales {
 
   private final StockMovements stock;
   private final SupplyService supplies;

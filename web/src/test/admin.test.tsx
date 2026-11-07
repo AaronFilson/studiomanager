@@ -1,7 +1,7 @@
 import type { RateLimitOverview, SettingChange } from '@studiomanager/api-client';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { renderApp } from './renderApp';
 import { API, server } from './server';
@@ -169,5 +169,47 @@ describe('admin', () => {
     await user.click(screen.getByRole('button', { name: 'Back to defaults' }));
     expect(await screen.findByText('The configured defaults.')).toBeInTheDocument();
     expect(screen.getByLabelText('MCP tool calls: Burst')).toHaveValue(30);
+  });
+
+  it('resets the demo studio and shows a demo token once', async () => {
+    let resets = 0;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    server.use(
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+      http.post(`${API}/api/v1/admin/demo-studio/reset`, () => {
+        resets += 1;
+        return HttpResponse.json(demoStudio);
+      }),
+      http.post(`${API}/api/v1/admin/demo-studio/tokens`, () =>
+        HttpResponse.json(
+          {
+            studioId: demoStudio.id,
+            studioName: demoStudio.name,
+            name: 'Demo assistant',
+            secret: 'smpat_demo',
+            expiresAt: '2026-11-07T15:00:00Z',
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const { user } = renderApp('/admin');
+    await user.click(await screen.findByRole('button', { name: 'Reset the demo studio' }));
+    expect(await screen.findByText('Demo Clay Co. is fresh.')).toBeInTheDocument();
+    expect(resets).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: 'Make a demo token' }));
+    expect(await screen.findByLabelText('Demo token')).toHaveTextContent('smpat_demo');
+    expect(screen.getByText(/it won’t be shown again/)).toBeInTheDocument();
+
+    // A reset deletes the old token, so it stops being shown
+    await user.click(screen.getByRole('button', { name: 'Reset the demo studio' }));
+    await vi.waitFor(() => {
+      expect(screen.queryByLabelText('Demo token')).not.toBeInTheDocument();
+    });
+    vi.restoreAllMocks();
   });
 });

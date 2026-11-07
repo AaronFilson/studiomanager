@@ -86,6 +86,20 @@ export type AdminStudio = {
     name: string;
 };
 
+export type DemoToken = {
+    studioId: string;
+    studioName: string;
+    /**
+     * The token's name, as the demo studio's token list shows it.
+     */
+    name: string;
+    /**
+     * The token to paste into the assistant. Shown only this once.
+     */
+    secret: string;
+    expiresAt: string;
+};
+
 export type SettingChange = {
     key: string;
     version: number;
@@ -2548,6 +2562,68 @@ export type ListSettingChangesResponses = {
 };
 
 export type ListSettingChangesResponse = ListSettingChangesResponses[keyof ListSettingChangesResponses];
+
+export type ResetDemoStudioData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/demo-studio/reset';
+};
+
+export type ResetDemoStudioErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ResetDemoStudioError = ResetDemoStudioErrors[keyof ResetDemoStudioErrors];
+
+export type ResetDemoStudioResponses = {
+    /**
+     * The new demo studio.
+     */
+    200: AdminStudio;
+};
+
+export type ResetDemoStudioResponse = ResetDemoStudioResponses[keyof ResetDemoStudioResponses];
+
+export type CreateDemoTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/demo-studio/tokens';
+};
+
+export type CreateDemoTokenErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type CreateDemoTokenError = CreateDemoTokenErrors[keyof CreateDemoTokenErrors];
+
+export type CreateDemoTokenResponses = {
+    /**
+     * The token.
+     */
+    201: DemoToken;
+};
+
+export type CreateDemoTokenResponse = CreateDemoTokenResponses[keyof CreateDemoTokenResponses];
 
 export type CreateStudioData = {
     body: CreateStudioRequest;

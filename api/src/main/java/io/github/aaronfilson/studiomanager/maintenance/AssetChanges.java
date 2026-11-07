@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Adding, describing, taking down and archiving assets. Kilns get theirs from the kiln module. */
 @Service
-class AssetChanges {
+public class AssetChanges {
 
   private final MaintainedAssetRepository assets;
   private final MaintenanceService reads;
