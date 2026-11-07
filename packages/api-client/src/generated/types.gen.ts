@@ -1008,9 +1008,11 @@ export type UpdateCustomRoleRequest = {
  * - `BILLING_CONTACT`: the studio's billing contact; added and removed are accounts.
  * - `ROLE_CREATED`, `ROLE_RENAMED`, `ROLE_DELETED`: a custom role; the target is its key,
  * added and removed are its names.
+ * - `STUDIO_EXPORTED`: someone downloaded the studio's export; the target is `studio`, added
+ * is the file's name.
  *
  */
-export type AccessChangeKind = 'ROLE_PERMISSIONS' | 'MEMBER_DUTIES' | 'MEMBER_ROLE' | 'BILLING_CONTACT' | 'ROLE_CREATED' | 'ROLE_RENAMED' | 'ROLE_DELETED';
+export type AccessChangeKind = 'ROLE_PERMISSIONS' | 'MEMBER_DUTIES' | 'MEMBER_ROLE' | 'BILLING_CONTACT' | 'ROLE_CREATED' | 'ROLE_RENAMED' | 'ROLE_DELETED' | 'STUDIO_EXPORTED';
 
 export type AccessChange = {
     id: string;

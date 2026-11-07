@@ -184,6 +184,7 @@ class RoleController implements RolesApi {
           case ROLE_CREATED -> false;
           case ROLE_RENAMED -> false;
           case ROLE_DELETED -> false;
+          case STUDIO_EXPORTED -> false;
         };
     return new AccessChangeDto()
         .id(entry.id())

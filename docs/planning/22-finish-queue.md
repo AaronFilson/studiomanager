@@ -81,6 +81,9 @@ After the queue, the deferred plans are next. Each needs an owner's go-ahead:
 ## 3. Decisions (owner, 2026-11-07)
 
 1. **Mobile owner picker:** later, probably before the pilot, with a mobile members screen.
+   **Revised 2026-11-07:** mobile parity with the web is the next lane. That starts with the
+   members screen (invites, roles including custom roles, co-owners, billing contact), then the
+   other owner and staff pages the web has and mobile lacks.
 2. **Playwright against dev:** on every deploy. The assurance is worth waking the API.
 3. **Email domain:** not chosen yet; the owner is searching. Lane E builds everything that doesn't
    need the domain, and the runbook lists the steps for when it's known.
@@ -144,6 +147,6 @@ Suppressed, each with its reason in the code:
 - Google and GitHub sign-in are still off in dev. They need the owner's GitHub OAuth app and
   Entra setup (`docs/runbooks/github-sign-in.md`).
 
-**Found along the way:** export downloads aren't recorded. Plan 21 §7 asked for every owner-only
-action to log its account. That needs a new log kind and a migration, so it's left for the next
-PR. The threat model lists it.
+**Found along the way:** export downloads weren't recorded. Plan 21 §7 asked for every owner-only
+action to log its account. Fixed in the next PR: V42 adds `STUDIO_EXPORTED` to the access history
+(ADR 25, "After the lanes").

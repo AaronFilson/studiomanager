@@ -142,13 +142,17 @@ to dev.
 - Rate limits on tokens and MCP.
 - List caps with a `truncated` flag (plan 20 §4).
 - Log quota and trace sampling, so the logs can't run up the bill.
+
+### Accountability
+
+- Each download of a studio's export is in its access history (`STUDIO_EXPORTED`), with the
+  account and token that took it. Co-owners see it on the roles page and through `access.changed`.
 - Platform-paid readers have per-studio and platform page caps, and are off by default.
 
 ## Open
 
 | Item | Risk | Plan |
 |---|---|---|
-| Export downloads aren't recorded | With several co-owners, nobody can see who took the studio's data | Plan 21 §7 asks for it; log each download with its account |
 | Rate limits are per replica, in memory | With two replicas the ceiling is up to twice the setting | Accepted (plan 20 §6); Bucket4j's Postgres backend if it matters |
 | No limit on signed-in web use | A signed-in user could script the API with their session | Watch usage; add a per-person limit if seen |
 | Email from the Azure-managed domain | Phishing look-alikes are easier; mail lands in junk | `docs/runbooks/email-domain.md`, before the pilot |

@@ -29,12 +29,14 @@ class ExportController implements ExportApi {
   public ResponseEntity<Resource> exportStudio(UUID studioId) {
     Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     String filename = "studio-export-%s.zip".formatted(now.atOffset(ZoneOffset.UTC).toLocalDate());
+    byte[] zip = export.zip(now);
+    export.recordDownload(filename);
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType("application/zip"))
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             ContentDisposition.attachment().filename(filename).build().toString())
         .header(HttpHeaders.CACHE_CONTROL, "no-store")
-        .body(new ByteArrayResource(export.zip(now)));
+        .body(new ByteArrayResource(zip));
   }
 }
