@@ -299,23 +299,27 @@ class StoredValues {
     private BigDecimal expired = BigDecimal.ZERO;
 
     void add(EntryKind entryKind, BigDecimal amount) {
+      // Any other kind that moves stored value is money taken off a card or credit
       switch (entryKind) {
         case STORED_VALUE_SALE -> sold = sold.add(amount);
         case STORED_VALUE_EXPIRY -> expired = expired.add(amount.negate());
-        case STORED_VALUE_USE,
-            PIECE_FEE,
-            RETAIL_SALE,
-            PAYMENT,
-            PAYOUT,
-            REFUND,
-            ADJUSTMENT,
-            CONSIGNMENT_SALE,
-            CONSIGNMENT_REFUND,
-            PAYEE_EARNING,
-            PAYEE_PAYMENT,
-            OPENING_BALANCE ->
-            used = used.add(amount.negate());
+        case STORED_VALUE_USE -> takenOff(amount);
+        case PIECE_FEE -> takenOff(amount);
+        case RETAIL_SALE -> takenOff(amount);
+        case PAYMENT -> takenOff(amount);
+        case PAYOUT -> takenOff(amount);
+        case REFUND -> takenOff(amount);
+        case ADJUSTMENT -> takenOff(amount);
+        case CONSIGNMENT_SALE -> takenOff(amount);
+        case CONSIGNMENT_REFUND -> takenOff(amount);
+        case PAYEE_EARNING -> takenOff(amount);
+        case PAYEE_PAYMENT -> takenOff(amount);
+        case OPENING_BALANCE -> takenOff(amount);
       }
+    }
+
+    private void takenOff(BigDecimal amount) {
+      used = used.add(amount.negate());
     }
   }
 }

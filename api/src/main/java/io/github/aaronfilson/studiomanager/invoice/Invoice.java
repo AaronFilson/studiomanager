@@ -150,25 +150,37 @@ class Invoice {
   /** Staff's corrections to the draft, which replace it whole. */
   void edited(InvoiceDraft draft, List<LineMatch> matches) {
     switch (status) {
-      case READY, NEEDS_LOOK -> replaceDraft(draft, matches);
-      case UPLOADING, READING ->
-          throw new ConflictException("This invoice is still being read. Try again in a moment.");
-      case CONFIRMED -> throw new ConflictException("This invoice is already confirmed.");
+      case READY -> replaceDraft(draft, matches);
+      case NEEDS_LOOK -> replaceDraft(draft, matches);
+      case UPLOADING -> throw stillBeingRead();
+      case READING -> throw stillBeingRead();
+      case CONFIRMED -> throw alreadyConfirmed();
     }
   }
 
   /** Staff checked it: its stock is received. */
   void confirmed(UUID accountId, Instant at) {
     switch (status) {
-      case READY, NEEDS_LOOK -> {
-        this.status = InvoiceStatus.CONFIRMED;
-        this.confirmedBy = accountId;
-        this.confirmedAt = at;
-      }
-      case UPLOADING, READING ->
-          throw new ConflictException("This invoice is still being read. Try again in a moment.");
-      case CONFIRMED -> throw new ConflictException("This invoice is already confirmed.");
+      case READY -> markConfirmed(accountId, at);
+      case NEEDS_LOOK -> markConfirmed(accountId, at);
+      case UPLOADING -> throw stillBeingRead();
+      case READING -> throw stillBeingRead();
+      case CONFIRMED -> throw alreadyConfirmed();
     }
+  }
+
+  private void markConfirmed(UUID accountId, Instant at) {
+    this.status = InvoiceStatus.CONFIRMED;
+    this.confirmedBy = accountId;
+    this.confirmedAt = at;
+  }
+
+  private static ConflictException stillBeingRead() {
+    return new ConflictException("This invoice is still being read. Try again in a moment.");
+  }
+
+  private static ConflictException alreadyConfirmed() {
+    return new ConflictException("This invoice is already confirmed.");
   }
 
   /** The draft as it stands, in the shape readers produce. */

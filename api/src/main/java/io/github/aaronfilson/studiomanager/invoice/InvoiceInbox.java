@@ -66,31 +66,35 @@ class InvoiceInbox {
   InvoiceView completeUpload(UUID studioId, UUID invoiceId) {
     requireBound(studioId);
     Invoice invoice = find(invoiceId);
+    // Completing an upload that's already in is harmless: nothing more to do
     switch (invoice.status()) {
-      case UPLOADING -> {
-        String blob = InvoiceBlobs.name(studioId, invoiceId, invoice.fileType());
-        BlobStore.BlobInfo info =
-            blobs
-                .info(blob)
-                .orElseThrow(() -> new InvalidInputException("The file hasn't been uploaded yet."));
-        if (info.size() > InvoiceBlobs.MAX_BYTES) {
-          throw new InvalidInputException(
-              "The file is larger than %d MB.".formatted(InvoiceBlobs.MAX_BYTES / 1024 / 1024));
-        }
-        if (!invoice.fileType().startsLike(blobs.head(blob, InvoiceFileType.magicLength()))) {
-          throw new InvalidInputException(
-              "The file isn't the %s it was started as.".formatted(invoice.fileType().name()));
-        }
-        invoice.uploaded(info.size());
-        // Written before the event: the reader loads it in a transaction of its own
-        invoices.flush();
-        events.publishEvent(new InvoiceReceived(invoiceId, studioId));
-      }
-      case READING, READY, NEEDS_LOOK, CONFIRMED -> {
-        // Already in: nothing to do
-      }
+      case UPLOADING -> takeUpload(studioId, invoiceId, invoice);
+      case READING -> {}
+      case READY -> {}
+      case NEEDS_LOOK -> {}
+      case CONFIRMED -> {}
     }
     return invoice.toView(InvoiceChecks.problems(invoice.draft()));
+  }
+
+  private void takeUpload(UUID studioId, UUID invoiceId, Invoice invoice) {
+    String blob = InvoiceBlobs.name(studioId, invoiceId, invoice.fileType());
+    BlobStore.BlobInfo info =
+        blobs
+            .info(blob)
+            .orElseThrow(() -> new InvalidInputException("The file hasn't been uploaded yet."));
+    if (info.size() > InvoiceBlobs.MAX_BYTES) {
+      throw new InvalidInputException(
+          "The file is larger than %d MB.".formatted(InvoiceBlobs.MAX_BYTES / 1024 / 1024));
+    }
+    if (!invoice.fileType().startsLike(blobs.head(blob, InvoiceFileType.magicLength()))) {
+      throw new InvalidInputException(
+          "The file isn't the %s it was started as.".formatted(invoice.fileType().name()));
+    }
+    invoice.uploaded(info.size());
+    // Written before the event: the reader loads it in a transaction of its own
+    invoices.flush();
+    events.publishEvent(new InvoiceReceived(invoiceId, studioId));
   }
 
   /** The inbox, newest first. */
@@ -119,15 +123,20 @@ class InvoiceInbox {
     requireBound(studioId);
     Invoice invoice = find(invoiceId);
     switch (invoice.status()) {
-      case UPLOADING, READING, READY, NEEDS_LOOK -> {
-        invoices.delete(invoice);
-        invoices.flush();
-        blobs.delete(InvoiceBlobs.name(studioId, invoiceId, invoice.fileType()));
-      }
+      case UPLOADING -> delete(studioId, invoiceId, invoice);
+      case READING -> delete(studioId, invoiceId, invoice);
+      case READY -> delete(studioId, invoiceId, invoice);
+      case NEEDS_LOOK -> delete(studioId, invoiceId, invoice);
       case CONFIRMED ->
           throw new ConflictException(
               "A confirmed invoice is kept: its stock has already been received.");
     }
+  }
+
+  private void delete(UUID studioId, UUID invoiceId, Invoice invoice) {
+    invoices.delete(invoice);
+    invoices.flush();
+    blobs.delete(InvoiceBlobs.name(studioId, invoiceId, invoice.fileType()));
   }
 
   private Invoice find(UUID invoiceId) {
