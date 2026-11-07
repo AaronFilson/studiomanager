@@ -30,7 +30,7 @@ import io.github.aaronfilson.studiomanager.studio.StudioService;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -47,33 +47,45 @@ import org.springframework.web.bind.annotation.RestController;
 class MaintenanceController implements MaintenanceApi {
 
   private final MaintenanceService maintenance;
+  private final AssetChanges assetChanges;
+  private final TaskChanges taskChanges;
+  private final MaintenanceRecords records;
   private final ProblemReportService problems;
   private final RecordPhotoService recordPhotos;
   private final StudioService studios;
+  private final Clock clock;
 
   MaintenanceController(
       MaintenanceService maintenance,
+      AssetChanges assetChanges,
+      TaskChanges taskChanges,
+      MaintenanceRecords records,
       ProblemReportService problems,
       RecordPhotoService recordPhotos,
-      StudioService studios) {
+      StudioService studios,
+      Clock clock) {
     this.maintenance = maintenance;
+    this.assetChanges = assetChanges;
+    this.taskChanges = taskChanges;
+    this.records = records;
     this.problems = problems;
     this.recordPhotos = recordPhotos;
     this.studios = studios;
+    this.clock = clock;
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<List<AssetDto>> listAssets(UUID studioId) {
     return ResponseEntity.ok(
-        maintenance.assets(Instant.now()).stream().map(MaintenanceDtos::toDto).toList());
+        maintenance.assets(clock.instant()).stream().map(MaintenanceDtos::toDto).toList());
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<AssetDto> createAsset(UUID studioId, SaveAssetRequestDto request) {
     var asset =
-        maintenance.createAsset(
+        assetChanges.createAsset(
             AssetKind.valueOf(request.getKind().name()),
             request.getName(),
             request.getLocation(),
@@ -89,7 +101,7 @@ class MaintenanceController implements MaintenanceApi {
       UUID studioId, UUID assetId, UpdateAssetRequestDto request) {
     return ResponseEntity.ok(
         MaintenanceDtos.toDto(
-            maintenance.updateAsset(
+            assetChanges.updateAsset(
                 assetId,
                 request.getName(),
                 request.getLocation(),
@@ -100,7 +112,7 @@ class MaintenanceController implements MaintenanceApi {
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<Void> archiveAsset(UUID studioId, UUID assetId) {
-    maintenance.archiveAsset(assetId);
+    assetChanges.archiveAsset(assetId);
     return ResponseEntity.noContent().build();
   }
 
@@ -110,14 +122,14 @@ class MaintenanceController implements MaintenanceApi {
       UUID studioId, UUID assetId, AssetAvailabilityRequestDto request) {
     return ResponseEntity.ok(
         MaintenanceDtos.toDto(
-            maintenance.setDown(assetId, request.getDownReason(), request.getExpectedVersion())));
+            assetChanges.setDown(assetId, request.getDownReason(), request.getExpectedVersion())));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<MaintenanceTaskDto> createMaintenanceTask(
       UUID studioId, UUID assetId, SaveMaintenanceTaskRequestDto request) {
-    var task = maintenance.createTask(assetId, settings(request));
+    var task = taskChanges.createTask(assetId, settings(request));
     return ResponseEntity.created(
             URI.create("/api/v1/studios/%s/maintenance/tasks/%s".formatted(studioId, task.id())))
         .body(MaintenanceDtos.toDto(task));
@@ -129,14 +141,14 @@ class MaintenanceController implements MaintenanceApi {
       UUID studioId, UUID taskId, UpdateMaintenanceTaskRequestDto request) {
     return ResponseEntity.ok(
         MaintenanceDtos.toDto(
-            maintenance.updateTask(
+            taskChanges.updateTask(
                 taskId, settings(request.getTask()), request.getExpectedVersion())));
   }
 
   @Override
   @PreAuthorize("@studioAuthz.hasRole(#studioId, 'STAFF')")
   public ResponseEntity<Void> archiveMaintenanceTask(UUID studioId, UUID taskId) {
-    maintenance.archiveTask(taskId);
+    taskChanges.archiveTask(taskId);
     return ResponseEntity.noContent().build();
   }
 
@@ -147,7 +159,7 @@ class MaintenanceController implements MaintenanceApi {
       UUID studioId, UUID taskId, CompleteMaintenanceTaskRequestDto request) {
     return ResponseEntity.ok(
         MaintenanceDtos.toDto(
-            maintenance.complete(
+            records.complete(
                 taskId,
                 request.getNote(),
                 decimal(request.getCost()),
@@ -160,7 +172,7 @@ class MaintenanceController implements MaintenanceApi {
   public ResponseEntity<MaintenanceRecordDto> recordRepair(
       UUID studioId, UUID assetId, RecordRepairRequestDto request) {
     var record =
-        maintenance.recordRepair(
+        records.recordRepair(
             assetId, request.getNote(), decimal(request.getCost()), parts(request.getParts()));
     return ResponseEntity.status(201).body(MaintenanceDtos.toDto(record, List.of()));
   }
@@ -170,12 +182,12 @@ class MaintenanceController implements MaintenanceApi {
   public ResponseEntity<MaintenanceRecordListDto> listMaintenanceRecords(
       UUID studioId, UUID assetId) {
     Map<UUID, List<RecordPhotoService.Photo>> photos = recordPhotos.photosOf(assetId);
-    Capped<MaintenanceRecordDto> records =
-        maintenance
+    Capped<MaintenanceRecordDto> history =
+        records
             .records(assetId)
             .map(r -> MaintenanceDtos.toDto(r, photos.getOrDefault(r.id(), List.of())));
     return ResponseEntity.ok(
-        new MaintenanceRecordListDto(records.items(), records.truncated(), records.limit()));
+        new MaintenanceRecordListDto(history.items(), history.truncated(), history.limit()));
   }
 
   @Override
@@ -228,7 +240,7 @@ class MaintenanceController implements MaintenanceApi {
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             "attachment; filename=\"maintenance-%s-to-%s.csv\"".formatted(from, to))
-        .body(maintenance.recordsCsv(from, to, studios.current().timeZone()));
+        .body(records.recordsCsv(from, to, studios.current().timeZone()));
   }
 
   @Override
@@ -278,7 +290,7 @@ class MaintenanceController implements MaintenanceApi {
   @PreAuthorize("@studioAuthz.isMember(#studioId)")
   public ResponseEntity<List<MaintenanceTaskDto>> listMyMaintenanceTasks(UUID studioId) {
     return ResponseEntity.ok(
-        maintenance.myTasks(Instant.now()).stream().map(MaintenanceDtos::toDto).toList());
+        maintenance.myTasks(clock.instant()).stream().map(MaintenanceDtos::toDto).toList());
   }
 
   private static TaskSettings settings(SaveMaintenanceTaskRequestDto request) {

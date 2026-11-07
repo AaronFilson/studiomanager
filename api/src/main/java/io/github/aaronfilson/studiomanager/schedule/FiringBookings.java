@@ -4,15 +4,10 @@ import io.github.aaronfilson.studiomanager.kiln.FiringEnded;
 import io.github.aaronfilson.studiomanager.kiln.FiringKind;
 import io.github.aaronfilson.studiomanager.kiln.FiringStarted;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
-import io.github.aaronfilson.studiomanager.platform.Uuids;
-import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.context.event.EventListener;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,6 +18,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>A firing is a fact, not a request, so it's booked even over other bookings: the calendar then
  * shows the clash for staff to sort out.
+ *
+ * <p>These run in the kiln's transaction, alongside other listeners that use SQL, so each change is
+ * flushed before it returns (ADR 21).
  */
 @Component
 class FiringBookings {
@@ -30,11 +28,16 @@ class FiringBookings {
   /** Long enough for a glaze firing and cooling; trimmed to the real unload time. */
   static final Duration EXPECTED_LENGTH = Duration.ofHours(24);
 
-  private final JdbcClient jdbc;
+  private final BookableResourceRepository resources;
+  private final CalendarBookingRepository bookings;
   private final MaintenanceService maintenance;
 
-  FiringBookings(JdbcClient jdbc, MaintenanceService maintenance) {
-    this.jdbc = jdbc;
+  FiringBookings(
+      BookableResourceRepository resources,
+      CalendarBookingRepository bookings,
+      MaintenanceService maintenance) {
+    this.resources = resources;
+    this.bookings = bookings;
     this.maintenance = maintenance;
   }
 
@@ -44,48 +47,31 @@ class FiringBookings {
     if (asset == null) {
       return;
     }
-    List<UUID> resources =
-        jdbc.sql("select id from resource where asset_id = :assetId")
-            .param("assetId", asset)
-            .query(UUID.class)
-            .list();
-    String title = "%s firing".formatted(firing.kind() == FiringKind.BISQUE ? "Bisque" : "Glaze");
-    for (UUID resource : resources) {
-      jdbc.sql(
-              """
-              insert into booking (id, studio_id, resource_id, kind, title, starts_at, ends_at, created_by,
-                                   created_at, firing_id)
-              values (:id, :studioId, :resourceId, 'FIRING', :title, :start, :end, :by, :start, :firingId)
-              """)
-          .param("id", Uuids.v7())
-          .param("studioId", firing.studioId())
-          .param("resourceId", resource)
-          .param("title", title)
-          .param("start", firing.startedAt().atOffset(ZoneOffset.UTC))
-          .param("end", firing.startedAt().plus(EXPECTED_LENGTH).atOffset(ZoneOffset.UTC))
-          .param("by", TenantContext.require().accountId())
-          .param("firingId", firing.firingId())
-          .update();
-    }
+    String title = "%s firing".formatted(describe(firing.kind()));
+    List<CalendarBooking> booked =
+        resources.findByAsset(asset).stream()
+            .map(kiln ->
+                CalendarBooking.ofFiring(
+                    kiln, firing.firingId(), title, firing.startedAt(), EXPECTED_LENGTH))
+            .toList();
+    bookings.saveAllAndFlush(booked);
   }
 
   @EventListener
   void onEnded(FiringEnded firing) {
-    if (!firing.completed()) {
-      jdbc.sql("delete from booking where firing_id = :firingId")
-          .param("firingId", firing.firingId())
-          .update();
-      return;
+    List<CalendarBooking> booked = bookings.findByFiringId(firing.firingId());
+    if (firing.completed()) {
+      booked.forEach(booking -> booking.endFiringAt(firing.endedAt()));
+    } else {
+      bookings.deleteAll(booked);
     }
-    // At least a minute long, so a firing unloaded at once still shows
-    Instant end = firing.endedAt();
-    jdbc.sql(
-            """
-            update booking set ends_at = greatest(:end, starts_at + interval '1 minute')
-            where firing_id = :firingId
-            """)
-        .param("end", end.atOffset(ZoneOffset.UTC))
-        .param("firingId", firing.firingId())
-        .update();
+    bookings.flush();
+  }
+
+  private static String describe(FiringKind kind) {
+    return switch (kind) {
+      case BISQUE -> "Bisque";
+      case GLAZE -> "Glaze";
+    };
   }
 }
