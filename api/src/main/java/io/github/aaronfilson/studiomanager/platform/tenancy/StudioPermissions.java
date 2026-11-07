@@ -11,18 +11,12 @@ import org.springframework.stereotype.Component;
  * <p>Controllers check through {@code @PreAuthorize("@studioAuthz.can(#studioId, 'PIECES_MOVE')")}.
  * Services call {@link #require} only where the answer depends on the row, such as someone else's
  * piece rather than your own.
+ *
+ * <p>Choosing other people by what their role holds, such as who is told about a problem, is {@link
+ * RolePermissions#roleHolds}, from the studio's stored sets.
  */
 @Component
 public class StudioPermissions {
-
-  /**
-   * Whether a member with {@code role} in the bound studio holds {@code permission}: for choosing
-   * other people, such as who is told about a problem, rather than checking the caller. From the
-   * code defaults until a studio's roles are stored (plan 21, lane R4), which changes it here.
-   */
-  public static boolean roleHolds(StudioRole role, Permission permission) {
-    return Permission.defaultsFor(role).contains(permission);
-  }
 
   /** Whether the caller holds {@code permission} in the studio the call is bound to. */
   public boolean has(Permission permission) {

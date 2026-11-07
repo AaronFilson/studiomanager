@@ -516,6 +516,43 @@ Mappings that weren't one-for-one (all equal to the old role on day one):
   demo reset): `owners.manage`. Opening balances: `money.refund_and_adjust`.
 - Consignment sale: `money.take_payment`; its refund: `money.refund_and_adjust`.
 
+**R4 done (2026-11-07), branch `rbac-r4`.** Migration V39; no change for any role on day one.
+- Tables `studio_role` (three system roles per studio: `owner`, `staff`, `member`),
+  `studio_role_permission` (by `Permission` key) and `role_change_log`, each with the usual
+  `studio_id` RLS policy and `@TenantId` (studio module: `StoredRole`, `StoredRolePermission`,
+  `AccessChange`). V39 seeds every existing studio with the code defaults; `StudioService.create`
+  seeds new ones from `RolePermissions.storedDefaults()`; `RolePermissionMigrationTests` checks
+  the SQL lists against the code.
+- Only the editable part is stored: OWNER holds everything in code and has no rows, and the floor
+  (`money.own.read`) is added in code. A check on `studio_role_permission` refuses the owner-only
+  keys and the floor, so the database can't give an owner-only permission to another role.
+- `platform.tenancy.RolePermissions` builds each request's context in `TenantContextFilter`: the
+  role's stored set (plus the floor, minus anything owner-only), plus what the person's duties
+  grant (`access.DutyGrants`), or everything for an owner. A studio with no stored role of that
+  rank falls back to the code defaults. Jobs keep their ceiling's code defaults. The token check
+  (`api_tokens.own`) now reads the resolved person, and `roleHolds` moved from a static on
+  `StudioPermissions` to `RolePermissions`, reading the stored sets.
+- Cache: Caffeine, keyed by studio and role, one minute, dropped after commit on the instance that
+  made the change (`RolePermissionsChanged`). Duties are read per request, not cached.
+- Shadow mode: `studiomanager.permissions.mode` (`STUDIOMANAGER_PERMISSIONS_MODE`), `enforcing` by
+  default. In `shadow` the code defaults decide and a differing stored set logs a warning with the
+  role name and how many permissions it adds and drops, and counts
+  `studiomanager.permissions.shadow_mismatch` by role.
+- Write path for R6: `StudioRoles.setPermissions(role, permissions)` (`studio.roles.manage`;
+  refuses OWNER and owner-only permissions). It and `AccessService.setDuties` write a
+  `role_change_log` row in the same transaction (actor, via token, sorted before and after).
+- Behaviour that does change: duty grants are now held (decision 6). A MONITOR member can take in
+  pieces for others, and a TECHNICIAN member can resolve problem reports and sees every report.
+- Tests: `RolePermissionsTests` (unit), `StudioRolesTests`, `RolePermissionMigrationTests`, and
+  `MyPermissionsApiTests.aDutyAddsWhatItGrants`.
+
+Left for later lanes:
+- `studio_membership.role_id` and dual-writing it: with only system roles a membership's role row
+  is found by `(studio_id, base)`. R7 adds the column when custom roles need it; memberships are
+  also written by `app.accept_invite`, which R7 changes with it.
+- The last-owner trigger and lock (R8). Modulith events for access changes, and showing the log
+  (R6).
+
 R1 to R5 change no behaviour. R6, R7 and R8 are the features the owner asked for. Sizes: S ≈ a
 day, M ≈ two to four days, L ≈ a week. In plan 20's terms, these lanes join the pre-production
 queue.

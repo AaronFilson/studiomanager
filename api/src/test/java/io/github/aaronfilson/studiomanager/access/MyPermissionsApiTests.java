@@ -7,7 +7,9 @@ import io.github.aaronfilson.studiomanager.IntegrationTest;
 import io.github.aaronfilson.studiomanager.TestUser;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +19,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-/** Each role sees exactly its default permissions, by key, and a stranger sees nothing. */
+/**
+ * Each role sees exactly its default permissions, by key, plus what its duties grant, and a
+ * stranger sees nothing.
+ */
 @IntegrationTest
 class MyPermissionsApiTests {
 
@@ -79,6 +84,33 @@ class MyPermissionsApiTests {
         .extractingPath("$.duties")
         .asArray()
         .containsExactly("TECHNICIAN");
+  }
+
+  @Test
+  void aDutyAddsWhatItGrants() throws Exception {
+    assertThat(
+            mvc.put()
+                .uri(
+                    "/api/v1/studios/{studioId}/members/{accountId}/duties",
+                    studioId,
+                    accountOf(member))
+                .with(owner.token())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"duties\": [\"MONITOR\"]}"))
+        .hasStatusOk();
+
+    Set<Permission> held = EnumSet.noneOf(Permission.class);
+    held.addAll(Permission.defaultsFor(StudioRole.MEMBER));
+    held.addAll(Duty.MONITOR.grants());
+    List<String> expected = held.stream().map(Permission::key).sorted().toList();
+    assertThat(myPermissions(member))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying(
+            "$.permissions",
+            value -> assertThat(value).asArray().containsExactlyElementsOf(expected));
+    // Monitors take in pieces for others, which plain members can't
+    assertThat(expected).contains(Permission.PIECES_INTAKE_FOR_OTHERS.key());
   }
 
   @Test

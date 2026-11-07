@@ -17,8 +17,7 @@ public enum Duty {
 
   /**
    * The permissions this duty adds to its holder's role. Fixed in code; owners can't edit them
-   * (plan 21, decision 6). Not yet part of a caller's permissions: lane R4 adds them when it
-   * resolves permissions per request.
+   * (plan 21, decision 6). Each request adds them to the holder's permissions ({@link DutyGrants}).
    */
   public Set<Permission> grants() {
     return switch (this) {
