@@ -161,7 +161,7 @@ class CoOwnerTests {
     assertThat(removeOwner(pat, oliveId)).hasStatus(HttpStatus.NO_CONTENT);
 
     assertThat(billingContact(pat))
-        .doesNotContainKey("accountId")
+        .containsEntry("accountId", null)
         .containsEntry("chooseNeeded", true);
     assertThat(ownerNotices(pat)).contains("Olive is no longer an owner");
     assertThat(setBillingContact(pat, patId)).hasStatusOk();
