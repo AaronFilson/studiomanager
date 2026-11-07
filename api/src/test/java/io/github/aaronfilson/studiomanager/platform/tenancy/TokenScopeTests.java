@@ -27,7 +27,11 @@ class TokenScopeTests {
       boolean reading = operation.method().equals("get");
       Set<Permission> allowed =
           switch (access) {
-            case TokenPolicy.Never unreachable -> Set.of();
+            case TokenPolicy.Never unreachable -> {
+              // A token refused here is told why
+              assertThat(unreachable.why()).as("%s's refusal", operation.path()).isNotBlank();
+              yield Set.of();
+            }
             case TokenPolicy.ReadOnly() -> reading ? TokenScope.READ.permissions() : Set.of();
             case TokenPolicy.Writable(TokenScope writeScope) ->
                 reading ? TokenScope.READ.permissions() : writeScope.permissions();
