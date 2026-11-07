@@ -157,6 +157,26 @@ proposes the lines. Staff check them, and nothing posts until they confirm.
   (`output_config.format`) or a `strict` tool with `tool_choice: auto`. Forced `tool_choice` is a
   400 on Claude Opus 5.5.
 
+**Steps 2, 4 and 5, 2026-11-06, on `f1-invoices` (V35, ADR 18): the inbox, Claude, the matcher
+and the eval.**
+- **The inbox** is on the supplies page, for staff: upload (PDF, JPEG or PNG, up to 10 MB, straight
+  to storage), a draft next to a link to the file, corrections, confirm into stock, discard.
+- **Readers** sit behind `InvoiceReader`. Claude reads with structured output on the studio's key;
+  the platform readers plug in for lane F1g. Nothing falls back: a failed read is typed in by hand.
+- **The opt-in** is now `allow_platform_readers`.
+- **The matcher** tries the vendor's remembered SKU, then its remembered description, then name
+  similarity (trigrams in Java, not `pg_trgm`). Aliases are learned on every confirmation.
+- **The eval:** `InvoiceEvalTests` scores recorded answers in CI; `LiveInvoiceEval` runs live and
+  writes `docs/evals/<date>-invoices-claude.md`. Two synthetic invoices so far.
+- **What the owner supplies for the eval:** for each real invoice, a folder under
+  `api/src/test/resources/invoices/eval/<name>/` holding `invoice.pdf` (or `.jpg`, `.png`),
+  redacted as needed, and `expected.json`, the right answer in the shape of
+  `synthetic-clay-order/expected.json`. Then run
+  `STUDIOMANAGER_EVAL_ANTHROPIC_KEY=sk-ant-... bash scripts/api.sh test --tests '*LiveInvoiceEval'`,
+  which records each `claude.json` and writes the report, and commit both.
+- **Not done:** the 90-day purge of the raw answer and a sweep for abandoned uploads, the optional
+  payable, and a page count before reading.
+
 ## In an interview
 
 "Invoices are untrusted input sent to an LLM, so the model gets one job and one output schema,

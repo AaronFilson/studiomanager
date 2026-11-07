@@ -17,6 +17,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
+import { InvoiceInbox } from '../../../components/InvoiceInbox';
 import { formatMoney, isStaff } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/supplies')({
@@ -51,6 +52,7 @@ function SuppliesPage() {
         ))}
       </ul>
       {staff && <Requests studioId={studioId} canApprove={studio.myRole === 'OWNER'} />}
+      {staff && <InvoiceInbox studioId={studioId} />}
       {staff && <AddItemForm studioId={studioId} currency={studio.currency} />}
     </div>
   );
