@@ -66,9 +66,60 @@ Paste the results into §4.
 | Still slow / pilot hours | A scheduled `min_replicas = 1` during studio hours, or always during the pilot | ~$10–30/mo |
 | Perceived wait | The web wakes the API when the shell loads and shows saved query data while it waits (from the 2026-11-11 caching discussion) | $0 |
 
-## 4. Findings
+## 4. Findings (2026-11-12, revision 0000013, image `8b11051`)
 
-_Not yet measured. Fill in from §2 after the next deploy._
+**About 100 s from the waking request to ready; 78 s of it is the JVM, and 74 s of that is
+Spring's context refresh.**
+
+| Step | Time |
+|---|---|
+| Request → replica on a node | 1 s |
+| Node → container started | 16 s |
+| Image pull (already cached on the node, 327 MB) | 0.4 s |
+| JVM launch → Tomcat initialized | 12 s |
+| JVM launch → ready (`StartupReport`) | **78 s** (`spring.context.refresh` 74 s) |
+
+`StartupReport`'s line: `1 CPUs` (0.5 vCPU rounds up, but the container is capped at half a
+core), max heap 742 MiB, `-XX:AOTCache=app.aot` set and no rejection warning in the log.
+
+Slowest steps (they nest, so they overlap rather than add up):
+- `entityManagerFactory`: 10.6 s;
+- bean post-processing, configuration scanning and parsing: 5–7 s each;
+- the demo chain (`demoController` → `demoStudio` → `demoSeed`): 5.3 s;
+- the access chain: 4.9 s;
+- the web server: 4.0 s;
+- firing, piece and OTel beans: 2–2.4 s each.
+
+Beyond those, the time is spread thinly across the rest of the beans. **The start is CPU-bound,
+and spread out.**
+
+What it rules out:
+- **Image pull (3):** 358 ms.
+- **The AOT cache not loading (4):** no warning. It speeds up class loading, not bean creation.
+- **A probe restart on this start (1):** it came in under the old 105 s limit, but only just.
+  Slower starts were restarting, which explains the 2–3+ minute waits. The 5-minute limit from
+  #40 stops that.
+
+### Decisions (owner, 2026-11-12)
+
+- **1 vCPU and 2 GiB: done** (`infra/modules/api/variables.tf`). The migrate and sweep jobs share
+  the size.
+- **No lazy initialization.** Beans that fail on their first request rather than at startup
+  aren't acceptable while the app is being demoed to employers.
+- **Spring AOT processing: not this round.** On the JVM it fixes `@Profile` and `@ConditionalOn…`
+  at build time. This app has 18 of them and three run modes from one image (web, `migrate`,
+  `sweep`), and Kafka streaming switches on a property. Each mode would need its own build, or AOT
+  only for the web mode. That's the same "works differently than it looks" risk as lazy init, at
+  a bigger size. It needs its own plan, with a test that starts every mode.
+- **Demo beans behind a profile: no gain on dev.** Dev is where the demo runs, so the profile
+  would be on there anyway.
+- **For a demo, warm the API first:** Actions > **Warm for an hour** (`warm-api.yml`), per
+  `docs/runbooks/demo-rehearsal.md`. A demo then never sees a cold start.
+
+### To measure after the CPU change
+
+Let the API scale to zero, call it once, and record the `Started:` line here. Expected: about
+35–45 s of JVM time, and about 55–60 s to the first answer.
 
 ## 5. The queue
 

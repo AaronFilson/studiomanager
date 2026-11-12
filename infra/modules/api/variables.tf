@@ -117,14 +117,16 @@ variable "max_replicas" {
   default = 2
 }
 
+# A whole core: on 0.5 vCPU, Spring's context refresh took 74 of a 78 s start (plan 23, §4).
+# The consumption plan bills per second only while a replica runs, so idle still costs nothing.
 variable "cpu" {
   type    = number
-  default = 0.5
+  default = 1
 }
 
 variable "memory" {
   type    = string
-  default = "1Gi"
+  default = "2Gi"
 }
 
 variable "trace_sampling_ratio" {
