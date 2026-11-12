@@ -116,10 +116,36 @@ What it rules out:
 - **For a demo, warm the API first:** Actions > **Warm for an hour** (`warm-api.yml`), per
   `docs/runbooks/demo-rehearsal.md`. A demo then never sees a cold start.
 
-### To measure after the CPU change
+### After the CPU change (2026-11-12, #41 and #42 deployed)
 
-Let the API scale to zero, call it once, and record the `Started:` line here. Expected: about
-35–45 s of JVM time, and about 55–60 s to the first answer.
+**JVM start: 78 s → 41 s.** Max heap 742 → 1484 MiB, which confirms the new size is live.
+
+| Step | 0.5 vCPU / 1 GiB | 1 vCPU / 2 GiB |
+|---|---|---|
+| JVM uptime at ready | 78.2 s | **40.9 s** |
+| `spring.context.refresh` | 73.7 s | 38.4 s |
+| `entityManagerFactory` (Hibernate) | 10.6 s | 7.4 s |
+| Bean post-processing | 6.8 s | 3.5 s |
+| Configuration scan and parse | 5.2 s each | 2.7 s each |
+| Access chain | 4.9 s | 2.2 s |
+| Demo chain | 5.3 s | 1.8 s |
+| Web server | 4.0 s | 2.0 s |
+| OpenTelemetry SDK | not in the top 15 | 0.9 s |
+
+Almost everything halved, as expected for a CPU-bound start. Hibernate gained least (−30%), so it's
+now the largest single step, at 18% of the refresh. Adding the ~17 s Azure spends placing and
+starting the container, a cold request should now take about **60 s** to answer, from about 100 s.
+The web asks for the API as soon as the page loads (#42), so part of that is hidden behind sign-in.
+
+**What's left, if 60 s is still too slow,** none of it changes how the app behaves:
+- **A scheduled warm window** (`min_replicas = 1` at set times, the same switch as `warm-api.yml`):
+  no cold start then, at a known cost.
+- **Hibernate's 7 s:** check how much of it is metadata building and schema validation
+  (`ddl-auto: validate` reads the whole catalog over the network on every start). Flyway already
+  guards the schema, so validation could run in the migrate job only. Measure first.
+- **Spring AOT:** still its own plan (see the decisions above).
+
+For a demo, run **Warm for an hour** first, as the demo runbook already says.
 
 ## 5. The queue
 
