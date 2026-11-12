@@ -125,7 +125,8 @@ resource "azurerm_container_app" "api" {
         }
       }
 
-      # The JVM gets up to ~2 minutes to start before liveness takes over.
+      # The JVM gets up to ~5 minutes to start before liveness takes over. At 10 failures (~105 s)
+      # a slow start on 0.5 vCPU was killed and started again, doubling the wait (plan 23).
       startup_probe {
         transport               = "HTTP"
         port                    = local.port
@@ -133,7 +134,7 @@ resource "azurerm_container_app" "api" {
         initial_delay           = 5
         interval_seconds        = 10
         timeout                 = 3
-        failure_count_threshold = 10
+        failure_count_threshold = 30
       }
 
       liveness_probe {
