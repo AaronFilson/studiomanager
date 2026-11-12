@@ -11,6 +11,7 @@ import { MsalAuthProvider } from './auth/MsalAuthProvider';
 import { readConfig } from './config';
 import { createQueryClient } from './queryClient';
 import { createAppRouter } from './router';
+import { wakeApi } from './wakeApi';
 
 const container = document.getElementById('root');
 if (!container) {
@@ -18,6 +19,8 @@ if (!container) {
 }
 const root = createRoot(container);
 const config = readConfig(import.meta.env, window.location.origin);
+// Start waking a scaled-to-zero API now, in parallel with sign-in (plan 23)
+void wakeApi(config.apiBaseUrl);
 
 if (config.auth) {
   const { scopes } = config.auth;

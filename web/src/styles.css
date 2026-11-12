@@ -36,6 +36,15 @@
   box-sizing: border-box;
 }
 
+/* Shown while the API wakes from idle (plan 23) */
+.server-waking {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  text-align: center;
+}
+
 body {
   margin: 0;
 }
