@@ -12,9 +12,9 @@ import org.springframework.boot.context.metrics.buffering.StartupTimeline.Timeli
 import org.springframework.context.ApplicationListener;
 
 /**
- * Logs where a start spent its time (plan 23): the JVM's uptime when the app is ready, the CPUs
- * and heap the replica gave it, and the slowest startup steps Spring recorded. On Container Apps a
- * cold start is a request waiting, so this line in the logs is the first thing to read.
+ * Logs where a start spent its time (plan 23): the JVM's uptime when the app is ready, the CPUs and
+ * heap the replica gave it, and the slowest startup steps Spring recorded. On Container Apps a cold
+ * start is a request waiting, so this line in the logs is the first thing to read.
  */
 final class StartupReport implements ApplicationListener<ApplicationReadyEvent> {
 
@@ -63,7 +63,10 @@ final class StartupReport implements ApplicationListener<ApplicationReadyEvent> 
     return text.append(' ').append(event.getDuration().toMillis()).append(" ms").toString();
   }
 
-  /** Whether the JVM was asked to use the AOT cache (ADR 8). It says nothing about whether it loaded. */
+  /**
+   * Whether the JVM was asked to use the AOT cache (ADR 8). It says nothing about whether it
+   * loaded.
+   */
   private static String aotCacheFlag() {
     return ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
         .filter(argument -> argument.startsWith("-XX:AOTCache="))
