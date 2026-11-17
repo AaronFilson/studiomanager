@@ -48,7 +48,7 @@ export function CompareReaders({ studioId, invoiceId }: { studioId: string; invo
   return (
     <section className="stack" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>Compare readers</h3>
-      <p>Reads this invoice with every reader the studio may use, one after another. It can take a minute.</p>
+      <p>Reads this invoice with every reader the studio may use, all at once. It takes as long as the slowest one, up to a minute.</p>
       <div>
         <button
           type="button"

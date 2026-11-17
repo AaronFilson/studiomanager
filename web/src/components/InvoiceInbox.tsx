@@ -44,8 +44,10 @@ export function InvoiceInbox({ studioId, canCompare }: { studioId: string; canCo
   const id = useId();
   const invoices = useQuery({
     ...listInvoicesOptions({ path: { studioId } }),
-    // Keep the badges current while anything is still being read
-    refetchInterval: (query) => (query.state.data?.items.some((invoice) => waiting(invoice.status)) ? 3000 : false),
+    // Keep the badges current while anything is being read. Not for "uploading": an abandoned upload
+    // stays that way, and polling for it would keep the API awake for good
+    refetchInterval: (query) =>
+      query.state.data?.items.some((invoice) => invoice.status === 'READING') ? 3000 : false,
   });
   const [open, setOpen] = useState<string | null>(null);
 
@@ -93,7 +95,10 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
   const [uploading, setUploading] = useState(false);
   const start = useMutation(startInvoiceUploadMutation());
   const complete = useMutation(completeInvoiceUploadMutation());
+  const abandon = useMutation(discardInvoiceMutation());
   const busy = uploading || start.isPending || complete.isPending;
+  // A file that never arrives leaves nothing behind in the list
+  const throwAway = (invoiceId: string) => abandon.mutateAsync({ path: { studioId, invoiceId } }).catch(() => undefined);
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,6 +113,7 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
       const upload = await start.mutateAsync({ path: { studioId }, body: { fileType } });
       if (file.size > upload.maxBytes) {
         setFailure(`The file is larger than ${String(Math.floor(upload.maxBytes / 1024 / 1024))} MB.`);
+        await throwAway(upload.invoiceId);
         return;
       }
       let stored = false;
@@ -123,6 +129,7 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
       }
       if (!stored) {
         setFailure('The upload didn’t go through. Check the connection and try again.');
+        await throwAway(upload.invoiceId);
         return;
       }
       await complete.mutateAsync({ path: { studioId, invoiceId: upload.invoiceId } });
@@ -191,15 +198,18 @@ function InvoiceReview({
     return <p>Loading the invoice…</p>;
   }
   if (waiting(invoice.data.status)) {
-    // A failed upload stays "uploading" for good, so it can be thrown away from here
+    // A failed upload stays "uploading" for good, so it can be thrown away from here. Not while it's
+    // being read: the reader's pages are recorded against the invoice when it finishes
     return (
       <div className="row">
         <p aria-live="polite">
           {invoice.data.status === 'UPLOADING' ? 'Waiting for the file…' : 'Reading the invoice…'}
         </p>
-        <button type="button" className="danger" onClick={() => discard.mutate({ path: { studioId, invoiceId } })}>
-          Discard
-        </button>
+        {invoice.data.status === 'UPLOADING' && (
+          <button type="button" className="danger" onClick={() => discard.mutate({ path: { studioId, invoiceId } })}>
+            Discard
+          </button>
+        )}
         {discard.isError && <ErrorMessage error={discard.error} />}
       </div>
     );
@@ -338,6 +348,9 @@ function DraftForm({
     total: invoice.total ?? '',
   });
   const [lines, setLines] = useState<EditableLine[]>(invoice.lines.map(editable));
+  // The version on the server. Confirm's own save raises it without remounting the form, so a
+  // confirm that then fails ("line 2 needs a quantity") can be fixed and retried without a 409
+  const [version, setVersion] = useState(invoice.version);
   const refresh = () => queryClient.invalidateQueries();
   const save = useMutation({ ...saveInvoiceDraftMutation(), onSuccess: refresh });
   // Confirming saves what's on screen first, without refreshing in between, then confirms that
@@ -374,7 +387,7 @@ function DraftForm({
       lineTotal: optional(line.lineTotal),
       supplyItemId: optional(line.supplyItemId),
     })),
-    expectedVersion: invoice.version,
+    expectedVersion: version,
   });
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
@@ -385,6 +398,7 @@ function DraftForm({
   async function saveAndConfirm() {
     try {
       const saved = await saveFirst.mutateAsync({ path, body: draft() });
+      setVersion(saved.version);
       confirm.mutate({ path, body: { expectedVersion: saved.version } });
     } catch {
       await refresh();

@@ -126,6 +126,12 @@ class DemoStudio {
               owner,
               () -> studios.create(NAME, UnitSystem.US_CUSTOMARY, "America/Chicago", "US", "USD"));
       TenantContext inStudio = owner.inStudio(studio.id(), StudioRole.OWNER);
+      // First, while it's only in memory: a later step that fails mustn't lose the key
+      key.ifPresent(carried ->
+          TenantContext.callAs(
+              inStudio,
+              () ->
+                  keys.set(carried.provider(), carried.secret(), carried.allowPlatformReaders())));
       Map<DemoPeople, TenantContext> people = new EnumMap<>(DemoPeople.class);
       people.put(DemoPeople.MARA, inStudio);
       for (DemoPeople person : DemoPeople.values()) {
@@ -142,17 +148,13 @@ class DemoStudio {
       }
       Instant seeding = clock.instant();
       DemoSeed.Seeded seeded = seed.seed(people);
-      key.ifPresent(carried ->
-          TenantContext.callAs(
-              inStudio,
-              () ->
-                  keys.set(carried.provider(), carried.secret(), carried.allowPlatformReaders())));
-      // As the admin who asked: the readers' rules are platform settings
-      replacements.replaced(Set.copyOf(old), studio.id());
-      // Last, so the admin isn't notified of everything the seed did
+      // After the seed, so the admin isn't notified of everything it did, and before the rules
+      // move, so a failure there still leaves the studio in the admin's list
       if (!accountIds.containsValue(adminAccountId)) {
         join(inStudio, adminAccountId, StudioRole.OWNER);
       }
+      // As the admin who asked: the readers' rules are platform settings
+      replacements.replaced(Set.copyOf(old), studio.id());
       awaitListeners(seeding);
       return new Reset(studio.id(), studio.name(), seeded);
     } finally {

@@ -167,7 +167,7 @@ function RoleForm({ studioId, role, areas }: { studioId: string; role: Role; are
       <PermissionChoices areas={areas} chosen={chosen} onToggle={toggle} />
       {changed && lost.length > 0 && role.memberCount > 0 && (
         <p role="status" className="error">
-          {peopleText(role.memberCount)} with this role lose: {lost.map((key) => labels.get(key) ?? key).join(', ')}.
+          {peopleText(role.memberCount)} with this role {role.memberCount === 1 ? 'loses' : 'lose'}: {lost.map((key) => labels.get(key) ?? key).join(', ')}.
         </p>
       )}
       {save.isError && <ErrorMessage error={save.error} />}

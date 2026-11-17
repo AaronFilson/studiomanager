@@ -10,7 +10,9 @@ once end to end before a real demo, then use it as the day-of checklist.
    that kilns, pieces, firings, glazes, maintenance, supplies and the ledger are all there. A
    reset keeps the Anthropic key and the platform-readers consent, and moves the invoice readers'
    rules to the new studio (plan 24). The very first time, add them: Settings > AI for invoices,
-   paste the key, **Test key**, and tick "Allow the platform's readers".
+   paste the key, **Test key**, and tick "Allow the platform's readers". A reset also ends the
+   demo token (and the assistant's connection) and deletes webhook endpoints: redo steps 4, 5 and
+   9 after it.
 3. **Check the readers:** Admin > Invoice readers. Each platform reader says whether it's set up on
    this server, and should be on for Demo Clay Co. Then upload the invoices you'll show (photos
    under 4 MB, 1–2 pages) and run **Compare readers** once on each, so the first read on stage
@@ -26,7 +28,11 @@ once end to end before a real demo, then use it as the day-of checklist.
    interviewer's path works.
 8. **Merge nothing on demo day.** A deploy rolls a new revision and puts the API's minimum
    replicas back to 0, which ends "Warm for an hour" early.
-9. **Webhooks:** the seed has no endpoint. Add one that points at a request bin before the demo.
+9. **Webhooks:** the seed has no endpoint. Add one that points at a private request bin, and tick
+   **Access changed** as well as the default, so the Roles save at minutes 2–5 is already in the
+   delivery log as a real signed event. Its payload names who changed it, so keep the bin private.
+10. **After rehearsing, put the stage back** without a reset: on Roles, **Reset Staff to
+    defaults** (so there's something to untick), and reject any leftover Assistant suggestions.
 
 ## 15 minutes before
 
@@ -45,15 +51,15 @@ once end to end before a real demo, then use it as the day-of checklist.
 
 | Minute | Show | The point |
 |---|---|---|
-| 0–2 | Today, a piece's path from greenware to pickup | The domain: it knows what a kiln is |
-| 2–5 | Roles: untick "Refund and adjust" for Staff, see "N people lose…", the access history | Owner-configurable RBAC, audited, can't lock yourself out |
-| 5–8 | The assistant: the morning check-in, then "reorder what's under par" (it proposes purchase requests) and approve one under Assistant suggestions | MCP on the official SDK; assistants propose, people decide |
+| 0–2 | Today, then Pieces > the Mug: its timeline from received to picked up. The seed made the whole path at once, so the times match; say so | The domain: it knows what a kiln is |
+| 2–5 | Roles: untick "Refund and adjust" for Staff, see "1 person with this role loses…", the access history | Owner-configurable RBAC, audited, can't lock yourself out |
+| 5–8 | The assistant: the morning check-in, then "reorder what's under par" (Gerstley borate has nothing requested, so it proposes one) and approve it under Assistant suggestions | MCP on the official SDK; assistants propose, people decide |
 | 8–11 | Supplies' invoice inbox: upload a photo live; the draft beside the photo; a line matched to stock; then **Compare readers** on the handwritten one | Untrusted input to an LLM with one output schema; checks that explain themselves; three readers side by side with time and cost, and why any didn't run |
-| 11–13 | Webhooks: send a test, show the signed payload and the delivery log | Standard Webhooks, SSRF-safe, retried |
+| 11–13 | Webhooks: the delivery log, with the Roles change from minute 2 already in it; send a test; the signed payload in the bin | Standard Webhooks, SSRF-safe, retried |
 | 13–15 | The repo: README diagram, ADRs, CI checks, Error Prone and NullAway with `-Werror` | How it's built |
 
 ## Afterwards
 
 1. Admin > Limits > **End now**, if the boost is still running.
-2. Revoke the demo token (Settings > API tokens).
+2. Revoke the demo token (Settings > API access).
 3. Note what was slow or confusing in `docs/pilot/diary.md`.

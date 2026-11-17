@@ -80,6 +80,52 @@ describe('Supplies inbox', () => {
     expect(saved?.total).toBe('170.00');
   });
 
+  it('lets a confirm that failed after its save be fixed and tried again', async () => {
+    const studio = aStudio();
+    const saves: { expectedVersion: number }[] = [];
+    let confirms = 0;
+    server.use(
+      http.put(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, async ({ request }) => {
+        const body = (await request.json()) as { expectedVersion: number };
+        saves.push(body);
+        if (body.expectedVersion !== 2 + saves.length - 1) {
+          return HttpResponse.json({ title: 'Conflict', status: 409 }, { status: 409 });
+        }
+        return HttpResponse.json({ ...read, version: body.expectedVersion + 1 });
+      }),
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([clay])),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv1', status: 'NEEDS_LOOK', fileType: 'PDF', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () => HttpResponse.json(read)),
+      http.post(`${API}/api/v1/studios/:studioId/invoices/:invoiceId/confirm`, () => {
+        confirms += 1;
+        return confirms === 1
+          ? HttpResponse.json(
+              { title: 'Invalid input', status: 400, detail: 'Line 1 needs a quantity above zero to receive.' },
+              { status: 400 },
+            )
+          : HttpResponse.json({ ...read, status: 'CONFIRMED', version: 5 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+    await user.click(await screen.findByRole('button', { name: 'Confirm and receive stock' }));
+    await waitFor(() => expect(confirms).toBe(1));
+    await user.click(screen.getByRole('button', { name: 'Confirm and receive stock' }));
+
+    await waitFor(() => expect(confirms).toBe(2));
+    // The second save named the version the first one made, so it didn't conflict
+    expect(saves.map((save) => save.expectedVersion)).toEqual([2, 3]);
+  });
+
   it('shows the implied unit price when the invoice prints only the line amount', async () => {
     const studio = aStudio();
     server.use(

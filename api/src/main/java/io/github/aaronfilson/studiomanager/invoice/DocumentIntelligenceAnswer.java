@@ -2,8 +2,10 @@ package io.github.aaronfilson.studiomanager.invoice;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -60,6 +62,75 @@ record DocumentIntelligenceAnswer(
   int pages() {
     List<Page> read = analyzeResult == null ? null : analyzeResult.pages();
     return read == null ? 0 : read.size();
+  }
+
+  /**
+   * The answer as it's kept: only the fields {@link #toDraft} reads. The invoice model also returns
+   * the customer's name and addresses ({@code CustomerName}, {@code BillingAddress}, ...), which
+   * the draft never uses, so they aren't stored (docs/planning/24, Compare change 6).
+   */
+  DocumentIntelligenceAnswer kept() {
+    List<AnalyzedDocument> read = analyzeResult == null ? null : analyzeResult.documents();
+    if (analyzeResult == null || read == null) {
+      return this;
+    }
+    List<AnalyzedDocument> documents =
+        read.stream().map(document -> new AnalyzedDocument(only(document.fields(), READ))).toList();
+    return new DocumentIntelligenceAnswer(
+        status, new AnalyzeResult(analyzeResult.pages(), documents), error);
+  }
+
+  private static final Set<String> READ =
+      Set.of(
+          "VendorName",
+          "InvoiceId",
+          "InvoiceDate",
+          "SubTotal",
+          "TotalTax",
+          "InvoiceTotal",
+          "Items");
+
+  private static final Set<String> LINE_READ =
+      Set.of("Description", "ProductCode", "Quantity", "Unit", "UnitPrice", "Amount");
+
+  private static @Nullable Map<String, Field> only(
+      @Nullable Map<String, Field> fields, Set<String> names) {
+    if (fields == null) {
+      return null;
+    }
+    Map<String, Field> kept = new LinkedHashMap<>();
+    fields.forEach((name, field) -> {
+      if (names.contains(name)) {
+        kept.put(name, "Items".equals(name) ? keptItems(field) : field);
+      }
+    });
+    return kept;
+  }
+
+  private static Field keptItems(Field items) {
+    List<Field> lines = items.valueArray();
+    return new Field(
+        items.type(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        lines == null
+            ? null
+            : lines.stream()
+                .map(line ->
+                    new Field(
+                        line.type(),
+                        line.content(),
+                        line.valueString(),
+                        line.valueDate(),
+                        line.valueNumber(),
+                        line.valueCurrency(),
+                        null,
+                        only(line.valueObject(), LINE_READ)))
+                .toList(),
+        null);
   }
 
   InvoiceDraft toDraft() {

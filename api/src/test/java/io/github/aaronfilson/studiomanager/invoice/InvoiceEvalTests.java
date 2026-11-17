@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.invoice;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -110,6 +111,30 @@ class InvoiceEvalTests {
     assertThat(score.linesRight()).isEqualTo(4);
     assertThat(score.linesTotal()).isEqualTo(5);
     assertThat(score.needsNoEdits()).isFalse();
+  }
+
+  @Test
+  void aMissedLineCostsOneLineNotEveryLineAfterIt() {
+    InvoiceDraft expected =
+        draft(
+            InvoiceChecksTests.line("Fireclay", "1", "17.50", "17.50"),
+            InvoiceChecksTests.line("Dolomite", "1", "32.00", "32.00"),
+            InvoiceChecksTests.line("Talc", "1", "21.50", "21.50"));
+    InvoiceDraft read =
+        draft(
+            InvoiceChecksTests.line("Fireclay", "1", "17.50", "17.50"),
+            InvoiceChecksTests.line("Talc", "1", "21.50", "21.50"));
+
+    InvoiceScorer.Score score = InvoiceScorer.score(expected, read);
+
+    assertThat(score.linesRight()).isEqualTo(2);
+    assertThat(score.linesTotal()).isEqualTo(3);
+    assertThat(score.needsNoEdits()).isFalse();
+  }
+
+  private static InvoiceDraft draft(InvoiceDraft.Line... lines) {
+    return new InvoiceDraft(
+        "Clay Co", null, null, null, null, null, new BigDecimal("71.00"), List.of(lines));
   }
 
   @Test

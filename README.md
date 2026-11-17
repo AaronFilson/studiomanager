@@ -13,8 +13,8 @@ on Java 25 and PostgreSQL. The clients are a React web app and an Expo mobile ap
 
 **Status:** a dev environment runs on Azure (West US), deployed by CI on every merge to `main`.
 No studio uses it yet. The [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty
-Azure subscription to a running environment. The current plan is the
-[pre-production cleanup](docs/planning/20-pre-production-cleanup-plan.md).
+Azure subscription to a running environment. The current plan is
+[reading real invoices](docs/planning/24-invoice-reading-upgrade-plan.md).
 
 ## Feature tour
 
@@ -39,7 +39,8 @@ Azure subscription to a running environment. The current plan is the
   changes arrive as suggestions that staff approve or reject.
 - **Webhooks and events.** Signed outbound webhooks to a studio's own tools, and an optional Kafka
   event stream.
-- **Platform admin.** Per-studio limits on the platform-paid invoice readers, with temporary boosts.
+- **Platform admin.** Which studios may use the platform-paid invoice readers, with monthly page
+  caps, and per-studio API call limits with temporary boosts.
 - **Demo studio.** "Demo Clay Co.", seeded with members, kilns, pieces and more, to try the app on.
 
 ## Architecture
@@ -214,7 +215,7 @@ When the images exist, replace this section with:
 ![Pieces](docs/screenshots/pieces.png)
 ![Kiln load](docs/screenshots/kiln-load.png)
 ![Invoice review, comparing readers](docs/screenshots/invoice-compare-readers.png)
-![Admin: reader limits and boosts](docs/screenshots/admin-limits.png)
+![Admin: invoice readers and call limits](docs/screenshots/admin-limits.png)
 ![Assistant suggestions](docs/screenshots/assistant-suggestions.png)
 -->
 
@@ -222,7 +223,7 @@ When the images exist, replace this section with:
 
 - [Architecture decision records](docs/adr)
 - [Plans and research](docs/planning), including the
-  [pre-production cleanup plan](docs/planning/20-pre-production-cleanup-plan.md)
+  [invoice reading plan](docs/planning/24-invoice-reading-upgrade-plan.md)
 - [Runbooks](docs/runbooks)
 
 ## License

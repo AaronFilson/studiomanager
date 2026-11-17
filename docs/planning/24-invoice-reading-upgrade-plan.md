@@ -419,8 +419,27 @@ below, and each was checked in the code. None needs Google.
   - The list refreshes while anything is being read.
 - **Docs.** The README and the demo runbook are corrected.
 
-**Not yet:** schema v2 and everything after it in the list above. Also the private eval's
-before-and-after run, which needs the owner's original photos and key.
+**2026-11-16, later, on `demo-polish`:**
+
+- **Kept answers hold no customer details** (Compare change 6). Azure's and Google's kept answers
+  keep only the fields the mapping reads, so a customer's name and address are never stored.
+- **The scorer aligns lines in order** before scoring them (scoring change 1), so one missed line
+  costs one line.
+- **Compare runs the readers at the same time** (Compare change 3), each bound to the caller's
+  studio, so it takes as long as the slowest reader.
+- **From a review of PR #49:**
+  - Replacing the key answers with the new key, not the cached old one.
+  - A confirm that fails after its save can be fixed and retried without a 409.
+  - The demo reset saves the carried key first, and joins the admin before moving the rules, so a
+    late failure loses neither.
+  - An upload that fails is thrown away, the list polls only while something is being read, and
+    an invoice can't be discarded mid-read.
+  - A provider answer with an unknown status is logged by its code, never with its body.
+  - A very large photo is subsampled as it's decoded and shrunk before it's turned.
+
+**Not yet:** schema v2, the checks' false-alarm count, splits, the generator, and keeping score
+after confirming. Also the private eval's before-and-after run, which needs the owner's original
+photos and key.
 
 ## Questions for the owner
 
@@ -434,8 +453,10 @@ before-and-after run, which needs the owner's original photos and key.
 
 "The first real invoice taught me more than the synthetic ones. The model read every line right,
 and my own checks raised twelve false alarms. So I built the eval from real photos: handwritten
-forms, receipts lying on top, a packing list with another invoice showing through. I score the
-checks as well as the reader, and every change since is a number in the report. The real invoices
-are mine, so they stay off GitHub. CI runs on synthetic and openly licensed ones, and the private
-set runs on my machine. Compare readers puts a general model next to two purpose-built OCR services
-on the same photo, with time and cost, and keeps score against what staff confirm."
+forms, receipts lying on top, a packing list with another invoice showing through. Every rule in
+the prompt is tied to one of those cases, and every change is a number in the report. The real
+invoices are mine, so they stay off GitHub. CI runs on synthetic ones, and the private set runs on
+my machine. Compare readers puts a general model next to two purpose-built OCR services on the same
+photo, at the same time, with time and cost. The services' answers are kept without the customer's
+name or address. Next is scoring the checks' false alarms, and keeping score against what staff
+confirm."

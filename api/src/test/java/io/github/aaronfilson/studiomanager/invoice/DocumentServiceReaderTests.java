@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.UnknownHttpStatusCodeException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -66,6 +67,43 @@ class DocumentServiceReaderTests {
     ReaderResult result = google().toResult(Files.readString(CLAY.resolve("google.json")));
 
     assertThat(result.raw()).contains("supplier_name").doesNotContain("mimeType", "confidence");
+  }
+
+  @Test
+  void keptAnswersHoldNoCustomerDetails() {
+    String googleAnswer =
+        """
+        {"document": {"pages": [{"pageNumber": 1}], "entities": [
+          {"type": "supplier_name", "mentionText": "Clay Co"},
+          {"type": "receiver_name", "mentionText": "Pat Potter"},
+          {"type": "ship_to_address", "mentionText": "12 Elm St"},
+          {"type": "line_item", "mentionText": "Fireclay 17.50", "properties": [
+            {"type": "line_item/description", "mentionText": "Fireclay"},
+            {"type": "line_item/amount", "mentionText": "17.50"}]}]}}
+        """;
+    ReaderResult google = google().toResult(googleAnswer);
+
+    assertThat(google.raw()).contains("Clay Co", "Fireclay").doesNotContain("Pat Potter", "Elm");
+    assertThat(google.draft().lines()).hasSize(1);
+
+    AzureInvoiceReader azure = azure();
+    String azureAnswer =
+        """
+        {"status": "succeeded", "analyzeResult": {"pages": [{"pageNumber": 1}], "documents": [
+          {"fields": {
+            "VendorName": {"type": "string", "valueString": "Clay Co"},
+            "CustomerName": {"type": "string", "valueString": "Pat Potter"},
+            "BillingAddress": {"type": "address", "content": "12 Elm St"},
+            "Items": {"type": "array", "content": "Pat Potter Fireclay 17.50", "valueArray": [
+              {"type": "object", "valueObject": {
+                "Description": {"type": "string", "valueString": "Fireclay"},
+                "Amount": {"type": "currency", "valueCurrency": {"amount": 17.50}}}}]}}}]}}
+        """;
+    ReaderResult kept = azure.toResult(azure.parse(azureAnswer));
+
+    assertThat(kept.raw()).contains("Clay Co", "Fireclay").doesNotContain("Pat Potter", "Elm");
+    // What's kept still maps to the same draft, so a kept answer can be scored again later
+    assertThat(azure.toResult(azure.parse(kept.raw())).draft()).isEqualTo(kept.draft());
   }
 
   @Test
@@ -186,6 +224,17 @@ class DocumentServiceReaderTests {
         .isEqualTo("HTTP 400 InvalidRequest InvalidContentLength")
         .doesNotContain("Laguna");
     assertThat(tooLarge.getCause()).isNull();
+
+    // A status Spring doesn't know still goes by its code, never as the cause with its body
+    InvoiceReadException odd =
+        DocumentServiceCalls.failure(
+            "Azure AI Document Intelligence",
+            new UnknownHttpStatusCodeException(
+                599, "Odd", null, "Total 465.00 for Laguna".getBytes(), null));
+
+    assertThat(odd.failure()).isEqualTo(InvoiceReadException.Failure.UNAVAILABLE);
+    assertThat(odd.detail()).startsWith("HTTP 599").doesNotContain("Laguna");
+    assertThat(odd.getCause()).isNull();
   }
 
   static GoogleInvoiceReader google() {

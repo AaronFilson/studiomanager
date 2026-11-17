@@ -121,12 +121,18 @@ public class AiKeys {
       throw new InvalidInputException(
           "That doesn't look like an Anthropic API key. It starts with sk-ant-.");
     }
+    // The current consent is read in its own transaction: loading the entity in the saving one
+    // would leave the stale copy cached, and the answer would show the old key
+    boolean consent =
+        allowPlatformReaders != null
+            ? allowPlatformReaders
+            : Boolean.TRUE.equals(
+                transactions.execute(tx ->
+                    keys.findById(studioId)
+                        .map(AiProviderKey::allowsPlatformReaders)
+                        .orElse(false)));
     return Objects.requireNonNull(
         transactions.execute(tx -> {
-          boolean consent =
-              allowPlatformReaders != null
-                  ? allowPlatformReaders
-                  : keys.findById(studioId).map(AiProviderKey::allowsPlatformReaders).orElse(false);
           queries.save(
               studioId,
               provider,
