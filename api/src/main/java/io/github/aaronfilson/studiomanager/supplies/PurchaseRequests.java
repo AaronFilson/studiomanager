@@ -11,6 +11,8 @@ import io.github.aaronfilson.studiomanager.supplies.SupplyModel.PurchaseRequest;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.RequestStatus;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -94,5 +96,35 @@ public class PurchaseRequests {
           request.item().id(), MovementKind.RECEIVED, request.quantity(), "Purchase received");
     }
     return supplies.view(request);
+  }
+
+  /**
+   * An item's stock came in another way, on a confirmed supplier invoice, which has already
+   * recorded it. The item's oldest request on its way (ordered before approved) is marked received
+   * without moving any stock, so marking it received later can't count the delivery twice, and the
+   * item no longer shows as on order. The caller checked its own permission to receive stock.
+   *
+   * @return the request it settled, if the item had one on its way
+   */
+  @Transactional
+  public Optional<PurchaseRequest> settleOnWay(UUID itemId) {
+    TenantContext caller = TenantContext.require();
+    List<PurchaseRequestEntity> onWay =
+        requestRepository.findForItemByStatusIn(
+            itemId, List.of(RequestStatus.ORDERED, RequestStatus.APPROVED));
+    Optional<PurchaseRequestEntity> oldest =
+        onWay.stream()
+            .filter(request -> request.status() == RequestStatus.ORDERED)
+            .findFirst()
+            .or(() -> onWay.stream().findFirst());
+    oldest.ifPresent(request ->
+        request.moveTo(
+            RequestStatus.RECEIVED,
+            false,
+            caller.accountId(),
+            caller.viaTokenId(),
+            clock.instant()));
+    requestRepository.flush();
+    return oldest.map(supplies::view);
   }
 }

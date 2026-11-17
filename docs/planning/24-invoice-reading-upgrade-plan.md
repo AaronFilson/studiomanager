@@ -342,7 +342,8 @@ below, and each was checked in the code. None needs Google.
   - the handwritten form, where they don't, and where the reader's note explains the total.
 - **Seed the glaze materials** that the demo invoices list, so "Receive into" fills itself.
 - **Show the matcher learning:** match a line by hand, confirm, upload the same invoice again, and
-  it matches itself.
+  it matches itself. Once `next-steps` is merged, the review also says it's a repeat and Confirm
+  refuses it, so the same delivery can't be received twice.
 - **Demo as the owner.** Compare is shown to anyone who manages supplies, but the API needs the
   owner's AI-key permission, so staff get a 403. **Fix (S):** gate the button the same way.
 - **Quote numbers only from a real eval run.** The two synthetic cases' recorded answers were
@@ -447,6 +448,17 @@ below, and each was checked in the code. None needs Google.
   right, beyond the invoice's own) and misses (a draft that needs edits, with nothing raised). CI
   holds the recorded set to none of either; the live eval's report and the private set's totals
   show both.
+- **Stock is received once** (found by tracing confirm, 2026-11-16):
+  - **The same invoice again:** an invoice with the same supplier and number as a confirmed one
+    says so on review, and confirming it is refused (`InvoiceDuplicates`). One without a number,
+    such as a counter form, is never a repeat.
+  - **The order it delivers:** confirming settles each received item's oldest request on its way
+    (ordered before approved) without moving stock again (`PurchaseRequests.settleOnWay`), so
+    marking that request received later can't count the delivery twice.
+  - **Units:** the review says what each matched line receives in the item's unit, and warns when
+    the invoice counts in another ("100 lb" into an item counted in "50 lb box").
+- **Open, for the owner:** keeping what was paid per item (a migration; "what did we pay for B-Mix
+  last time?"), and making a new supply item from a line that matches none.
 
 **Not yet:** schema v2, splits, the generator, and keeping score after confirming. Also the private eval's before-and-after run, which needs the owner's original
 photos and key.

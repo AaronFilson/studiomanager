@@ -24,4 +24,14 @@ interface PurchaseRequestRepository extends JpaRepository<PurchaseRequestEntity,
       order by r.requestedAt, r.id
       """)
   List<PurchaseRequestEntity> findWithItemByStatusIn(Collection<RequestStatus> statuses);
+
+  /** One item's requests in these statuses, oldest first. */
+  @Query(
+      """
+      select r from PurchaseRequestEntity r join fetch r.item
+      where r.item.id = :itemId and r.status in :statuses
+      order by r.requestedAt, r.id
+      """)
+  List<PurchaseRequestEntity> findForItemByStatusIn(
+      UUID itemId, Collection<RequestStatus> statuses);
 }

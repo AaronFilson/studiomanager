@@ -11,6 +11,7 @@ import io.github.aaronfilson.studiomanager.TestUser;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -122,6 +123,82 @@ class InvoiceApiTests {
         .bodyJson()
         .extractingPath("$.lines[0].matchSource")
         .isEqualTo("ALIAS_SKU");
+  }
+
+  @Test
+  void confirmingSettlesTheOrderItDeliversAndTheSameInvoiceCannotBeReceivedTwice()
+      throws Exception {
+    setKey(KEY);
+    // Five boxes of B-Mix were ordered; the invoice is that delivery
+    MvcTestResult requested =
+        post(
+            owner,
+            path("/purchase-requests"),
+            "{\"itemId\": \"%s\", \"quantity\": \"5\"}".formatted(bMix));
+    String request = read(requested, "$.id");
+    MvcTestResult approved = decide(request, "APPROVED", version(requested));
+    MvcTestResult ordered = decide(request, "ORDERED", version(approved));
+    assertThat(ordered).bodyJson().extractingPath("$.status").isEqualTo("ORDERED");
+
+    String invoice = upload("PDF", PDF);
+    long version = version(awaitRead(invoice));
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version)))
+        .hasStatusOk();
+
+    // Received once, by the invoice; the request is closed (the list is the open ones) without
+    // receiving it again, and nothing is on order any more
+    assertThat(onHand(bMix)).startsWith("5");
+    assertThat(new BigDecimal(supplyField(bMix, "onOrder"))).isZero();
+    List<String> open =
+        JsonPath.read(
+            get(owner, path("/purchase-requests")).getResponse().getContentAsString(),
+            "$[?(@.id == '%s')].status".formatted(request));
+    assertThat(open).isEmpty();
+
+    // The same invoice again: the review says so, and confirming it is refused
+    String again = upload("PDF", PDF);
+    MvcTestResult repeat = awaitRead(again);
+    assertThat(repeat)
+        .bodyJson()
+        .extractingPath("$.problems")
+        .asArray()
+        .anySatisfy(problem ->
+            assertThat(problem)
+                .asString()
+                .containsIgnoringCase(
+                    "Invoice RB-20417 from Riverbend Clay Supply is already confirmed"));
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + again + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version(repeat))))
+        .hasStatus(HttpStatus.CONFLICT);
+    assertThat(onHand(bMix)).startsWith("5");
+  }
+
+  private MvcTestResult decide(String request, String to, long version) {
+    return send(
+        owner,
+        HttpMethod.PUT,
+        path("/purchase-requests/" + request + "/status"),
+        "{\"to\": \"%s\", \"expectedVersion\": %d}".formatted(to, version));
+  }
+
+  private String onHand(String item) throws Exception {
+    return supplyField(item, "onHand");
+  }
+
+  /** There's no single-item read; the item comes from the supplies list. */
+  private String supplyField(String item, String field) throws Exception {
+    List<Object> values =
+        JsonPath.read(
+            get(owner, path("/supplies")).getResponse().getContentAsString(),
+            "$[?(@.id == '%s')].%s".formatted(item, field));
+    return String.valueOf(values.getFirst());
   }
 
   @Test

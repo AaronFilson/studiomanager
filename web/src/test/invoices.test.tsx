@@ -126,6 +126,42 @@ describe('Supplies inbox', () => {
     expect(saves.map((save) => save.expectedVersion)).toEqual([2, 3]);
   });
 
+  it('says what a line receives, and warns when the invoice counts in another unit', async () => {
+    const studio = aStudio();
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([clay])),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv1', status: 'READY', fileType: 'PDF', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () =>
+        HttpResponse.json({
+          ...read,
+          status: 'READY',
+          problems: [],
+          lines: [
+            { description: 'B-Mix 5', quantity: '5', unit: 'boxes', lineTotal: '162.50', supplyItemId: 'i1', matchSource: 'NAME' },
+            { description: 'B-Mix 5 loose', quantity: '100', unit: 'lb', lineTotal: '65.00', supplyItemId: 'i1', matchSource: 'STAFF' },
+          ],
+        }),
+      ),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+
+    // "boxes" counts in the item's own "50 lb box"
+    expect(await screen.findByLabelText('Line 1 item')).toHaveValue('i1');
+    expect(screen.getByText(/Receives 5/)).toHaveTextContent('Receives 5 50 lb box');
+    // 100 lb would be received as 100 boxes
+    expect(screen.getByText(/The invoice counts in lb; B-Mix 5 is counted in 50 lb box/)).toBeInTheDocument();
+  });
+
   it('shows the implied unit price when the invoice prints only the line amount', async () => {
     const studio = aStudio();
     server.use(

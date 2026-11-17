@@ -119,6 +119,10 @@ class Invoice {
     return vendorName;
   }
 
+  @Nullable String invoiceNumber() {
+    return invoiceNumber;
+  }
+
   List<InvoiceLine> lines() {
     return List.copyOf(lines);
   }

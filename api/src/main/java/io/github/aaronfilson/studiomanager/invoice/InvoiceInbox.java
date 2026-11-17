@@ -30,13 +30,19 @@ class InvoiceInbox {
   private final InvoiceRepository invoices;
   private final BlobStore blobs;
   private final ApplicationEventPublisher events;
+  private final InvoiceDuplicates duplicates;
   private final Clock clock;
 
   InvoiceInbox(
-      InvoiceRepository invoices, BlobStore blobs, ApplicationEventPublisher events, Clock clock) {
+      InvoiceRepository invoices,
+      BlobStore blobs,
+      ApplicationEventPublisher events,
+      InvoiceDuplicates duplicates,
+      Clock clock) {
     this.invoices = invoices;
     this.blobs = blobs;
     this.events = events;
+    this.duplicates = duplicates;
     this.clock = clock;
   }
 
@@ -110,8 +116,12 @@ class InvoiceInbox {
   Opened open(UUID studioId, UUID invoiceId) {
     requireBound(studioId);
     Invoice invoice = find(invoiceId);
+    // A confirmed invoice is the original, never a repeat of itself
     return new Opened(
-        invoice.toView(InvoiceChecks.problems(invoice.draft())),
+        invoice.toView(
+            invoice.status() == InvoiceStatus.CONFIRMED
+                ? InvoiceChecks.problems(invoice.draft())
+                : duplicates.problems(invoice)),
         blobs.readUrl(
             InvoiceBlobs.name(studioId, invoiceId, invoice.fileType()),
             invoice.fileType().mediaType()));
