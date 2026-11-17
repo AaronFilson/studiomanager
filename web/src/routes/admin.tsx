@@ -270,7 +270,7 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
   );
 }
 
-/** Re-seeding Demo Clay Co., and a read-only token for an assistant during a demo. */
+/** Re-seeding Demo Clay Co., and a token for an assistant during a demo: it reads and proposes. */
 function DemoStudio() {
   const id = useId();
   const queryClient = useQueryClient();
@@ -315,7 +315,7 @@ function DemoStudio() {
       {token && (
         <div className="stack" role="status">
           <p>
-            A read-only token for {token.studioName}, valid until {new Date(token.expiresAt).toLocaleString()}. Copy it
+            A token for {token.studioName} that reads and proposes (people approve), valid until {new Date(token.expiresAt).toLocaleString()}. Copy it
             now: it won’t be shown again.
           </p>
           <code aria-label="Demo token">{token.secret}</code>

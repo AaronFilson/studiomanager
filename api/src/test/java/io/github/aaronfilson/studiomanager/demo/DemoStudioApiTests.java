@@ -61,7 +61,7 @@ class DemoStudioApiTests {
     assertThat(readList(get(studio + "/maintenance/assets"), "$[*]")).hasSize(6);
     assertThat(readList(get(studio + "/supplies"), "$[*]"))
         .hasSize(7 + DemoSeed.GLAZE_MATERIALS.size());
-    assertThat(readList(get(studio + "/purchase-requests"), "$[*]")).hasSize(3);
+    assertThat(readList(get(studio + "/purchase-requests"), "$[*]")).hasSize(2);
     // Fees and sales charged to members, less what they paid
     assertThat(readList(get(studio + "/balances"), "$[*]")).isNotEmpty();
   }

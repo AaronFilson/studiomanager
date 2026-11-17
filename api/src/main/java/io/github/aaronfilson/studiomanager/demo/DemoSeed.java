@@ -522,21 +522,20 @@ class DemoSeed {
                 null,
                 null),
             "30");
-    UUID gerstley =
-        supply(
-            staff,
-            new ItemSettings(
-                "Gerstley borate",
-                Category.GLAZE_MATERIAL,
-                "lb",
-                "Bailey Pottery",
-                10,
-                new BigDecimal("10"),
-                new BigDecimal("25"),
-                null,
-                null,
-                null),
-            "8");
+    supply(
+        staff,
+        new ItemSettings(
+            "Gerstley borate",
+            Category.GLAZE_MATERIAL,
+            "lb",
+            "Bailey Pottery",
+            10,
+            new BigDecimal("10"),
+            new BigDecimal("25"),
+            null,
+            null,
+            null),
+        "8");
 
     // The glaze room's raw materials, named the short way supplier invoices write them, so an
     // invoice uploaded in a demo matches its lines to stock (docs/planning/24). All above par.
@@ -562,10 +561,11 @@ class DemoSeed {
     sell(staff, wax, context(as, DemoPeople.SAM).accountId(), "1");
     sell(staff, sponges, context(as, DemoPeople.JUN).accountId(), "3");
 
-    // Purchase requests: two waiting for the owner, one approved and ordered
+    // Purchase requests: one waiting for the owner, one approved and ordered. Gerstley borate is
+    // under par with nothing requested, so the assistant's "reorder what's under par" has
+    // something to propose (docs/runbooks/demo-rehearsal.md, minutes 5–8)
     TenantContext.callAs(
         staff, () -> purchases.request(buff, null, "Running low after the beginners' class."));
-    TenantContext.callAs(staff, () -> purchases.request(gerstley, null, null));
     PurchaseRequest elements =
         TenantContext.callAs(
             staff, () -> purchases.request(element, null, "For the test kiln, and a spare."));
