@@ -419,7 +419,7 @@ below, and each was checked in the code. None needs Google.
   - The list refreshes while anything is being read.
 - **Docs.** The README and the demo runbook are corrected.
 
-**2026-11-16, later, on `demo-polish`:**
+**2026-11-16, later: PR #51 (`demo-polish`), merged the night before the demo.**
 
 - **Kept answers hold no customer details** (Compare change 6). Azure's and Google's kept answers
   keep only the fields the mapping reads, so a customer's name and address are never stored.
@@ -436,9 +436,19 @@ below, and each was checked in the code. None needs Google.
     an invoice can't be discarded mid-read.
   - A provider answer with an unknown status is logged by its code, never with its body.
   - A very large photo is subsampled as it's decoded and shrunk before it's turned.
+- **The tour matches the app** (from walking the demo runbook against the code): the Roles
+  warning's grammar, a seeded under-par item with nothing requested for the assistant to reorder,
+  the demo token's copy, the README's current plan and admin limits, and the runbook's reset,
+  webhook and put-the-stage-back steps.
 
-**Not yet:** schema v2, the checks' false-alarm count, splits, the generator, and keeping score
-after confirming. Also the private eval's before-and-after run, which needs the owner's original
+**2026-11-16, on `next-steps` (merge after the demo):**
+
+- **The eval scores the checks** (scoring change 2): false alarms (problems raised on a draft read
+  right, beyond the invoice's own) and misses (a draft that needs edits, with nothing raised). CI
+  holds the recorded set to none of either; the live eval's report and the private set's totals
+  show both.
+
+**Not yet:** schema v2, splits, the generator, and keeping score after confirming. Also the private eval's before-and-after run, which needs the owner's original
 photos and key.
 
 ## Questions for the owner
@@ -458,5 +468,5 @@ the prompt is tied to one of those cases, and every change is a number in the re
 invoices are mine, so they stay off GitHub. CI runs on synthetic ones, and the private set runs on
 my machine. Compare readers puts a general model next to two purpose-built OCR services on the same
 photo, at the same time, with time and cost. The services' answers are kept without the customer's
-name or address. Next is scoring the checks' false alarms, and keeping score against what staff
-confirm."
+name or address. The eval scores what staff are told, too: a false alarm on a right draft, or a
+wrong draft that raised nothing. Next is keeping score against what staff confirm."

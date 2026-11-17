@@ -52,7 +52,11 @@ class LiveInvoiceEval {
 
   /** One set's results. */
   private record Run(
-      List<String> rows, List<InvoiceScorer.Score> scores, List<Long> millis, BigDecimal cost) {}
+      List<String> rows,
+      List<InvoiceScorer.Score> scores,
+      List<InvoiceScorer.Checked> checks,
+      List<Long> millis,
+      BigDecimal cost) {}
 
   @Test
   void readEveryInvoiceAndWriteTheReport() throws IOException {
@@ -97,7 +101,7 @@ class LiveInvoiceEval {
               : """
 
               The owner's private set (%d invoices, not named here): field accuracy %.1f%%, line
-              accuracy %.1f%%, %d need no edits.
+              accuracy %.1f%%, %d need no edits; the checks raised %d false alarms and missed %d.
               """
                   .formatted(
                       privateRun.scores().size(),
@@ -105,7 +109,11 @@ class LiveInvoiceEval {
                       100 * InvoiceEvalTests.lineAccuracy(privateRun.scores()),
                       privateRun.scores().stream()
                           .filter(InvoiceScorer.Score::needsNoEdits)
-                          .count());
+                          .count(),
+                      privateRun.checks().stream()
+                          .mapToInt(InvoiceScorer.Checked::falseAlarms)
+                          .sum(),
+                      privateRun.checks().stream().filter(InvoiceScorer.Checked::missed).count());
       Path folder = Path.of("../docs/evals");
       Files.createDirectories(folder);
       Files.writeString(folder.resolve(name), report(title, publicRun, privateTotals));
@@ -116,6 +124,7 @@ class LiveInvoiceEval {
       throws IOException {
     List<String> rows = new ArrayList<>();
     List<InvoiceScorer.Score> scores = new ArrayList<>();
+    List<InvoiceScorer.Checked> checks = new ArrayList<>();
     List<Long> millis = new ArrayList<>();
     BigDecimal cost = BigDecimal.ZERO;
     for (Path folder : cases) {
@@ -132,20 +141,23 @@ class LiveInvoiceEval {
       try {
         result = reader.readWith(client, new InvoiceFile(content, file.get().getValue()));
       } catch (InvoiceReadException e) {
-        rows.add("| %s | failed: %s |||||".formatted(folder.getFileName(), e.getMessage()));
+        rows.add("| %s | failed: %s |||||||".formatted(folder.getFileName(), e.getMessage()));
         continue;
       }
       long elapsed = Duration.ofNanos(System.nanoTime() - started).toMillis();
       Files.writeString(folder.resolve("claude.json"), result.raw());
       InvoiceDraft read = InvoiceDrafts.sanitize(result.draft(), LocalDate.now()).draft();
-      InvoiceScorer.Score score = InvoiceScorer.score(InvoiceEvalTests.expected(folder), read);
+      InvoiceDraft expected = InvoiceEvalTests.expected(folder);
+      InvoiceScorer.Score score = InvoiceScorer.score(expected, read);
+      InvoiceScorer.Checked checked = InvoiceScorer.checks(expected, read, score);
       scores.add(score);
+      checks.add(checked);
       millis.add(elapsed);
       BigDecimal spent =
           result.usage().costUsd() == null ? BigDecimal.ZERO : result.usage().costUsd();
       cost = cost.add(spent);
       rows.add(
-          "| %s | %d/%d | %d/%d | %s | %d | %.1f s | $%s |"
+          "| %s | %d/%d | %d/%d | %s | %d | %d | %s | %.1f s | $%s |"
               .formatted(
                   folder.getFileName(),
                   score.fieldsRight(),
@@ -154,31 +166,38 @@ class LiveInvoiceEval {
                   score.linesTotal(),
                   score.needsNoEdits() ? "yes" : "no",
                   InvoiceChecks.problems(read).size(),
+                  checked.falseAlarms(),
+                  checked.missed() ? "yes" : "no",
                   elapsed / 1000.0,
                   spent.setScale(4, RoundingMode.HALF_UP).toPlainString()));
     }
-    return new Run(rows, scores, millis, cost);
+    return new Run(rows, scores, checks, millis, cost);
   }
 
   private static String report(String title, Run run, String privateTotals) {
     List<Long> sorted = run.millis().stream().sorted().toList();
     long median = sorted.isEmpty() ? 0 : sorted.get(sorted.size() / 2);
     long noEdits = run.scores().stream().filter(InvoiceScorer.Score::needsNoEdits).count();
+    int falseAlarms = run.checks().stream().mapToInt(InvoiceScorer.Checked::falseAlarms).sum();
+    long missed = run.checks().stream().filter(InvoiceScorer.Checked::missed).count();
     return """
     # Invoice eval: Claude (%s)
 
-    Written by `LiveInvoiceEval`. Scores: numbers and dates exact, text normalized; a line is
-    right when its quantity, unit price and total all match (docs/planning/16, "Evaluation").
-    "Problems" is how many messages the checks raised on what was read.
+    Written by `LiveInvoiceEval`. Scores: numbers and dates exact, text normalized; lines aligned
+    in order, and a line is right when its quantity, unit price and total all match
+    (docs/planning/16, "Evaluation"). "Problems" is how many messages the checks raised on what
+    was read. "False alarms" are problems raised on a right draft beyond the invoice's own;
+    "missed" is a draft that needs edits with nothing raised (docs/planning/24, "Scoring changes").
 
     - **Field accuracy:** %.1f%%
     - **Line accuracy:** %.1f%%
     - **Needs no edits:** %d of %d
+    - **The checks:** %d false alarms, %d missed
     - **Median time per invoice:** %.1f s
     - **Cost:** $%s in all, from the configured prices
     %s
-    | Case | Fields | Lines | No edits | Problems | Time | Cost |
-    |---|---|---|---|---|---|---|
+    | Case | Fields | Lines | No edits | Problems | False alarms | Missed | Time | Cost |
+    |---|---|---|---|---|---|---|---|---|
     %s
     """
         .formatted(
@@ -187,6 +206,8 @@ class LiveInvoiceEval {
             100 * InvoiceEvalTests.lineAccuracy(run.scores()),
             noEdits,
             run.scores().size(),
+            falseAlarms,
+            missed,
             median / 1000.0,
             run.cost().setScale(4, RoundingMode.HALF_UP).toPlainString(),
             privateTotals,

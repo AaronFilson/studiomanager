@@ -78,6 +78,26 @@ public final class InvoiceScorer {
     return best[0][0];
   }
 
+  /**
+   * How the checks did on one draft: what staff are told, scored, not just what the reader said
+   * (docs/planning/24, "Scoring changes" 2). The expected draft's own problems are real (a total
+   * that covers only part of a paid-in-two order), so they never count as false alarms.
+   *
+   * @param falseAlarms messages raised on a draft that was read right, beyond the expected draft's
+   * @param missed a draft that needs edits, with nothing raised to say so
+   */
+  public record Checked(int falseAlarms, boolean missed) {}
+
+  public static Checked checks(InvoiceDraft expected, InvoiceDraft read, Score score) {
+    List<String> raised = InvoiceChecks.problems(read);
+    if (score.needsNoEdits()) {
+      List<String> real = InvoiceChecks.problems(expected);
+      return new Checked(
+          (int) raised.stream().filter(problem -> !real.contains(problem)).count(), false);
+    }
+    return new Checked(0, raised.isEmpty());
+  }
+
   private static boolean sameLine(InvoiceDraft.Line expected, InvoiceDraft.Line read) {
     return sameAmount(expected.quantity(), read.quantity())
         && sameAmount(expected.unitPrice(), read.unitPrice())
