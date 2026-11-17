@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.invoice;
 
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Component;
  * <p>The order is decided here, and nowhere else.
  */
 @Component
-class InvoiceReaders {
+public class InvoiceReaders {
 
   private final Map<InvoiceReaderKind, InvoiceReader> readers;
   private final PlatformReaderRules rules;
@@ -34,9 +35,21 @@ class InvoiceReaders {
     return inOrder().stream().filter(InvoiceReader::canReadForBoundStudio).findFirst();
   }
 
-  /** Every reader that can read for the bound studio now, in its order: for "Compare readers". */
-  List<InvoiceReader> allForBoundStudio() {
-    return inOrder().stream().filter(InvoiceReader::canReadForBoundStudio).toList();
+  /**
+   * Every reader, the studio's order first and then any it leaves out, for "Compare readers", which
+   * shows a reader that can't read with the reason why rather than leaving it out.
+   */
+  List<InvoiceReader> everyForBoundStudio() {
+    List<InvoiceReader> ordered = new ArrayList<>(inOrder());
+    readers.values().stream().filter(reader -> !ordered.contains(reader)).forEach(ordered::add);
+    return List.copyOf(ordered);
+  }
+
+  /** Whether each reader has what it needs on this server, for the admin page. */
+  public Map<InvoiceReaderKind, Boolean> setUp() {
+    Map<InvoiceReaderKind, Boolean> setUp = new EnumMap<>(InvoiceReaderKind.class);
+    readers.forEach((kind, reader) -> setUp.put(kind, reader.setUp()));
+    return setUp;
   }
 
   private List<InvoiceReader> inOrder() {

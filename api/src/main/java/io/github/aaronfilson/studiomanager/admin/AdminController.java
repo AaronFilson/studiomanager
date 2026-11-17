@@ -207,7 +207,14 @@ class AdminController implements AdminApi {
         .settings(new InvoiceReaderSettingsDto().readers(readers).studioOrders(orders))
         .saved(overview.saved())
         .monthStart(utc(overview.monthStart()))
-        .usage(usage);
+        .usage(usage)
+        .setUp(
+            overview.setUp().entrySet().stream()
+                .filter(Map.Entry::getValue)
+                .map(Map.Entry::getKey)
+                .sorted()
+                .map(reader -> InvoiceReaderDto.fromValue(reader.name()))
+                .toList());
   }
 
   private static PlatformReaderUseDto use(

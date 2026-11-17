@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.demo;
 
+import io.github.aaronfilson.studiomanager.admin.StudioReplacements;
+import io.github.aaronfilson.studiomanager.ai.AiKeys;
 import io.github.aaronfilson.studiomanager.apitoken.ApiTokens;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
@@ -18,6 +20,7 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
@@ -53,6 +56,8 @@ class DemoStudio {
   private final StudioInvites invites;
   private final ApiTokens tokens;
   private final DemoSeed seed;
+  private final AiKeys keys;
+  private final StudioReplacements replacements;
   private final EventPublicationRegistry publications;
   private final Clock clock;
 
@@ -62,6 +67,8 @@ class DemoStudio {
       StudioInvites invites,
       ApiTokens tokens,
       DemoSeed seed,
+      AiKeys keys,
+      StudioReplacements replacements,
       EventPublicationRegistry publications,
       Clock clock) {
     this.accounts = accounts;
@@ -69,6 +76,8 @@ class DemoStudio {
     this.invites = invites;
     this.tokens = tokens;
     this.seed = seed;
+    this.keys = keys;
+    this.replacements = replacements;
     this.publications = publications;
     this.clock = clock;
   }
@@ -96,9 +105,16 @@ class DemoStudio {
         throw new IllegalStateException("The demo owner has an account");
       }
       TenantContext owner = TenantContext.forAccount(ownerId);
-      for (UUID studioId : demoStudios(owner)) {
+      List<UUID> old = demoStudios(owner);
+      // The studio's AI key and consent are kept for the new studio, so invoice reading survives
+      Optional<AiKeys.CarriedKey> key = Optional.empty();
+      for (UUID studioId : old) {
+        TenantContext inOld = owner.inStudio(studioId, StudioRole.OWNER);
+        if (key.isEmpty()) {
+          key = TenantContext.callAs(inOld, keys::carryOver);
+        }
         TenantContext.callAs(
-            owner.inStudio(studioId, StudioRole.OWNER),
+            inOld,
             () -> {
               studios.deleteCurrent();
               return null;
@@ -126,6 +142,13 @@ class DemoStudio {
       }
       Instant seeding = clock.instant();
       DemoSeed.Seeded seeded = seed.seed(people);
+      key.ifPresent(carried ->
+          TenantContext.callAs(
+              inStudio,
+              () ->
+                  keys.set(carried.provider(), carried.secret(), carried.allowPlatformReaders())));
+      // As the admin who asked: the readers' rules are platform settings
+      replacements.replaced(Set.copyOf(old), studio.id());
       // Last, so the admin isn't notified of everything the seed did
       if (!accountIds.containsValue(adminAccountId)) {
         join(inStudio, adminAccountId, StudioRole.OWNER);
@@ -158,7 +181,10 @@ class DemoStudio {
     }
   }
 
-  /** A read-only token for the demo studio, belonging to its seeded owner, valid for a day. */
+  /**
+   * A token for the demo studio, belonging to its seeded owner, valid for a day. It reads, and it
+   * proposes, which a person then approves: the assistant segment of the demo shows both.
+   */
   DemoToken token() {
     UUID ownerId = DemoPeople.MARA.accountId(accounts);
     TenantContext owner = TenantContext.forAccount(ownerId);
@@ -170,7 +196,9 @@ class DemoStudio {
     ApiTokens.Created created =
         TenantContext.callAs(
             owner.inStudio(studioId, StudioRole.OWNER),
-            () -> tokens.create("Demo assistant", Set.of(TokenScope.READ), TOKEN_DAYS));
+            () ->
+                tokens.create(
+                    "Demo assistant", Set.of(TokenScope.READ, TokenScope.PROPOSE), TOKEN_DAYS));
     return new DemoToken(
         studioId, NAME, created.token().name(), created.secret(), created.token().expiresAt());
   }

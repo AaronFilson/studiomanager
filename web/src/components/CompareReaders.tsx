@@ -15,6 +15,7 @@ const outcomeLabels: Record<ComparedRead['outcome'], string> = {
   REFUSED_CREDENTIALS: 'sign-in refused',
   UNAVAILABLE: 'unavailable',
   UNREADABLE: 'couldn’t read it',
+  SKIPPED: 'didn’t run',
 };
 
 const rows: { label: string; value: (read: ComparedRead) => string | undefined }[] = [
@@ -33,13 +34,16 @@ const rows: { label: string; value: (read: ComparedRead) => string | undefined }
 ];
 
 /**
- * "Compare readers": reads this invoice with every reader the studio may use and shows what each
- * read, side by side, with its time and cost. Owner only; the invoice's own draft doesn't change.
+ * "Compare readers": reads this invoice with every reader, side by side, with its time and cost. A
+ * reader that may not read for the studio, or that failed, says why once, at the top of its column.
+ * Owner only; the invoice's own draft doesn't change.
  */
 export function CompareReaders({ studioId, invoiceId }: { studioId: string; invoiceId: string }) {
   const id = useId();
   const compare = useMutation(compareInvoiceReadersMutation());
   const results = compare.data?.results;
+  const read = results?.filter((result) => result.outcome === 'READ') ?? [];
+  const longest = Math.max(0, ...read.map((result) => result.lines.length));
 
   return (
     <section className="stack" aria-labelledby={`${id}-title`}>
@@ -55,34 +59,93 @@ export function CompareReaders({ studioId, invoiceId }: { studioId: string; invo
         </button>
       </div>
       {compare.isError && <ErrorMessage error={compare.error} />}
-      {results && results.length === 0 && (
-        <p role="status">No reader may read for this studio. Add an Anthropic key, or ask the admin.</p>
-      )}
       {results && results.length > 0 && (
-        <table>
-          <caption>What each reader read</caption>
-          <thead>
-            <tr>
-              <th scope="col" />
-              {results.map((read) => (
-                <th key={read.reader} scope="col">
-                  {readerLabels[read.reader]} <span className="badge">{outcomeLabels[read.outcome]}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.label}>
-                <th scope="row">{row.label}</th>
-                {results.map((read) => (
-                  <td key={read.reader}>{row.value(read) ?? read.note ?? '—'}</td>
+        <div className="invoice-lines">
+          <table className="table">
+            <caption>What each reader read</caption>
+            <thead>
+              <tr>
+                <th scope="col" />
+                {results.map((result) => (
+                  <th key={result.reader} scope="col">
+                    {readerLabels[result.reader]} <span className="badge">{outcomeLabels[result.outcome]}</span>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {results.some((result) => result.note) && (
+                <tr>
+                  <th scope="row">Why not</th>
+                  {results.map((result) => (
+                    <td key={result.reader} className={result.note ? 'warning' : undefined}>
+                      {result.note ?? '—'}
+                    </td>
+                  ))}
+                </tr>
+              )}
+              {rows.map((row) => (
+                <tr key={row.label}>
+                  <th scope="row">{row.label}</th>
+                  {results.map((result) => (
+                    <td key={result.reader}>{result.outcome === 'READ' ? (row.value(result) ?? '—') : '—'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {read.length > 0 && longest > 0 && (
+        <div className="invoice-lines">
+          <table className="table">
+            <caption>Lines, as each reader read them (quantity × unit price = total)</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                {read.map((result) => (
+                  <th key={result.reader} scope="col">
+                    {readerLabels[result.reader]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: longest }, (_, index) => {
+                const cells = read.map((result) => lineText(result, index));
+                // Only the numbers count: each reader spells descriptions its own way
+                const differ = new Set(read.map((result) => lineNumbers(result, index))).size > 1;
+                return (
+                  <tr key={index}>
+                    <th scope="row">{String(index + 1)}</th>
+                    {cells.map((cell, at) => (
+                      <td key={read[at]?.reader} className={differ ? 'warning' : undefined}>
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
+}
+
+function lineNumbers(result: ComparedRead, index: number): string {
+  const line = result.lines[index];
+  const amount = (value: string | undefined) => (value === undefined ? '' : String(Number(value)));
+  return line ? [amount(line.quantity), amount(line.unitPrice), amount(line.lineTotal)].join('|') : '';
+}
+
+function lineText(result: ComparedRead, index: number): string {
+  const line = result.lines[index];
+  if (!line) {
+    return '—';
+  }
+  const quantity = line.quantity ?? '?';
+  const price = line.unitPrice ?? '?';
+  return `${line.description}: ${quantity} × ${price} = ${line.lineTotal ?? '?'}`;
 }

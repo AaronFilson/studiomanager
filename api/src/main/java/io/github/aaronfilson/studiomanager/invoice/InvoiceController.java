@@ -14,6 +14,7 @@ import io.github.aaronfilson.studiomanager.contract.InvoiceSummaryDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceUploadDto;
 import io.github.aaronfilson.studiomanager.contract.InvoicesApi;
 import io.github.aaronfilson.studiomanager.contract.ReaderComparisonDto;
+import io.github.aaronfilson.studiomanager.contract.ReaderSkipReasonDto;
 import io.github.aaronfilson.studiomanager.contract.SaveInvoiceDraftRequestDto;
 import io.github.aaronfilson.studiomanager.contract.StartInvoiceUploadRequestDto;
 import io.github.aaronfilson.studiomanager.platform.Capped;
@@ -139,10 +140,18 @@ class InvoiceController implements InvoicesApi {
   }
 
   private static ComparedReadDto toDto(ReaderComparison.Compared compared) {
+    InvoiceRead.Outcome outcome = compared.outcome();
     ComparedReadDto dto =
         new ComparedReadDto()
             .reader(InvoiceReaderDto.fromValue(compared.reader().name()))
-            .outcome(InvoiceReadOutcomeDto.fromValue(compared.outcome().name()))
+            .outcome(
+                outcome == null
+                    ? InvoiceReadOutcomeDto.SKIPPED
+                    : InvoiceReadOutcomeDto.fromValue(outcome.name()))
+            .skipReason(
+                compared.availability().ready()
+                    ? null
+                    : ReaderSkipReasonDto.fromValue(compared.availability().name()))
             .note(compared.note())
             .elapsedMs(compared.elapsedMs())
             .problems(compared.problems())

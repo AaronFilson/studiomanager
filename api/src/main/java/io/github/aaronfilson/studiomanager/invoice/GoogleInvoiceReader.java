@@ -62,8 +62,13 @@ class GoogleInvoiceReader implements InvoiceReader {
   }
 
   @Override
-  public boolean canReadForBoundStudio() {
-    return properties.configured() && gate.allows(kind());
+  public ReaderAvailability availabilityForBoundStudio() {
+    return properties.configured() ? gate.availability(kind()) : ReaderAvailability.NOT_SET_UP;
+  }
+
+  @Override
+  public boolean setUp() {
+    return properties.configured();
   }
 
   @Override
@@ -139,10 +144,13 @@ class GoogleInvoiceReader implements InvoiceReader {
     GoogleCredentials held = credentials();
     try {
       held.refreshIfExpired();
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
+      // The token exchange (STS) or the impersonation failed: the cause says which, and why
       throw new InvoiceReadException(
           InvoiceReadException.Failure.UNAVAILABLE,
-          "Couldn't sign in to Google Document AI. The admin needs to check its setup.");
+          "Couldn't sign in to Google Document AI. The admin needs to check its setup.",
+          "workload identity federation",
+          e);
     }
     AccessToken token = held.getAccessToken();
     if (token == null) {

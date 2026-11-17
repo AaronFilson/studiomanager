@@ -136,13 +136,18 @@ flowchart LR
   ([ADR 22](docs/adr/0022-mcp-on-the-official-sdk.md)). Assistants sign in with personal API
   tokens ([ADR 19](docs/adr/0019-personal-api-tokens.md)). A change an assistant proposes waits as
   a pending action, and approving it runs the normal service call as the person who approved.
-- **Invoice readers** sit behind one interface: Claude, Google Document AI and Azure Document
-  Intelligence. Google is reached keylessly from Azure by workload identity federation
-  ([ADR 18](docs/adr/0018-invoice-readers.md), [24](docs/adr/0024-platform-admin-and-live-settings.md)).
+- **Invoice readers** sit behind one interface: Claude on the studio's own key, and the
+  platform's Azure Document Intelligence and Google Document AI, which the admin turns on per
+  studio under page caps. Google is reached keylessly from Azure by workload identity federation
+  once its project is applied ([runbook](docs/runbooks/google-document-ai.md)). "Compare readers"
+  runs one invoice through all three and says why any of them didn't run
+  ([ADR 18](docs/adr/0018-invoice-readers.md), [24](docs/adr/0024-platform-admin-and-live-settings.md),
+  [plan 24](docs/planning/24-invoice-reading-upgrade-plan.md)).
 - **Identity** comes from Microsoft Entra External ID; the API is a plain OAuth resource server
   ([ADR 7](docs/adr/0007-identity-with-entra-external-id.md)). A small bridge app adds GitHub
   sign-in ([ADR 20](docs/adr/0020-github-sign-in-bridge.md)).
-- **No stored secrets.** The API reaches Postgres through its managed identity, and migrations run
+- **No passwords or service keys.** The API reaches Postgres through its managed identity, and
+  studios' own AI keys are stored encrypted under a key Terraform generates. Migrations run
   as a separate job under a separate identity
   ([ADR 5](docs/adr/0005-passwordless-database-and-migration-job.md)). GitHub Actions signs in to
   Azure through OIDC federation and applies Terraform
@@ -152,8 +157,9 @@ flowchart LR
 
 ## Engineering practices
 
-- **NullAway** runs through **Error Prone** on every compile, in JSpecify mode. Error Prone's
-  other checks are not on yet.
+- **Error Prone** runs on every compile of the main code with its default checks, and
+  **NullAway** runs through it in JSpecify mode. Every javac lint and Error Prone warning fails the
+  build (`-Werror`). Test code is compiled without Error Prone.
 - **Spotless** with google-java-format; the Gradle build checks it.
 - **Testcontainers integration tests** against real PostgreSQL and Kafka, run in CI.
 - **CodeQL** on pushes, pull requests and weekly; **Dependabot** for updates.

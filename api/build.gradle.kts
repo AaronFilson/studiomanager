@@ -52,6 +52,8 @@ dependencies {
     // Google Document AI over REST, signed in keylessly from Azure by workload identity federation.
     // Only the auth library: the gRPC client would bring gRPC and protobuf for one call.
     implementation(libs.google.auth.oauth2.http)
+    // A photo's EXIF orientation, for the upright copy of an invoice the readers get (plan 24)
+    implementation(libs.metadata.extractor)
     // MCP on the official SDK (ADR 22): the SDK handles the protocol, and Spring AI's WebMVC
     // transport only reads requests and writes responses. Not the Spring AI starter.
     implementation(libs.mcp)

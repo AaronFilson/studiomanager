@@ -1,8 +1,14 @@
 package io.github.aaronfilson.studiomanager.invoice;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A reader couldn't read the invoice. The message is shown to staff, so it must never carry the
  * key, the provider's raw body, or anything the invoice said.
+ *
+ * <p>The cause and the detail are for the log only, so an admin can find out why a provider failed:
+ * an HTTP status and the provider's own error code, or a sign-in error. Neither may hold the
+ * provider's body, which can quote the invoice.
  */
 public class InvoiceReadException extends RuntimeException {
 
@@ -17,13 +23,25 @@ public class InvoiceReadException extends RuntimeException {
   }
 
   private final Failure failure;
+  private final @Nullable String detail;
 
   public InvoiceReadException(Failure failure, String message) {
-    super(message);
+    this(failure, message, null, null);
+  }
+
+  public InvoiceReadException(
+      Failure failure, String message, @Nullable String detail, @Nullable Throwable cause) {
+    super(message, cause);
     this.failure = failure;
+    this.detail = detail;
   }
 
   public Failure failure() {
     return failure;
+  }
+
+  /** For the log: what the provider said went wrong, without anything from the invoice. */
+  public @Nullable String detail() {
+    return detail;
   }
 }

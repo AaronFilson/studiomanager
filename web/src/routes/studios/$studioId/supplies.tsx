@@ -54,7 +54,7 @@ function SuppliesPage() {
         ))}
       </ul>
       {staff && <Requests studioId={studioId} canApprove={can('supplies.purchase.approve')} />}
-      {staff && <InvoiceInbox studioId={studioId} />}
+      {can('invoices.manage') && <InvoiceInbox studioId={studioId} canCompare={can('studio.ai_key.manage')} />}
       {staff && <AddItemForm studioId={studioId} currency={studio.currency} />}
     </div>
   );

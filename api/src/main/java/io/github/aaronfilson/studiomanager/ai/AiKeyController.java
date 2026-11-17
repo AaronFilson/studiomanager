@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.ai;
 import io.github.aaronfilson.studiomanager.contract.AiApi;
 import io.github.aaronfilson.studiomanager.contract.AiKeyStatusDto;
 import io.github.aaronfilson.studiomanager.contract.AiProviderDto;
+import io.github.aaronfilson.studiomanager.contract.PlatformReaderConsentDto;
 import io.github.aaronfilson.studiomanager.contract.SetAiKeyRequestDto;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import java.time.ZoneOffset;
@@ -35,7 +36,14 @@ class AiKeyController implements AiApi {
             keys.set(
                 AiKeys.Provider.valueOf(request.getProvider().getValue()),
                 request.getApiKey(),
-                Boolean.TRUE.equals(request.getAllowPlatformReaders()))));
+                request.getAllowPlatformReaders())));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'STUDIO_AI_KEY_MANAGE')")
+  public ResponseEntity<AiKeyStatusDto> setPlatformReaderConsent(
+      UUID studioId, PlatformReaderConsentDto request) {
+    return ResponseEntity.ok(dto(keys.allowPlatformReaders(request.getAllowPlatformReaders())));
   }
 
   @Override

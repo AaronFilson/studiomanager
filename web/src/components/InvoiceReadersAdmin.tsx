@@ -89,6 +89,7 @@ function ReadersForm({ overview, studios }: { overview: InvoiceReaderOverview; s
           rule={rule}
           studios={studios}
           usage={overview.usage.find((use) => use.reader === rule.reader)}
+          setUp={(overview.setUp ?? []).includes(rule.reader)}
           onChange={(changed) => updateRule(index, changed)}
         />
       ))}
@@ -144,11 +145,13 @@ function ReaderRuleFields({
   rule,
   studios,
   usage,
+  setUp,
   onChange,
 }: {
   rule: PlatformReaderRule;
   studios: AdminStudio[];
   usage: InvoiceReaderOverview['usage'][number] | undefined;
+  setUp: boolean;
   onChange: (rule: PlatformReaderRule) => void;
 }) {
   const id = useId();
@@ -156,6 +159,11 @@ function ReaderRuleFields({
   return (
     <fieldset className="stack">
       <legend>{label}</legend>
+      <p role="status" className={setUp ? undefined : 'warning'}>
+        {setUp
+          ? 'Set up on this server.'
+          : 'Not set up on this server, so it never reads, whatever is chosen here. See docs/runbooks/google-document-ai.md.'}
+      </p>
       <p role="status">
         This month: {String(usage?.pages ?? 0)} pages in {String(usage?.reads ?? 0)} reads, about $
         {usage?.costUsd ?? '0.0000'}.

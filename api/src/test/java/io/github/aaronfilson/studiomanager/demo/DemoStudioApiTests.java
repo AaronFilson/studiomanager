@@ -59,7 +59,8 @@ class DemoStudioApiTests {
     assertThat(readList(get(studio + "/glazes?owner=STUDIO"), "$[*]")).hasSize(3);
     assertThat(readList(get(studio + "/glazes?owner=SHARED"), "$[*]")).hasSize(1);
     assertThat(readList(get(studio + "/maintenance/assets"), "$[*]")).hasSize(6);
-    assertThat(readList(get(studio + "/supplies"), "$[*]")).hasSize(7);
+    assertThat(readList(get(studio + "/supplies"), "$[*]"))
+        .hasSize(7 + DemoSeed.GLAZE_MATERIALS.size());
     assertThat(readList(get(studio + "/purchase-requests"), "$[*]")).hasSize(3);
     // Fees and sales charged to members, less what they paid
     assertThat(readList(get(studio + "/balances"), "$[*]")).isNotEmpty();
@@ -111,6 +112,49 @@ class DemoStudioApiTests {
     reset();
     assertThat(mvc.get().uri(kilns).header("Authorization", bearer))
         .hasStatus(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void aResetKeepsInvoiceReadingOnForTheNewStudio() {
+    UUID first = reset();
+    String key = "sk-ant-api03-" + "d".repeat(40) + "Demo";
+    assertThat(
+            mvc.put()
+                .uri("/api/v1/studios/" + first + "/ai-key")
+                .with(admin.token())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"provider": "ANTHROPIC", "apiKey": "%s", "allowPlatformReaders": true}
+                    """
+                        .formatted(key)))
+        .hasStatusOk();
+
+    UUID second = reset();
+
+    // The key and the owner's consent came across, and the readers' rules name the new studio
+    MvcTestResult carried = get("/api/v1/studios/" + second + "/ai-key");
+    assertThat(read(carried, "$.lastFour")).isEqualTo("Demo");
+    assertThat(read(carried, "$.allowPlatformReaders")).isEqualTo("true");
+    MvcTestResult readers =
+        mvc.get().uri("/api/v1/admin/invoice-readers").with(admin.adminToken()).exchange();
+    assertThat(readers).hasStatusOk();
+    assertThat(readList(readers, "$.settings.readers[*].studioIds[*]"))
+        .isNotEmpty()
+        .allMatch(second.toString()::equals);
+  }
+
+  @Test
+  void aDemoTokenMayProposeForTheAssistantSegment() {
+    reset();
+    MvcTestResult created =
+        mvc.post().uri("/api/v1/admin/demo-studio/tokens").with(admin.adminToken()).exchange();
+    assertThat(created).hasStatus(HttpStatus.CREATED);
+    String studioId = read(created, "$.studioId");
+
+    List<String> scopes =
+        readList(get("/api/v1/studios/" + studioId + "/api-tokens"), "$[*].scopes[*]");
+    assertThat(scopes).contains("read", "propose");
   }
 
   @Test

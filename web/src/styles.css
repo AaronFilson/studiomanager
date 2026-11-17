@@ -299,6 +299,60 @@ select {
   opacity: 0.55;
 }
 
+/* The supplies inbox's review: the invoice beside its draft on a wide screen, above it on a phone */
+.invoice-review {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 70rem) {
+  .invoice-review {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: start;
+  }
+
+  .invoice-review > .invoice-file {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.invoice-file {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: auto;
+  max-height: 80vh;
+}
+
+.invoice-file img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: center;
+}
+
+.invoice-file iframe {
+  display: block;
+  width: 100%;
+  height: 78vh;
+  border: 0;
+}
+
+.invoice-lines {
+  overflow-x: auto;
+}
+
+.invoice-lines input {
+  width: 100%;
+  min-width: 5rem;
+}
+
+.invoice-lines td:first-child input {
+  min-width: 12rem;
+}
+
 .pre {
   white-space: pre-line;
 }

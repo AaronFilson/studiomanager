@@ -141,6 +141,9 @@ studiomanager:
     # recorded with each read (checked 2026-11-06).
     claude:
       model: ${STUDIOMANAGER_INVOICES_CLAUDE_MODEL:claude-opus-5-5}
+      # low, medium, high, xhigh or max. Medium is Opus 5.5's own default; the eval decides whether
+      # photos of handwritten forms earn more (docs/planning/24, "Settings")
+      effort: ${STUDIOMANAGER_INVOICES_CLAUDE_EFFORT:medium}
       input-usd-per-million: 4.00
       output-usd-per-million: 20.00
     # The platform-paid readers (docs/planning/20, "Invoice readers"). Each is off until its

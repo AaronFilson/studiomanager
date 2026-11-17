@@ -146,7 +146,9 @@ class InvoiceApiTests {
     assertThat(saved)
         .bodyJson()
         .extractingPath("$.problems[0]")
-        .isEqualTo("The subtotal, tax and shipping add up to 10.00, but the total is 999.00.");
+        .isEqualTo(
+            "The line adds up to 10.00. The total is 999.00, 989.00 more: check for tax, shipping"
+                + " or a fee that wasn't read.");
     assertThat(saved).bodyJson().extractingPath("$.lines[0].supplyItemId").isNull();
   }
 
@@ -162,15 +164,65 @@ class InvoiceApiTests {
   }
 
   @Test
-  void compareReadersRunsOnlyTheReadersTheStudioMayUse() throws Exception {
+  void compareReadersListsEveryReaderAndSaysWhyOneDidNotRun() throws Exception {
     String invoice = upload("PNG", PNG);
     awaitRead(invoice);
 
-    // No key, and the platform's readers are off by default: nobody may read
+    // No key, and the platform's readers aren't set up here: nobody runs, and each says why
     MvcTestResult compared = post(owner, path("/invoices/" + invoice + "/compare-readers"), "");
 
     assertThat(compared).hasStatusOk();
-    assertThat(compared).bodyJson().extractingPath("$.results.length()").isEqualTo(0);
+    assertThat(compared).bodyJson().extractingPath("$.results.length()").isEqualTo(3);
+    assertThat(compared).bodyJson().extractingPath("$.results[0].reader").isEqualTo("CLAUDE");
+    assertThat(compared).bodyJson().extractingPath("$.results[0].outcome").isEqualTo("SKIPPED");
+    assertThat(compared).bodyJson().extractingPath("$.results[0].skipReason").isEqualTo("NO_KEY");
+    assertThat(compared)
+        .bodyJson()
+        .extractingPath("$.results[1].skipReason")
+        .isEqualTo("NOT_SET_UP");
+    assertThat(compared)
+        .bodyJson()
+        .extractingPath("$.results[2].note")
+        .asString()
+        .contains("isn't set up");
+
+    // With a key, Claude reads and the others still say why they didn't
+    setKey(KEY);
+    MvcTestResult again = post(owner, path("/invoices/" + invoice + "/compare-readers"), "");
+    assertThat(again).bodyJson().extractingPath("$.results[0].outcome").isEqualTo("READ");
+    assertThat(again).bodyJson().extractingPath("$.results[0].total").isEqualTo("265.03");
+    assertThat(again).bodyJson().extractingPath("$.results[1].outcome").isEqualTo("SKIPPED");
+  }
+
+  @Test
+  void consentToThePlatformsReadersIsItsOwnSwitchAndSurvivesANewKey() {
+    // No key yet: nothing to save the consent with
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/ai-key/platform-readers"),
+                "{\"allowPlatformReaders\": true}"))
+        .hasStatus(HttpStatus.NOT_FOUND);
+
+    setKey(KEY);
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/ai-key/platform-readers"),
+                "{\"allowPlatformReaders\": true}"))
+        .hasStatusOk()
+        .bodyJson()
+        .extractingPath("$.allowPlatformReaders")
+        .isEqualTo(true);
+
+    // Replacing the key without saying keeps the consent
+    setKey(KEY);
+    assertThat(get(owner, path("/ai-key")))
+        .bodyJson()
+        .extractingPath("$.allowPlatformReaders")
+        .isEqualTo(true);
   }
 
   @Test
