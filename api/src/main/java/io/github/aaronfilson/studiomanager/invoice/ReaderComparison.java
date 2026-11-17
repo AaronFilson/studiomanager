@@ -3,12 +3,17 @@ package io.github.aaronfilson.studiomanager.invoice;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * "Compare readers": one invoice through every reader, one after another, with what each read, how
+ * "Compare readers": one invoice through every reader at the same time, with what each read, how
  * long it took and what it cost (docs/planning/20, "Invoice readers"). A reader that may not read
  * for the studio is listed with the reason instead of being left out (docs/planning/24). The
  * invoice's own draft is left alone. Each run is recorded in {@code invoice_read} like any other,
@@ -89,23 +94,44 @@ class ReaderComparison {
             new InvoiceFile(
                 blobs.head(InvoiceBlobs.name(studioId, invoiceId, type), InvoiceBlobs.MAX_BYTES),
                 type));
+    // The readers run at the same time, so Compare takes as long as the slowest one, not all of
+    // them added up. Each task is bound to the caller's studio: row-level security reads it.
+    TenantContext caller = TenantContext.require();
+    List<Future<Compared>> goes = new ArrayList<>();
+    try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+      for (InvoiceReader reader : readers.everyForBoundStudio()) {
+        goes.add(
+            pool.submit(() -> TenantContext.callAs(caller, () -> go(reader, invoiceId, file))));
+      }
+    }
     List<Compared> compared = new ArrayList<>();
-    for (InvoiceReader reader : readers.everyForBoundStudio()) {
-      ReaderAvailability availability = reader.availabilityForBoundStudio();
-      compared.add(
-          availability.ready()
-              ? run(reader, invoiceId, file)
-              : new Compared(
-                  reader.kind(),
-                  availability,
-                  null,
-                  null,
-                  List.of(),
-                  availability.reason(),
-                  0,
-                  null));
+    for (Future<Compared> go : goes) {
+      compared.add(result(go));
     }
     return compared;
+  }
+
+  private Compared go(InvoiceReader reader, UUID invoiceId, InvoiceFile file) {
+    ReaderAvailability availability = reader.availabilityForBoundStudio();
+    return availability.ready()
+        ? run(reader, invoiceId, file)
+        : new Compared(
+            reader.kind(), availability, null, null, List.of(), availability.reason(), 0, null);
+  }
+
+  /** A finished go; the pool has closed, so every one is done. */
+  private static Compared result(Future<Compared> go) {
+    try {
+      return go.get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Compare readers was interrupted", e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException cause) {
+        throw cause;
+      }
+      throw new IllegalStateException("A reader failed in Compare readers", e.getCause());
+    }
   }
 
   private Compared run(InvoiceReader reader, UUID invoiceId, InvoiceFile file) {

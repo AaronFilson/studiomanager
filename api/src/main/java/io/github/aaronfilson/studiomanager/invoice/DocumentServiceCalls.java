@@ -10,9 +10,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * What the two document-service readers share: an HTTP client with timeouts, and turning a failed
@@ -38,7 +39,8 @@ final class DocumentServiceCalls {
   }
 
   static InvoiceReadException failure(String provider, RestClientException e) {
-    if (e instanceof HttpStatusCodeException status) {
+    // Any answer with a status, including one Spring doesn't know (UnknownHttpStatusCodeException)
+    if (e instanceof RestClientResponseException status) {
       int code = status.getStatusCode().value();
       // Not the exception as the cause: its message carries the body, which can quote the invoice
       String detail = "HTTP %d %s".formatted(code, errorCodes(status.getResponseBodyAsString()));
@@ -64,11 +66,12 @@ final class DocumentServiceCalls {
           detail,
           null);
     }
+    // Only a connection failure is kept as the cause; its message names the host, not the answer
     return new InvoiceReadException(
         InvoiceReadException.Failure.UNAVAILABLE,
         unreachableMessage(provider),
         e.getClass().getSimpleName(),
-        e);
+        e instanceof ResourceAccessException ? e : null);
   }
 
   static InvoiceReadException unreachable(String provider) {

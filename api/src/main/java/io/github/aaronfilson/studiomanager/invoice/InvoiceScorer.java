@@ -2,13 +2,15 @@ package io.github.aaronfilson.studiomanager.invoice;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Scores a reader's draft against a hand-written expected one (docs/planning/16, "Evaluation").
  * Numbers and dates must match exactly; text is compared normalized (case, punctuation and spacing
- * don't count). A line is right when its quantity, unit price and total all match.
+ * don't count). A line is right when its quantity, unit price and total all match; lines are
+ * aligned in order first, so one missed line costs one line.
  *
  * <p>Shared by the eval in CI, the live eval report, and lane F1g's "Compare readers".
  */
@@ -48,16 +50,32 @@ public final class InvoiceScorer {
     right += sameAmount(expected.tax(), read.tax()) ? 1 : 0;
     right += sameAmount(expected.total(), read.total()) ? 1 : 0;
     int linesTotal = Math.max(expected.lines().size(), read.lines().size());
-    int linesRight = 0;
-    for (int index = 0; index < Math.min(expected.lines().size(), read.lines().size()); index++) {
-      linesRight += sameLine(expected.lines().get(index), read.lines().get(index)) ? 1 : 0;
-    }
+    int linesRight = alignedLinesRight(expected.lines(), read.lines());
     return new Score(
         right,
         HEADER_FIELDS,
         linesRight,
         linesTotal,
         right == HEADER_FIELDS && linesRight == linesTotal);
+  }
+
+  /**
+   * How many lines are right once the two lists are aligned in order: the longest run of matching
+   * lines that keeps both orders. Comparing line N with line N would mark every line after a missed
+   * or extra one wrong (docs/planning/24, "Scoring changes").
+   */
+  private static int alignedLinesRight(
+      List<InvoiceDraft.Line> expected, List<InvoiceDraft.Line> read) {
+    int[][] best = new int[expected.size() + 1][read.size() + 1];
+    for (int e = expected.size() - 1; e >= 0; e--) {
+      for (int r = read.size() - 1; r >= 0; r--) {
+        best[e][r] =
+            sameLine(expected.get(e), read.get(r))
+                ? best[e + 1][r + 1] + 1
+                : Math.max(best[e + 1][r], best[e][r + 1]);
+      }
+    }
+    return best[0][0];
   }
 
   private static boolean sameLine(InvoiceDraft.Line expected, InvoiceDraft.Line read) {

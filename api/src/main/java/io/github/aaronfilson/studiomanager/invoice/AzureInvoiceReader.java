@@ -135,7 +135,7 @@ class AzureInvoiceReader implements InvoiceReader {
     int pages = DocumentServiceCalls.billedPages(answer.pages());
     return new ReaderResult(
         answer.toDraft(),
-        json.writeValueAsString(answer),
+        json.writeValueAsString(answer.kept()),
         new ReaderResult.Usage(
             MODEL,
             pages,

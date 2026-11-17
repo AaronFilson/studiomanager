@@ -14,10 +14,14 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import org.jspecify.annotations.Nullable;
 
@@ -50,7 +54,7 @@ final class ReadingCopy {
       return file;
     }
     try {
-      BufferedImage image = ImageIO.read(new ByteArrayInputStream(file.content()));
+      BufferedImage image = decode(file.content());
       if (image == null) {
         return file;
       }
@@ -59,11 +63,42 @@ final class ReadingCopy {
       if (orientation == 1 && scale >= 1 && file.content().length <= MOST_BYTES) {
         return file;
       }
-      BufferedImage upright = orient(image, orientation);
-      BufferedImage sized = scale >= 1 ? upright : resized(upright, scale);
-      return new InvoiceFile(jpeg(sized), InvoiceFileType.JPEG);
+      // Shrunk before it's turned, so there's never a second full-size copy in memory. A turn
+      // swaps the sides, which doesn't change the scale.
+      BufferedImage sized = scale >= 1 ? image : resized(image, scale);
+      return new InvoiceFile(jpeg(orient(sized, orientation)), InvoiceFileType.JPEG);
     } catch (IOException | RuntimeException e) {
       return file;
+    }
+  }
+
+  /**
+   * The image, decoded. A photo far larger than the copy (a 100-megapixel phone camera's) is
+   * decoded at every second, third, ... pixel, still at least twice the copy's size, so the
+   * full-size image is never held in memory. Null when no reader knows the format.
+   */
+  private static @Nullable BufferedImage decode(byte[] content) throws IOException {
+    try (ImageInputStream input =
+        ImageIO.createImageInputStream(new ByteArrayInputStream(content))) {
+      if (input == null) {
+        return null;
+      }
+      Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+      if (!readers.hasNext()) {
+        return null;
+      }
+      ImageReader reader = readers.next();
+      try {
+        reader.setInput(input, true, true);
+        int step = (int) Math.floor(0.5 / scale(reader.getWidth(0), reader.getHeight(0)));
+        ImageReadParam param = reader.getDefaultReadParam();
+        if (step > 1) {
+          param.setSourceSubsampling(step, step, 0, 0);
+        }
+        return reader.read(0, param);
+      } finally {
+        reader.dispose();
+      }
     }
   }
 

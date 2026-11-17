@@ -6,6 +6,7 @@ import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -49,6 +50,51 @@ record DocumentAiAnswer(@Nullable Document document) {
   int pages() {
     List<Page> read = document == null ? null : document.pages();
     return read == null ? 0 : read.size();
+  }
+
+  private static final Set<String> READ =
+      Set.of(
+          "supplier_name",
+          "invoice_id",
+          "invoice_date",
+          "net_amount",
+          "freight_amount",
+          "total_tax_amount",
+          "total_amount",
+          "line_item");
+
+  /**
+   * The answer as it's kept: only the entities {@link #toDraft} reads. The Invoice Parser also
+   * returns the customer's name and addresses ({@code receiver_name}, {@code ship_to_address},
+   * ...), which the draft never uses, so they aren't stored (docs/planning/24, Compare change 6).
+   */
+  DocumentAiAnswer kept() {
+    if (document == null) {
+      return this;
+    }
+    List<Entity> entities =
+        entitiesOf(document.entities()).stream()
+            .filter(entity -> isRead(entity.type()))
+            .map(entity ->
+                new Entity(
+                    entity.type(),
+                    entity.mentionText(),
+                    entity.normalizedValue(),
+                    entity.properties() == null
+                        ? null
+                        : entitiesOf(entity.properties()).stream()
+                            .filter(part -> isLinePart(part.type()))
+                            .toList()))
+            .toList();
+    return new DocumentAiAnswer(new Document(entities, document.pages()));
+  }
+
+  private static boolean isRead(@Nullable String type) {
+    return type != null && READ.contains(type);
+  }
+
+  private static boolean isLinePart(@Nullable String type) {
+    return type != null && type.startsWith("line_item/");
   }
 
   InvoiceDraft toDraft() {

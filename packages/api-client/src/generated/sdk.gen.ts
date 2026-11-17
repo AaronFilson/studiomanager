@@ -3456,7 +3456,7 @@ export const completeInvoiceUpload = <ThrowOnError extends boolean = false>(opti
 /**
  * Read the invoice with every reader allowed for the studio, side by side (owner)
  *
- * Runs each reader the studio may use now, one after another, and returns what each read,
+ * Runs each reader the studio may use now, all at the same time, and returns what each read,
  * how long it took and what it cost. The invoice's own draft doesn't change. Platform-paid
  * runs count toward the month's page caps. Waits for every reader, so it can take a minute.
  *

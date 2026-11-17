@@ -104,6 +104,19 @@ class AiKeyApiTests {
     assertThat(tested).bodyJson().extractingPath("$.status").isEqualTo("WORKING");
     assertThat(seenKey.get()).isEqualTo(KEY);
     assertThat(mvc.get().uri(path("/ai-key")).with(owner.token())).bodyText().doesNotContain(KEY);
+
+    // Replacing it without saying anything about consent answers with the new key, untested,
+    // and keeps the consent
+    String replacement = "sk-ant-api03-" + "c".repeat(40) + "Next";
+    MvcTestResult replaced =
+        send(
+            owner,
+            "PUT",
+            path("/ai-key"),
+            "{\"provider\": \"ANTHROPIC\", \"apiKey\": \"%s\"}".formatted(replacement));
+    assertThat(replaced).bodyJson().extractingPath("$.lastFour").isEqualTo("Next");
+    assertThat(replaced).bodyJson().extractingPath("$.status").isEqualTo("UNTESTED");
+    assertThat(replaced).bodyJson().extractingPath("$.allowPlatformReaders").isEqualTo(true);
   }
 
   @Test
