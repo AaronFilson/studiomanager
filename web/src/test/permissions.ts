@@ -9,6 +9,7 @@ const staffDefaults: PermissionKey[] = [
   'activity.read',
   'glazes.studio.edit',
   'imports.run',
+  'invoices.manage',
   'kilns.manage',
   'maintenance.manage',
   'members.invite',

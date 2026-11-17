@@ -36,8 +36,14 @@ class AzureInvoiceReader implements InvoiceReader {
   static final String API_VERSION = "2024-11-30";
 
   private static final String SCOPE = "https://cognitiveservices.azure.com/.default";
-  private static final Duration POLL_EVERY = Duration.ofSeconds(1);
-  private static final int MOST_POLLS = 90;
+
+  /**
+   * The free F0 tier allows one result poll a second, and Microsoft recommends no more than one
+   * every 2 seconds.
+   */
+  private static final Duration POLL_EVERY = Duration.ofSeconds(2);
+
+  private static final int MOST_POLLS = 60;
 
   private final AzureReaderProperties properties;
   private final PlatformReaderGate gate;
@@ -58,8 +64,13 @@ class AzureInvoiceReader implements InvoiceReader {
   }
 
   @Override
-  public boolean canReadForBoundStudio() {
-    return properties.configured() && gate.allows(kind());
+  public ReaderAvailability availabilityForBoundStudio() {
+    return properties.configured() ? gate.availability(kind()) : ReaderAvailability.NOT_SET_UP;
+  }
+
+  @Override
+  public boolean setUp() {
+    return properties.configured();
   }
 
   @Override
@@ -171,7 +182,9 @@ class AzureInvoiceReader implements InvoiceReader {
     } catch (RuntimeException e) {
       throw new InvoiceReadException(
           InvoiceReadException.Failure.UNAVAILABLE,
-          "Couldn't sign in to Azure AI Document Intelligence. The admin needs to check its setup.");
+          "Couldn't sign in to Azure AI Document Intelligence. The admin needs to check its setup.",
+          "managed identity token",
+          e);
     }
   }
 

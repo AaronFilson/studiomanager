@@ -61,7 +61,9 @@ The studio's consent for them is `ai_provider_key.allow_platform_readers` (renam
   Pages are counted from `invoice_read`; the platform total and the admin's per-studio view cross
   tenants through two `SECURITY DEFINER` functions (V38) that return only counts.
 - **Compare readers** runs one invoice through every reader the studio may use, records each run
-  like any other, and leaves the draft alone.
+  like any other, and leaves the draft alone. A reader that may not read for the studio is listed
+  with the reason (no key, not set up, not on for the studio, no consent, pages used up) instead
+  of being left out (plan 24).
 
 **The gate and the checks.**
 - `InvoiceDrafts.sanitize` cleans text and cuts it short, drops amounts beyond 9,999,999.99,
@@ -69,7 +71,8 @@ The studio's consent for them is `ai_provider_key.allow_platform_readers` (renam
   drops it notes, for staff; it never guesses.
 - `InvoiceChecks` requires the lines to add up to the subtotal within a cent per line, and the
   subtotal plus tax and shipping to the total within a cent. A draft that doesn't add up is
-  `NEEDS_LOOK`, not corrected.
+  `NEEDS_LOOK`, not corrected. A line is whole with a quantity and an amount; a unit price is
+  checked only where one is printed (plan 24). Each kind of problem is one message.
 
 **Matching.** In order: an alias for this vendor and the line's SKU; an alias for this vendor and
 the line's description; then the supply item whose name is most contained in the description, by

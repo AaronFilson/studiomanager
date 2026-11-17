@@ -538,6 +538,25 @@ class DemoSeed {
                 null),
             "8");
 
+    // The glaze room's raw materials, named the short way supplier invoices write them, so an
+    // invoice uploaded in a demo matches its lines to stock (docs/planning/24). All above par.
+    for (String material : GLAZE_MATERIALS) {
+      supply(
+          staff,
+          new ItemSettings(
+              material,
+              Category.GLAZE_MATERIAL,
+              "lb",
+              null,
+              7,
+              new BigDecimal("5"),
+              new BigDecimal("25"),
+              null,
+              null,
+              null),
+          "20");
+    }
+
     // Sales at the desk, charged to members' accounts
     sell(staff, bMix, context(as, DemoPeople.PRIYA).accountId(), "2");
     sell(staff, wax, context(as, DemoPeople.SAM).accountId(), "1");
@@ -556,8 +575,23 @@ class DemoSeed {
             () -> purchases.decide(elements.id(), RequestStatus.APPROVED, elements.version()));
     TenantContext.callAs(
         staff, () -> purchases.decide(approved.id(), RequestStatus.ORDERED, approved.version()));
-    return 7;
+    return 7 + GLAZE_MATERIALS.size();
   }
+
+  /** Glaze materials most studios stock, as invoices name them. */
+  static final List<String> GLAZE_MATERIALS =
+      List.of(
+          "Custer",
+          "EPK",
+          "Silica 325",
+          "Whiting",
+          "Talc",
+          "Dolomite",
+          "Zircopax",
+          "Copper carbonate",
+          "Cobalt carbonate",
+          "Red iron oxide",
+          "Redart");
 
   private UUID supply(TenantContext staff, ItemSettings settings, @Nullable String received) {
     UUID itemId = TenantContext.callAs(staff, () -> supplyItems.create(settings)).id();

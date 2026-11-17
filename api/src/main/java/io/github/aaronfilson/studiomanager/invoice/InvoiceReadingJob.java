@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -32,6 +34,8 @@ import org.springframework.transaction.support.TransactionOperations;
 class InvoiceReadingJob {
 
   static final int NOTE_LENGTH = 300;
+
+  private static final Logger log = LoggerFactory.getLogger(InvoiceReadingJob.class);
 
   private final InvoiceRepository invoices;
   private final InvoiceReadRepository reads;
@@ -94,16 +98,28 @@ class InvoiceReadingJob {
     InvoiceReader reader = chosen.get();
     byte[] content =
         blobs.head(InvoiceBlobs.name(studioId, invoiceId, type), InvoiceBlobs.MAX_BYTES);
+    InvoiceFile original = new InvoiceFile(content, type);
+    InvoiceFile copy = ReadingCopy.of(original);
+    String change = ReadingCopy.change(original, copy);
+    if (change != null) {
+      log.info("Invoice {}: the reading copy of the {}", invoiceId, change);
+    }
     long started = clock.millis();
     ReaderResult result = null;
     InvoiceRead.Outcome outcome;
     String note = null;
     try {
-      result = reader.read(new InvoiceFile(content, type));
+      result = reader.read(copy);
       outcome = InvoiceRead.Outcome.READ;
     } catch (InvoiceReadException e) {
+      InvoiceFailures.log(log, reader.kind(), invoiceId, e);
       outcome = InvoiceRead.Outcome.of(e.failure());
       note = e.getMessage();
+    } catch (RuntimeException e) {
+      // Anything else still ends as a draft to fill in, rather than waiting for the outbox's retry
+      InvoiceFailures.logUnexpected(log, reader.kind(), invoiceId, e);
+      outcome = InvoiceRead.Outcome.UNAVAILABLE;
+      note = InvoiceFailures.UNEXPECTED;
     }
     long elapsed = clock.millis() - started;
     ReaderResult answered = result;

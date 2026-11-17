@@ -55,6 +55,24 @@ public class AiKeys {
     }
   }
 
+  /** Whether the bound studio has a key an invoice can be read with. */
+  public enum KeyState {
+    NONE,
+    REFUSED,
+    USABLE
+  }
+
+  /**
+   * A studio's key and consent, decrypted to be saved again for the studio that replaces it (the
+   * demo studio's reset). Its {@code toString} never shows the key.
+   */
+  public record CarriedKey(Provider provider, String secret, boolean allowPlatformReaders) {
+    @Override
+    public String toString() {
+      return "CarriedKey[redacted]";
+    }
+  }
+
   private final AiProviderKeyRepository keys;
   private final AiKeyQueries queries;
   private final TransactionOperations transactions;
@@ -86,8 +104,13 @@ public class AiKeys {
         transactions.execute(tx -> keys.findById(studioId).map(AiProviderKey::toStatus)));
   }
 
-  /** Saves (or replaces) the key, untested. Deliberately not echoed back. */
-  public KeyStatus set(Provider provider, @Nullable String apiKey, boolean allowPlatformReaders) {
+  /**
+   * Saves (or replaces) the key, untested. Deliberately not echoed back. A null consent keeps the
+   * studio's current one, so replacing a key doesn't quietly withdraw it; a first key starts
+   * without it.
+   */
+  public KeyStatus set(
+      Provider provider, @Nullable String apiKey, @Nullable Boolean allowPlatformReaders) {
     TenantContext caller = requireOwner();
     UUID studioId = caller.requireStudioId();
     String key = apiKey == null ? "" : apiKey.strip();
@@ -100,16 +123,55 @@ public class AiKeys {
     }
     return Objects.requireNonNull(
         transactions.execute(tx -> {
+          boolean consent =
+              allowPlatformReaders != null
+                  ? allowPlatformReaders
+                  : keys.findById(studioId).map(AiProviderKey::allowsPlatformReaders).orElse(false);
           queries.save(
               studioId,
               provider,
               cipher.encrypt(studioId, key),
               key.substring(key.length() - 4),
-              allowPlatformReaders,
+              consent,
               caller.accountId(),
               clock.instant());
           return keys.findById(studioId).orElseThrow().toStatus();
         }));
+  }
+
+  /**
+   * Gives or withdraws the owner's consent to the platform's own readers, without touching the key.
+   * The consent is stored with the key, so a studio with no key has nothing to change.
+   */
+  public KeyStatus allowPlatformReaders(boolean allow) {
+    UUID studioId = requireOwner().requireStudioId();
+    return Objects.requireNonNull(
+        transactions.execute(tx -> {
+          AiProviderKey stored =
+              keys.findById(studioId)
+                  .orElseThrow(() ->
+                      new NotFoundException(
+                          "Add the studio's Anthropic key first: the consent is saved with it."));
+          stored.allowPlatformReaders(allow);
+          keys.flush();
+          return stored.toStatus();
+        }));
+  }
+
+  /**
+   * The bound studio's key and consent, decrypted, for the demo studio's reset to save again for
+   * the studio that replaces this one. Owner only, and it never leaves the server.
+   */
+  public Optional<CarriedKey> carryOver() {
+    UUID studioId = requireOwner().requireStudioId();
+    return Objects.requireNonNull(
+        transactions.execute(tx ->
+            keys.findById(studioId)
+                .map(stored ->
+                    new CarriedKey(
+                        stored.provider(),
+                        cipher.decrypt(studioId, stored.keyCiphertext()),
+                        stored.allowsPlatformReaders()))));
   }
 
   /** Deletes the key; the next invoice is read another way, or typed in. */
@@ -179,6 +241,16 @@ public class AiKeys {
             keys.findById(studioId)
                 .filter(stored -> !stored.refused())
                 .map(stored -> new StudioKey(cipher.decrypt(studioId, stored.keyCiphertext())))));
+  }
+
+  /** Whether the bound studio has a key, and whether Anthropic has refused it. No owner check. */
+  public KeyState keyStateForReading() {
+    UUID studioId = TenantContext.require().requireStudioId();
+    return Objects.requireNonNull(
+        transactions.execute(tx ->
+            keys.findById(studioId)
+                .map(stored -> stored.refused() ? KeyState.REFUSED : KeyState.USABLE)
+                .orElse(KeyState.NONE)));
   }
 
   /**

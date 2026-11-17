@@ -94,8 +94,11 @@ deploy. The API then has `STUDIOMANAGER_INVOICES_GOOGLE_*`.
 
 The pool provider trusts the issuer `https://login.microsoftonline.com/<tenant>/v2.0` and the
 audience `api://AzureADTokenExchange` by default. That's what a managed-identity token for that
-audience is expected to carry, but it hasn't been checked against a real one. If the first read
-fails with "Google Document AI refused the platform's sign-in", look at a real token's claims:
+audience is expected to carry, but it hasn't been checked against a real one. A failed token
+exchange shows staff "Couldn't sign in to Google Document AI", and the API's log line for it
+("GOOGLE_DOCUMENT_AI couldn't read invoice …") carries the cause from STS. ("Refused the
+platform's sign-in" is Document AI itself answering 401 or 403, after the exchange worked: check
+the service account's role.) For the exchange, look at a real token's claims:
 
 ```bash
 az containerapp exec -n ca-studiomanager-dev-api -g rg-studiomanager-dev --command sh
@@ -110,19 +113,22 @@ match `iss`, and apply again. `sub` must equal `api_principal_id`.
 
 ## Turning them on
 
-1. The studio's owner gives consent (`allowPlatformReaders`) when saving the studio's AI key in
-   Settings. Without it, no platform reader reads that studio's invoices. The consent is stored
-   with the key, so a studio with no Anthropic key can't give it yet.
+1. The studio's owner gives consent with "Allow the platform's readers" on the AI for invoices
+   card in Settings. Without it, no platform reader reads that studio's invoices. The consent is
+   stored with the key, so a studio with no Anthropic key can't give it yet; replacing the key
+   keeps it.
 2. On **Admin → Invoice readers**: turn a reader on, choose the studios (or every studio that
    consents), and set the monthly page caps per studio and for the platform. The page shows this
    month's pages and estimated spend.
 3. Optionally give a studio its own order, such as "Google only" for the demo.
 4. On an invoice, **Compare readers** reads it with every reader the studio may use and shows the
-   fields side by side with time and cost. Those runs count toward the caps.
+   fields side by side with time and cost. A reader that may not read says why: not set up on this
+   server, not on for the studio, no consent, or pages used up. Those runs count toward the caps.
 
 Before any rules are saved, both readers are on for the demo studio only
 (`STUDIOMANAGER_INVOICES_DEMO_STUDIO_ID`, from `invoice_demo_studio_id` in `dev.tfvars`), and off
-for everyone else.
+for everyone else. Resetting the demo studio saves rules that name the new studio, so the readers
+keep reading for it whatever `invoice_demo_studio_id` says.
 
 ## The eval
 

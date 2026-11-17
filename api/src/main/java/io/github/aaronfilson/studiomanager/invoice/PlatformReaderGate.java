@@ -22,13 +22,21 @@ class PlatformReaderGate {
     this.usage = usage;
   }
 
-  boolean allows(InvoiceReaderKind reader) {
+  ReaderAvailability availability(InvoiceReaderKind reader) {
     UUID studioId = TenantContext.require().requireStudioId();
     PlatformReaderRules.ReaderRule rule = rules.current().rule(reader);
-    if (!rule.covers(studioId) || !keys.platformReadersAllowed()) {
-      return false;
+    if (!rule.covers(studioId)) {
+      return ReaderAvailability.NOT_ON_FOR_STUDIO;
     }
-    return usage.studioPagesThisMonth(reader) < rule.studioMonthlyPages()
-        && usage.platformPagesThisMonth(reader) < rule.platformMonthlyPages();
+    if (!keys.platformReadersAllowed()) {
+      return ReaderAvailability.NO_CONSENT;
+    }
+    if (usage.studioPagesThisMonth(reader) >= rule.studioMonthlyPages()) {
+      return ReaderAvailability.STUDIO_PAGES_USED_UP;
+    }
+    if (usage.platformPagesThisMonth(reader) >= rule.platformMonthlyPages()) {
+      return ReaderAvailability.PLATFORM_PAGES_USED_UP;
+    }
+    return ReaderAvailability.READY;
   }
 }

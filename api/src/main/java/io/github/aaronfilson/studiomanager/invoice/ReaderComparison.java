@@ -10,12 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * "Compare readers": one invoice through every reader allowed for the studio, one after another,
- * with what each read, how long it took and what it cost (docs/planning/20, "Invoice readers"). The
+ * "Compare readers": one invoice through every reader, one after another, with what each read, how
+ * long it took and what it cost (docs/planning/20, "Invoice readers"). A reader that may not read
+ * for the studio is listed with the reason instead of being left out (docs/planning/24). The
  * invoice's own draft is left alone. Each run is recorded in {@code invoice_read} like any other,
  * so it counts toward the platform's page caps.
  *
@@ -24,15 +27,20 @@ import org.springframework.transaction.support.TransactionOperations;
 @Service
 class ReaderComparison {
 
+  private static final Logger log = LoggerFactory.getLogger(ReaderComparison.class);
+
   /**
    * One reader's go.
    *
+   * @param availability whether it could read; when it couldn't, nothing ran
+   * @param outcome how the read went; null when it didn't run
    * @param draft what it read, through the same gate as a real read; null when it failed
-   * @param note why it failed, safe to show
+   * @param note why it failed or didn't run, safe to show
    */
   record Compared(
       InvoiceReaderKind reader,
-      InvoiceRead.Outcome outcome,
+      ReaderAvailability availability,
+      InvoiceRead.@Nullable Outcome outcome,
       @Nullable InvoiceDraft draft,
       List<String> problems,
       @Nullable String note,
@@ -75,12 +83,27 @@ class ReaderComparison {
       throw new ConflictException("The file hasn't been uploaded yet.");
     }
     InvoiceFileType type = invoice.fileType();
+    // Every reader gets the same upright, size-limited copy (docs/planning/24, "Images")
     InvoiceFile file =
-        new InvoiceFile(
-            blobs.head(InvoiceBlobs.name(studioId, invoiceId, type), InvoiceBlobs.MAX_BYTES), type);
+        ReadingCopy.of(
+            new InvoiceFile(
+                blobs.head(InvoiceBlobs.name(studioId, invoiceId, type), InvoiceBlobs.MAX_BYTES),
+                type));
     List<Compared> compared = new ArrayList<>();
-    for (InvoiceReader reader : readers.allForBoundStudio()) {
-      compared.add(run(reader, invoiceId, file));
+    for (InvoiceReader reader : readers.everyForBoundStudio()) {
+      ReaderAvailability availability = reader.availabilityForBoundStudio();
+      compared.add(
+          availability.ready()
+              ? run(reader, invoiceId, file)
+              : new Compared(
+                  reader.kind(),
+                  availability,
+                  null,
+                  null,
+                  List.of(),
+                  availability.reason(),
+                  0,
+                  null));
     }
     return compared;
   }
@@ -94,8 +117,13 @@ class ReaderComparison {
       result = reader.read(file);
       outcome = InvoiceRead.Outcome.READ;
     } catch (InvoiceReadException e) {
+      InvoiceFailures.log(log, reader.kind(), invoiceId, e);
       outcome = InvoiceRead.Outcome.of(e.failure());
       note = e.getMessage();
+    } catch (RuntimeException e) {
+      InvoiceFailures.logUnexpected(log, reader.kind(), invoiceId, e);
+      outcome = InvoiceRead.Outcome.UNAVAILABLE;
+      note = InvoiceFailures.UNEXPECTED;
     }
     long elapsed = clock.millis() - started;
     ReaderResult.Usage usage = result == null ? null : result.usage();
@@ -103,13 +131,21 @@ class ReaderComparison {
     transactions.executeWithoutResult(
         tx -> reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed)));
     if (result == null) {
-      return new Compared(reader.kind(), outcome, null, List.of(), note, elapsed, null);
+      return new Compared(
+          reader.kind(), ReaderAvailability.READY, outcome, null, List.of(), note, elapsed, null);
     }
     InvoiceDrafts.Sanitized sanitized =
         InvoiceDrafts.sanitize(result.draft(), LocalDate.now(clock.withZone(ZoneOffset.UTC)));
     List<String> problems = new ArrayList<>(sanitized.notes());
     problems.addAll(InvoiceChecks.problems(sanitized.draft()));
     return new Compared(
-        reader.kind(), outcome, sanitized.draft(), problems, null, elapsed, result.usage());
+        reader.kind(),
+        ReaderAvailability.READY,
+        outcome,
+        sanitized.draft(),
+        problems,
+        null,
+        elapsed,
+        result.usage());
   }
 }

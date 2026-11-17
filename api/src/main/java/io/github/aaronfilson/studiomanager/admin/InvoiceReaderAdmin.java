@@ -1,10 +1,12 @@
 package io.github.aaronfilson.studiomanager.admin;
 
 import io.github.aaronfilson.studiomanager.invoice.InvoiceReaderKind;
+import io.github.aaronfilson.studiomanager.invoice.InvoiceReaders;
 import io.github.aaronfilson.studiomanager.invoice.PlatformReaderRules;
 import io.github.aaronfilson.studiomanager.invoice.PlatformReaderUsage;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,17 +38,23 @@ class InvoiceReaderAdmin {
       boolean saved,
       Instant monthStart,
       List<PlatformReaderUsage.StudioUse> usage,
-      Map<UUID, String> studioNames) {}
+      Map<UUID, String> studioNames,
+      Map<InvoiceReaderKind, Boolean> setUp) {}
 
   private final DatabasePlatformReaderRules rules;
   private final PlatformReaderUsage usage;
   private final PlatformSettings settings;
+  private final InvoiceReaders readers;
 
   InvoiceReaderAdmin(
-      DatabasePlatformReaderRules rules, PlatformReaderUsage usage, PlatformSettings settings) {
+      DatabasePlatformReaderRules rules,
+      PlatformReaderUsage usage,
+      PlatformSettings settings,
+      InvoiceReaders readers) {
     this.rules = rules;
     this.usage = usage;
     this.settings = settings;
+    this.readers = readers;
   }
 
   Overview overview() {
@@ -80,7 +88,52 @@ class InvoiceReaderAdmin {
                     PlatformSettings.StudioChoice::studioName,
                     (first, second) -> first));
     return new Overview(
-        snapshot.rules(), snapshot.saved(), usage.monthStart(), usage.byStudioThisMonth(), names);
+        snapshot.rules(),
+        snapshot.saved(),
+        usage.monthStart(),
+        usage.byStudioThisMonth(),
+        names,
+        readers.setUp());
+  }
+
+  /**
+   * After the demo studio's reset: every rule and order that named one of the old studios names the
+   * new one instead, so the platform's readers keep reading for it. With nothing saved, the
+   * defaults ("on for the demo studio only") are saved with the new studio chosen, so they cover it
+   * whatever {@code invoice_demo_studio_id} says. Must be called bound as a platform admin.
+   */
+  void studioReplaced(Set<UUID> old, UUID replacement) {
+    DatabasePlatformReaderRules.Snapshot snapshot = rules.reread();
+    boolean saved = snapshot.saved();
+    PlatformReaderRules.Rules current = saved ? snapshot.rules() : rules.defaults().rules();
+    Map<InvoiceReaderKind, PlatformReaderRules.ReaderRule> readerRules = new HashMap<>();
+    complete(current.readers())
+        .forEach((reader, rule) -> {
+          Set<UUID> studios = new HashSet<>(rule.studios());
+          if (!saved) {
+            studios = Set.of(replacement);
+          } else if (studios.removeAll(old)) {
+            studios.add(replacement);
+          }
+          readerRules.put(
+              reader,
+              new PlatformReaderRules.ReaderRule(
+                  !saved || rule.enabled(),
+                  saved ? rule.scope() : PlatformReaderRules.Scope.CHOSEN,
+                  studios,
+                  rule.studioMonthlyPages(),
+                  rule.platformMonthlyPages()));
+        });
+    Map<UUID, List<InvoiceReaderKind>> orders = new HashMap<>();
+    current
+        .orders()
+        .forEach((studio, order) -> orders.put(old.contains(studio) ? replacement : studio, order));
+    PlatformReaderRules.Rules replaced = new PlatformReaderRules.Rules(readerRules, orders);
+    if (snapshot.saved() && replaced.equals(current)) {
+      return;
+    }
+    settings.save(InvoiceReaderValues.KEY, rules.write(replaced));
+    rules.reread();
   }
 
   private static void check(PlatformReaderRules.Rules changed, Set<UUID> known) {

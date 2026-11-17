@@ -169,6 +169,25 @@ class DocumentServiceReaderTests {
         .isEqualTo(InvoiceReadException.Failure.UNAVAILABLE);
   }
 
+  @Test
+  void theLogDetailKeepsTheProvidersErrorCodesButNotItsMessage() {
+    String azure =
+        """
+        {"error": {"code": "InvalidRequest", "message": "Total 465.00 for Laguna",
+         "innererror": {"code": "InvalidContentLength", "message": "too large"}}}
+        """;
+    InvoiceReadException tooLarge =
+        DocumentServiceCalls.failure(
+            "Azure AI Document Intelligence",
+            HttpClientErrorException.create(
+                HttpStatus.BAD_REQUEST, "Bad Request", null, azure.getBytes(), null));
+
+    assertThat(tooLarge.detail())
+        .isEqualTo("HTTP 400 InvalidRequest InvalidContentLength")
+        .doesNotContain("Laguna");
+    assertThat(tooLarge.getCause()).isNull();
+  }
+
   static GoogleInvoiceReader google() {
     return new GoogleInvoiceReader(
         new GoogleReaderProperties(null, null, null, null, null, new BigDecimal("0.10")),

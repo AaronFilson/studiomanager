@@ -14,9 +14,9 @@ import {
   type SupplyItem,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type SubmitEvent, useId, useState } from 'react';
+import { type SubmitEvent, useEffect, useId, useRef, useState } from 'react';
 
-import { CompareReaders } from './CompareReaders';
+import { CompareReaders, readerLabels } from './CompareReaders';
 import { ErrorMessage } from './ErrorMessage';
 
 const fileTypes: Record<string, InvoiceFileType> = {
@@ -33,13 +33,20 @@ const statusLabels: Record<InvoiceStatus, string> = {
   CONFIRMED: 'confirmed',
 };
 
+const waiting = (status: InvoiceStatus | undefined) => status === 'UPLOADING' || status === 'READING';
+
 /**
  * The supplies inbox: upload a supplier's invoice, check the draft next to the file, and confirm it
- * into stock. Staff only. Nothing reaches stock until someone confirms.
+ * into stock. Staff only. Nothing reaches stock until someone confirms. "Compare readers" is the
+ * owner's, because it spends the studio's key and the platform's pages.
  */
-export function InvoiceInbox({ studioId }: { studioId: string }) {
+export function InvoiceInbox({ studioId, canCompare }: { studioId: string; canCompare: boolean }) {
   const id = useId();
-  const invoices = useQuery(listInvoicesOptions({ path: { studioId } }));
+  const invoices = useQuery({
+    ...listInvoicesOptions({ path: { studioId } }),
+    // Keep the badges current while anything is still being read
+    refetchInterval: (query) => (query.state.data?.items.some((invoice) => waiting(invoice.status)) ? 3000 : false),
+  });
   const [open, setOpen] = useState<string | null>(null);
 
   return (
@@ -64,7 +71,15 @@ export function InvoiceInbox({ studioId }: { studioId: string }) {
           ))}
         </ul>
       )}
-      {open && <InvoiceReview key={open} studioId={studioId} invoiceId={open} onClosed={() => setOpen(null)} />}
+      {open && (
+        <InvoiceReview
+          key={open}
+          studioId={studioId}
+          invoiceId={open}
+          canCompare={canCompare}
+          onClosed={() => setOpen(null)}
+        />
+      )}
     </section>
   );
 }
@@ -74,9 +89,11 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // The whole sequence, the file's own upload included, so the button can't be pressed twice
+  const [uploading, setUploading] = useState(false);
   const start = useMutation(startInvoiceUploadMutation());
   const complete = useMutation(completeInvoiceUploadMutation());
-  const busy = start.isPending || complete.isPending;
+  const busy = uploading || start.isPending || complete.isPending;
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,24 +103,37 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
       setFailure('Choose a PDF, JPEG or PNG.');
       return;
     }
-    const upload = await start.mutateAsync({ path: { studioId }, body: { fileType } });
-    if (file.size > upload.maxBytes) {
-      setFailure(`The file is larger than ${String(Math.floor(upload.maxBytes / 1024 / 1024))} MB.`);
-      return;
+    setUploading(true);
+    try {
+      const upload = await start.mutateAsync({ path: { studioId }, body: { fileType } });
+      if (file.size > upload.maxBytes) {
+        setFailure(`The file is larger than ${String(Math.floor(upload.maxBytes / 1024 / 1024))} MB.`);
+        return;
+      }
+      let stored = false;
+      try {
+        const put = await fetch(upload.uploadUrl, {
+          method: 'PUT',
+          headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': file.type },
+          body: file,
+        });
+        stored = put.ok;
+      } catch {
+        stored = false;
+      }
+      if (!stored) {
+        setFailure('The upload didn’t go through. Check the connection and try again.');
+        return;
+      }
+      await complete.mutateAsync({ path: { studioId, invoiceId: upload.invoiceId } });
+      setFile(null);
+      onUploaded(upload.invoiceId);
+    } catch {
+      // The mutations show their own errors below
+    } finally {
+      setUploading(false);
+      await queryClient.invalidateQueries({ queryKey: listInvoicesOptions({ path: { studioId } }).queryKey });
     }
-    const put = await fetch(upload.uploadUrl, {
-      method: 'PUT',
-      headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': file.type },
-      body: file,
-    });
-    if (!put.ok) {
-      setFailure('The upload didn’t go through. Try again.');
-      return;
-    }
-    await complete.mutateAsync({ path: { studioId, invoiceId: upload.invoiceId } });
-    await queryClient.invalidateQueries({ queryKey: listInvoicesOptions({ path: { studioId } }).queryKey });
-    setFile(null);
-    onUploaded(upload.invoiceId);
   }
 
   return (
@@ -129,15 +159,30 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
   );
 }
 
-function InvoiceReview({ studioId, invoiceId, onClosed }: { studioId: string; invoiceId: string; onClosed: () => void }) {
+function InvoiceReview({
+  studioId,
+  invoiceId,
+  canCompare,
+  onClosed,
+}: {
+  studioId: string;
+  invoiceId: string;
+  canCompare: boolean;
+  onClosed: () => void;
+}) {
+  const queryClient = useQueryClient();
   const invoice = useQuery({
     ...getInvoiceOptions({ path: { studioId, invoiceId } }),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === 'UPLOADING' || status === 'READING' ? 2000 : false;
-    },
+    refetchInterval: (query) => (waiting(query.state.data?.status) ? 2000 : false),
   });
   const supplies = useQuery(listSuppliesOptions({ path: { studioId } }));
+  const discard = useMutation({
+    ...discardInvoiceMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries();
+      onClosed();
+    },
+  });
 
   if (invoice.isError) {
     return <ErrorMessage error={invoice.error} />;
@@ -145,21 +190,95 @@ function InvoiceReview({ studioId, invoiceId, onClosed }: { studioId: string; in
   if (!invoice.data) {
     return <p>Loading the invoice…</p>;
   }
-  if (invoice.data.status === 'UPLOADING' || invoice.data.status === 'READING') {
-    return <p aria-live="polite">Reading the invoice…</p>;
+  if (waiting(invoice.data.status)) {
+    // A failed upload stays "uploading" for good, so it can be thrown away from here
+    return (
+      <div className="row">
+        <p aria-live="polite">
+          {invoice.data.status === 'UPLOADING' ? 'Waiting for the file…' : 'Reading the invoice…'}
+        </p>
+        <button type="button" className="danger" onClick={() => discard.mutate({ path: { studioId, invoiceId } })}>
+          Discard
+        </button>
+        {discard.isError && <ErrorMessage error={discard.error} />}
+      </div>
+    );
   }
   return (
-    <>
-      <DraftForm
-        key={invoice.data.version}
-        studioId={studioId}
-        invoice={invoice.data}
-        items={supplies.data ?? []}
-        onClosed={onClosed}
-      />
-      <CompareReaders studioId={studioId} invoiceId={invoiceId} />
-    </>
+    <div className="stack">
+      <div className="invoice-review">
+        <InvoiceFile invoice={invoice.data} />
+        <DraftForm
+          key={invoice.data.version}
+          studioId={studioId}
+          invoice={invoice.data}
+          items={supplies.data ?? []}
+          onClosed={onClosed}
+        />
+      </div>
+      {canCompare && <CompareReaders studioId={studioId} invoiceId={invoiceId} />}
+    </div>
   );
+}
+
+/** The invoice itself, beside its draft: a photo turned upright by hand if need be, or the PDF. */
+function InvoiceFile({ invoice }: { invoice: Invoice }) {
+  const [turns, setTurns] = useState(0);
+  const url = invoice.fileUrl;
+  if (!url) {
+    return null;
+  }
+  return (
+    <div className="stack">
+      <div className="invoice-file">
+        {invoice.fileType === 'PDF' ? (
+          <iframe src={url} title="The invoice" />
+        ) : (
+          <TurnedImage url={url} turns={turns} />
+        )}
+      </div>
+      <div className="row">
+        {invoice.fileType !== 'PDF' && (
+          <button type="button" onClick={() => setTurns((current) => (current + 1) % 4)}>
+            Turn the photo
+          </button>
+        )}
+        <a href={url} target="_blank" rel="noreferrer">
+          Open the file
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/** A photo turned by quarter turns: drawn onto a canvas, so the page around it makes room. */
+function TurnedImage({ url, turns }: { url: string; turns: number }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const image = new Image();
+    image.onload = () => {
+      const target = canvas.current;
+      const context = target?.getContext('2d');
+      if (!target || !context) {
+        return;
+      }
+      const sideways = turns % 2 === 1;
+      target.width = sideways ? image.naturalHeight : image.naturalWidth;
+      target.height = sideways ? image.naturalWidth : image.naturalHeight;
+      context.translate(target.width / 2, target.height / 2);
+      context.rotate((turns * Math.PI) / 2);
+      context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+    };
+    image.onerror = () => setFailed(true);
+    image.src = url;
+  }, [url, turns]);
+
+  if (failed) {
+    return <p className="warning">The photo couldn&apos;t be shown here. Open the file instead.</p>;
+  }
+  return <canvas ref={canvas} role="img" aria-label="The invoice" style={{ width: '100%', height: 'auto' }} />;
 }
 
 type EditableLine = Omit<InvoiceLine, 'matchSource'>;
@@ -176,6 +295,26 @@ function editable(line: InvoiceLine): EditableLine {
   };
 }
 
+/** The unit price the line's amount and quantity imply, when the invoice prints only the amount. */
+function impliedUnitPrice(line: EditableLine): string | undefined {
+  const quantity = Number(line.quantity);
+  const total = Number(line.lineTotal);
+  if (!line.quantity || !line.lineTotal || !Number.isFinite(quantity) || !Number.isFinite(total) || quantity === 0) {
+    return undefined;
+  }
+  return `≈ ${String(Math.round((total / quantity) * 10000) / 10000)}`;
+}
+
+const headerFields = [
+  { key: 'invoiceDate', label: 'Date', type: 'date' },
+  { key: 'subtotal', label: 'Subtotal', type: 'decimal' },
+  { key: 'shipping', label: 'Shipping', type: 'decimal' },
+  { key: 'tax', label: 'Tax', type: 'decimal' },
+  { key: 'total', label: 'Total', type: 'decimal' },
+] as const;
+
+type HeaderKey = (typeof headerFields)[number]['key'];
+
 function DraftForm({
   studioId,
   invoice,
@@ -191,10 +330,18 @@ function DraftForm({
   const queryClient = useQueryClient();
   const [vendorName, setVendorName] = useState(invoice.vendorName ?? '');
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber ?? '');
-  const [total, setTotal] = useState(invoice.total ?? '');
+  const [header, setHeader] = useState<Record<HeaderKey, string>>({
+    invoiceDate: invoice.invoiceDate ?? '',
+    subtotal: invoice.subtotal ?? '',
+    shipping: invoice.shipping ?? '',
+    tax: invoice.tax ?? '',
+    total: invoice.total ?? '',
+  });
   const [lines, setLines] = useState<EditableLine[]>(invoice.lines.map(editable));
   const refresh = () => queryClient.invalidateQueries();
   const save = useMutation({ ...saveInvoiceDraftMutation(), onSuccess: refresh });
+  // Confirming saves what's on screen first, without refreshing in between, then confirms that
+  const saveFirst = useMutation(saveInvoiceDraftMutation());
   const confirm = useMutation({ ...confirmInvoiceMutation(), onSuccess: refresh });
   const discard = useMutation({
     ...discardInvoiceMutation(),
@@ -204,34 +351,44 @@ function DraftForm({
     },
   });
   const confirmed = invoice.status === 'CONFIRMED';
+  const busy = save.isPending || saveFirst.isPending || confirm.isPending;
   const change = (index: number, patch: Partial<EditableLine>) =>
     setLines((current) => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   const optional = (value: string | undefined) => (value && value.trim() ? value.trim() : undefined);
+  const path = { studioId, invoiceId: invoice.id };
+
+  const draft = () => ({
+    vendorName: optional(vendorName),
+    invoiceNumber: optional(invoiceNumber),
+    invoiceDate: optional(header.invoiceDate),
+    subtotal: optional(header.subtotal),
+    shipping: optional(header.shipping),
+    tax: optional(header.tax),
+    total: optional(header.total),
+    lines: lines.map((line) => ({
+      description: line.description,
+      sku: optional(line.sku),
+      quantity: optional(line.quantity),
+      unit: optional(line.unit),
+      unitPrice: optional(line.unitPrice),
+      lineTotal: optional(line.lineTotal),
+      supplyItemId: optional(line.supplyItemId),
+    })),
+    expectedVersion: invoice.version,
+  });
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    save.mutate({
-      path: { studioId, invoiceId: invoice.id },
-      body: {
-        vendorName: optional(vendorName),
-        invoiceNumber: optional(invoiceNumber),
-        invoiceDate: invoice.invoiceDate,
-        subtotal: invoice.subtotal,
-        shipping: invoice.shipping,
-        tax: invoice.tax,
-        total: optional(total),
-        lines: lines.map((line) => ({
-          description: line.description,
-          sku: optional(line.sku),
-          quantity: optional(line.quantity),
-          unit: optional(line.unit),
-          unitPrice: optional(line.unitPrice),
-          lineTotal: optional(line.lineTotal),
-          supplyItemId: optional(line.supplyItemId),
-        })),
-        expectedVersion: invoice.version,
-      },
-    });
+    save.mutate({ path, body: draft() });
+  }
+
+  async function saveAndConfirm() {
+    try {
+      const saved = await saveFirst.mutateAsync({ path, body: draft() });
+      confirm.mutate({ path, body: { expectedVersion: saved.version } });
+    } catch {
+      await refresh();
+    }
   }
 
   return (
@@ -239,14 +396,7 @@ function DraftForm({
       <h3 id={`${id}-title`}>
         {invoice.vendorName ?? 'Invoice'} <span className="badge">{statusLabels[invoice.status]}</span>
       </h3>
-      {invoice.fileUrl && (
-        <p>
-          <a href={invoice.fileUrl} target="_blank" rel="noreferrer">
-            Open the file
-          </a>
-          {invoice.reader === 'CLAUDE' && <span className="badge"> · read by Claude</span>}
-        </p>
-      )}
+      {invoice.reader && <p className="badge">Read by {readerLabels[invoice.reader]}</p>}
       {invoice.readNote && <p className="warning">{invoice.readNote}</p>}
       {invoice.problems.length > 0 && (
         <ul aria-label="Problems">
@@ -264,102 +414,137 @@ function DraftForm({
           <label htmlFor={`${id}-number`}>Invoice number</label>
           <input id={`${id}-number`} maxLength={60} disabled={confirmed} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
         </div>
-        <div className="field">
-          <label htmlFor={`${id}-total`}>Total</label>
-          <input id={`${id}-total`} inputMode="decimal" disabled={confirmed} value={total} onChange={(e) => setTotal(e.target.value.trim())} />
-        </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Line</th>
-            <th>Quantity</th>
-            <th>Unit price</th>
-            <th>Total</th>
-            <th>Receive into</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line, index) => (
-            <tr key={index}>
-              <td>
-                <input
-                  aria-label={`Line ${String(index + 1)} description`}
-                  required
-                  maxLength={200}
-                  disabled={confirmed}
-                  value={line.description}
-                  onChange={(e) => change(index, { description: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  aria-label={`Line ${String(index + 1)} quantity`}
-                  inputMode="decimal"
-                  disabled={confirmed}
-                  value={line.quantity ?? ''}
-                  onChange={(e) => change(index, { quantity: e.target.value.trim() })}
-                />
-              </td>
-              <td>
-                <input
-                  aria-label={`Line ${String(index + 1)} unit price`}
-                  inputMode="decimal"
-                  disabled={confirmed}
-                  value={line.unitPrice ?? ''}
-                  onChange={(e) => change(index, { unitPrice: e.target.value.trim() })}
-                />
-              </td>
-              <td>
-                <input
-                  aria-label={`Line ${String(index + 1)} total`}
-                  inputMode="decimal"
-                  disabled={confirmed}
-                  value={line.lineTotal ?? ''}
-                  onChange={(e) => change(index, { lineTotal: e.target.value.trim() })}
-                />
-              </td>
-              <td>
-                <select
-                  aria-label={`Line ${String(index + 1)} item`}
-                  disabled={confirmed}
-                  value={line.supplyItemId ?? ''}
-                  onChange={(e) => change(index, { supplyItemId: e.target.value || undefined })}
-                >
-                  <option value="">Not stock</option>
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </td>
+      <div className="row">
+        {headerFields.map((field) => (
+          <div className="field" key={field.key}>
+            <label htmlFor={`${id}-${field.key}`}>{field.label}</label>
+            <input
+              id={`${id}-${field.key}`}
+              type={field.type === 'date' ? 'date' : 'text'}
+              inputMode={field.type === 'date' ? undefined : 'decimal'}
+              disabled={confirmed}
+              value={header[field.key]}
+              onChange={(e) => setHeader((current) => ({ ...current, [field.key]: e.target.value.trim() }))}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="invoice-lines">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Line</th>
+              <th>Quantity</th>
+              <th>Unit</th>
+              <th>Unit price</th>
+              <th>Total</th>
+              <th>Receive into</th>
+              {!confirmed && <th />}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {lines.map((line, index) => {
+              const n = String(index + 1);
+              return (
+                <tr key={index}>
+                  <td>
+                    <input
+                      aria-label={`Line ${n} description`}
+                      required
+                      maxLength={200}
+                      disabled={confirmed}
+                      value={line.description}
+                      onChange={(e) => change(index, { description: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Line ${n} quantity`}
+                      inputMode="decimal"
+                      disabled={confirmed}
+                      value={line.quantity ?? ''}
+                      onChange={(e) => change(index, { quantity: e.target.value.trim() })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Line ${n} unit`}
+                      maxLength={30}
+                      disabled={confirmed}
+                      value={line.unit ?? ''}
+                      onChange={(e) => change(index, { unit: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Line ${n} unit price`}
+                      inputMode="decimal"
+                      disabled={confirmed}
+                      placeholder={impliedUnitPrice(line)}
+                      title={line.unitPrice ? undefined : 'Not printed on the invoice; the grey figure is the amount divided by the quantity.'}
+                      value={line.unitPrice ?? ''}
+                      onChange={(e) => change(index, { unitPrice: e.target.value.trim() })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Line ${n} total`}
+                      inputMode="decimal"
+                      disabled={confirmed}
+                      value={line.lineTotal ?? ''}
+                      onChange={(e) => change(index, { lineTotal: e.target.value.trim() })}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      aria-label={`Line ${n} item`}
+                      disabled={confirmed}
+                      value={line.supplyItemId ?? ''}
+                      onChange={(e) => change(index, { supplyItemId: e.target.value || undefined })}
+                    >
+                      <option value="">Not stock</option>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  {!confirmed && (
+                    <td>
+                      <button
+                        type="button"
+                        aria-label={`Remove line ${n}`}
+                        onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {!confirmed && (
         <div className="row">
           <button type="button" onClick={() => setLines((current) => [...current, { description: '' }])}>
             Add a line
           </button>
-          <button type="submit" disabled={save.isPending}>
+          <button type="submit" disabled={busy}>
             Save changes
           </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={confirm.isPending}
-            onClick={() => confirm.mutate({ path: { studioId, invoiceId: invoice.id }, body: { expectedVersion: invoice.version } })}
-          >
+          <button type="button" className="primary" disabled={busy} onClick={() => void saveAndConfirm()}>
             Confirm and receive stock
           </button>
-          <button type="button" className="danger" onClick={() => discard.mutate({ path: { studioId, invoiceId: invoice.id } })}>
+          <button type="button" className="danger" onClick={() => discard.mutate({ path })}>
             Discard
           </button>
         </div>
       )}
-      {[save, confirm, discard].map((m, i) => m.isError && <ErrorMessage key={i} error={m.error} />)}
+      {[save, saveFirst, confirm, discard].map((m, i) => m.isError && <ErrorMessage key={i} error={m.error} />)}
     </form>
   );
 }

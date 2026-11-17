@@ -4,6 +4,7 @@ import {
   getAiKeyQueryKey,
   isApiError,
   setAiKeyMutation,
+  setPlatformReaderConsentMutation,
   testAiKeyMutation,
   type AiKeyStatus,
 } from '@studiomanager/api-client';
@@ -13,8 +14,9 @@ import { useId, useState } from 'react';
 import { ErrorMessage } from './ErrorMessage';
 
 /**
- * The studio's own Anthropic key, for reading supplier invoices. Owner only. The key goes in and
- * never comes back: only its last four characters are shown.
+ * The studio's own Anthropic key, for reading supplier invoices, and the owner's consent to the
+ * platform's own readers. Owner only. The key goes in and never comes back: only its last four
+ * characters are shown. The consent is its own switch, so replacing the key doesn't change it.
  */
 export function AiKeyCard({ studioId }: { studioId: string }) {
   const id = useId();
@@ -32,6 +34,7 @@ export function AiKeyCard({ studioId }: { studioId: string }) {
     },
   });
   const test = useMutation({ ...testAiKeyMutation(), onSuccess: update });
+  const consent = useMutation({ ...setPlatformReaderConsentMutation(), onSuccess: update });
   const remove = useMutation({
     ...deleteAiKeyMutation(),
     onSuccess: () => queryClient.removeQueries({ queryKey: getAiKeyQueryKey({ path: { studioId } }) }),
@@ -60,16 +63,36 @@ export function AiKeyCard({ studioId }: { studioId: string }) {
               Remove key
             </button>
           </div>
+          <label className="choice">
+            <input
+              type="checkbox"
+              checked={key.data.allowPlatformReaders}
+              disabled={consent.isPending}
+              onChange={(e) =>
+                consent.mutate({ path: { studioId }, body: { allowPlatformReaders: e.target.checked } })
+              }
+            />
+            Allow the platform&apos;s readers (Google Document AI, Azure AI Document Intelligence) when the platform turns
+            them on for this studio
+          </label>
+          <p className="badge" role="status">
+            {key.data.allowPlatformReaders
+              ? 'The platform’s readers may read this studio’s invoices.'
+              : 'The platform’s readers don’t read this studio’s invoices.'}
+          </p>
         </div>
       )}
-      {[save, test, remove].map((m, i) => m.isError && <ErrorMessage key={i} error={m.error} />)}
+      {[save, test, consent, remove].map((m, i) => m.isError && <ErrorMessage key={i} error={m.error} />)}
       <form
         className="stack"
         onSubmit={(event) => {
           event.preventDefault();
           save.mutate({
             path: { studioId },
-            body: { provider: 'ANTHROPIC', apiKey: apiKey.trim(), allowPlatformReaders: platformReaders },
+            // Replacing a key leaves the consent as it is; a first key says it here
+            body: key.data
+              ? { provider: 'ANTHROPIC', apiKey: apiKey.trim() }
+              : { provider: 'ANTHROPIC', apiKey: apiKey.trim(), allowPlatformReaders: platformReaders },
           });
         }}
       >
@@ -87,11 +110,13 @@ export function AiKeyCard({ studioId }: { studioId: string }) {
             onChange={(e) => setApiKey(e.target.value)}
           />
         </div>
-        <label className="choice">
-          <input type="checkbox" checked={platformReaders} onChange={(e) => setPlatformReaders(e.target.checked)} />
-          Also allow the platform&apos;s readers (Google Document AI, Azure AI Document Intelligence) when they&apos;re
-          offered
-        </label>
+        {!key.data && (
+          <label className="choice">
+            <input type="checkbox" checked={platformReaders} onChange={(e) => setPlatformReaders(e.target.checked)} />
+            Also allow the platform&apos;s readers (Google Document AI, Azure AI Document Intelligence) when they&apos;re
+            offered
+          </label>
+        )}
         <div>
           <button type="submit" className="primary" disabled={save.isPending}>
             Save key

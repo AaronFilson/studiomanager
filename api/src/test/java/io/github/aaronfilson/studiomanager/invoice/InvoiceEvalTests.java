@@ -119,9 +119,27 @@ class InvoiceEvalTests {
     assertThat(score(folder, folder.resolve("claude.json")).needsNoEdits()).isTrue();
   }
 
+  /**
+   * The owner's own invoices, which git ignores as a whole: absent in CI and on any other checkout.
+   * Only the live evals read them (docs/planning/24, "Two sets").
+   */
+  static final Path PRIVATE_CASES = Path.of("src/test/resources/invoices/private");
+
   static List<Path> cases() throws IOException {
-    try (Stream<Path> folders = Files.list(CASES)) {
-      return folders.filter(Files::isDirectory).sorted().toList();
+    return casesIn(CASES);
+  }
+
+  static List<Path> privateCases() throws IOException {
+    return Files.isDirectory(PRIVATE_CASES) ? casesIn(PRIVATE_CASES) : List.of();
+  }
+
+  private static List<Path> casesIn(Path root) throws IOException {
+    try (Stream<Path> folders = Files.list(root)) {
+      return folders
+          .filter(Files::isDirectory)
+          .filter(folder -> Files.exists(folder.resolve("expected.json")))
+          .sorted()
+          .toList();
     }
   }
 

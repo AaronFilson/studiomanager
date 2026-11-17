@@ -2001,7 +2001,14 @@ export type AiKeyStatus = {
 
 export type SetAiKeyRequest = {
     provider: AiProvider;
+    /**
+     * Omitted keeps the studio's current consent; a new key starts without it.
+     */
     allowPlatformReaders?: boolean;
+};
+
+export type PlatformReaderConsent = {
+    allowPlatformReaders: boolean;
 };
 
 export type InvoiceFileType = 'PDF' | 'JPEG' | 'PNG';
@@ -2085,13 +2092,27 @@ export type Invoice = {
     version: number;
 };
 
-export type InvoiceReadOutcome = 'READ' | 'REFUSED_CREDENTIALS' | 'UNAVAILABLE' | 'UNREADABLE';
+/**
+ * How a reader's go ended. `SKIPPED` means it didn't run, because it may not read for this
+ * studio now; `skipReason` and `note` say why.
+ *
+ */
+export type InvoiceReadOutcome = 'READ' | 'REFUSED_CREDENTIALS' | 'UNAVAILABLE' | 'UNREADABLE' | 'SKIPPED';
+
+/**
+ * Why a reader didn't run: the studio has no Anthropic key, or Anthropic refused it; the
+ * reader isn't set up on this server; the admin hasn't turned it on for the studio; the owner
+ * hasn't allowed the platform's readers; or this month's pages are used up.
+ *
+ */
+export type ReaderSkipReason = 'NO_KEY' | 'KEY_REFUSED' | 'NOT_SET_UP' | 'NOT_ON_FOR_STUDIO' | 'NO_CONSENT' | 'STUDIO_PAGES_USED_UP' | 'PLATFORM_PAGES_USED_UP';
 
 export type ComparedRead = {
     reader: InvoiceReader;
     outcome: InvoiceReadOutcome;
+    skipReason?: ReaderSkipReason;
     /**
-     * Why the reader couldn't read it.
+     * Why the reader couldn't read it, or didn't run.
      */
     note?: string;
     elapsedMs: number;
@@ -2186,6 +2207,12 @@ export type InvoiceReaderOverview = {
     saved: boolean;
     monthStart: string;
     usage: Array<PlatformReaderUse>;
+    /**
+     * The readers this server has what they need for (an endpoint, a processor and its
+     * federation). A reader that isn't set up never reads, whatever its rule says.
+     *
+     */
+    setUp?: Array<InvoiceReader>;
 };
 
 export type InvoiceSummary = {
@@ -2536,6 +2563,9 @@ export type WebhookDeliveryList = {
 export type SetAiKeyRequestWritable = {
     provider: AiProvider;
     apiKey: string;
+    /**
+     * Omitted keeps the studio's current consent; a new key starts without it.
+     */
     allowPlatformReaders?: boolean;
 };
 
@@ -2587,8 +2617,9 @@ export type InvoiceWritable = {
 export type ComparedReadWritable = {
     reader: InvoiceReader;
     outcome: InvoiceReadOutcome;
+    skipReason?: ReaderSkipReason;
     /**
-     * Why the reader couldn't read it.
+     * Why the reader couldn't read it, or didn't run.
      */
     note?: string;
     elapsedMs: number;
@@ -9228,6 +9259,48 @@ export type SetAiKeyResponses = {
 };
 
 export type SetAiKeyResponse = SetAiKeyResponses[keyof SetAiKeyResponses];
+
+export type SetPlatformReaderConsentData = {
+    body: PlatformReaderConsent;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/ai-key/platform-readers';
+};
+
+export type SetPlatformReaderConsentErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type SetPlatformReaderConsentError = SetPlatformReaderConsentErrors[keyof SetPlatformReaderConsentErrors];
+
+export type SetPlatformReaderConsentResponses = {
+    /**
+     * The key's status, with the consent as saved.
+     */
+    200: AiKeyStatus;
+};
+
+export type SetPlatformReaderConsentResponse = SetPlatformReaderConsentResponses[keyof SetPlatformReaderConsentResponses];
 
 export type TestAiKeyData = {
     body?: never;

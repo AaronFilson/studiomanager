@@ -292,7 +292,10 @@ paths:
         Deletes Demo Clay Co. and everything in it, then seeds it again through the normal
         services: kilns, pieces at every stage, firings, glazes, maintenance, supplies and a
         ledger. The admin who resets it becomes one of its owners, so it shows in their studio
-        list. Only the studio the demo accounts own is ever deleted.
+        list. Only the studio the demo accounts own is ever deleted. The old studio's Anthropic
+        key and the owner's consent are saved again for the new one, and the invoice readers'
+        rules are moved to it (or, with none saved, set to read for it), so reading invoices keeps
+        working after a reset.
       security:
         - bearerAuth: []
       responses:
@@ -311,11 +314,12 @@ paths:
     post:
       tags: [demo]
       operationId: createDemoToken
-      summary: A read-only API token for the demo studio, valid for one day (platform admin only)
+      summary: An API token for the demo studio that reads and proposes, valid for one day (platform admin only)
       description: |
         For connecting an assistant during a demo. The token belongs to the demo studio's
-        seeded owner, can only read, and stops working after a day or when the studio is reset.
-        The secret is shown only this once.
+        seeded owner. It can read and propose (a person approves each proposal), never change
+        anything itself, and stops working after a day or when the studio is reset. The secret
+        is shown only this once.
       security:
         - bearerAuth: []
       responses:
@@ -4506,6 +4510,41 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/studios/{studioId}/ai-key/platform-readers:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    put:
+      tags: [ai]
+      operationId: setPlatformReaderConsent
+      x-permission: studio.ai_key.manage
+      summary: Allow or stop the platform's own invoice readers, keeping the key (owner only)
+      description: |
+        The consent is saved with the studio's Anthropic key, so the studio needs a key first.
+        The platform's readers still read only where the admin has turned them on.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformReaderConsent"
+      responses:
+        "200":
+          description: The key's status, with the consent as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiKeyStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/ai-key/test:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -8426,6 +8465,14 @@ components:
           writeOnly: true
         allowPlatformReaders:
           type: boolean
+          description: Omitted keeps the studio's current consent; a new key starts without it.
+
+    PlatformReaderConsent:
+      type: object
+      required: [allowPlatformReaders]
+      properties:
+        allowPlatformReaders:
+          type: boolean
 
     InvoiceFileType:
       type: string
@@ -8570,7 +8617,25 @@ components:
 
     InvoiceReadOutcome:
       type: string
-      enum: [READ, REFUSED_CREDENTIALS, UNAVAILABLE, UNREADABLE]
+      description: |
+        How a reader's go ended. `SKIPPED` means it didn't run, because it may not read for this
+        studio now; `skipReason` and `note` say why.
+      enum: [READ, REFUSED_CREDENTIALS, UNAVAILABLE, UNREADABLE, SKIPPED]
+
+    ReaderSkipReason:
+      type: string
+      description: |
+        Why a reader didn't run: the studio has no Anthropic key, or Anthropic refused it; the
+        reader isn't set up on this server; the admin hasn't turned it on for the studio; the owner
+        hasn't allowed the platform's readers; or this month's pages are used up.
+      enum:
+        - NO_KEY
+        - KEY_REFUSED
+        - NOT_SET_UP
+        - NOT_ON_FOR_STUDIO
+        - NO_CONSENT
+        - STUDIO_PAGES_USED_UP
+        - PLATFORM_PAGES_USED_UP
 
     ComparedRead:
       type: object
@@ -8580,9 +8645,11 @@ components:
           $ref: "#/components/schemas/InvoiceReader"
         outcome:
           $ref: "#/components/schemas/InvoiceReadOutcome"
+        skipReason:
+          $ref: "#/components/schemas/ReaderSkipReason"
         note:
           type: string
-          description: Why the reader couldn't read it.
+          description: Why the reader couldn't read it, or didn't run.
         elapsedMs:
           type: integer
           format: int64
@@ -8752,6 +8819,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlatformReaderUse"
+        setUp:
+          type: array
+          description: |
+            The readers this server has what they need for (an endpoint, a processor and its
+            federation). A reader that isn't set up never reads, whatever its rule says.
+          items:
+            $ref: "#/components/schemas/InvoiceReader"
 
     InvoiceSummary:
       type: object

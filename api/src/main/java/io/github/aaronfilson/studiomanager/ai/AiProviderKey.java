@@ -59,6 +59,15 @@ class AiProviderKey {
     return allowPlatformReaders;
   }
 
+  AiKeys.Provider provider() {
+    return provider;
+  }
+
+  /** The owner's consent to the platform's readers, changed on its own. */
+  void allowPlatformReaders(boolean allow) {
+    this.allowPlatformReaders = allow;
+  }
+
   /** Records what a check with the provider found. */
   void checked(AiKeys.Status found, @Nullable String reason, Instant now) {
     this.status = found;

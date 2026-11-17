@@ -13,12 +13,19 @@ public interface InvoiceReader {
   InvoiceReaderKind kind();
 
   /**
-   * Whether this reader may read for the bound studio right now: for Claude, the studio has a key
-   * Anthropic hasn't refused; for the platform's readers, the admin has turned it on for the
-   * studio, the owner has consented, and the month's pages aren't used up. Called with the studio
-   * bound and outside any transaction.
+   * Whether this reader may read for the bound studio right now, and if not, why: for Claude, the
+   * studio has a key Anthropic hasn't refused; for the platform's readers, it's set up on this
+   * server, the admin has turned it on for the studio, the owner has consented, and the month's
+   * pages aren't used up. Called with the studio bound and outside any transaction.
    */
-  boolean canReadForBoundStudio();
+  ReaderAvailability availabilityForBoundStudio();
+
+  default boolean canReadForBoundStudio() {
+    return availabilityForBoundStudio().ready();
+  }
+
+  /** Whether this server has what the reader needs, whatever any studio's rules say. */
+  boolean setUp();
 
   /**
    * Reads one invoice. Called with the studio bound and outside any transaction, so no database
