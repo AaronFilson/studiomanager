@@ -27,7 +27,7 @@ Vite reads these at build time (`web/.env.local` locally, pipeline variables in 
 | `VITE_API_SCOPES` | `api://<api-client-id>/access_as_user` | Space-separated |
 | `VITE_API_BASE_URL` | `https://<app>.<env>.<region>.azurecontainerapps.io` | Empty locally (same origin, through the proxy) |
 
-The SPA registration needs a **Single-page application** redirect URI for each origin the app runs on, ending in `/`: `http://localhost:5173/` and the Static Web App URL. MSAL always redirects to the origin root and then returns to the page that started sign-in.
+The SPA registration needs two **Single-page application** redirect URIs for each origin the app runs on (`http://localhost:5173` and the Static Web App URL): the origin root ending in `/`, and `/redirect.html`. Sign-in redirects to the root and then returns to the page that started it. A silent token refresh (after the refresh token expires) runs in a hidden iframe that lands on `redirect.html`, MSAL's redirect bridge, which hands the response back to the app; `infra/identity` registers both.
 
 ## Where the API client comes from
 
@@ -35,4 +35,4 @@ The SPA registration needs a **Single-page application** redirect URI for each o
 
 ## Deployment
 
-The build is deployed to Azure Static Web Apps. `public/staticwebapp.config.json` rewrites unknown paths to `index.html` for client-side routing, caches hashed assets for a year, and sets security headers. Its Content-Security-Policy allows API calls to `*.azurecontainerapps.io`, sign-in at `*.ciamlogin.com`, and photo uploads and images from `*.blob.core.windows.net`; update `connect-src` if the API moves to a custom domain.
+The build is deployed to Azure Static Web Apps. `public/staticwebapp.config.json` rewrites unknown paths to `index.html` for client-side routing, caches hashed assets for a year, and sets security headers. Its Content-Security-Policy allows API calls to `*.azurecontainerapps.io`, sign-in at `*.ciamlogin.com`, and photo uploads and images from `*.blob.core.windows.net`; update `connect-src` if the API moves to a custom domain. `frame-src 'self'` and the `redirect.html` route (framed by its own origin only) are for the silent refresh iframe.

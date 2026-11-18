@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
@@ -23,6 +25,11 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rolldownOptions: {
+      // redirect.html is MSAL's redirect bridge for silent token refresh (src/auth/msal.ts).
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        redirect: fileURLToPath(new URL('./redirect.html', import.meta.url)),
+      },
       output: {
         // Vendor chunks change less often than app code, so browsers keep them cached
         // across deploys. MSAL is the largest dependency.
