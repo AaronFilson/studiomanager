@@ -342,7 +342,8 @@ below, and each was checked in the code. None needs Google.
   - the handwritten form, where they don't, and where the reader's note explains the total.
 - **Seed the glaze materials** that the demo invoices list, so "Receive into" fills itself.
 - **Show the matcher learning:** match a line by hand, confirm, upload the same invoice again, and
-  it matches itself.
+  it matches itself. Once `next-steps` is merged, the review also says it's a repeat and Confirm
+  refuses it, so the same delivery can't be received twice.
 - **Demo as the owner.** Compare is shown to anyone who manages supplies, but the API needs the
   owner's AI-key permission, so staff get a 403. **Fix (S):** gate the button the same way.
 - **Quote numbers only from a real eval run.** The two synthetic cases' recorded answers were
@@ -419,7 +420,7 @@ below, and each was checked in the code. None needs Google.
   - The list refreshes while anything is being read.
 - **Docs.** The README and the demo runbook are corrected.
 
-**2026-11-16, later, on `demo-polish`:**
+**2026-11-16, later: PR #51 (`demo-polish`), merged the night before the demo.**
 
 - **Kept answers hold no customer details** (Compare change 6). Azure's and Google's kept answers
   keep only the fields the mapping reads, so a customer's name and address are never stored.
@@ -436,9 +437,30 @@ below, and each was checked in the code. None needs Google.
     an invoice can't be discarded mid-read.
   - A provider answer with an unknown status is logged by its code, never with its body.
   - A very large photo is subsampled as it's decoded and shrunk before it's turned.
+- **The tour matches the app** (from walking the demo runbook against the code): the Roles
+  warning's grammar, a seeded under-par item with nothing requested for the assistant to reorder,
+  the demo token's copy, the README's current plan and admin limits, and the runbook's reset,
+  webhook and put-the-stage-back steps.
 
-**Not yet:** schema v2, the checks' false-alarm count, splits, the generator, and keeping score
-after confirming. Also the private eval's before-and-after run, which needs the owner's original
+**2026-11-16, on `next-steps` (merge after the demo):**
+
+- **The eval scores the checks** (scoring change 2): false alarms (problems raised on a draft read
+  right, beyond the invoice's own) and misses (a draft that needs edits, with nothing raised). CI
+  holds the recorded set to none of either; the live eval's report and the private set's totals
+  show both.
+- **Stock is received once** (found by tracing confirm, 2026-11-16):
+  - **The same invoice again:** an invoice with the same supplier and number as a confirmed one
+    says so on review, and confirming it is refused (`InvoiceDuplicates`). One without a number,
+    such as a counter form, is never a repeat.
+  - **The order it delivers:** confirming settles each received item's oldest request on its way
+    (ordered before approved) without moving stock again (`PurchaseRequests.settleOnWay`), so
+    marking that request received later can't count the delivery twice.
+  - **Units:** the review says what each matched line receives in the item's unit, and warns when
+    the invoice counts in another ("100 lb" into an item counted in "50 lb box").
+- **Open, for the owner:** keeping what was paid per item (a migration; "what did we pay for B-Mix
+  last time?"), and making a new supply item from a line that matches none.
+
+**Not yet:** schema v2, splits, the generator, and keeping score after confirming. Also the private eval's before-and-after run, which needs the owner's original
 photos and key.
 
 ## Questions for the owner
@@ -458,5 +480,5 @@ the prompt is tied to one of those cases, and every change is a number in the re
 invoices are mine, so they stay off GitHub. CI runs on synthetic ones, and the private set runs on
 my machine. Compare readers puts a general model next to two purpose-built OCR services on the same
 photo, at the same time, with time and cost. The services' answers are kept without the customer's
-name or address. Next is scoring the checks' false alarms, and keeping score against what staff
-confirm."
+name or address. The eval scores what staff are told, too: a false alarm on a right draft, or a
+wrong draft that raised nothing. Next is keeping score against what staff confirm."

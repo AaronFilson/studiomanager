@@ -43,29 +43,75 @@ class InvoiceEvalTests {
   @Test
   void recordedClaudeAnswersScoreAtLeastTheFloor() throws IOException {
     List<InvoiceScorer.Score> scores = new ArrayList<>();
-    StringBuilder report = new StringBuilder("case | fields | lines | no edits\n");
+    List<InvoiceScorer.Checked> checks = new ArrayList<>();
+    StringBuilder report =
+        new StringBuilder("case | fields | lines | no edits | false alarms | missed\n");
     for (Path folder : cases()) {
       Path recorded = folder.resolve("claude.json");
       if (!Files.exists(recorded)) {
         continue;
       }
-      InvoiceScorer.Score score = score(folder, recorded);
+      InvoiceDraft read = read(answer(recorded).toDraft());
+      InvoiceScorer.Score score = InvoiceScorer.score(expected(folder), read);
+      InvoiceScorer.Checked checked = InvoiceScorer.checks(expected(folder), read, score);
       scores.add(score);
+      checks.add(checked);
       report.append(
-          "%s | %d/%d | %d/%d | %s%n"
+          "%s | %d/%d | %d/%d | %s | %d | %s%n"
               .formatted(
                   folder.getFileName(),
                   score.fieldsRight(),
                   score.fieldsTotal(),
                   score.linesRight(),
                   score.linesTotal(),
-                  score.needsNoEdits()));
+                  score.needsNoEdits(),
+                  checked.falseAlarms(),
+                  checked.missed()));
     }
     System.out.print(report);
 
     assertThat(scores).isNotEmpty();
     assertThat(fieldAccuracy(scores)).isGreaterThanOrEqualTo(FIELD_FLOOR);
     assertThat(lineAccuracy(scores)).isGreaterThanOrEqualTo(LINE_FLOOR);
+    // What staff are told: no problem raised on a right draft, and a wrong one always says so
+    assertThat(checks)
+        .allSatisfy(checked -> {
+          assertThat(checked.falseAlarms()).isZero();
+          assertThat(checked.missed()).isFalse();
+        });
+  }
+
+  @Test
+  void theChecksScoreFalseAlarmsAndMisses() {
+    InvoiceDraft right =
+        draft(
+            InvoiceChecksTests.line("Fireclay", "1", "17.50", "17.50"),
+            InvoiceChecksTests.line("Dolomite", "1", "32.00", "32.00"),
+            InvoiceChecksTests.line("Talc", "1", "21.50", "21.50"));
+    // The written total covers only part of it: a real problem, on the expected draft too
+    InvoiceDraft partPaid =
+        new InvoiceDraft(
+            "Clay Co", null, null, null, null, null, new BigDecimal("40.00"), right.lines());
+
+    assertThat(InvoiceScorer.checks(partPaid, partPaid, InvoiceScorer.score(partPaid, partPaid)))
+        .isEqualTo(new InvoiceScorer.Checked(0, false));
+
+    InvoiceDraft noTotal =
+        new InvoiceDraft("Clay Co", null, null, null, null, null, null, right.lines());
+    InvoiceDraft wrongQuantity =
+        draft(
+            InvoiceChecksTests.line("Fireclay", "2", "8.75", "17.50"),
+            right.lines().get(1),
+            right.lines().get(2));
+
+    // A missing total on an otherwise right read is flagged, but it isn't right, so not an alarm
+    assertThat(InvoiceScorer.checks(right, noTotal, InvoiceScorer.score(right, noTotal)).missed())
+        .isFalse();
+    // A wrong quantity whose arithmetic still adds up raises nothing: a miss
+    assertThat(
+            InvoiceScorer.checks(right, wrongQuantity, InvoiceScorer.score(right, wrongQuantity))
+                .missed())
+        .isTrue();
   }
 
   /**
@@ -181,8 +227,12 @@ class InvoiceEvalTests {
   }
 
   private static InvoiceScorer.Score scoreDraft(Path folder, InvoiceDraft draft) {
-    InvoiceDraft read = InvoiceDrafts.sanitize(draft, LocalDate.of(2026, 11, 6)).draft();
-    return InvoiceScorer.score(expected(folder), read);
+    return InvoiceScorer.score(expected(folder), read(draft));
+  }
+
+  /** A recorded answer through the same gate as a live one. */
+  private static InvoiceDraft read(InvoiceDraft draft) {
+    return InvoiceDrafts.sanitize(draft, LocalDate.of(2026, 11, 6)).draft();
   }
 
   static double fieldAccuracy(List<InvoiceScorer.Score> scores) {

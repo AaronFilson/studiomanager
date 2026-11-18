@@ -97,6 +97,10 @@ class PurchaseRequestEntity {
     return quantity;
   }
 
+  RequestStatus status() {
+    return status;
+  }
+
   long version() {
     return Objects.requireNonNull(version, "A purchase request has a version once it's saved");
   }

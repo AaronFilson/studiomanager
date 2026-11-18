@@ -1,9 +1,10 @@
 locals {
   graph_client_id = "00000003-0000-0000-c000-000000000000" # Microsoft Graph
 
-  # The web app redirects to the origin root with a trailing slash, and Entra matches redirect
-  # URIs exactly.
-  spa_redirect_uris = [for origin in var.web_origins : "${origin}/"]
+  # Sign-in redirects to the origin root with a trailing slash; a silent token refresh returns
+  # to /redirect.html, MSAL's redirect bridge (web/src/auth/msal.ts). Entra matches redirect URIs
+  # exactly.
+  spa_redirect_uris = flatten([for origin in var.web_origins : ["${origin}/", "${origin}/redirect.html"]])
 }
 
 # Not here: the GitHub sign-in bridge's custom OIDC identity provider (ADR 20). The azuread

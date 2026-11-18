@@ -1,6 +1,8 @@
 import {
   type AccountInfo,
+  AuthError,
   type AuthenticationResult,
+  BrowserAuthErrorCodes,
   EventType,
   InteractionRequiredAuthError,
   type IPublicClientApplication,
@@ -42,9 +44,18 @@ export function currentAccount(instance: IPublicClientApplication, accounts?: Ac
 }
 
 /**
+ * Where a silent refresh's hidden iframe returns: a blank page that hands the response back
+ * to the app (redirect.html, src/auth/redirectBridge.ts). MSAL 5 needs this page; the app
+ * root can't do it. It's registered as a redirect URI next to the origin root.
+ */
+export function silentRedirectUri(): string {
+  return `${window.location.origin}/redirect.html`;
+}
+
+/**
  * A token for the API: from the cache or a silent refresh, else by redirecting to sign
- * in again (consent changed, session expired). Returns `undefined` when signed out or
- * while that redirect is under way.
+ * in again (consent changed, session expired, or the silent refresh timed out). Returns
+ * `undefined` when signed out or while that redirect is under way.
  */
 export async function acquireApiToken(instance: IPublicClientApplication, scopes: string[]): Promise<string | undefined> {
   const account = currentAccount(instance);
@@ -52,13 +63,24 @@ export async function acquireApiToken(instance: IPublicClientApplication, scopes
     return undefined;
   }
   try {
-    const result = await instance.acquireTokenSilent({ scopes, account });
+    const result = await instance.acquireTokenSilent({ scopes, account, redirectUri: silentRedirectUri() });
     return result.accessToken;
   } catch (error) {
-    if (error instanceof InteractionRequiredAuthError) {
+    if (needsInteraction(error)) {
       await instance.acquireTokenRedirect({ scopes, account, redirectStartPage: window.location.href });
       return undefined;
     }
     throw error;
   }
+}
+
+/**
+ * Whether to sign in again. A silent refresh that times out (the iframe never got a response,
+ * for example when the browser blocks it) can't succeed by retrying, so it goes to sign-in too.
+ */
+function needsInteraction(error: unknown): boolean {
+  return (
+    error instanceof InteractionRequiredAuthError ||
+    (error instanceof AuthError && error.errorCode === BrowserAuthErrorCodes.timedOut)
+  );
 }

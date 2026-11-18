@@ -315,6 +315,40 @@ function impliedUnitPrice(line: EditableLine): string | undefined {
   return `≈ ${String(Math.round((total / quantity) * 10000) / 10000)}`;
 }
 
+/** The word a unit counts in: "box" for "50 lb box" or "boxes", "roll" for "Rolls". */
+function countingWord(unit: string | undefined): string {
+  const words = (unit ?? '').toLowerCase().match(/[a-z]+/g) ?? [];
+  const last = words.at(-1) ?? '';
+  if (/(x|ch|sh|ss)es$/.test(last)) {
+    return last.slice(0, -2);
+  }
+  return last.length > 2 && last.endsWith('s') && !last.endsWith('ss') ? last.slice(0, -1) : last;
+}
+
+/**
+ * What confirming adds to the item, in the item's own unit, and a warning when the invoice counts
+ * in something else ("2 bag" into an item counted in "50 lb box"), since the quantity is received
+ * as it stands.
+ */
+function ReceivedAs({ line, item }: { line: EditableLine; item: SupplyItem | undefined }) {
+  if (!item) {
+    return null;
+  }
+  const quantity = line.quantity && line.quantity.trim() ? line.quantity.trim() : '?';
+  const invoiceWord = countingWord(line.unit);
+  const differs = invoiceWord !== '' && invoiceWord !== countingWord(item.unit);
+  return differs ? (
+    <p className="error">
+      The invoice counts in {line.unit}; {item.name} is counted in {item.unit}. Put the quantity in {item.unit} and
+      change the unit to match before confirming.
+    </p>
+  ) : (
+    <p className="muted">
+      Receives {quantity} {item.unit}
+    </p>
+  );
+}
+
 const headerFields = [
   { key: 'invoiceDate', label: 'Date', type: 'date' },
   { key: 'subtotal', label: 'Subtotal', type: 'decimal' },
@@ -524,6 +558,7 @@ function DraftForm({
                         </option>
                       ))}
                     </select>
+                    <ReceivedAs line={line} item={items.find((item) => item.id === line.supplyItemId)} />
                   </td>
                   {!confirmed && (
                     <td>

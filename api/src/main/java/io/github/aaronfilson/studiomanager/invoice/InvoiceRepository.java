@@ -17,4 +17,13 @@ interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
   /** One invoice with its lines, in one statement. */
   @Query("select i from Invoice i left join fetch i.lines where i.id = :id")
   Optional<Invoice> findWithLines(UUID id);
+
+  /** Other invoices in a status with this invoice number, any case, oldest first. */
+  @Query(
+      """
+      select i from Invoice i
+      where i.id <> :id and i.status = :status and lower(i.invoiceNumber) = lower(:number)
+      order by i.confirmedAt, i.id
+      """)
+  List<Invoice> findOthersNumbered(UUID id, String number, InvoiceStatus status);
 }

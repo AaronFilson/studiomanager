@@ -7,6 +7,7 @@ import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import io.github.aaronfilson.studiomanager.supplies.PurchaseRequests;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyService;
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -34,6 +36,8 @@ class InvoiceReview {
   private final InvoiceMatching matching;
   private final InvoiceQueries queries;
   private final SupplyService supplies;
+  private final PurchaseRequests requests;
+  private final InvoiceDuplicates duplicates;
   private final Clock clock;
 
   InvoiceReview(
@@ -41,11 +45,15 @@ class InvoiceReview {
       InvoiceMatching matching,
       InvoiceQueries queries,
       SupplyService supplies,
+      PurchaseRequests requests,
+      InvoiceDuplicates duplicates,
       Clock clock) {
     this.invoices = invoices;
     this.matching = matching;
     this.queries = queries;
     this.supplies = supplies;
+    this.requests = requests;
+    this.duplicates = duplicates;
     this.clock = clock;
   }
 
@@ -102,18 +110,24 @@ class InvoiceReview {
     }
     invoice.edited(sanitized.draft(), matches);
     invoices.flush();
-    return invoice.toView(InvoiceChecks.problems(invoice.draft()));
+    return invoice.toView(duplicates.problems(invoice));
   }
 
   /**
-   * Receives each matched line's quantity into stock, remembers what the vendor's lines meant for
-   * next time, and marks the invoice confirmed. All in one transaction.
+   * Receives each matched line's quantity into stock, settles each item's request already on its
+   * way, remembers what the vendor's lines meant for next time, and marks the invoice confirmed.
+   * All in one transaction. A repeat of a confirmed invoice is refused.
    */
   @Transactional
   InvoiceView confirm(UUID studioId, UUID invoiceId, long expectedVersion) {
     InvoiceInbox.requireBound(studioId);
     TenantContext caller = TenantContext.require();
     Invoice invoice = findAtVersion(invoiceId, expectedVersion);
+    duplicates
+        .confirmedCopyOf(invoice)
+        .ifPresent(confirmed -> {
+          throw new ConflictException(InvoiceDuplicates.message(confirmed));
+        });
     List<InvoiceLine> lines = invoice.lines();
     for (int index = 0; index < lines.size(); index++) {
       InvoiceLine line = lines.get(index);
@@ -129,6 +143,7 @@ class InvoiceReview {
     invoices.flush();
     String note = receivedNote(invoice);
     String vendorKey = SupplyMatcher.normalize(invoice.vendorName());
+    Set<UUID> settled = new HashSet<>();
     for (InvoiceLine line : lines) {
       UUID itemId = line.supplyItemId();
       if (itemId == null) {
@@ -136,6 +151,10 @@ class InvoiceReview {
       }
       supplies.recordMovement(
           itemId, MovementKind.RECEIVED, Objects.requireNonNull(line.quantity()), note);
+      // The delivery an open request was waiting for: received here, so not again by hand
+      if (settled.add(itemId)) {
+        requests.settleOnWay(itemId);
+      }
       if (!vendorKey.isEmpty()) {
         learn(studioId, vendorKey, AliasKind.SKU, line.sku(), itemId, caller.accountId(), now);
         learn(
