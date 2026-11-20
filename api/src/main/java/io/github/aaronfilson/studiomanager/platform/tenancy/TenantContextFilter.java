@@ -53,6 +53,8 @@ public class TenantContextFilter extends OncePerRequestFilter {
       context = studioId == null ? caller : inStudio(caller, studioId);
     } else if (authentication instanceof ApiTokenAuthentication token) {
       context = tokenContext(request, token.token());
+    } else if (authentication instanceof McpOAuthAuthentication mcpToken) {
+      context = mcpOAuthContext(request, mcpToken.token());
     } else {
       chain.doFilter(request, response);
       return;
@@ -98,6 +100,40 @@ public class TenantContextFilter extends OncePerRequestFilter {
     held.addAll(person.permissions());
     held.retainAll(TokenScope.allowedBy(token.scopes()));
     return person.viaToken(token.tokenId()).withPermissions(held);
+  }
+
+  /**
+   * An MCP OAuth token works only on {@code /api/v1/studios/{studioId}/mcp} for its bound {@code
+   * studio_id}, and holds the caller's live permissions intersected with {@link
+   * TokenScope#allowedBy} (ADR 26). Losing membership or {@code mcp.use} cuts access off on the
+   * next request.
+   */
+  private TenantContext mcpOAuthContext(
+      HttpServletRequest request, McpOAuthAuthentication.ResolvedMcpToken token) {
+    UUID studioId = studioIdFrom(request);
+    if (studioId == null || !"mcp".equals(areaOf(request))) {
+      throw new AccessDeniedException("MCP OAuth tokens work only on the MCP endpoint.");
+    }
+    if (!studioId.equals(token.studioId())) {
+      throw new AccessDeniedException("This token works only in the studio it was made for.");
+    }
+    TokenPolicy.refusal(token.scopes(), request.getMethod(), "mcp")
+        .ifPresent(why -> {
+          throw new AccessDeniedException(why);
+        });
+    UUID accountId =
+        accounts
+            .findBySubject(token.issuer(), token.subject())
+            .orElseThrow(
+                () -> new AccessDeniedException("No Studio Manager account matches this token."));
+    TenantContext person = inStudio(TenantContext.forAccount(accountId), token.studioId());
+    if (!person.holds(Permission.MCP_USE)) {
+      throw new AccessDeniedException("Your role in this studio doesn't include the MCP server.");
+    }
+    EnumSet<Permission> held = EnumSet.noneOf(Permission.class);
+    held.addAll(person.permissions());
+    held.retainAll(TokenScope.allowedBy(token.scopes()));
+    return person.withPermissions(held);
   }
 
   /**

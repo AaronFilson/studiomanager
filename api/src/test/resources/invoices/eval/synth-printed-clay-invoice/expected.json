@@ -1,0 +1,69 @@
+{
+  "documentType": "INVOICE",
+  "vendorName": "Alder Creek Ceramic Supply",
+  "invoiceNumber": "AC-44108",
+  "orderNumber": "PO-2026-089",
+  "invoiceDate": "2026-10-08",
+  "invoiceDatePrinted": "10/08/2026",
+  "invoiceDateYear": "PRINTED",
+  "dueDate": "2026-11-07",
+  "subtotal": "419.50",
+  "shipping": "",
+  "tax": "24.82",
+  "total": "444.32",
+  "amountPaid": "",
+  "amountDue": "444.32",
+  "payments": [],
+  "crossedOut": [],
+  "otherPapers": "",
+  "notes": [
+    "Freight and pallet fee are printed as lines among the items."
+  ],
+  "rotation": "0",
+  "lines": [
+    {
+      "description": "B-Mix 5 Moist Clay 50 lb box",
+      "sku": "AC-BM5",
+      "quantity": "6",
+      "unit": "box",
+      "unitPrice": "33.50",
+      "lineTotal": "201.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Custer Feldspar 50 lb bag",
+      "sku": "AC-CF50",
+      "quantity": "100",
+      "unit": "lb",
+      "unitPrice": "1.185",
+      "lineTotal": "118.50",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Lift-gate freight delivery",
+      "sku": "FRT-LG",
+      "quantity": "1",
+      "unit": "",
+      "unitPrice": "75.00",
+      "lineTotal": "75.00",
+      "kind": "SHIPPING",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Wood pallet handling fee",
+      "sku": "FEE-PAL",
+      "quantity": "1",
+      "unit": "",
+      "unitPrice": "25.00",
+      "lineTotal": "25.00",
+      "kind": "FEE",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

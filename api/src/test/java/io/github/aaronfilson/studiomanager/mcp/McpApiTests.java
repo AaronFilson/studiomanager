@@ -217,6 +217,27 @@ class McpApiTests {
         .hasStatus(HttpStatus.FORBIDDEN);
   }
 
+  @Test
+  void protectedResourceMetadataReturns404WhenMcpOAuthIsDisabled() {
+    assertThat(mvc.get().uri("/.well-known/oauth-protected-resource"))
+        .hasStatus(HttpStatus.NOT_FOUND);
+    assertThat(
+            mvc.get()
+                .uri("/.well-known/oauth-protected-resource/api/v1/studios/{id}/mcp", studioId))
+        .hasStatus(HttpStatus.NOT_FOUND);
+
+    MvcTestResult unauthenticated =
+        mvc.post()
+            .uri(path("/mcp"))
+            .contentType(MediaType.APPLICATION_JSON)
+            .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
+            .content("{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}")
+            .exchange();
+    assertThat(unauthenticated).hasStatus(HttpStatus.UNAUTHORIZED);
+    assertThat(unauthenticated.getResponse().getHeader(HttpHeaders.WWW_AUTHENTICATE))
+        .doesNotContain("resource_metadata");
+  }
+
   private MvcTestResult call(String tool, String arguments) {
     return rpc(
         token,

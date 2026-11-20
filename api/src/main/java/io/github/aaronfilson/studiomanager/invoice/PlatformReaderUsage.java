@@ -14,7 +14,7 @@ import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * Pages read this calendar month (UTC) by the platform-paid readers, counted from {@code
- * invoice_read}: for the caps before each read, and for the admin page.
+ * invoice_read}, and reader accuracy on confirmed invoices from {@code invoice_comparison}.
  */
 @Component
 public class PlatformReaderUsage {
@@ -22,6 +22,25 @@ public class PlatformReaderUsage {
   /** One studio's use of one reader this month. */
   public record StudioUse(
       UUID studioId, InvoiceReaderKind reader, long reads, long pages, BigDecimal costUsd) {}
+
+  /** How one compared reader has scored against staff-confirmed invoices across all studios. */
+  public record ReaderAccuracy(
+      InvoiceReaderKind reader,
+      long confirmedInvoices,
+      long exactMatches,
+      long fieldsRight,
+      long fieldsTotal,
+      long linesRight,
+      long linesTotal) {
+
+    public double fieldAccuracy() {
+      return fieldsTotal == 0 ? 1.0 : (double) fieldsRight / fieldsTotal;
+    }
+
+    public double lineAccuracy() {
+      return linesTotal == 0 ? 1.0 : (double) linesRight / linesTotal;
+    }
+  }
 
   private final InvoiceReadRepository reads;
   private final InvoiceQueries queries;
@@ -67,5 +86,11 @@ public class PlatformReaderUsage {
     Instant since = monthStart();
     List<StudioUse> used = transactions.execute(tx -> queries.usageByStudioSince(since));
     return used == null ? List.of() : used;
+  }
+
+  /** Accuracy summary per reader across confirmed invoices. Platform admin only. */
+  public List<ReaderAccuracy> accuracy() {
+    List<ReaderAccuracy> summary = transactions.execute(tx -> queries.readerAccuracySummary());
+    return summary == null ? List.of() : summary;
   }
 }

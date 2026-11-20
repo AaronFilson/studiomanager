@@ -11,6 +11,7 @@ import org.jspecify.annotations.Nullable;
  * An invoice as the API shows it.
  *
  * @param problems what doesn't add up, from {@link InvoiceChecks}
+ * @param explanations helpful non-problem notes from {@link InvoiceChecks} (e.g. split payments)
  */
 record InvoiceView(
     UUID id,
@@ -21,6 +22,7 @@ record InvoiceView(
     InvoiceDraft draft,
     List<Line> lines,
     List<String> problems,
+    List<String> explanations,
     UUID uploadedBy,
     Instant uploadedAt,
     @Nullable UUID confirmedBy,

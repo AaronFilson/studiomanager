@@ -1,0 +1,47 @@
+{
+  "documentType": "PACKING_LIST",
+  "vendorName": "Willamette Clay Works",
+  "invoiceNumber": "",
+  "orderNumber": "SO-3309",
+  "invoiceDate": "2026-10-23",
+  "invoiceDatePrinted": "2026-10-23",
+  "invoiceDateYear": "PRINTED",
+  "dueDate": "",
+  "subtotal": "",
+  "shipping": "",
+  "tax": "",
+  "total": "",
+  "amountPaid": "",
+  "amountDue": "",
+  "payments": [],
+  "crossedOut": [],
+  "otherPapers": "Faint invoice showing through from sheet underneath",
+  "notes": [
+    "Packing list only; no prices printed."
+  ],
+  "rotation": "0",
+  "lines": [
+    {
+      "description": "Speckled Buff Cone 5 Clay",
+      "sku": "WC-SB5",
+      "quantity": "10",
+      "unit": "bag",
+      "unitPrice": "",
+      "lineTotal": "",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Porcelain Grolleg Cone 6",
+      "sku": "WC-PG6",
+      "quantity": "4",
+      "unit": "box",
+      "unitPrice": "",
+      "lineTotal": "",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

@@ -278,4 +278,36 @@ describe('admin', () => {
       studioOrders: [],
     });
   });
+
+  it('shows reader accuracy on confirmed invoices', async () => {
+    server.use(
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/admin/invoice-readers`, () =>
+        HttpResponse.json(
+          readers({
+            accuracy: [
+              {
+                reader: 'CLAUDE',
+                confirmedInvoices: 10,
+                exactMatches: 9,
+                fieldsRight: 67,
+                fieldsTotal: 70,
+                linesRight: 47,
+                linesTotal: 50,
+                fieldAccuracy: 0.9571,
+                lineAccuracy: 0.94,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    renderApp('/admin');
+    expect(
+      await screen.findByText('Claude matched 9 of 10 confirmed invoices (96% fields, 94% lines).'),
+    ).toBeInTheDocument();
+  });
 });

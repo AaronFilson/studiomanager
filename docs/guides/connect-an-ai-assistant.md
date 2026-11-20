@@ -31,10 +31,21 @@ claude mcp add --transport http studio https://<api-host>/api/v1/studios/<studio
   --header "Authorization: Bearer smpat_..."
 ```
 
-**Another client:** set up a remote, Streamable HTTP server at that address, and send the token
-as an `Authorization: Bearer` header. A client that only signs in to remote servers with OAuth
-can't connect yet. OAuth sign-in is planned
-([17](../planning/17-mcp-and-api-tokens-plan.md), step 5).
+**Another client (OAuth 2.1):** point any remote Streamable HTTP MCP client at:
+
+```
+https://<api-host>/api/v1/studios/<studio-id>/mcp
+```
+
+When the deployment enables MCP OAuth (`studiomanager.mcp.oauth.issuer`), the server advertises
+RFC 9728 Protected Resource Metadata in its `401 WWW-Authenticate` header (and at
+`/.well-known/oauth-protected-resource/api/v1/studios/<studio-id>/mcp`). The client registers with
+PKCE S256, opens the consent page showing the studio and requested scopes (`read`, `propose`), and
+receives a studio-bound access token that only works on `/mcp`
+([ADR 26](../adr/0026-mcp-oauth.md)).
+
+**Another client (personal token):** set up a remote, Streamable HTTP server at that address, and
+send a personal API token as an `Authorization: Bearer smpat_...` header.
 
 ## 3. Ask
 

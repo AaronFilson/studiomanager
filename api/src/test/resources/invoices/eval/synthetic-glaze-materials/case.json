@@ -1,0 +1,6 @@
+{
+  "source": "hand-crafted-v1",
+  "license": "MIT",
+  "split": "dev",
+  "tags": ["v1", "synthetic", "glaze-materials", "discount"]
+}

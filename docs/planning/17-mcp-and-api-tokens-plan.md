@@ -244,6 +244,23 @@ tools.**
 - **No `app.via_token` setting.** The app writes these histories itself, with no triggers, so the
   id goes in the insert like the actor does. Add the setting if a trigger ever writes history.
 
+**Step 5, 2026-11-20, on `plan17-mcp-oauth` ([ADR 26](../adr/0026-mcp-oauth.md)): phase 2 OAuth
+2.1 for MCP (with plan 18 step 3).**
+- **RFC 9728 discovery on the API:** unauthenticated `GET /.well-known/oauth-protected-resource`
+  and `GET /.well-known/oauth-protected-resource/api/v1/studios/{studioId}/mcp`, plus
+  `WWW-Authenticate: Bearer resource_metadata="..."` on 401 from `/api/v1/studios/{studioId}/mcp`
+  when `studiomanager.mcp.oauth.issuer` is set (and 404 when disabled).
+- **Second trusted JWT issuer fenced to `/mcp` only:** RS256 tokens from the MCP authorization
+  server are accepted only on `/api/v1/studios/{studioId}/mcp` (never on regular REST endpoints,
+  `/me`, `/admin`, money, exports, or pending-action approvals). `TenantContextFilter` re-checks
+  live membership, live `mcp.use`, `studio_id` binding, and intersects live permissions with
+  `TokenScope.allowedBy(scopes)` on every call. Entra tokens and `smpat_` tokens are unchanged.
+- **OAuth 2.1 authorization server on `auth/`:** optional `studiomanager.bridge.mcp.*` adds
+  rate-limited RFC 7591 dynamic client registration (`POST /oauth2/register` for public PKCE clients
+  with HTTPS/loopback redirects), RFC 8414/OIDC discovery metadata, explicit per-request consent at
+  `/oauth2/consent` with strict CSP, and RFC 8707 resource-bound RS256 JWT access tokens (`aud`,
+  `sub`, `studio_id`, `scope`), keeping GitHub-to-Entra federation intact.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

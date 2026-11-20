@@ -460,8 +460,25 @@ below, and each was checked in the code. None needs Google.
 - **Open, for the owner:** keeping what was paid per item (a migration; "what did we pay for B-Mix
   last time?"), and making a new supply item from a line that matches none.
 
-**Not yet:** schema v2, splits, the generator, and keeping score after confirming. Also the private eval's before-and-after run, which needs the owner's original
-photos and key.
+**2026-11-20, on `plan24-invoices`:** All remaining scriptable/code items shipped:
+
+- **Inline "+ New item" on Web Invoice Review (`InvoiceInbox.tsx`):** unmatched invoice lines offer an inline `+ New item` form prefilled from description, inferred category, unit and supplier; creating updates the supplies query cache immediately and selects the new item in the dropdown on the same render.
+- **Last purchase price per supply item (`V43__item_purchase_price.sql`):** added `last_purchase_unit_price` and `last_purchased_at` on `supply_item`, populated on `InvoiceReview.confirm(...)` from `unitPrice` (or `lineTotal / quantity` rounded HALF_UP to 2 decimals) and shown on `/studios/$studioId/supplies`.
+- **Invoice answer schema v2 (`V44__invoice_schema_v2.sql`):**
+  - Added `documentType`, `orderNumber`, `dueDate`, `amountPaid`, `amountDue`, `invoiceDatePrinted`, `invoiceDateYear` (`PRINTED`/`FROM_PAGE`/`ASSUMED`), `payments` (date, amount, method, source — never card digits), computed `payableAmount` (defaulting to sum of payments when payments cover lines + tax), `crossedOut`, `otherPapers`, `notes` (up to 5), `rotation` (0/90/180/270), and per-line `kind`, `serialNumbers` and `unclear`.
+  - All v2 fields sanitized in `InvoiceDrafts.sanitize` with full v1 eval backward compatibility.
+  - Updated `InvoiceChecks` (packing lists get no money checks; receipts check against paid total; split payments covering lines + tax explain clearly instead of raising a false alarm; non-stock lines don't require a quantity) and `SupplyMatcher` (`SHIPPING`, `FEE`, `DISCOUNT`, `DEPOSIT` default to unmatched).
+  - Updated `InvoiceInbox.tsx` review screen with document type, reader notes, crossed-out rows, other papers, payments list, payable amount, payment explanations, initial rotation from `rotation`, and editable line `kind`.
+- **Keep score after confirming (`V45__invoice_reader_scores.sql`):**
+  - Stored compared drafts in `invoice_comparison` (with PostgreSQL RLS) whenever Compare Readers runs; confirming an invoice scores every stored compared draft with `InvoiceScorer` and persists field/line accuracy, exact match, false alarms and misses.
+  - Exposed cross-tenant accuracy summary via `app.reader_accuracy_summary()` (platform admin only) in `InvoiceReaderOverview` and rendered on `InvoiceReadersAdmin.tsx`.
+  - Added `GET /api/v1/studios/{studioId}/invoices/{invoiceId}/eval-export` returning a private eval-case ZIP (`expected.json`, `case.json`, uploaded file, `README.txt` — no customer PII) plus a Download button on confirmed invoices.
+- **Eval splits, source fetcher & deterministic synthetic generator:**
+  - Updated `InvoiceScorer` for v2 fields (`documentType`, `line.kind`, `payments`, `invoiceDateYear`) and `InvoiceEvalTests` / `LiveInvoiceEval` for `case.json` `dev`/`test` splits.
+  - Added `api/src/test/resources/invoices/eval/sources.json` and `scripts/eval-sources.sh` (sparse-cloning into git-ignored `.eval-sources-cache/`).
+  - Added seeded Playwright generator `e2e/scripts/generate-eval-invoices.mjs` covering 7 ceramic studio templates (printed supplier invoice, QuickBooks/Square invoice, online order confirmation, handwritten counter form with split payments & crossed-out row, thermal till receipt, packing list, credit memo) and committed the 7 synthetic v2 eval fixture cases under `api/src/test/resources/invoices/eval/` verified by `InvoiceEvalTests`.
+
+**Remaining (owner / live-API only):** running `LiveInvoiceEval` on the owner's private photos with a real Anthropic key (and deciding whether a Haiku upright-and-crop pass earns its cost from that run).
 
 ## Questions for the owner
 

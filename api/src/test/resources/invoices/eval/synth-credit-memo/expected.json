@@ -1,0 +1,47 @@
+{
+  "documentType": "CREDIT_MEMO",
+  "vendorName": "Alder Creek Ceramic Supply",
+  "invoiceNumber": "CM-44190",
+  "orderNumber": "PO-2026-089",
+  "invoiceDate": "2026-10-26",
+  "invoiceDatePrinted": "10/26/2026",
+  "invoiceDateYear": "PRINTED",
+  "dueDate": "",
+  "subtotal": "-87.00",
+  "shipping": "",
+  "tax": "-7.18",
+  "total": "-94.18",
+  "amountPaid": "",
+  "amountDue": "-94.18",
+  "payments": [],
+  "crossedOut": [],
+  "otherPapers": "",
+  "notes": [
+    "Credit memo for two cracked half-shelves returned from PO-2026-089."
+  ],
+  "rotation": "0",
+  "lines": [
+    {
+      "description": "21 in Half Cordierite Kiln Shelf (damaged return)",
+      "sku": "AC-KS21",
+      "quantity": "-2",
+      "unit": "each",
+      "unitPrice": "48.50",
+      "lineTotal": "-97.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Return inspection fee",
+      "sku": "FEE-RET",
+      "quantity": "1",
+      "unit": "",
+      "unitPrice": "10.00",
+      "lineTotal": "10.00",
+      "kind": "FEE",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

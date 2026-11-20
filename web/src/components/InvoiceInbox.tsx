@@ -1,23 +1,30 @@
 import {
   completeInvoiceUploadMutation,
   confirmInvoiceMutation,
+  createSupplyMutation,
   discardInvoiceMutation,
+  exportInvoiceEval,
   getInvoiceOptions,
   type Invoice,
+  type InvoiceDocumentType,
   type InvoiceFileType,
   type InvoiceLine,
+  type InvoiceLineKind,
+  type InvoicePayment,
   type InvoiceStatus,
   listInvoicesOptions,
   listSuppliesOptions,
+  listSuppliesQueryKey,
   saveInvoiceDraftMutation,
   startInvoiceUploadMutation,
+  type SupplyCategory,
   type SupplyItem,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type SubmitEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { CompareReaders, readerLabels } from './CompareReaders';
-import { ErrorMessage } from './ErrorMessage';
+import { ErrorMessage, errorText } from './ErrorMessage';
 
 const fileTypes: Record<string, InvoiceFileType> = {
   'application/pdf': 'PDF',
@@ -33,7 +40,95 @@ const statusLabels: Record<InvoiceStatus, string> = {
   CONFIRMED: 'confirmed',
 };
 
+const documentTypes: InvoiceDocumentType[] = [
+  'INVOICE',
+  'ORDER_FORM',
+  'RECEIPT',
+  'PACKING_LIST',
+  'CREDIT_MEMO',
+  'STATEMENT',
+  'QUOTE',
+  'OTHER',
+];
+
+const documentTypeLabels: Record<InvoiceDocumentType, string> = {
+  INVOICE: 'Invoice',
+  ORDER_FORM: 'Order form',
+  RECEIPT: 'Receipt',
+  PACKING_LIST: 'Packing list',
+  CREDIT_MEMO: 'Credit memo',
+  STATEMENT: 'Statement',
+  QUOTE: 'Quote',
+  OTHER: 'Other',
+};
+
+const lineKinds: InvoiceLineKind[] = ['ITEM', 'SHIPPING', 'FEE', 'DISCOUNT', 'DEPOSIT', 'OTHER'];
+
+const lineKindLabels: Record<InvoiceLineKind, string> = {
+  ITEM: 'Item',
+  SHIPPING: 'Shipping',
+  FEE: 'Fee',
+  DISCOUNT: 'Discount',
+  DEPOSIT: 'Deposit',
+  OTHER: 'Other',
+};
+
+const supplyCategories: SupplyCategory[] = [
+  'CLAY',
+  'GLAZE',
+  'GLAZE_MATERIAL',
+  'TOOL',
+  'KILN_SUPPLY',
+  'CLEANING',
+  'OTHER',
+];
+
+const supplyCategoryLabels: Record<SupplyCategory, string> = {
+  CLAY: 'Clay',
+  GLAZE: 'Glaze',
+  GLAZE_MATERIAL: 'Glaze material',
+  TOOL: 'Tool',
+  KILN_SUPPLY: 'Kiln supply',
+  CLEANING: 'Cleaning',
+  OTHER: 'Other',
+};
+
 const waiting = (status: InvoiceStatus | undefined) => status === 'UPLOADING' || status === 'READING';
+
+/** Guesses a supply category from an invoice line's description to prefill "+ New item". */
+function inferSupplyCategory(description: string): SupplyCategory {
+  const lower = description.toLowerCase();
+  if (
+    /\b(feldspar|kaolin|silica|oxide|carbonate|whiting|dolomite|talc|epk|nepheline|gerstley|frit|bentonite|zircon|rutile|cobalt|copper|iron|tin|zinc|spodumene|wollastonite|fireclay|ball clay|custer)\b/.test(
+      lower,
+    )
+  ) {
+    return 'GLAZE_MATERIAL';
+  }
+  if (/\b(clay|b-mix|porcelain|stoneware|buff|terracotta|earthenware|grog|redart)\b/.test(lower)) {
+    return 'CLAY';
+  }
+  if (/\b(glaze|underglaze|slip|engobe|celadon|shino|tenmoku|stain|wax resist)\b/.test(lower)) {
+    return 'GLAZE';
+  }
+  if (/\b(kiln|shelf|shelves|post|stilt|cone|pyrometric|wash|element|thermocouple|brick|peep)\b/.test(lower)) {
+    return 'KILN_SUPPLY';
+  }
+  if (/\b(sponge|rib|wire|needle|trim|brush|chamois|bat|cutter|loop|caliper|bucket|sieve|tool)\b/.test(lower)) {
+    return 'TOOL';
+  }
+  if (/\b(soap|mop|towel|cleaner|wipe|detergent|bleach)\b/.test(lower)) {
+    return 'CLEANING';
+  }
+  return 'OTHER';
+}
+
+function initialTurns(rotation: number | undefined): number {
+  if (rotation === 90 || rotation === 180 || rotation === 270) {
+    return rotation / 90;
+  }
+  return 0;
+}
 
 /**
  * The supplies inbox: upload a supplier's invoice, check the draft next to the file, and confirm it
@@ -217,7 +312,7 @@ function InvoiceReview({
   return (
     <div className="stack">
       <div className="invoice-review">
-        <InvoiceFile invoice={invoice.data} />
+        <InvoiceFile key={`${invoice.data.id}-${String(invoice.data.rotation ?? 0)}`} invoice={invoice.data} />
         <DraftForm
           key={invoice.data.version}
           studioId={studioId}
@@ -231,9 +326,9 @@ function InvoiceReview({
   );
 }
 
-/** The invoice itself, beside its draft: a photo turned upright by hand if need be, or the PDF. */
+/** The invoice itself, beside its draft: a photo starts upright from `rotation` and can be turned, or the PDF. */
 function InvoiceFile({ invoice }: { invoice: Invoice }) {
-  const [turns, setTurns] = useState(0);
+  const [turns, setTurns] = useState(() => initialTurns(invoice.rotation));
   const url = invoice.fileUrl;
   if (!url) {
     return null;
@@ -288,7 +383,15 @@ function TurnedImage({ url, turns }: { url: string; turns: number }) {
   if (failed) {
     return <p className="warning">The photo couldn&apos;t be shown here. Open the file instead.</p>;
   }
-  return <canvas ref={canvas} role="img" aria-label="The invoice" style={{ width: '100%', height: 'auto' }} />;
+  return (
+    <canvas
+      ref={canvas}
+      role="img"
+      aria-label="The invoice"
+      data-rotation={String((turns * 90) % 360)}
+      style={{ width: '100%', height: 'auto' }}
+    />
+  );
 }
 
 type EditableLine = Omit<InvoiceLine, 'matchSource'>;
@@ -301,6 +404,9 @@ function editable(line: InvoiceLine): EditableLine {
     unit: line.unit,
     unitPrice: line.unitPrice,
     lineTotal: line.lineTotal,
+    kind: line.kind ?? 'ITEM',
+    serialNumbers: line.serialNumbers,
+    unclear: line.unclear,
     supplyItemId: line.supplyItemId,
   };
 }
@@ -349,8 +455,102 @@ function ReceivedAs({ line, item }: { line: EditableLine; item: SupplyItem | und
   );
 }
 
+function InlineNewItemForm({
+  studioId,
+  lineNumber,
+  line,
+  vendorName,
+  onCreated,
+  onCancel,
+}: {
+  studioId: string;
+  lineNumber: string;
+  line: EditableLine;
+  vendorName: string;
+  onCreated: (item: SupplyItem) => void;
+  onCancel: () => void;
+}) {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(() => line.description.trim().slice(0, 80));
+  const [category, setCategory] = useState<SupplyCategory>(() => inferSupplyCategory(line.description));
+  const [unit, setUnit] = useState(() => (line.unit ?? '').trim().slice(0, 30) || 'each');
+  const [supplier, setSupplier] = useState(() => vendorName.trim().slice(0, 80));
+  const [validation, setValidation] = useState<string>();
+  const create = useMutation(createSupplyMutation());
+
+  async function handleCreate() {
+    const trimmedName = name.trim();
+    const trimmedUnit = unit.trim();
+    if (!trimmedName || !trimmedUnit) {
+      setValidation('Enter a name and unit.');
+      return;
+    }
+    setValidation(undefined);
+    try {
+      const created = await create.mutateAsync({
+        path: { studioId },
+        body: {
+          name: trimmedName,
+          category,
+          unit: trimmedUnit,
+          ...(supplier.trim() ? { supplier: supplier.trim() } : {}),
+        },
+      });
+      const suppliesKey = listSuppliesQueryKey({ path: { studioId } });
+      queryClient.setQueryData<SupplyItem[]>(suppliesKey, (existing) => {
+        const current = existing ?? [];
+        return current.some((item) => item.id === created.id) ? current : [...current, created];
+      });
+      void queryClient.invalidateQueries({ queryKey: suppliesKey });
+      onCreated(created);
+    } catch {
+      // Mutation error is shown below
+    }
+  }
+
+  return (
+    <div className="card stack" role="group" aria-label={`New supply item for line ${lineNumber}`}>
+      <strong>New supply item</strong>
+      <div className="field">
+        <label htmlFor={`${id}-name`}>Item name</label>
+        <input id={`${id}-name`} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-category`}>Category</label>
+        <select id={`${id}-category`} value={category} onChange={(e) => setCategory(e.target.value as SupplyCategory)}>
+          {supplyCategories.map((c) => (
+            <option key={c} value={c}>
+              {supplyCategoryLabels[c]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-unit`}>Unit</label>
+        <input id={`${id}-unit`} maxLength={30} value={unit} onChange={(e) => setUnit(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-supplier`}>Supplier</label>
+        <input id={`${id}-supplier`} maxLength={80} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+      </div>
+      {validation && <p role="alert" className="error">{validation}</p>}
+      {create.isError && <ErrorMessage error={create.error} />}
+      <div className="row">
+        <button type="button" className="primary" disabled={create.isPending} onClick={() => void handleCreate()}>
+          {create.isPending ? 'Creating…' : 'Create item'}
+        </button>
+        <button type="button" disabled={create.isPending} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const headerFields = [
   { key: 'invoiceDate', label: 'Date', type: 'date' },
+  { key: 'dueDate', label: 'Due date', type: 'date' },
   { key: 'subtotal', label: 'Subtotal', type: 'decimal' },
   { key: 'shipping', label: 'Shipping', type: 'decimal' },
   { key: 'tax', label: 'Tax', type: 'decimal' },
@@ -372,16 +572,22 @@ function DraftForm({
 }) {
   const id = useId();
   const queryClient = useQueryClient();
+  const [documentType, setDocumentType] = useState<InvoiceDocumentType | ''>(invoice.documentType ?? '');
   const [vendorName, setVendorName] = useState(invoice.vendorName ?? '');
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber ?? '');
+  const [orderNumber, setOrderNumber] = useState(invoice.orderNumber ?? '');
   const [header, setHeader] = useState<Record<HeaderKey, string>>({
     invoiceDate: invoice.invoiceDate ?? '',
+    dueDate: invoice.dueDate ?? '',
     subtotal: invoice.subtotal ?? '',
     shipping: invoice.shipping ?? '',
     tax: invoice.tax ?? '',
     total: invoice.total ?? '',
   });
   const [lines, setLines] = useState<EditableLine[]>(invoice.lines.map(editable));
+  const [creatingForLine, setCreatingForLine] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string>();
   // The version on the server. Confirm's own save raises it without remounting the form, so a
   // confirm that then fails ("line 2 needs a quantity") can be fixed and retried without a 409
   const [version, setVersion] = useState(invoice.version);
@@ -405,13 +611,25 @@ function DraftForm({
   const path = { studioId, invoiceId: invoice.id };
 
   const draft = () => ({
+    ...(documentType ? { documentType } : {}),
     vendorName: optional(vendorName),
     invoiceNumber: optional(invoiceNumber),
+    orderNumber: optional(orderNumber),
     invoiceDate: optional(header.invoiceDate),
+    invoiceDatePrinted: optional(invoice.invoiceDatePrinted),
+    ...(invoice.invoiceDateYear ? { invoiceDateYear: invoice.invoiceDateYear } : {}),
+    dueDate: optional(header.dueDate),
     subtotal: optional(header.subtotal),
     shipping: optional(header.shipping),
     tax: optional(header.tax),
     total: optional(header.total),
+    amountPaid: optional(invoice.amountPaid),
+    amountDue: optional(invoice.amountDue),
+    ...(invoice.payments && invoice.payments.length > 0 ? { payments: invoice.payments } : {}),
+    ...(invoice.crossedOut && invoice.crossedOut.length > 0 ? { crossedOut: invoice.crossedOut } : {}),
+    otherPapers: optional(invoice.otherPapers),
+    ...(invoice.notes && invoice.notes.length > 0 ? { notes: invoice.notes } : {}),
+    ...(invoice.rotation !== undefined ? { rotation: invoice.rotation } : {}),
     lines: lines.map((line) => ({
       description: line.description,
       sku: optional(line.sku),
@@ -419,6 +637,9 @@ function DraftForm({
       unit: optional(line.unit),
       unitPrice: optional(line.unitPrice),
       lineTotal: optional(line.lineTotal),
+      ...(line.kind ? { kind: line.kind } : {}),
+      ...(line.serialNumbers && line.serialNumbers.length > 0 ? { serialNumbers: line.serialNumbers } : {}),
+      ...(line.unclear ? { unclear: true } : {}),
       supplyItemId: optional(line.supplyItemId),
     })),
     expectedVersion: version,
@@ -439,13 +660,51 @@ function DraftForm({
     }
   }
 
+  async function downloadEvalCase() {
+    setExportError(undefined);
+    setExporting(true);
+    try {
+      const { data, response } = await exportInvoiceEval({ path, parseAs: 'blob', throwOnError: true });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download =
+        /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ??
+        `invoice-eval-${invoice.id}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setExportError(errorText(e));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <form className="stack" onSubmit={submit} aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>
         {invoice.vendorName ?? 'Invoice'} <span className="badge">{statusLabels[invoice.status]}</span>
+        {invoice.documentType && (
+          <>
+            {' '}
+            <span className="badge">{documentTypeLabels[invoice.documentType]}</span>
+          </>
+        )}
       </h3>
       {invoice.reader && <p className="badge">Read by {readerLabels[invoice.reader]}</p>}
       {invoice.readNote && <p className="warning">{invoice.readNote}</p>}
+      {invoice.payableAmount && invoice.payableAmount !== invoice.total && (
+        <p className="badge">
+          Payable: <strong>{invoice.payableAmount}</strong> (from payments; written total is {invoice.total ?? 'blank'})
+        </p>
+      )}
+      {invoice.explanations && invoice.explanations.length > 0 && (
+        <ul aria-label="Payment notes">
+          {invoice.explanations.map((explanation) => (
+            <li key={explanation}>{explanation}</li>
+          ))}
+        </ul>
+      )}
       {invoice.problems.length > 0 && (
         <ul aria-label="Problems">
           {invoice.problems.map((problem) => (
@@ -453,7 +712,63 @@ function DraftForm({
           ))}
         </ul>
       )}
+      {invoice.notes && invoice.notes.length > 0 && (
+        <section aria-label="Reader notes">
+          <strong>Reader notes</strong>
+          <ul>
+            {invoice.notes.map((note) => (
+              <li key={note}>&ldquo;{note}&rdquo;</li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {invoice.crossedOut && invoice.crossedOut.length > 0 && (
+        <section aria-label="Crossed-out rows">
+          <strong>Crossed-out rows left out</strong>
+          <ul>
+            {invoice.crossedOut.map((row) => (
+              <li key={row}>{row}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {invoice.otherPapers && (
+        <p className="badge">
+          <strong>Other papers in photo:</strong> {invoice.otherPapers}
+        </p>
+      )}
+      {invoice.payments && invoice.payments.length > 0 && (
+        <section aria-label="Payments">
+          <strong>Payments</strong>
+          <ul>
+            {invoice.payments.map((payment: InvoicePayment, index: number) => (
+              <li key={`${payment.amount}-${payment.date ?? ''}-${String(index)}`}>
+                {payment.amount}
+                {payment.date && ` on ${payment.date}`}
+                {payment.method && ` (${payment.method.toLowerCase()})`}
+                {payment.source && ` — from ${payment.source.toLowerCase()}`}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="row">
+        <div className="field">
+          <label htmlFor={`${id}-doctype`}>Document type</label>
+          <select
+            id={`${id}-doctype`}
+            disabled={confirmed}
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value as InvoiceDocumentType | '')}
+          >
+            <option value="">Unspecified</option>
+            {documentTypes.map((type) => (
+              <option key={type} value={type}>
+                {documentTypeLabels[type]}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="field">
           <label htmlFor={`${id}-vendor`}>Supplier</label>
           <input id={`${id}-vendor`} maxLength={120} disabled={confirmed} value={vendorName} onChange={(e) => setVendorName(e.target.value)} />
@@ -461,6 +776,10 @@ function DraftForm({
         <div className="field">
           <label htmlFor={`${id}-number`}>Invoice number</label>
           <input id={`${id}-number`} maxLength={60} disabled={confirmed} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-order`}>Order / PO</label>
+          <input id={`${id}-order`} maxLength={60} disabled={confirmed} value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} />
         </div>
       </div>
       <div className="row">
@@ -475,6 +794,12 @@ function DraftForm({
               value={header[field.key]}
               onChange={(e) => setHeader((current) => ({ ...current, [field.key]: e.target.value.trim() }))}
             />
+            {field.key === 'invoiceDate' && invoice.invoiceDateYear === 'ASSUMED' && (
+              <span className="warning">Year assumed — check against the invoice</span>
+            )}
+            {field.key === 'invoiceDate' && invoice.invoiceDateYear === 'FROM_PAGE' && (
+              <span className="badge">Year taken from another paper in photo</span>
+            )}
           </div>
         ))}
       </div>
@@ -483,6 +808,7 @@ function DraftForm({
           <thead>
             <tr>
               <th>Line</th>
+              <th>Kind</th>
               <th>Quantity</th>
               <th>Unit</th>
               <th>Unit price</th>
@@ -505,6 +831,24 @@ function DraftForm({
                       value={line.description}
                       onChange={(e) => change(index, { description: e.target.value })}
                     />
+                    {line.unclear && <span className="warning">Unclear — check photo</span>}
+                    {line.serialNumbers && line.serialNumbers.length > 0 && (
+                      <span className="badge">S/N: {line.serialNumbers.join(', ')}</span>
+                    )}
+                  </td>
+                  <td>
+                    <select
+                      aria-label={`Line ${n} kind`}
+                      disabled={confirmed}
+                      value={line.kind ?? 'ITEM'}
+                      onChange={(e) => change(index, { kind: e.target.value as InvoiceLineKind })}
+                    >
+                      {lineKinds.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {lineKindLabels[kind]}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <input
@@ -559,13 +903,43 @@ function DraftForm({
                       ))}
                     </select>
                     <ReceivedAs line={line} item={items.find((item) => item.id === line.supplyItemId)} />
+                    {!confirmed && !line.supplyItemId && creatingForLine !== index && (
+                      <div>
+                        <button
+                          type="button"
+                          className="link"
+                          aria-label={`+ New item for line ${n}`}
+                          onClick={() => setCreatingForLine(index)}
+                        >
+                          + New item
+                        </button>
+                      </div>
+                    )}
+                    {!confirmed && creatingForLine === index && (
+                      <InlineNewItemForm
+                        studioId={studioId}
+                        lineNumber={n}
+                        line={line}
+                        vendorName={vendorName}
+                        onCreated={(created) => {
+                          change(index, { supplyItemId: created.id });
+                          setCreatingForLine(null);
+                        }}
+                        onCancel={() => setCreatingForLine(null)}
+                      />
+                    )}
                   </td>
                   {!confirmed && (
                     <td>
                       <button
                         type="button"
                         aria-label={`Remove line ${n}`}
-                        onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
+                        onClick={() => {
+                          setLines((current) => current.filter((_, i) => i !== index));
+                          if (creatingForLine === index) {
+                            setCreatingForLine(null);
+                          }
+                        }}
                       >
                         Remove
                       </button>
@@ -579,7 +953,7 @@ function DraftForm({
       </div>
       {!confirmed && (
         <div className="row">
-          <button type="button" onClick={() => setLines((current) => [...current, { description: '' }])}>
+          <button type="button" onClick={() => setLines((current) => [...current, { description: '', kind: 'ITEM' }])}>
             Add a line
           </button>
           <button type="submit" disabled={busy}>
@@ -592,6 +966,18 @@ function DraftForm({
             Discard
           </button>
         </div>
+      )}
+      {confirmed && (
+        <div className="row">
+          <button type="button" disabled={exporting} onClick={() => void downloadEvalCase()}>
+            {exporting ? 'Preparing…' : 'Download eval case'}
+          </button>
+        </div>
+      )}
+      {exportError && (
+        <p role="alert" className="error">
+          {exportError}
+        </p>
       )}
       {[save, saveFirst, confirm, discard].map((m, i) => m.isError && <ErrorMessage key={i} error={m.error} />)}
     </form>

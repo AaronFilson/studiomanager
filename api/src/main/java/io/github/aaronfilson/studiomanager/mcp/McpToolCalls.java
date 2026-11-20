@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
+import io.github.aaronfilson.studiomanager.platform.tenancy.McpOAuthAuthentication;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TokenScope;
 import io.github.aaronfilson.studiomanager.ratelimit.ApiCallLog;
@@ -99,11 +100,16 @@ class McpToolCalls {
     return switch (tool.access()) {
       case READ -> Optional.of(roleRefusal(tool));
       case PROPOSE -> {
-        if (SecurityContextHolder.getContext().getAuthentication()
-                instanceof ApiTokenAuthentication tokenAuthentication
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof ApiTokenAuthentication tokenAuthentication
             && !tokenAuthentication.token().scopes().contains(TokenScope.PROPOSE)) {
           yield Optional.of(
               "This token can't propose changes. Ask the person to make a token with the propose scope.");
+        }
+        if (auth instanceof McpOAuthAuthentication mcpAuthentication
+            && !mcpAuthentication.token().scopes().contains(TokenScope.PROPOSE)) {
+          yield Optional.of(
+              "This token can't propose changes. Reconnect the assistant with the propose scope.");
         }
         yield Optional.of(roleRefusal(tool));
       }

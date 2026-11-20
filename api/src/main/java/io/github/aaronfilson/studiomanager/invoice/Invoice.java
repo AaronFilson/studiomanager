@@ -55,11 +55,23 @@ class Invoice {
 
   private @Nullable String readNote;
 
+  @Enumerated(EnumType.STRING)
+  private InvoiceDraft.@Nullable DocumentType documentType;
+
   private @Nullable String vendorName;
 
   private @Nullable String invoiceNumber;
 
+  private @Nullable String orderNumber;
+
   private @Nullable LocalDate invoiceDate;
+
+  private @Nullable String invoiceDatePrinted;
+
+  @Enumerated(EnumType.STRING)
+  private InvoiceDraft.@Nullable DateYearSource invoiceDateYear;
+
+  private @Nullable LocalDate dueDate;
 
   private @Nullable BigDecimal subtotal;
 
@@ -68,6 +80,23 @@ class Invoice {
   private @Nullable BigDecimal tax;
 
   private @Nullable BigDecimal total;
+
+  private @Nullable BigDecimal amountPaid;
+
+  private @Nullable BigDecimal amountDue;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String payments = "[]";
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String crossedOut = "[]";
+
+  private @Nullable String otherPapers;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String notes = "[]";
+
+  private @Nullable Integer rotation;
 
   @JdbcTypeCode(SqlTypes.JSON)
   private @Nullable String raw;
@@ -109,6 +138,10 @@ class Invoice {
 
   InvoiceFileType fileType() {
     return fileType;
+  }
+
+  @Nullable InvoiceReaderKind reader() {
+    return reader;
   }
 
   long version() {
@@ -192,26 +225,40 @@ class Invoice {
   /** The draft as it stands, in the shape readers produce. */
   InvoiceDraft draft() {
     return new InvoiceDraft(
+        documentType,
         vendorName,
         invoiceNumber,
+        orderNumber,
         invoiceDate,
+        invoiceDatePrinted,
+        invoiceDateYear,
+        dueDate,
         subtotal,
         shipping,
         tax,
         total,
+        amountPaid,
+        amountDue,
+        InvoiceJson.readPayments(payments),
+        InvoiceJson.readStrings(crossedOut),
+        otherPapers,
+        InvoiceJson.readStrings(notes),
+        rotation,
         lines.stream().map(InvoiceLine::toDraftLine).toList());
   }
 
   InvoiceView toView(List<String> problems) {
+    InvoiceDraft current = draft();
     return new InvoiceView(
         id,
         status,
         fileType,
         reader,
         readNote,
-        draft(),
+        current,
         lines.stream().map(InvoiceLine::toView).toList(),
         problems,
+        InvoiceChecks.explanations(current),
         Objects.requireNonNull(uploadedBy, "An invoice has an uploader once it's saved"),
         Objects.requireNonNull(createdAt, "An invoice has a creation time once it's saved"),
         confirmedBy,
@@ -243,13 +290,25 @@ class Invoice {
     if (matches.size() != draft.lines().size()) {
       throw new IllegalArgumentException("One match per line");
     }
+    this.documentType = draft.documentType();
     this.vendorName = draft.vendorName();
     this.invoiceNumber = draft.invoiceNumber();
+    this.orderNumber = draft.orderNumber();
     this.invoiceDate = draft.invoiceDate();
+    this.invoiceDatePrinted = draft.invoiceDatePrinted();
+    this.invoiceDateYear = draft.invoiceDateYear();
+    this.dueDate = draft.dueDate();
     this.subtotal = draft.subtotal();
     this.shipping = draft.shipping();
     this.tax = draft.tax();
     this.total = draft.total();
+    this.amountPaid = draft.amountPaid();
+    this.amountDue = draft.amountDue();
+    this.payments = InvoiceJson.writePayments(draft.payments());
+    this.crossedOut = InvoiceJson.writeStrings(draft.crossedOut());
+    this.otherPapers = draft.otherPapers();
+    this.notes = InvoiceJson.writeStrings(draft.notes());
+    this.rotation = draft.rotation();
     lines.clear();
     for (int position = 0; position < draft.lines().size(); position++) {
       lines.add(

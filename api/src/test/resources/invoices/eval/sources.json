@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "description": "Pinned public invoice and receipt eval sources (docs/planning/24-invoice-reading-upgrade-plan.md). Real studio paperwork stays in api/src/test/resources/invoices/private/ (git-ignored).",
+  "cacheDir": ".eval-sources-cache",
+  "sources": [
+    {
+      "id": "drew-ipp-benchmark",
+      "name": "InvoiceParser Pro — Invoice Extraction Benchmark v1",
+      "repo": "https://github.com/DrewKraken/invoice-extraction-benchmark.git",
+      "commit": "HEAD",
+      "license": "CC-BY-4.0 (data) / MIT (code)",
+      "attribution": "InvoiceParser Pro, Invoice Extraction Benchmark v1 (https://github.com/DrewKraken/invoice-extraction-benchmark)",
+      "fetch": "git",
+      "split": "test",
+      "notes": "Synthetic corpus covering credit memos, freight/handling lines, amount due, multi-page, simulated phone photos, scans and handwritten forms. Re-check lines by hand into Studio Manager's v2 expected.json shape (its keys omit qty/unitPrice/shipping).",
+      "paths": [
+        "corpus/v1/documents/clean",
+        "corpus/v1/documents/credit",
+        "corpus/v1/documents/freight",
+        "corpus/v1/documents/handwritten",
+        "corpus/v1/documents/photo",
+        "corpus/v1/answers"
+      ]
+    },
+    {
+      "id": "jenswalter-my-receipts",
+      "name": "JensWalter my-receipts (US retail, restaurant & hotel scans)",
+      "repo": "https://github.com/JensWalter/my-receipts.git",
+      "commit": "HEAD",
+      "license": "CC0-1.0",
+      "attribution": "JensWalter/my-receipts (CC0 public domain)",
+      "fetch": "git",
+      "split": "test",
+      "notes": "Real scanned US POS/thermal receipts and hotel bills. No labels included; write v2 expected.json by hand.",
+      "paths": [
+        "2019/us/retail",
+        "2019/us/restaurant"
+      ]
+    },
+    {
+      "id": "azure-form-recognizer-samples",
+      "name": "Microsoft Azure Document Intelligence REST API samples",
+      "repo": "https://github.com/Azure-Samples/cognitive-services-REST-api-samples.git",
+      "commit": "HEAD",
+      "license": "MIT",
+      "attribution": "Microsoft Azure-Samples/cognitive-services-REST-api-samples (MIT)",
+      "fetch": "git",
+      "split": "dev",
+      "notes": "Digital sample PDFs including sample-invoice.pdf (total 110.00 vs previous balance 500.00 -> amount due 610.00) and contoso-receipt.png.",
+      "paths": [
+        "curl/form-recognizer/sample-invoice.pdf",
+        "curl/form-recognizer/contoso-receipt.png"
+      ]
+    },
+    {
+      "id": "aws-textractor-fixtures",
+      "name": "AWS Amazon Textract Textractor test fixtures",
+      "repo": "https://github.com/aws-samples/amazon-textract-textractor.git",
+      "commit": "HEAD",
+      "license": "Apache-2.0",
+      "attribution": "aws-samples/amazon-textract-textractor (Apache-2.0)",
+      "fetch": "git",
+      "split": "dev",
+      "notes": "Sample invoice and receipt fixtures.",
+      "paths": [
+        "tests/fixtures/invoice.png",
+        "tests/fixtures/receipt.jpg"
+      ]
+    },
+    {
+      "id": "invoice2data-compare",
+      "name": "invoice2data comparison fixtures",
+      "repo": "https://github.com/invoice-x/invoice2data.git",
+      "commit": "HEAD",
+      "license": "MIT",
+      "attribution": "invoice-x/invoice2data (MIT)",
+      "fetch": "git",
+      "split": "dev",
+      "notes": "Digital PDF comparison cases with reference JSONs (verify no personal details before committing any case).",
+      "paths": [
+        "tests/compare"
+      ]
+    },
+    {
+      "id": "cord-v2-voxel51",
+      "name": "CORD v2 (Consolidated Receipt Dataset via Voxel51)",
+      "repo": "https://huggingface.co/datasets/Voxel51/consolidated_receipt_dataset",
+      "commit": "HEAD",
+      "license": "CC-BY-4.0",
+      "attribution": "Clova AI / NAVER Corp. CORD v2 via Voxel51 (CC BY 4.0)",
+      "fetch": "git+lfs",
+      "split": "test",
+      "notes": "Real receipt photos where line price is lineTotal and unit prices are often omitted. Requires git-lfs for image files.",
+      "paths": [
+        "samples.json",
+        "data"
+      ]
+    }
+  ]
+}

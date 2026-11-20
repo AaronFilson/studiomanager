@@ -39,7 +39,8 @@ class InvoiceReaderAdmin {
       Instant monthStart,
       List<PlatformReaderUsage.StudioUse> usage,
       Map<UUID, String> studioNames,
-      Map<InvoiceReaderKind, Boolean> setUp) {}
+      Map<InvoiceReaderKind, Boolean> setUp,
+      List<PlatformReaderUsage.ReaderAccuracy> accuracy) {}
 
   private final DatabasePlatformReaderRules rules;
   private final PlatformReaderUsage usage;
@@ -93,7 +94,8 @@ class InvoiceReaderAdmin {
         usage.monthStart(),
         usage.byStudioThisMonth(),
         names,
-        readers.setUp());
+        readers.setUp(),
+        usage.accuracy());
   }
 
   /**

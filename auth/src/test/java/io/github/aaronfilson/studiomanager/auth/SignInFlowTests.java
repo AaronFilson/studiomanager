@@ -219,6 +219,22 @@ class SignInFlowTests {
         .doesNotStartWith("https://attacker.example");
   }
 
+  @Test
+  void dynamicClientRegistrationReturns404WhenMcpIsDisabled() throws Exception {
+    HttpResponse<String> response =
+        HttpClient.newHttpClient()
+            .send(
+                HttpRequest.newBuilder(URI.create(BRIDGE + "/oauth2/register"))
+                    .header("Content-Type", "application/json")
+                    .POST(
+                        HttpRequest.BodyPublishers.ofString(
+                            "{\"redirect_uris\": [\"http://127.0.0.1:4321/callback\"]}"))
+                    .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(404);
+  }
+
   /** Entra's redirect to /oauth2/authorize, and the bridge's to GitHub. */
   private URI startSignIn(String state, String nonce, String codeChallenge) throws Exception {
     URI authorize =

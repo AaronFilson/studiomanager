@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,9 +29,11 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
       new BearerTokenAuthenticationEntryPoint();
   private final AccessDeniedHandler bearerAccessDenied = new BearerTokenAccessDeniedHandler();
   private final JsonMapper json;
+  private final McpOAuthProperties mcpOAuth;
 
-  ProblemJsonSecurityHandler(JsonMapper json) {
+  ProblemJsonSecurityHandler(JsonMapper json, McpOAuthProperties mcpOAuth) {
     this.json = json;
+    this.mcpOAuth = mcpOAuth;
   }
 
   @Override
@@ -38,7 +41,33 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
       HttpServletRequest request, HttpServletResponse response, AuthenticationException ex)
       throws IOException, ServletException {
     bearerEntryPoint.commence(request, response, ex);
+    addMcpResourceMetadataHeader(request, response);
     write(request, response, ProblemType.UNAUTHENTICATED, "A valid access token is required.");
+  }
+
+  /**
+   * Per RFC 9728 §5.1 and the MCP Authorization spec, unauthenticated or rejected requests to an
+   * MCP endpoint advertise {@code resource_metadata} in {@code WWW-Authenticate} when MCP OAuth is
+   * enabled.
+   */
+  private void addMcpResourceMetadataHeader(
+      HttpServletRequest request, HttpServletResponse response) {
+    if (!mcpOAuth.enabled()) {
+      return;
+    }
+    McpOAuthAuthenticationFilter.mcpStudioId(request)
+        .ifPresent(studioId -> {
+          String metadataUrl =
+              mcpOAuth.metadataUrlForStudio(studioId, McpOAuthProperties.requestOrigin(request));
+          String existing = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
+          String header;
+          if (existing == null || existing.isBlank() || "Bearer".equals(existing.strip())) {
+            header = "Bearer resource_metadata=\"" + metadataUrl + "\"";
+          } else {
+            header = existing + ", resource_metadata=\"" + metadataUrl + "\"";
+          }
+          response.setHeader(HttpHeaders.WWW_AUTHENTICATE, header);
+        });
   }
 
   @Override
