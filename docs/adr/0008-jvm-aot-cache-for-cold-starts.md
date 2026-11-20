@@ -23,7 +23,13 @@ fixed in `JAVA_TOOL_OPTIONS`, so the training run and production match.
 - Measured locally (WSL, Docker, the same image, against Postgres 18), application start was
   **5.1 s with the cache versus 9.7 s without it**. Repeated restarts ran the two containers at the
   same time, so they competed for CPU and the numbers were noisy (about 8.0 s versus 9.7–15.2 s),
-  but the cache won every time. Measure on Container Apps before quoting a production number.
+  but the cache won every time.
+- Measured on Azure Container Apps with the cache loaded ([plan 23](../planning/23-cold-start-diagnosis.md#4-findings-2026-11-12-revision-0000013-image-8b11051)):
+  at 0.5 vCPU / 1 GiB, JVM uptime at ready was **78.2 s** (`spring.context.refresh` 73.7 s, ~100 s
+  end-to-end with ~17 s container placement). Raising the replica to 1 vCPU / 2 GiB halved startup
+  to **40.9 s** JVM uptime (~60 s end-to-end), confirming that context refresh is CPU-bound even
+  with class loading accelerated by the AOT cache. For live demos, `warm-api.yml` holds one warm
+  replica for an hour so visitors never hit a cold start.
 - The image is larger (about 825 MB in total). Shrinking it, for example with a jlink'd runtime,
   is a later optimization.
 - The JDK logs a harmless AOT stub-linking warning at startup.

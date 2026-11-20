@@ -31,14 +31,29 @@ if [[ ! -x "$JDK/bin/java" ]]; then
 fi
 
 # A fresh copy each run (tar, because rsync isn't installed everywhere)
-rm -rf "$WORK/api"
-tar -C "$SRC" --exclude=api/build --exclude=api/.gradle -cf - api | tar -C "$WORK" -xf -
+rm -rf "$WORK/api" "$WORK/auth"
+if [[ -d "$SRC/auth" ]]; then
+    tar -C "$SRC" --exclude=api/build --exclude=api/.gradle --exclude=auth/build --exclude=auth/.gradle -cf - api auth | tar -C "$WORK" -xf -
+else
+    tar -C "$SRC" --exclude=api/build --exclude=api/.gradle -cf - api | tar -C "$WORK" -xf -
+fi
 cd "$WORK/api"
 # Files checked out on Windows may lack the executable bit
 chmod +x gradlew
 export JAVA_HOME="$JDK" GRADLE_USER_HOME="$SHARED/gradle-home" CI=true
 status=0
 ./gradlew --console=plain "$@" || status=$?
+
+# When spotlessApply ran, copy formatted sources back to the checkout
+for arg in "$@"; do
+    if [[ "$arg" == *spotlessApply ]]; then
+        tar -C "$WORK/api" -cf - src | tar -C "$SRC/api" -xf -
+        if [[ -d "$WORK/auth/src" && -d "$SRC/auth" ]]; then
+            tar -C "$WORK/auth" -cf - src | tar -C "$SRC/auth" -xf -
+        fi
+        break
+    fi
+done
 
 # A one-line count per test class, so a run that skipped the Docker tests is obvious
 if compgen -G "build/test-results/test/*.xml" > /dev/null; then
