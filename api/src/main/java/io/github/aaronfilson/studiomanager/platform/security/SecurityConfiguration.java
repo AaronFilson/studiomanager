@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
 import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
 import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthenticationFilter;
 import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenResolver;
+import io.github.aaronfilson.studiomanager.platform.tenancy.McpOAuthAuthentication;
 import io.github.aaronfilson.studiomanager.platform.tenancy.MembershipLookup;
 import io.github.aaronfilson.studiomanager.platform.tenancy.PlatformAdmin;
 import io.github.aaronfilson.studiomanager.platform.tenancy.PlatformAdminFilter;
@@ -17,6 +18,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.AuthorityAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.Customizer;
@@ -44,7 +46,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
 @EnableMethodSecurity
-@EnableConfigurationProperties(SecurityConfiguration.CorsProperties.class)
+@EnableConfigurationProperties({SecurityConfiguration.CorsProperties.class, McpOAuthProperties.class})
 class SecurityConfiguration {
 
   static final String API_SCOPE = "SCOPE_access_as_user";
@@ -56,28 +58,43 @@ class SecurityConfiguration {
       MembershipLookup memberships,
       RolePermissions rolePermissions,
       ApiTokenResolver apiTokens,
+      McpOAuthProperties mcpOAuth,
       JsonMapper json) {
-    ProblemJsonSecurityHandler problems = new ProblemJsonSecurityHandler(json);
+    ProblemJsonSecurityHandler problems = new ProblemJsonSecurityHandler(json, mcpOAuth);
     DefaultBearerTokenResolver jwtBearer = new DefaultBearerTokenResolver();
+    McpOAuthAuthenticationFilter mcpOAuthFilter =
+        new McpOAuthAuthenticationFilter(mcpOAuth, problems, json);
     http.authorizeHttpRequests(requests ->
             requests
                 .requestMatchers("/actuator/health/**", "/error")
                 .permitAll()
-                // Only people with the Platform.Admin app role; never an API token (ADR 24)
+                // RFC 9728 Protected Resource Metadata for MCP OAuth discovery (ADR 26)
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/.well-known/oauth-protected-resource",
+                    "/.well-known/oauth-protected-resource/api/v1/studios/*/mcp")
+                .permitAll()
+                // Only people with the Platform.Admin app role; never an API token or MCP token (ADR 24)
                 .requestMatchers("/api/v1/admin/**")
                 .access(
                     AuthorizationManagers.allOf(
                         AuthorityAuthorizationManager.hasAuthority(API_SCOPE),
                         AuthorityAuthorizationManager.hasAuthority(PlatformAdmin.AUTHORITY)))
+                // MCP accepts Entra sign-in, personal API tokens, and MCP OAuth access tokens
+                .requestMatchers("/api/v1/studios/*/mcp")
+                .hasAnyAuthority(
+                    API_SCOPE, ApiTokenAuthentication.AUTHORITY, McpOAuthAuthentication.AUTHORITY)
+                // Regular REST endpoints never accept MCP OAuth access tokens (ADR 26)
                 .requestMatchers("/api/**")
                 .hasAnyAuthority(API_SCOPE, ApiTokenAuthentication.AUTHORITY)
                 .anyRequest()
                 .denyAll())
         .oauth2ResourceServer(oauth2 ->
             oauth2
-                // Personal API tokens are opaque, not JWTs; their own filter signs them in
+                // Personal API tokens and MCP OAuth JWTs have their own filters before this one
                 .bearerTokenResolver(request ->
                     ApiTokenAuthenticationFilter.isApiToken(request)
+                            || mcpOAuthFilter.isMcpOAuthToken(request)
                         ? null
                         : jwtBearer.resolve(request))
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(scopesAndAppRoles()))
@@ -93,6 +110,7 @@ class SecurityConfiguration {
         .addFilterBefore(
             new ApiTokenAuthenticationFilter(apiTokens, problems),
             BearerTokenAuthenticationFilter.class)
+        .addFilterBefore(mcpOAuthFilter, BearerTokenAuthenticationFilter.class)
         .addFilterAfter(
             new TenantContextFilter(accounts, memberships, rolePermissions),
             AuthorizationFilter.class)

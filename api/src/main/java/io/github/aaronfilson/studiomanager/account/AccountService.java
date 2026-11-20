@@ -5,7 +5,9 @@ import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -21,10 +23,15 @@ class AccountService implements AccountResolver {
 
   private final AccountRepository accounts;
   private final JdbcClient jdbc;
+  private final String primaryIssuer;
 
-  AccountService(AccountRepository accounts, JdbcClient jdbc) {
+  AccountService(
+      AccountRepository accounts,
+      JdbcClient jdbc,
+      @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}") String primaryIssuer) {
     this.accounts = accounts;
     this.jdbc = jdbc;
+    this.primaryIssuer = primaryIssuer;
   }
 
   /**
@@ -67,6 +74,42 @@ class AccountService implements AccountResolver {
                 .param("email", email)
                 .query(UUID.class)
                 .single());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<UUID> findBySubject(String tokenIssuer, String subject) {
+    if (subject.isBlank() || SystemActor.ISSUER.equals(tokenIssuer)) {
+      return Optional.empty();
+    }
+    if (!primaryIssuer.isBlank()) {
+      Optional<UUID> primary =
+          accounts
+              .findByIssuerAndSubject(primaryIssuer, subject)
+              .filter(AccountService::isPerson)
+              .map(Account::id);
+      if (primary.isPresent()) {
+        return primary;
+      }
+    }
+    Optional<UUID> fromTokenIssuer =
+        accounts
+            .findByIssuerAndSubject(tokenIssuer, subject)
+            .filter(AccountService::isPerson)
+            .map(Account::id);
+    if (fromTokenIssuer.isPresent()) {
+      return fromTokenIssuer;
+    }
+    try {
+      UUID accountId = UUID.fromString(subject);
+      return accounts.findById(accountId).filter(AccountService::isPerson).map(Account::id);
+    } catch (IllegalArgumentException notAUuid) {
+      return Optional.empty();
+    }
+  }
+
+  private static boolean isPerson(Account account) {
+    return !SystemActor.ISSUER.equals(account.issuer());
   }
 
   @Transactional(readOnly = true)
