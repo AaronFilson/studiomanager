@@ -146,7 +146,8 @@ public class GlazeMixService {
         mixes
             .findByIdAndRecipeIdWithReadings(mixId, glazeId)
             .orElseThrow(() -> new NotFoundException("No such glaze mix."));
-    GlazeMixReading reading = mix.addReading(caller.accountId(), clock.instant(), cleanSg, cleanNote);
+    GlazeMixReading reading =
+        mix.addReading(caller.accountId(), clock.instant(), cleanSg, cleanNote);
     mixes.flush();
     Map<UUID, String> names = accounts.displayNames(List.of(caller.accountId()));
     return toReadingView(reading, recipe.targetSg(), names);

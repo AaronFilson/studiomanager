@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -24,6 +26,13 @@ import tools.jackson.databind.json.JsonMapper;
  * handlers it wraps set the status and the RFC 6750 {@code WWW-Authenticate} header.
  */
 final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
+
+  /**
+   * Matches any {@code resource_metadata="..."} parameter added by Spring Security 7's {@link
+   * BearerTokenAuthenticationEntryPoint}, so we control RFC 9728 advertising explicitly (ADR 26).
+   */
+  private static final Pattern RESOURCE_METADATA_PARAM =
+      Pattern.compile("(?:,\\s*)?resource_metadata=\"[^\"]*\"");
 
   private final AuthenticationEntryPoint bearerEntryPoint =
       new BearerTokenAuthenticationEntryPoint();
@@ -48,10 +57,14 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
   /**
    * Per RFC 9728 §5.1 and the MCP Authorization spec, unauthenticated or rejected requests to an
    * MCP endpoint advertise {@code resource_metadata} in {@code WWW-Authenticate} when MCP OAuth is
-   * enabled.
+   * enabled, and never advertise a disabled or wrong-origin metadata URL.
    */
   private void addMcpResourceMetadataHeader(
       HttpServletRequest request, HttpServletResponse response) {
+    String cleaned = stripResourceMetadata(response.getHeader(HttpHeaders.WWW_AUTHENTICATE));
+    if (cleaned != null) {
+      response.setHeader(HttpHeaders.WWW_AUTHENTICATE, cleaned);
+    }
     if (!mcpOAuth.enabled()) {
       return;
     }
@@ -62,12 +75,25 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
           String existing = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
           String header;
           if (existing == null || existing.isBlank() || "Bearer".equals(existing.strip())) {
-            header = "Bearer resource_metadata=\"" + metadataUrl + "\"";
+            header = "Bearer resource_metadata=\"%s\"".formatted(metadataUrl);
           } else {
-            header = existing + ", resource_metadata=\"" + metadataUrl + "\"";
+            header = "%s, resource_metadata=\"%s\"".formatted(existing, metadataUrl);
           }
           response.setHeader(HttpHeaders.WWW_AUTHENTICATE, header);
         });
+  }
+
+  private static @Nullable String stripResourceMetadata(@Nullable String header) {
+    if (header == null) {
+      return null;
+    }
+    String without = RESOURCE_METADATA_PARAM.matcher(header).replaceAll("").strip();
+    if (without.startsWith("Bearer ,")) {
+      without = "Bearer %s".formatted(without.substring("Bearer ,".length()).strip());
+    } else if (without.startsWith("Bearer,")) {
+      without = "Bearer %s".formatted(without.substring("Bearer,".length()).strip());
+    }
+    return without.isEmpty() ? "Bearer" : without;
   }
 
   @Override

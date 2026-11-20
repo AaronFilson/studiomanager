@@ -23,7 +23,8 @@ record GlazecalcProperties(
     boolean allowPrivateNetworks) {
 
   String resolvedBaseUrl() {
-    String url = baseUrl == null || baseUrl.isBlank() ? "https://glazecalcapp.com" : baseUrl.strip();
+    String url =
+        baseUrl == null || baseUrl.isBlank() ? "https://glazecalcapp.com" : baseUrl.strip();
     while (url.endsWith("/")) {
       url = url.substring(0, url.length() - 1);
     }

@@ -74,8 +74,7 @@ class GlazeImportSizeFilter extends OncePerRequestFilter {
   private void writeTooLarge(HttpServletResponse response) throws IOException {
     ProblemDetail detail =
         ProblemDetail.forStatusAndDetail(
-            HttpStatus.CONTENT_TOO_LARGE,
-            "The glaze export file exceeds the 2 MB limit.");
+            HttpStatus.CONTENT_TOO_LARGE, "The glaze export file exceeds the 2 MB limit.");
     detail.setType(ProblemType.INVALID_INPUT.uri());
     detail.setTitle("File too large");
     detail.setProperty(ProblemType.CODE_PROPERTY, ProblemType.INVALID_INPUT.code());

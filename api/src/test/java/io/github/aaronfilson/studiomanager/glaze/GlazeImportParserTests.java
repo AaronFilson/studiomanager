@@ -138,32 +138,28 @@ class GlazeImportParserTests {
 
   @Test
   void rejectsUnsupportedFormatVersionAndOverLimitRecipeOrLineCounts() {
-    assertThatThrownBy(
-            () ->
-                GlazeImportParser.parse(
-                    json.readTree("{\"format\": \"glazy-xml\", \"version\": 1}")))
+    assertThatThrownBy(() ->
+            GlazeImportParser.parse(json.readTree("{\"format\": \"glazy-xml\", \"version\": 1}")))
         .isInstanceOf(InvalidInputException.class);
-    assertThatThrownBy(
-            () ->
-                GlazeImportParser.parse(
-                    json.readTree("{\"format\": \"glazecalc-export\", \"version\": 2}")))
+    assertThatThrownBy(() ->
+            GlazeImportParser.parse(
+                json.readTree("{\"format\": \"glazecalc-export\", \"version\": 2}")))
         .isInstanceOf(InvalidInputException.class);
 
     List<Map<String, Object>> tooManyRecipes =
         IntStream.range(0, 501)
             .mapToObj(i -> Map.<String, Object>of("_id", "r" + i, "title", "R" + i))
             .toList();
-    assertThatThrownBy(
-            () ->
-                GlazeImportParser.parse(
-                    json.valueToTree(
-                        Map.of(
-                            "format",
-                            "glazecalc-export",
-                            "version",
-                            1,
-                            "records",
-                            Map.of("recipes", tooManyRecipes)))))
+    assertThatThrownBy(() ->
+            GlazeImportParser.parse(
+                json.valueToTree(
+                    Map.of(
+                        "format",
+                        "glazecalc-export",
+                        "version",
+                        1,
+                        "records",
+                        Map.of("recipes", tooManyRecipes)))))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("500");
 
@@ -183,13 +179,7 @@ class GlazeImportParserTests {
                     Map.of(
                         "recipes",
                         List.of(
-                            Map.of(
-                                "_id",
-                                "huge",
-                                "title",
-                                "Huge",
-                                "materials",
-                                tooManyLines))))));
+                            Map.of("_id", "huge", "title", "Huge", "materials", tooManyLines))))));
     assertThat(parsed.recipes().getFirst().error()).contains("60");
   }
 }

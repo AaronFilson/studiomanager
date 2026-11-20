@@ -19,8 +19,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param issuer the trusted MCP authorization server issuer ({@code iss})
  * @param jwkSetUri JWK Set endpoint for verifying RS256 MCP access tokens; defaults to {@code
  *     <issuer>/oauth2/jwks}
- * @param audience RFC 8707 resource identifier expected in the {@code aud} claim (for example {@code
- *     https://api.studiomanager.example/mcp})
+ * @param audience RFC 8707 resource identifier expected in the {@code aud} claim (for example
+ *     {@code https://api.studiomanager.example/mcp})
  */
 @ConfigurationProperties("studiomanager.mcp.oauth")
 public record McpOAuthProperties(

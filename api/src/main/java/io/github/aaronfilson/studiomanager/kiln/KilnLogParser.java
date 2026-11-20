@@ -456,7 +456,9 @@ public final class KilnLogParser {
         }
       }
 
-      if (rowErrorCode == null && binding.errorIndex() >= 0 && binding.errorIndex() < cells.size()) {
+      if (rowErrorCode == null
+          && binding.errorIndex() >= 0
+          && binding.errorIndex() < cells.size()) {
         String extracted = extractError(cells.get(binding.errorIndex()), binding.errorDedicated());
         if (extracted != null) {
           rowErrorCode = extracted;
@@ -518,8 +520,7 @@ public final class KilnLogParser {
               warnedUnparseableTime = true;
               warnings.add("Some rows had unreadable timestamps and used estimated intervals.");
             }
-            elapsedMinutes =
-                rawPoints.isEmpty() ? 0.0 : lastElapsedMinutes + defaultStepMinutes;
+            elapsedMinutes = rawPoints.isEmpty() ? 0.0 : lastElapsedMinutes + defaultStepMinutes;
           }
         }
       } else {
@@ -556,7 +557,8 @@ public final class KilnLogParser {
     int durationMinutes;
     if (firstInstant != null && lastInstant != null && !lastInstant.isBefore(firstInstant)) {
       durationMinutes =
-          Math.max(0, (int) Math.round(Duration.between(firstInstant, lastInstant).toSeconds() / 60.0));
+          Math.max(
+              0, (int) Math.round(Duration.between(firstInstant, lastInstant).toSeconds() / 60.0));
     } else {
       durationMinutes = Math.max(0, (int) Math.round(lastElapsedMinutes));
       if (startedAt != null && finishedAt == null) {
@@ -579,7 +581,10 @@ public final class KilnLogParser {
     BigDecimal peakDecimal = BigDecimal.valueOf(peakTemp).setScale(2, RoundingMode.HALF_UP);
 
     List<String> cleanHeaders =
-        headers.stream().map(h -> sanitize(h, MAX_HEADER_LENGTH)).filter(s -> !s.isEmpty()).toList();
+        headers.stream()
+            .map(h -> sanitize(h, MAX_HEADER_LENGTH))
+            .filter(s -> !s.isEmpty())
+            .toList();
 
     return new ParsedLog(
         source,
@@ -758,10 +763,7 @@ public final class KilnLogParser {
   }
 
   private static ColumnBinding resolveColumns(
-      List<String> rawHeaders,
-      KilnLogSource source,
-      ColumnMap overrides,
-      boolean strictOverrides) {
+      List<String> rawHeaders, KilnLogSource source, ColumnMap overrides, boolean strictOverrides) {
     List<String> normalized = new ArrayList<>(rawHeaders.size());
     List<String> stripped = new ArrayList<>(rawHeaders.size());
     for (String h : rawHeaders) {
@@ -866,8 +868,7 @@ public final class KilnLogParser {
       claimed.add(errorIdx);
     }
 
-    Set<String> timeAliases =
-        source == KilnLogSource.TAP ? TAP_TIME_ALIASES : GENESIS_TIME_ALIASES;
+    Set<String> timeAliases = source == KilnLogSource.TAP ? TAP_TIME_ALIASES : GENESIS_TIME_ALIASES;
 
     // 1. Time column
     if (timeIdx < 0) {
@@ -971,7 +972,9 @@ public final class KilnLogParser {
         if (isOutputHeader(normalized.get(i), key)) {
           continue;
         }
-        if (ZONE_TEMP_ALIASES.contains(key) || key.matches("tc\\s*\\d+.*") || key.matches("zone\\s*\\d+.*")) {
+        if (ZONE_TEMP_ALIASES.contains(key)
+            || key.matches("tc\\s*\\d+.*")
+            || key.matches("zone\\s*\\d+.*")) {
           zoneMatches.add(i);
         } else if (SINGLE_TEMP_ALIASES.contains(key) || key.contains("temp")) {
           singleMatches.add(i);
@@ -1008,7 +1011,8 @@ public final class KilnLogParser {
         || stripped.matches("out\\s*\\d+");
   }
 
-  private static int findExactHeader(List<String> normalized, List<String> stripped, String target) {
+  private static int findExactHeader(
+      List<String> normalized, List<String> stripped, String target) {
     String normTarget = normalizeHeader(target);
     String stripTarget = stripUnitSuffix(normTarget);
     for (int i = 0; i < normalized.size(); i++) {
@@ -1055,7 +1059,10 @@ public final class KilnLogParser {
       }
 
       if (startedAt == null
-          && (key.contains("date") || key.contains("start") || key.equals("timestamp") || key.equals("logged"))) {
+          && (key.contains("date")
+              || key.contains("start")
+              || key.equals("timestamp")
+              || key.equals("logged"))) {
         Instant parsedInstant = parseInstant(value, studioZone);
         if (parsedInstant != null) {
           startedAt = parsedInstant;
@@ -1073,7 +1080,10 @@ public final class KilnLogParser {
         unit = detectUnitText(value);
       }
       if (errorCode == null
-          && (key.contains("error") || key.contains("fault") || key.contains("alarm") || key.equals("status"))) {
+          && (key.contains("error")
+              || key.contains("fault")
+              || key.contains("alarm")
+              || key.equals("status"))) {
         boolean dedicated = !key.equals("status");
         errorCode = extractError(value, dedicated);
       }

@@ -281,9 +281,6 @@ describe('admin', () => {
 
   it('shows reader accuracy on confirmed invoices', async () => {
     server.use(
-      ...asAdmin(),
-      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
-      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
       http.get(`${API}/api/v1/admin/invoice-readers`, () =>
         HttpResponse.json(
           readers({
@@ -303,6 +300,9 @@ describe('admin', () => {
           }),
         ),
       ),
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
     );
 
     renderApp('/admin');

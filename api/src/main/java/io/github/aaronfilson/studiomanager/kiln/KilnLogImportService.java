@@ -18,8 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Preview-then-commit import of kiln controller firing logs ({@code
- * POST /api/v1/studios/{studioId}/kilns/{kilnId}/log-imports}).
+ * Preview-then-commit import of kiln controller firing logs ({@code POST
+ * /api/v1/studios/{studioId}/kilns/{kilnId}/log-imports}).
  *
  * <p>A dry run parses the CSV, computes summary telemetry and a downsampled curve, and searches for
  * an existing firing on that kiln overlapping within ±2 hours without writing anything. Committing
@@ -56,7 +56,7 @@ public class KilnLogImportService {
       String csvText,
       KilnLogSource source,
       @Nullable TemperatureUnit tempUnit,
-      @Nullable KilnLogParser.ColumnMap columnMap,
+      KilnLogParser.@Nullable ColumnMap columnMap,
       @Nullable UUID firingId,
       @Nullable FiringKind kind,
       @Nullable String cone,
@@ -175,10 +175,8 @@ public class KilnLogImportService {
       return null;
     }
     Instant effectiveStart = logStart != null ? logStart : Objects.requireNonNull(logEnd);
-    Instant effectiveEnd = logEnd != null ? logEnd : effectiveStart;
-    if (effectiveEnd.isBefore(effectiveStart)) {
-      effectiveEnd = effectiveStart;
-    }
+    Instant rawEnd = logEnd != null ? logEnd : effectiveStart;
+    Instant effectiveEnd = rawEnd.isBefore(effectiveStart) ? effectiveStart : rawEnd;
     Instant windowStart = effectiveStart.minus(OVERLAP_WINDOW);
     Instant windowEnd = effectiveEnd.plus(OVERLAP_WINDOW);
     Instant logMid = midpoint(effectiveStart, effectiveEnd);
@@ -189,10 +187,8 @@ public class KilnLogImportService {
         .min(
             Comparator.comparing((Firing f) -> f.hasTelemetry())
                 .thenComparing(f -> f.status() == FiringView.Status.CANCELLED)
-                .thenComparingLong(
-                    f ->
-                        Math.abs(
-                            Duration.between(logMid, midpoint(startOf(f), endOf(f))).toSeconds())))
+                .thenComparingLong(f ->
+                    Math.abs(Duration.between(logMid, midpoint(startOf(f), endOf(f))).toSeconds())))
         .map(match -> toSuggestedMatch(match, effectiveStart, effectiveEnd))
         .orElse(null);
   }
@@ -222,8 +218,7 @@ public class KilnLogImportService {
     return a.plusMillis(halfMillis);
   }
 
-  private static SuggestedMatch toSuggestedMatch(
-      Firing firing, Instant logStart, Instant logEnd) {
+  private static SuggestedMatch toSuggestedMatch(Firing firing, Instant logStart, Instant logEnd) {
     Instant fStart = startOf(firing);
     Instant fEnd = endOf(firing);
     String description;

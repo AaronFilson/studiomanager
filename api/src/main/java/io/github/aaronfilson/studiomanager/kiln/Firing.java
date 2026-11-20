@@ -173,7 +173,9 @@ class Firing {
     return logSource != null || peakTemp != null;
   }
 
-  /** Attaches controller telemetry to this firing, filling blank timestamps or cone from the log. */
+  /**
+   * Attaches controller telemetry to this firing, filling blank timestamps or cone from the log.
+   */
   void attachTelemetry(
       Telemetry telemetry,
       @Nullable Instant logStartedAt,

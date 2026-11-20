@@ -6,7 +6,9 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Serializes and deserializes downsampled firing curves stored in {@code firing.temperature_curve}. */
+/**
+ * Serializes and deserializes downsampled firing curves stored in {@code firing.temperature_curve}.
+ */
 final class TemperatureCurveJson {
 
   private static final JsonMapper MAPPER = JsonMapper.builder().build();

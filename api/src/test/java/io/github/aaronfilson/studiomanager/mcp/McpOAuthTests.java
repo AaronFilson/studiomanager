@@ -47,8 +47,8 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * End-to-end Phase 2 MCP OAuth integration tests (plan 17 step 5, plan 18 step 3, ADR 26): RFC
- * 9728 metadata, {@code WWW-Authenticate} discovery headers, real RS256 JWKS verification, strict
+ * End-to-end Phase 2 MCP OAuth integration tests (plan 17 step 5, plan 18 step 3, ADR 26): RFC 9728
+ * metadata, {@code WWW-Authenticate} discovery headers, real RS256 JWKS verification, strict
  * MCP-only route isolation, cross-studio denial, and live permission/scope enforcement.
  */
 @IntegrationTest
@@ -99,10 +99,7 @@ class McpOAuthTests {
     MvcTestResult root = mvc.get().uri("/.well-known/oauth-protected-resource").exchange();
     assertThat(root).hasStatusOk().hasContentType(MediaType.APPLICATION_JSON);
     assertThat(root).bodyJson().extractingPath("$.resource").isEqualTo(MCP_AUDIENCE);
-    assertThat(root)
-        .bodyJson()
-        .extractingPath("$.authorization_servers[0]")
-        .isEqualTo(MCP_ISSUER);
+    assertThat(root).bodyJson().extractingPath("$.authorization_servers[0]").isEqualTo(MCP_ISSUER);
     assertThat(JsonPath.<List<String>>read(body(root), "$.scopes_supported"))
         .containsExactly("read", "propose");
     assertThat(JsonPath.<List<String>>read(body(root), "$.bearer_methods_supported"))
@@ -123,8 +120,7 @@ class McpOAuthTests {
         .isEqualTo(MCP_ISSUER);
 
     // Malformed studio id is rejected rather than reflected into metadata
-    assertThat(
-            mvc.get().uri("/.well-known/oauth-protected-resource/api/v1/studios/not-a-uuid/mcp"))
+    assertThat(mvc.get().uri("/.well-known/oauth-protected-resource/api/v1/studios/not-a-uuid/mcp"))
         .hasStatus(HttpStatus.BAD_REQUEST);
 
     // Unauthenticated MCP request returns 401 with WWW-Authenticate resource_metadata
@@ -379,10 +375,9 @@ class McpOAuthTests {
         .contains("maintenance.manage");
 
     // Revoke mcp.use from MEMBER -> the exact same token is immediately cut off again!
-    asOwner(
-        () ->
-            studioRoles.setPermissions(
-                StudioRole.MEMBER, EnumSet.copyOf(Permission.defaultsFor(StudioRole.MEMBER))));
+    asOwner(() ->
+        studioRoles.setPermissions(
+            StudioRole.MEMBER, EnumSet.copyOf(Permission.defaultsFor(StudioRole.MEMBER))));
     assertThat(rpc(studioA, staffJwt, "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
         .hasStatus(HttpStatus.FORBIDDEN);
   }

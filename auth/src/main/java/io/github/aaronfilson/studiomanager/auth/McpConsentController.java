@@ -36,7 +36,8 @@ class McpConsentController {
 
   static final String CONSENT_PATH = "/oauth2/consent";
   static final String CONSENT_CSS_PATH = "/oauth2/consent.css";
-  private static final OAuth2TokenType STATE_TOKEN = new OAuth2TokenType(OAuth2ParameterNames.STATE);
+  private static final OAuth2TokenType STATE_TOKEN =
+      new OAuth2TokenType(OAuth2ParameterNames.STATE);
 
   private static final Map<String, String> SCOPE_DESCRIPTIONS =
       Map.of(
@@ -107,7 +108,8 @@ class McpConsentController {
         || !pending.getPrincipalName().equals(authentication.getName())) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST)
           .contentType(MediaType.TEXT_PLAIN)
-          .body("This authorization request is invalid or has expired. Start again from your assistant.");
+          .body(
+              "This authorization request is invalid or has expired. Start again from your assistant.");
     }
     OAuth2AuthorizationRequest authRequest =
         pending.getAttribute(OAuth2AuthorizationRequest.class.getName());
@@ -120,8 +122,10 @@ class McpConsentController {
     try {
       target =
           McpResources.validateAndResolve(
-              stringParameter(authRequest.getAdditionalParameters(), McpResources.RESOURCE_PARAMETER),
-              stringParameter(authRequest.getAdditionalParameters(), McpResources.STUDIO_ID_PARAMETER),
+              stringParameter(
+                  authRequest.getAdditionalParameters(), McpResources.RESOURCE_PARAMETER),
+              stringParameter(
+                  authRequest.getAdditionalParameters(), McpResources.STUDIO_ID_PARAMETER),
               mcp.effectiveAllowedResources());
     } catch (OAuth2AuthenticationException invalid) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -181,8 +185,7 @@ class McpConsentController {
     StringBuilder scopeInputs = new StringBuilder();
     for (String scope : scopes) {
       String escapedScope = escape(scope);
-      String description =
-          escape(SCOPE_DESCRIPTIONS.getOrDefault(scope, "Access scope: " + scope));
+      String description = escape(SCOPE_DESCRIPTIONS.getOrDefault(scope, "Access scope: " + scope));
       scopeInputs
           .append("<label>")
           .append("<input type=\"checkbox\" name=\"scope\" value=\"")
@@ -198,52 +201,52 @@ class McpConsentController {
     }
 
     return """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Authorize MCP access — Studio Manager</title>
-          <link rel="stylesheet" href="/oauth2/consent.css">
-        </head>
-        <body>
-          <main>
-            <h1>Authorize MCP access</h1>
-            <p><strong>%s</strong> wants to connect to Studio Manager on your behalf. \
-        The assistant can never do more than your live role in this studio allows, and money, \
-        exports, and member administration are never reachable.</p>
-            <dl>
-              <dt>Signed in as</dt>
-              <dd>%s</dd>
-              <dt>Studio</dt>
-              <dd>%s</dd>
-              <dt>Resource</dt>
-              <dd>%s</dd>
-            </dl>
-            <form method="post" action="/oauth2/authorize">
-              <input type="hidden" name="client_id" value="%s">
-              <input type="hidden" name="state" value="%s">
-              %s
-              <fieldset>
-                <legend>Requested permissions</legend>
-                %s
-              </fieldset>
-              <div class="actions">
-                <button type="submit" class="approve">Approve access</button>
-              </div>
-            </form>
-            <form method="post" action="/oauth2/authorize">
-              <input type="hidden" name="client_id" value="%s">
-              <input type="hidden" name="state" value="%s">
-              %s
-              <div class="actions">
-                <button type="submit" class="deny">Deny</button>
-              </div>
-            </form>
-          </main>
-        </body>
-        </html>
-        """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Authorize MCP access — Studio Manager</title>
+      <link rel="stylesheet" href="/oauth2/consent.css">
+    </head>
+    <body>
+      <main>
+        <h1>Authorize MCP access</h1>
+        <p><strong>%s</strong> wants to connect to Studio Manager on your behalf. \
+    The assistant can never do more than your live role in this studio allows, and money, \
+    exports, and member administration are never reachable.</p>
+        <dl>
+          <dt>Signed in as</dt>
+          <dd>%s</dd>
+          <dt>Studio</dt>
+          <dd>%s</dd>
+          <dt>Resource</dt>
+          <dd>%s</dd>
+        </dl>
+        <form method="post" action="/oauth2/authorize">
+          <input type="hidden" name="client_id" value="%s">
+          <input type="hidden" name="state" value="%s">
+          %s
+          <fieldset>
+            <legend>Requested permissions</legend>
+            %s
+          </fieldset>
+          <div class="actions">
+            <button type="submit" class="approve">Approve access</button>
+          </div>
+        </form>
+        <form method="post" action="/oauth2/authorize">
+          <input type="hidden" name="client_id" value="%s">
+          <input type="hidden" name="state" value="%s">
+          %s
+          <div class="actions">
+            <button type="submit" class="deny">Deny</button>
+          </div>
+        </form>
+      </main>
+    </body>
+    </html>
+    """
         .formatted(
             escapedClient,
             escapedUser,

@@ -147,7 +147,8 @@ class LiveInvoiceEval {
         result = reader.readWith(client, new InvoiceFile(content, file.get().getValue()));
       } catch (InvoiceReadException e) {
         rows.add(
-            "| %s | %s | failed: %s ||||||||".formatted(folder.getFileName(), split, e.getMessage()));
+            "| %s | %s | failed: %s ||||||||"
+                .formatted(folder.getFileName(), split, e.getMessage()));
         continue;
       }
       long elapsed = Duration.ofNanos(System.nanoTime() - started).toMillis();

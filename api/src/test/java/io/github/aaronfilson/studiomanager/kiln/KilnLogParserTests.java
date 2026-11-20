@@ -142,9 +142,7 @@ class KilnLogParserTests {
     assertThat(parsed.temperatureCurve()).hasSizeLessThanOrEqualTo(KilnLogParser.MAX_CURVE_POINTS);
     assertThat(parsed.temperatureCurve().getFirst().elapsedMinutes()).isEqualTo(0.0);
     assertThat(parsed.temperatureCurve().getLast().elapsedMinutes()).isEqualTo(599.5);
-    assertThat(parsed.temperatureCurve())
-        .extracting(TemperaturePoint::temp)
-        .contains(2248.5);
+    assertThat(parsed.temperatureCurve()).extracting(TemperaturePoint::temp).contains(2248.5);
     assertThat(parsed.peakTemp()).isEqualByComparingTo(new BigDecimal("2248.50"));
   }
 
@@ -171,25 +169,22 @@ class KilnLogParserTests {
 
   @Test
   void rejectsOversizedBinaryMalformedAndUnrecognizedFiles() {
-    assertThatThrownBy(
-            () ->
-                KilnLogParser.parse(
-                    "   ", KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "   ", KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("empty");
 
-    assertThatThrownBy(
-            () ->
-                KilnLogParser.parse(
-                    "a\0b", KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "a\0b", KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("binary");
 
     String overTwoMb = "Elapsed,Temp\n" + "00:00:00,1000\n".repeat(160_000);
-    assertThatThrownBy(
-            () ->
-                KilnLogParser.parse(
-                    overTwoMb, KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                overTwoMb, KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("2 MB");
 
@@ -197,41 +192,38 @@ class KilnLogParserTests {
     for (int i = 0; i < 50_005; i++) {
       overFiftyThousandRows.append(i).append(",500\n");
     }
-    assertThatThrownBy(
-            () ->
-                KilnLogParser.parse(
-                    overFiftyThousandRows.toString(),
-                    KilnLogSource.OTHER,
-                    null,
-                    null,
-                    CHICAGO,
-                    TemperatureUnit.F))
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                overFiftyThousandRows.toString(),
+                KilnLogSource.OTHER,
+                null,
+                null,
+                CHICAGO,
+                TemperatureUnit.F))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("50,000");
 
-    assertThatThrownBy(
-            () ->
-                KilnLogParser.parse(
-                    "Name,Email\nMo,mo@example.test\n",
-                    KilnLogSource.OTHER,
-                    null,
-                    null,
-                    CHICAGO,
-                    TemperatureUnit.F))
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "Name,Email\nMo,mo@example.test\n",
+                KilnLogSource.OTHER,
+                null,
+                null,
+                CHICAGO,
+                TemperatureUnit.F))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("header");
 
     KilnLogParser.ColumnMap missingCol =
         new KilnLogParser.ColumnMap(null, "NonexistentCol", null, null, null, null);
-    assertThatThrownBy(
-            () ->
-                KilnLogParser.parse(
-                    "Elapsed,Temp\n0,100\n1,200\n",
-                    KilnLogSource.OTHER,
-                    null,
-                    missingCol,
-                    CHICAGO,
-                    TemperatureUnit.F))
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "Elapsed,Temp\n0,100\n1,200\n",
+                KilnLogSource.OTHER,
+                null,
+                missingCol,
+                CHICAGO,
+                TemperatureUnit.F))
         .isInstanceOf(InvalidInputException.class)
         .hasMessageContaining("NonexistentCol");
   }

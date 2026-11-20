@@ -152,8 +152,7 @@ class McpOAuthFlowTests {
                 .formatted(MCP_REDIRECT));
     assertThat(created.statusCode()).isEqualTo(201);
     assertThat(JsonPath.<String>read(created.body(), "$.client_id")).startsWith("mcp_");
-    assertThat(JsonPath.<String>read(created.body(), "$.client_name"))
-        .isEqualTo("Claude Desktop");
+    assertThat(JsonPath.<String>read(created.body(), "$.client_name")).isEqualTo("Claude Desktop");
     assertThat(JsonPath.<String>read(created.body(), "$.token_endpoint_auth_method"))
         .isEqualTo("none");
     assertThat(JsonPath.<String>read(created.body(), "$.scope")).isEqualTo("read propose");
@@ -344,10 +343,7 @@ class McpOAuthFlowTests {
     HttpResponse<String> consentPage = get(consentUri);
     URI callback =
         submitConsent(
-            consentPage.body(),
-            PRE_REGISTERED_ID,
-            query(consentUri).get("state"),
-            List.of("read"));
+            consentPage.body(), PRE_REGISTERED_ID, query(consentUri).get("state"), List.of("read"));
     HttpResponse<String> mcpTokens =
         exchangeMcpCode(
             PRE_REGISTERED_ID,
@@ -465,13 +461,12 @@ class McpOAuthFlowTests {
     return location(resumed, afterResume);
   }
 
-  private URI submitConsent(
-      String consentHtml, String clientId, String state, List<String> scopes) throws Exception {
+  private URI submitConsent(String consentHtml, String clientId, String state, List<String> scopes)
+      throws Exception {
     List<Map.Entry<String, String>> fields = new ArrayList<>();
     fields.add(Map.entry("client_id", clientId));
     fields.add(Map.entry("state", state));
-    Matcher csrf =
-        Pattern.compile("name=\"_csrf\" value=\"([^\"]+)\"").matcher(consentHtml);
+    Matcher csrf = Pattern.compile("name=\"_csrf\" value=\"([^\"]+)\"").matcher(consentHtml);
     if (csrf.find()) {
       fields.add(Map.entry("_csrf", csrf.group(1)));
     }

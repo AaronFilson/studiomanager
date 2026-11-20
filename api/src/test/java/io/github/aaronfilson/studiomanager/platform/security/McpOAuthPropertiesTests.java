@@ -21,12 +21,11 @@ class McpOAuthPropertiesTests {
   void derivesDefaultJwkSetUriAndStudioUrls() {
     McpOAuthProperties props =
         new McpOAuthProperties(
-            "https://auth.studiomanager.example/",
-            "",
-            "https://api.studiomanager.example/mcp");
+            "https://auth.studiomanager.example/", "", "https://api.studiomanager.example/mcp");
 
     assertThat(props.enabled()).isTrue();
-    assertThat(props.effectiveJwkSetUri()).isEqualTo("https://auth.studiomanager.example/oauth2/jwks");
+    assertThat(props.effectiveJwkSetUri())
+        .isEqualTo("https://auth.studiomanager.example/oauth2/jwks");
     assertThat(props.rootResource("http://localhost"))
         .isEqualTo("https://api.studiomanager.example/mcp");
     assertThat(props.resourceForStudio(STUDIO_A, "http://localhost"))

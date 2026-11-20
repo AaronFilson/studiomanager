@@ -102,8 +102,8 @@ public class BridgeSecurity {
                     .authorizationEndpoint(endpoint ->
                         endpoint
                             .consentPage(McpConsentController.CONSENT_PATH)
-                            .authenticationProviders(
-                                providers -> configureMcpAuthorizationValidation(providers, properties)))
+                            .authenticationProviders(providers ->
+                                configureMcpAuthorizationValidation(providers, properties)))
                     .authorizationServerMetadataEndpoint(meta ->
                         meta.authorizationServerMetadataCustomizer(
                             builder -> customizeServerMetadata(builder, properties)))
@@ -274,10 +274,9 @@ public class BridgeSecurity {
   /** Strict CSP for the MCP consent screen: own stylesheet and form posts only, no scripts. */
   private static void consentSecurityHeaders(HeadersConfigurer<HttpSecurity> headers) {
     headers
-        .contentSecurityPolicy(
-            policy ->
-                policy.policyDirectives(
-                    "default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'"))
+        .contentSecurityPolicy(policy ->
+            policy.policyDirectives(
+                "default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'"))
         .referrerPolicy(
             referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER));
   }

@@ -87,8 +87,7 @@ record ClaudeInvoiceAnswer(
           @Nullable String unitPrice,
       @JsonPropertyDescription("The line's total, as a plain decimal, or \"\"")
           @Nullable String lineTotal,
-      @JsonPropertyDescription(
-              "One of ITEM, SHIPPING, FEE, DISCOUNT, DEPOSIT, OTHER, or \"\"")
+      @JsonPropertyDescription("One of ITEM, SHIPPING, FEE, DISCOUNT, DEPOSIT, OTHER, or \"\"")
           @Nullable String kind,
       @JsonPropertyDescription("Equipment serial numbers printed on this line, if any")
           @Nullable List<String> serialNumbers,
@@ -102,7 +101,9 @@ record ClaudeInvoiceAnswer(
 
   private static final Pattern ISO_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
-  /** The answer as a draft. Anything that isn't a well-formed decimal, date or enum becomes null. */
+  /**
+   * The answer as a draft. Anything that isn't a well-formed decimal, date or enum becomes null.
+   */
   InvoiceDraft toDraft() {
     List<Line> answered = lines == null ? List.of() : lines;
     List<Payment> answeredPayments = payments == null ? List.of() : payments;

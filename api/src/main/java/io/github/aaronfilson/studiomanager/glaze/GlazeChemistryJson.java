@@ -18,7 +18,9 @@ final class GlazeChemistryJson {
     if (chemistry == null) {
       return null;
     }
-    if (chemistry.materialId() == null && chemistry.analysis().isEmpty() && chemistry.loi() == null) {
+    if (chemistry.materialId() == null
+        && chemistry.analysis().isEmpty()
+        && chemistry.loi() == null) {
       return null;
     }
     Map<String, Object> root = new LinkedHashMap<>();

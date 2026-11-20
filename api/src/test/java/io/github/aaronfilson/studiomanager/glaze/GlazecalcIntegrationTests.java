@@ -170,8 +170,7 @@ class GlazecalcIntegrationTests {
     registry.add("studiomanager.glazecalc.client-id", () -> "studiomanager-test");
     registry.add("studiomanager.glazecalc.client-secret", () -> "test-secret");
     registry.add(
-        "studiomanager.glazecalc.redirect-uri",
-        () -> "http://localhost:5173/studios/callback");
+        "studiomanager.glazecalc.redirect-uri", () -> "http://localhost:5173/studios/callback");
     registry.add("studiomanager.glazecalc.allow-private-networks", () -> "true");
   }
 
@@ -284,15 +283,13 @@ class GlazecalcIntegrationTests {
         TenantContext.callAs(
             new TenantContext(moAccountId, studioId, StudioRole.MEMBER),
             () ->
-                transactions.execute(
-                    tx ->
-                        jdbc.sql(
-                                "select access_token_enc from glazecalc_connection where account_id = :id")
-                            .param("id", moAccountId)
-                            .query(byte[].class)
-                            .single()));
-    assertThat(new String(rawCiphertext, StandardCharsets.ISO_8859_1))
-        .doesNotContain(ACCESS_TOKEN);
+                transactions.execute(tx ->
+                    jdbc.sql(
+                            "select access_token_enc from glazecalc_connection where account_id = :id")
+                        .param("id", moAccountId)
+                        .query(byte[].class)
+                        .single()));
+    assertThat(new String(rawCiphertext, StandardCharsets.ISO_8859_1)).doesNotContain(ACCESS_TOKEN);
 
     // Another member in the same studio sees connected = false (owner RLS)
     assertThat(mvc.get().uri(path("/glazes/glazecalc/status")).with(pat.token()))

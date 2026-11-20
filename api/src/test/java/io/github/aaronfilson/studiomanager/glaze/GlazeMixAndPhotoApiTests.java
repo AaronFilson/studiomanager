@@ -129,10 +129,7 @@ class GlazeMixAndPhotoApiTests {
                 """),
             "$.id");
     assertThat(
-            post(
-                owner,
-                path("/glazes/" + memberRecipeId + "/mixes"),
-                "{\"dryWeightG\": \"1000\"}"))
+            post(owner, path("/glazes/" + memberRecipeId + "/mixes"), "{\"dryWeightG\": \"1000\"}"))
         .hasStatus(HttpStatus.BAD_REQUEST);
   }
 
@@ -207,7 +204,9 @@ class GlazeMixAndPhotoApiTests {
 
     // Re-importing a newer revision updates the existing recipe in place
     String updatedExport =
-        glazecalcExport.replace("\"rev\": 1", "\"rev\": 2").replace("Floating Blue", "Floating Blue v2");
+        glazecalcExport
+            .replace("\"rev\": 1", "\"rev\": 2")
+            .replace("Floating Blue", "Floating Blue v2");
     MvcTestResult updated = post(mo, path("/glazes/import?dryRun=false"), updatedExport);
     assertThat(updated).hasStatusOk();
     assertThat(updated).bodyJson().extractingPath("$.updatedCount").isEqualTo(1);

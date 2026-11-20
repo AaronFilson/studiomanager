@@ -36,8 +36,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Live Glazecalc integration: share-link imports ({@code GET /api/shared/recipe}) and per-member
- * PKCE OAuth connection + sync ({@code /oauth/authorize}, {@code /oauth/token}, {@code
- * GET /api/export}).
+ * PKCE OAuth connection + sync ({@code /oauth/authorize}, {@code /oauth/token}, {@code GET
+ * /api/export}).
  */
 @Service
 public class GlazecalcService {
@@ -99,10 +99,7 @@ public class GlazecalcService {
     URI endpoint = URI.create(properties.resolvedBaseUrl() + "/api/shared/recipe");
     GlazecalcHttpClient.Response response;
     try {
-      response =
-          http.get(
-              endpoint,
-              Map.of("Accept", "application/json", "X-Share-Secret", secret));
+      response = http.get(endpoint, Map.of("Accept", "application/json", "X-Share-Secret", secret));
     } catch (GlazecalcHttpClient.UnsafeTargetException e) {
       throw new InvalidInputException(
           e.getMessage() == null ? "Refused Glazecalc address." : e.getMessage());
@@ -110,12 +107,16 @@ public class GlazecalcService {
       throw new InvalidInputException(
           "Couldn't reach Glazecalc to load that share link: " + e.getMessage());
     }
-    if (response.statusCode() == 404 || response.statusCode() == 401 || response.statusCode() == 403) {
-      throw new InvalidInputException("Glazecalc didn't recognize that share link or it has expired.");
+    if (response.statusCode() == 404
+        || response.statusCode() == 401
+        || response.statusCode() == 403) {
+      throw new InvalidInputException(
+          "Glazecalc didn't recognize that share link or it has expired.");
     }
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw new InvalidInputException(
-          "Glazecalc returned HTTP %d when loading that share link.".formatted(response.statusCode()));
+          "Glazecalc returned HTTP %d when loading that share link."
+              .formatted(response.statusCode()));
     }
 
     JsonNode body;
@@ -156,16 +157,15 @@ public class GlazecalcService {
     return connections
         .findByAccountId(caller.accountId())
         .map(this::toStatus)
-        .orElseGet(
-            () ->
-                new Status(
-                    properties.oauthConfigured(),
-                    false,
-                    properties.resolvedBaseUrl(),
-                    null,
-                    null,
-                    null,
-                    null));
+        .orElseGet(() ->
+            new Status(
+                properties.oauthConfigured(),
+                false,
+                properties.resolvedBaseUrl(),
+                null,
+                null,
+                null,
+                null));
   }
 
   public ConnectStart startConnect(@Nullable String requestedRedirectUri) {
@@ -203,12 +203,12 @@ public class GlazecalcService {
             + "&code_challenge="
             + urlEncode(codeChallenge)
             + "&code_challenge_method=S256";
-    return new ConnectStart(URI.create(properties.resolvedBaseUrl() + "/oauth/authorize?" + query), state);
+    return new ConnectStart(
+        URI.create(properties.resolvedBaseUrl() + "/oauth/authorize?" + query), state);
   }
 
   @Transactional
-  public Status completeCallback(
-      String code, String state, @Nullable String requestedRedirectUri) {
+  public Status completeCallback(String code, String state, @Nullable String requestedRedirectUri) {
     TenantContext caller = TenantContext.require();
     if (!properties.oauthConfigured()) {
       throw new InvalidInputException("Glazecalc OAuth is not configured on this server.");
@@ -285,7 +285,8 @@ public class GlazecalcService {
       throw new InvalidInputException(
           e.getMessage() == null ? "Refused Glazecalc address." : e.getMessage());
     } catch (IOException e) {
-      throw new InvalidInputException("Couldn't reach Glazecalc to sync recipes: " + e.getMessage());
+      throw new InvalidInputException(
+          "Couldn't reach Glazecalc to sync recipes: " + e.getMessage());
     }
 
     if (response.statusCode() == 401) {
@@ -294,7 +295,8 @@ public class GlazecalcService {
     }
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw new InvalidInputException(
-          "Glazecalc returned HTTP %d when exporting your recipes.".formatted(response.statusCode()));
+          "Glazecalc returned HTTP %d when exporting your recipes."
+              .formatted(response.statusCode()));
     }
 
     GlazeImportService.Result result = importer.importJson(response.body(), dryRun);
@@ -427,9 +429,7 @@ public class GlazecalcService {
     }
   }
 
-  /**
-   * Validates a Glazecalc share URL against the allowlisted host or accepts a raw share secret.
-   */
+  /** Validates a Glazecalc share URL against the allowlisted host or accepts a raw share secret. */
   String extractShareSecret(String rawInput) {
     if (rawInput == null || rawInput.isBlank()) {
       throw new InvalidInputException("Paste a Glazecalc share link or secret.");

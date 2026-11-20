@@ -106,11 +106,10 @@ final class GlazecalcHttpClient implements AutoCloseable {
     validateUri(uri);
     String encoded =
         formFields.entrySet().stream()
-            .map(
-                e ->
-                    URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8)
-                        + "="
-                        + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
+            .map(e ->
+                URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8)
+                    + "="
+                    + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&"));
     HttpPost post = new HttpPost(uri);
     post.setHeader("Accept", "application/json");

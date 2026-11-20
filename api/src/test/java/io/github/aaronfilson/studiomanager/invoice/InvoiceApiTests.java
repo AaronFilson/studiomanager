@@ -272,7 +272,8 @@ class InvoiceApiTests {
     assertThat(exported.getResponse().getContentType()).contains("application/zip");
     Map<String, byte[]> entries = new HashMap<>();
     try (ZipInputStream zip =
-        new ZipInputStream(new ByteArrayInputStream(exported.getResponse().getContentAsByteArray()))) {
+        new ZipInputStream(
+            new ByteArrayInputStream(exported.getResponse().getContentAsByteArray()))) {
       for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
         entries.put(entry.getName(), zip.readAllBytes());
       }

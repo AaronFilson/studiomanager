@@ -17,7 +17,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
-import { formatMoney, supplyCategories, supplyCategoryLabel } from '../labels';
+import { formatDate, formatMoney, supplyCategories, supplyCategoryLabel } from '../labels';
 import { Badge, Body, Button, Card, ErrorText, Field, Loading, SectionTitle, Title } from '../ui';
 
 const decimal = /^\d{1,9}(\.\d{1,4})?$/;
@@ -148,6 +148,12 @@ function SupplyCard({
           {item.onHand} × {item.unit}
         </Badge>
         {item.salePrice !== undefined && <Badge>{formatMoney(item.salePrice, currency)} each</Badge>}
+        {item.lastPurchaseUnitPrice !== undefined && (
+          <Badge>
+            Last paid {formatMoney(item.lastPurchaseUnitPrice, currency)}/{item.unit}
+            {item.lastPurchasedAt ? ` on ${formatDate(item.lastPurchasedAt)}` : ''}
+          </Badge>
+        )}
         {item.low && (
           <Badge warning>
             Low{item.needsOrdering ? ', not on order' : `, ${item.onOrder} on order`}

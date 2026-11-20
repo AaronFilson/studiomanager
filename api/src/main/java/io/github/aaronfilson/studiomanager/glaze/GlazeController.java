@@ -280,15 +280,14 @@ class GlazeController implements GlazesApi {
             : new BigDecimal(request.getTargetSpecificGravity()),
         Boolean.TRUE.equals(request.getSharedWithStudio()),
         request.getLines().stream()
-            .map(
-                line ->
-                    new GlazeBook.Line(
-                        GlazeBook.LineKind.valueOf(line.getKind().getValue()),
-                        line.getMaterial(),
-                        new BigDecimal(line.getAmount()),
-                        line.getAmountText(),
-                        GlazeBook.Unit.valueOf(line.getUnit().getValue()),
-                        fromChemistryDto(line.getChemistry())))
+            .map(line ->
+                new GlazeBook.Line(
+                    GlazeBook.LineKind.valueOf(line.getKind().getValue()),
+                    line.getMaterial(),
+                    new BigDecimal(line.getAmount()),
+                    line.getAmountText(),
+                    GlazeBook.Unit.valueOf(line.getUnit().getValue()),
+                    fromChemistryDto(line.getChemistry())))
             .toList());
   }
 
@@ -347,26 +346,24 @@ class GlazeController implements GlazesApi {
         .promotedFrom(recipe.promotedFrom())
         .lines(
             recipe.lines().stream()
-                .map(
-                    line ->
-                        new GlazeLineDto()
-                            .kind(GlazeLineKindDto.fromValue(line.kind().name()))
-                            .material(line.material())
-                            .amount(line.amount().toPlainString())
-                            .amountText(line.amountText())
-                            .unit(GlazeAmountUnitDto.fromValue(line.unit().name()))
-                            .chemistry(toChemistryDto(line.chemistry())))
+                .map(line ->
+                    new GlazeLineDto()
+                        .kind(GlazeLineKindDto.fromValue(line.kind().name()))
+                        .material(line.material())
+                        .amount(line.amount().toPlainString())
+                        .amountText(line.amountText())
+                        .unit(GlazeAmountUnitDto.fromValue(line.unit().name()))
+                        .chemistry(toChemistryDto(line.chemistry())))
                 .toList())
         .photos(
             recipe.photos().stream()
-                .map(
-                    photo ->
-                        new GlazePhotoDto()
-                            .id(photo.id())
-                            .url(photo.url())
-                            .thumbnailUrl(photo.thumbnailUrl())
-                            .uploadedByAccountId(photo.uploadedByAccountId())
-                            .uploadedAt(utc(photo.uploadedAt())))
+                .map(photo ->
+                    new GlazePhotoDto()
+                        .id(photo.id())
+                        .url(photo.url())
+                        .thumbnailUrl(photo.thumbnailUrl())
+                        .uploadedByAccountId(photo.uploadedByAccountId())
+                        .uploadedAt(utc(photo.uploadedAt())))
                 .toList())
         .canEdit(recipe.canEdit())
         .version(recipe.version())
@@ -408,16 +405,15 @@ class GlazeController implements GlazesApi {
         .errorCount(result.errorCount())
         .rows(
             result.rows().stream()
-                .map(
-                    row ->
-                        new GlazeImportRowDto()
-                            .index(row.index())
-                            .name(row.name())
-                            .sourceRef(row.sourceRef())
-                            .outcome(GlazeImportOutcomeDto.fromValue(row.outcome().name()))
-                            .recipeId(row.recipeId())
-                            .message(row.message())
-                            .warnings(row.warnings()))
+                .map(row ->
+                    new GlazeImportRowDto()
+                        .index(row.index())
+                        .name(row.name())
+                        .sourceRef(row.sourceRef())
+                        .outcome(GlazeImportOutcomeDto.fromValue(row.outcome().name()))
+                        .recipeId(row.recipeId())
+                        .message(row.message())
+                        .warnings(row.warnings()))
                 .toList());
   }
 

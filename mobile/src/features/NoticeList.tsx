@@ -29,7 +29,7 @@ export function NoticeList({ studioId, canSend = false }: { studioId: string; ca
       keyExtractor={(notice) => notice.id}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={notices.isRefetching} onRefresh={() => void notices.refetch()} />}
-      ListHeaderComponent={canSend ? <SendNoticeCard studioId={studioId} /> : null}
+      ListHeaderComponent={canSend ? <SendNoticeCard studioId={studioId} /> : undefined}
       ListEmptyComponent={<Body muted>No notices yet.</Body>}
       contentContainerStyle={styles.items}
       renderItem={({ item }) => (

@@ -271,8 +271,8 @@ export function analyzeRecipe(
     }
 
     const fromSnapshot = parseSnapshotAnalysis(line.chemistry);
-    let analysis: OxideAnalysis | undefined;
-    let loi = 0;
+    let analysis: OxideAnalysis;
+    let loi: number;
 
     if (fromSnapshot) {
       analysis = fromSnapshot.analysis;

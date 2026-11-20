@@ -62,7 +62,7 @@ describe('Financials', () => {
 
     await renderWithQueries(<Financials studioId="s1" />);
 
-    expect(await screen.findByText('Mo Maker')).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Mo Maker' })).toBeOnTheScreen();
     expect(screen.getByText(/Owes .*24\.50/)).toBeOnTheScreen();
     expect(screen.getByText(/10\.00 in credit/)).toBeOnTheScreen();
 

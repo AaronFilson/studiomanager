@@ -144,13 +144,8 @@ public class GlazeBook {
         accounts.displayNames(
             found.stream().map(GlazeRecipe::ownerAccountId).filter(Objects::nonNull).toList());
     return found.stream()
-        .map(
-            recipe ->
-                view(
-                    recipe,
-                    caller,
-                    ownerNames,
-                    photosByRecipe.getOrDefault(recipe.id(), List.of())))
+        .map(recipe ->
+            view(recipe, caller, ownerNames, photosByRecipe.getOrDefault(recipe.id(), List.of())))
         .toList();
   }
 

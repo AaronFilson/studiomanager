@@ -159,8 +159,7 @@ class InvoiceQueries {
 
   /** Every stored compared draft for one invoice in the bound studio. */
   List<StoredComparison> comparisonsFor(UUID invoiceId) {
-    return jdbc
-        .sql("select id, reader, draft from invoice_comparison where invoice_id = :invoice")
+    return jdbc.sql("select id, reader, draft from invoice_comparison where invoice_id = :invoice")
         .param("invoice", invoiceId)
         .query((rs, row) ->
             new StoredComparison(

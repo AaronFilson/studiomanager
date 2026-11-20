@@ -1,11 +1,11 @@
 import { getStudioOptions, listMyNotificationsOptions, useCan } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { router, Tabs, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { type ColorValue, Pressable, StyleSheet, Text } from 'react-native';
 
 import { usePalette } from '../../../ui';
 
-function TabGlyph({ glyph, color }: { glyph: string; color: string }) {
+function TabGlyph({ glyph, color }: { glyph: string; color: ColorValue }) {
   return (
     <Text accessible={false} style={[styles.glyph, { color }]}>
       {glyph}

@@ -33,7 +33,8 @@ docker run --rm -e CI=true \
 pnpm config set store-dir /pnpm-store >/dev/null
 $install_cmd
 pnpm --filter @studiomanager/api-client run generate
-pnpm --filter @studiomanager/web run build"
+if [[ -f mobile/scripts/generate-assets.mjs ]]; then node mobile/scripts/generate-assets.mjs; fi
+pnpm --filter @studiomanager/web run build || echo 'WARN: web build failed (routeTree may still be generated)'"
 
 if [[ "${1:-}" == "--lockfile" ]]; then
     cp "$WORK/src/pnpm-lock.yaml" "$SRC/pnpm-lock.yaml"
@@ -42,5 +43,9 @@ rm -rf "$SRC/packages/api-client/src/generated"
 cp -R "$WORK/src/packages/api-client/src/generated" "$SRC/packages/api-client/src/generated"
 if [[ -f "$WORK/src/web/src/routeTree.gen.ts" ]]; then
     cp "$WORK/src/web/src/routeTree.gen.ts" "$SRC/web/src/routeTree.gen.ts"
+fi
+if [[ -d "$WORK/src/mobile/assets" ]]; then
+    mkdir -p "$SRC/mobile/assets"
+    cp -R "$WORK/src/mobile/assets/." "$SRC/mobile/assets/"
 fi
 echo "== Synced generated artifacts back to $SRC"

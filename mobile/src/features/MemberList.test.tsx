@@ -32,7 +32,7 @@ const assignableRoles = [
 
 describe('MemberList', () => {
   it('supports owner management, billing contact, custom role assignment, duties, certifications, and invites', async () => {
-    const shareSpy = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    const shareSpy = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     const calls = stubApi({
       'GET /api/v1/me': { account: { id: 'a1', displayName: 'Olive Owner' }, memberships: [] },
       'GET /api/v1/studios/:studioId/me/permissions': {
@@ -96,6 +96,7 @@ describe('MemberList', () => {
 
     await renderWithQueries(<MemberList studioId="s1" />);
 
+    expect(await screen.findByText('Olive Owner')).toBeOnTheScreen();
     expect(await screen.findByText(/The billing contact is no longer an owner/)).toBeOnTheScreen();
     expect(screen.getByText('The only owner. Add another owner before they can step down.')).toBeOnTheScreen();
 

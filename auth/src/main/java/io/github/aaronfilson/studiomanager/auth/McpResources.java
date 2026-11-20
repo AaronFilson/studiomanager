@@ -50,10 +50,8 @@ final class McpResources {
     UUID studioId =
         fromPath
             .or(() -> fromParam)
-            .orElseThrow(
-                () ->
-                    invalidTarget(
-                        "A studio_id parameter or per-studio MCP resource URL is required."));
+            .orElseThrow(() ->
+                invalidTarget("A studio_id parameter or per-studio MCP resource URL is required."));
     return new Target(resource, studioId);
   }
 
@@ -123,7 +121,8 @@ final class McpResources {
         || uri.getRawFragment() != null
         || uri.getRawQuery() != null
         || uri.getRawUserInfo() != null) {
-      throw invalidTarget("The resource parameter must be a clean absolute URI without query or fragment.");
+      throw invalidTarget(
+          "The resource parameter must be a clean absolute URI without query or fragment.");
     }
     String scheme = uri.getScheme();
     String host = uri.getHost();
@@ -168,7 +167,9 @@ final class McpResources {
     String host = uri.getHost().toLowerCase(Locale.ROOT);
     int port = uri.getPort();
     boolean defaultPort =
-        port < 0 || ("https".equals(scheme) && port == 443) || ("http".equals(scheme) && port == 80);
+        port < 0
+            || ("https".equals(scheme) && port == 443)
+            || ("http".equals(scheme) && port == 80);
     return defaultPort ? scheme + "://" + host : scheme + "://" + host + ":" + port;
   }
 

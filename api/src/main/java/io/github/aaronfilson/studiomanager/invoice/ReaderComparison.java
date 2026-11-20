@@ -115,8 +115,7 @@ class ReaderComparison {
         goes.add(
             pool.submit(() ->
                 TenantContext.callAs(
-                    caller,
-                    () -> go(reader, studioId, invoiceId, file, target.confirmedDraft()))));
+                    caller, () -> go(reader, studioId, invoiceId, file, target.confirmedDraft()))));
       }
     }
     List<Compared> compared = new ArrayList<>();

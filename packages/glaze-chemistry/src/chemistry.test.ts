@@ -110,7 +110,8 @@ describe('UMF, Stull surface, CTE & cone limit checks', () => {
       [
         { material: 'Nepheline Syenite', amount: 45, kind: 'BASE', unit: 'PARTS' },
         { material: 'Whiting', amount: 25, kind: 'BASE', unit: 'PARTS' },
-        { material: 'EPK', amount: 30, kind: 'BASE', unit: 'PARTS' },
+        { material: 'EPK', amount: 20, kind: 'BASE', unit: 'PARTS' },
+        { material: 'Silica', amount: 10, kind: 'BASE', unit: 'PARTS' },
       ],
       { cone: '6' },
     );

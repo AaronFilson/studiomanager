@@ -28,9 +28,7 @@ public final class SupplyDtos {
                 ? null
                 : item.lastPurchaseUnitPrice().toPlainString())
         .lastPurchasedAt(
-            item.lastPurchasedAt() == null
-                ? null
-                : item.lastPurchasedAt().atOffset(ZoneOffset.UTC))
+            item.lastPurchasedAt() == null ? null : item.lastPurchasedAt().atOffset(ZoneOffset.UTC))
         .taxCategory(item.taxCategory())
         .substitute(item.substitute())
         .onHand(item.onHand().stripTrailingZeros().toPlainString())

@@ -59,7 +59,11 @@ class KilnLogImportApiTests {
     String genesisCsv = fixture("kilns/genesis-sample.csv");
 
     MvcTestResult preview =
-        importLog(owner, studioId, kilnId, mapOf("csvText", genesisCsv, "source", "GENESIS", "dryRun", true));
+        importLog(
+            owner,
+            studioId,
+            kilnId,
+            mapOf("csvText", genesisCsv, "source", "GENESIS", "dryRun", true));
 
     assertThat(preview)
         .hasStatusOk()
@@ -147,13 +151,19 @@ class KilnLogImportApiTests {
     DateTimeFormatter iso = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
     String overlappingTap =
         "Timestamp,Temp (C),Target (C),Output %,Event\n"
-            + iso.format(now.minusSeconds(1800)) + ",25,25,0,Firing Start\n"
-            + iso.format(now.minusSeconds(900)) + ",650,655,95,\n"
-            + iso.format(now) + ",1060,1060,90,FTH\n";
+            + iso.format(now.minusSeconds(1800))
+            + ",25,25,0,Firing Start\n"
+            + iso.format(now.minusSeconds(900))
+            + ",650,655,95,\n"
+            + iso.format(now)
+            + ",1060,1060,90,FTH\n";
 
     MvcTestResult preview =
         importLog(
-            owner, studioId, kilnId, mapOf("csvText", overlappingTap, "source", "TAP", "dryRun", true));
+            owner,
+            studioId,
+            kilnId,
+            mapOf("csvText", overlappingTap, "source", "TAP", "dryRun", true));
 
     assertThat(preview)
         .hasStatusOk()
@@ -168,10 +178,7 @@ class KilnLogImportApiTests {
             studioId,
             kilnId,
             mapOf(
-                "csvText", overlappingTap,
-                "source", "TAP",
-                "firingId", firingId,
-                "dryRun", false));
+                "csvText", overlappingTap, "source", "TAP", "firingId", firingId, "dryRun", false));
 
     assertThat(linked)
         .hasStatusOk()
@@ -238,10 +245,14 @@ class KilnLogImportApiTests {
                 otherStudioId,
                 otherKilnId,
                 mapOf(
-                    "csvText", genesisCsv,
-                    "source", "GENESIS",
-                    "firingId", committedFiringId,
-                    "dryRun", false)))
+                    "csvText",
+                    genesisCsv,
+                    "source",
+                    "GENESIS",
+                    "firingId",
+                    committedFiringId,
+                    "dryRun",
+                    false)))
         .hasStatus(HttpStatus.NOT_FOUND);
 
     // Firing belonging to a second kiln in the same studio is refused with 400
@@ -255,10 +266,14 @@ class KilnLogImportApiTests {
                 studioId,
                 secondKilnId,
                 mapOf(
-                    "csvText", genesisCsv,
-                    "source", "GENESIS",
-                    "firingId", committedFiringId,
-                    "dryRun", false)))
+                    "csvText",
+                    genesisCsv,
+                    "source",
+                    "GENESIS",
+                    "firingId",
+                    committedFiringId,
+                    "dryRun",
+                    false)))
         .hasStatus(HttpStatus.BAD_REQUEST);
 
     // Unrecognized CSV returns 400 Problem Details
@@ -267,7 +282,13 @@ class KilnLogImportApiTests {
                 owner,
                 studioId,
                 kilnId,
-                mapOf("csvText", "Name,Email\nMo,mo@example.test\n", "source", "OTHER", "dryRun", true)))
+                mapOf(
+                    "csvText",
+                    "Name,Email\nMo,mo@example.test\n",
+                    "source",
+                    "OTHER",
+                    "dryRun",
+                    true)))
         .hasStatus(HttpStatus.BAD_REQUEST)
         .hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
   }

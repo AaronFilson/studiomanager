@@ -158,8 +158,7 @@ public class GlazeImportService {
         continue;
       }
 
-      GlazeRecipe existing =
-          item.sourceRef() == null ? null : existingByRef.get(item.sourceRef());
+      GlazeRecipe existing = item.sourceRef() == null ? null : existingByRef.get(item.sourceRef());
       if (existing == null) {
         plan.add(
             new Planned(item, clean, null, Outcome.NEW, "Will create a new recipe.", warnings));
@@ -175,17 +174,11 @@ public class GlazeImportService {
                 warnings));
       } else if (existing.matchesImportContent(clean)
           && !isNewerSource(existing, item.sourceRev(), item.sourceUpdatedAt())) {
-        plan.add(
-            new Planned(item, clean, existing, Outcome.UNCHANGED, "No changes.", warnings));
+        plan.add(new Planned(item, clean, existing, Outcome.UNCHANGED, "No changes.", warnings));
       } else {
         plan.add(
             new Planned(
-                item,
-                clean,
-                existing,
-                Outcome.UPDATED,
-                "Will update existing recipe.",
-                warnings));
+                item, clean, existing, Outcome.UPDATED, "Will update existing recipe.", warnings));
       }
     }
 
@@ -273,8 +266,7 @@ public class GlazeImportService {
       Map<String, Object> entry = new LinkedHashMap<>();
       entry.put("name", line.material());
       entry.put(
-          "amount",
-          line.amountText() != null ? line.amountText() : line.amount().toPlainString());
+          "amount", line.amountText() != null ? line.amountText() : line.amount().toPlainString());
       if (line.kind() == GlazeBook.LineKind.ADDITION) {
         entry.put("unit", line.unit().name().toLowerCase(Locale.ROOT));
       }
@@ -298,8 +290,7 @@ public class GlazeImportService {
     }
 
     Map<String, Object> recipeDoc = new LinkedHashMap<>();
-    recipeDoc.put(
-        "_id", recipe.sourceRef() != null ? recipe.sourceRef() : recipe.id().toString());
+    recipeDoc.put("_id", recipe.sourceRef() != null ? recipe.sourceRef() : recipe.id().toString());
     recipeDoc.put("title", recipe.name());
     if (recipe.notes() != null && !recipe.notes().isBlank()) {
       recipeDoc.put("notes", List.of(recipe.notes().split("\\n\\n+", -1)));

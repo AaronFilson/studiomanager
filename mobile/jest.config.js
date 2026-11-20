@@ -8,6 +8,7 @@ module.exports = {
   ],
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
   // A suite's first test also loads React Native, which on a busy CI runner (the web tests run
-  // alongside) takes longer than Jest's default 5 s
-  testTimeout: 30000,
+  // alongside) takes longer than Jest's default 5 s. Cap workers so 18 RN suites don't thrash CPU.
+  maxWorkers: 4,
+  testTimeout: 60000,
 };

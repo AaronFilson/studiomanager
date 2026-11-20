@@ -10,6 +10,8 @@ const clay = {
   unit: '25 lb bag',
   supplier: 'Laguna',
   salePrice: '28.00',
+  lastPurchaseUnitPrice: '19.50',
+  lastPurchasedAt: '2026-10-15T00:00:00Z',
   substitute: 'Use Speckled Buff while out',
   onHand: '2',
   onOrder: '0',
@@ -104,6 +106,7 @@ describe('SupplyList', () => {
 
     await renderWithQueries(<SupplyList studioId="s1" />);
     expect(await screen.findByText('B-Mix 5')).toBeOnTheScreen();
+    expect(screen.getByText(/Last paid \$19\.50\/25 lb bag/)).toBeOnTheScreen();
     expect(screen.getByText('Substitute: Use Speckled Buff while out')).toBeOnTheScreen();
 
     // Filter to Clay

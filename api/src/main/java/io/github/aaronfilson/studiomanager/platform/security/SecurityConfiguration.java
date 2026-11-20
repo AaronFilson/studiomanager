@@ -17,6 +17,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.AuthorityAuthorizationManager;
@@ -46,12 +47,44 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication
 @EnableMethodSecurity
-@EnableConfigurationProperties({SecurityConfiguration.CorsProperties.class, McpOAuthProperties.class})
+@EnableConfigurationProperties({
+  SecurityConfiguration.CorsProperties.class,
+  McpOAuthProperties.class
+})
 class SecurityConfiguration {
 
   static final String API_SCOPE = "SCOPE_access_as_user";
 
+  /**
+   * Dedicated chain for RFC 9728 Protected Resource Metadata (ADR 26). Keeping it off the {@code
+   * oauth2ResourceServer} chain ensures Spring Security's default {@code
+   * OAuth2ProtectedResourceMetadataEndpointFilter} does not preempt our controller (which returns
+   * 404 when MCP OAuth is disabled and serves the configured MCP audience when enabled).
+   */
   @Bean
+  @Order(1)
+  SecurityFilterChain mcpProtectedResourceMetadataSecurity(HttpSecurity http) {
+    http.securityMatcher(
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-protected-resource/api/v1/studios/*/mcp")
+        .authorizeHttpRequests(requests ->
+            requests
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/.well-known/oauth-protected-resource",
+                    "/.well-known/oauth-protected-resource/api/v1/studios/*/mcp")
+                .permitAll()
+                .anyRequest()
+                .denyAll())
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .csrf(AbstractHttpConfigurer::disable)
+        .cors(Customizer.withDefaults());
+    return http.build();
+  }
+
+  @Bean
+  @Order(2)
   SecurityFilterChain apiSecurity(
       HttpSecurity http,
       AccountResolver accounts,
@@ -68,13 +101,8 @@ class SecurityConfiguration {
             requests
                 .requestMatchers("/actuator/health/**", "/error")
                 .permitAll()
-                // RFC 9728 Protected Resource Metadata for MCP OAuth discovery (ADR 26)
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/.well-known/oauth-protected-resource",
-                    "/.well-known/oauth-protected-resource/api/v1/studios/*/mcp")
-                .permitAll()
-                // Only people with the Platform.Admin app role; never an API token or MCP token (ADR 24)
+                // Only people with the Platform.Admin app role; never an API token or MCP token
+                // (ADR 24)
                 .requestMatchers("/api/v1/admin/**")
                 .access(
                     AuthorizationManagers.allOf(

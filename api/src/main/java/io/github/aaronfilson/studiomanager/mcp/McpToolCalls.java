@@ -89,8 +89,8 @@ class McpToolCalls {
   }
 
   /**
-   * Why the caller can't run this tool, or empty if they can. A token must carry the tool's required
-   * scope (if any), and the caller must hold the tool's permission.
+   * Why the caller can't run this tool, or empty if they can. A token must carry the tool's
+   * required scope (if any), and the caller must hold the tool's permission.
    */
   private static Optional<String> refusal(McpTools.Tool tool, TenantContext caller) {
     TokenScope requiredScope = tool.requiredScope();

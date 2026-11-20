@@ -2,6 +2,7 @@ package io.github.aaronfilson.studiomanager.glaze;
 
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
@@ -31,8 +32,10 @@ class GlazeMix {
 
   private Instant mixedAt;
 
+  @Column(name = "dry_weight_g")
   private BigDecimal dryWeightG;
 
+  @Column(name = "water_g")
   private @Nullable BigDecimal waterG;
 
   private @Nullable String notes;

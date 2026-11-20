@@ -206,7 +206,8 @@ public class GlazeEdits {
     if (amountText != null && amountText.length() > 30) {
       amountText = amountText.substring(0, 30);
     }
-    return new Line(line.kind(), material, line.amount(), amountText, line.unit(), line.chemistry());
+    return new Line(
+        line.kind(), material, line.amount(), amountText, line.unit(), line.chemistry());
   }
 
   static void requireCanEdit(TenantContext caller, GlazeRecipe recipe) {

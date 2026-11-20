@@ -173,8 +173,8 @@ final class InvoiceChecks {
   }
 
   /**
-   * What is payable: defaults to the sum of payments when payments cover lines and tax (+ shipping),
-   * otherwise the written total (or what was paid on a receipt).
+   * What is payable: defaults to the sum of payments when payments cover lines and tax (+
+   * shipping), otherwise the written total (or what was paid on a receipt).
    */
   static @Nullable BigDecimal payableAmount(InvoiceDraft draft) {
     if (draft.documentType() == DocumentType.PACKING_LIST) {

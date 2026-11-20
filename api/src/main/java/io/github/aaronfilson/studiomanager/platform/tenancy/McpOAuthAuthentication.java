@@ -25,7 +25,7 @@ public final class McpOAuthAuthentication extends AbstractAuthenticationToken {
    * @param issuer the trusted MCP authorization server issuer ({@code iss})
    * @param subject the authenticated person's subject or account ID ({@code sub})
    * @param studioId the single studio this token is bound to ({@code studio_id})
-   * @param scopes the parsed {@link TokenScope}s granted to this token ({@code scope})
+   * @param scopes the parsed {@link TokenScope}s granted to this token from the JWT scope claim
    * @param clientId the OAuth client that requested this token, if present
    */
   public record ResolvedMcpToken(

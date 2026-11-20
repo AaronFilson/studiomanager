@@ -87,7 +87,8 @@ final class GlazeImportParser {
     }
     JsonNode recipesNode = records.get("recipes");
     if (recipesNode == null || recipesNode.isNull()) {
-      return new ParsedExport(FORMAT_GLAZECALC, GlazeRecipe.Source.GLAZECALC, accountLabel, List.of());
+      return new ParsedExport(
+          FORMAT_GLAZECALC, GlazeRecipe.Source.GLAZECALC, accountLabel, List.of());
     }
     if (!recipesNode.isArray()) {
       throw new InvalidInputException("records.recipes must be an array.");
@@ -191,9 +192,23 @@ final class GlazeImportParser {
     String joinedNotes = joinNotes(noteParts, warnings);
     GlazeBook.Draft draft =
         new GlazeBook.Draft(
-            displayName, joinedNotes, cone, atmosphere, foodSurface, targetSg, false, List.copyOf(lines));
+            displayName,
+            joinedNotes,
+            cone,
+            atmosphere,
+            foodSurface,
+            targetSg,
+            false,
+            List.copyOf(lines));
     return new ParsedRecipe(
-        index, displayName, sourceRef, sourceRev, sourceUpdatedAt, draft, null, List.copyOf(warnings));
+        index,
+        displayName,
+        sourceRef,
+        sourceRev,
+        sourceUpdatedAt,
+        draft,
+        null,
+        List.copyOf(warnings));
   }
 
   private static @Nullable String parseGlazecalcLines(
@@ -220,7 +235,9 @@ final class GlazeImportParser {
       }
       if (material.length() > 80) {
         material = material.substring(0, 80);
-        warnings.add("Material name \"%s…\" was shortened to 80 characters.".formatted(material.substring(0, 20)));
+        warnings.add(
+            "Material name \"%s…\" was shortened to 80 characters."
+                .formatted(material.substring(0, 20)));
       }
       ParsedAmount parsedAmount = parseAmount(lineNode.get("amount"), material, warnings);
       if (parsedAmount.error() != null) {
@@ -232,7 +249,8 @@ final class GlazeImportParser {
               : parseAdditiveUnit(textOrNull(lineNode.get("unit")), material, warnings);
       GlazeBook.Chemistry chemistry = parseGlazecalcChemistry(lineNode);
       if (chemistry == null || chemistry.analysis().isEmpty()) {
-        warnings.add("No chemistry snapshot on \"%s\" (built-in library will be used).".formatted(material));
+        warnings.add(
+            "No chemistry snapshot on \"%s\" (built-in library will be used).".formatted(material));
       }
       out.add(
           new GlazeBook.Line(
@@ -369,7 +387,9 @@ final class GlazeImportParser {
       GlazeBook.Unit unit = isAddition ? GlazeBook.Unit.PERCENT : GlazeBook.Unit.PARTS;
       GlazeBook.Chemistry chemistry = materialsByName.get(material.toLowerCase(Locale.ROOT));
       if (chemistry == null) {
-        warnings.add("No chemistry found for \"%s\" in export (built-in library will be used).".formatted(material));
+        warnings.add(
+            "No chemistry found for \"%s\" in export (built-in library will be used)."
+                .formatted(material));
       }
       lines.add(
           new GlazeBook.Line(
@@ -381,7 +401,14 @@ final class GlazeImportParser {
         new GlazeBook.Draft(
             displayName, joinedNotes, cone, atmosphere, false, targetSg, false, List.copyOf(lines));
     return new ParsedRecipe(
-        index, displayName, sourceRef, sourceRev, sourceUpdatedAt, draft, null, List.copyOf(warnings));
+        index,
+        displayName,
+        sourceRef,
+        sourceRev,
+        sourceUpdatedAt,
+        draft,
+        null,
+        List.copyOf(warnings));
   }
 
   /** Strips HTML tags, scripts, styles, and common HTML entities to plain text. */
@@ -405,8 +432,7 @@ final class GlazeImportParser {
     return stripped.isEmpty() ? null : stripped;
   }
 
-  private record ParsedAmount(
-      BigDecimal value, @Nullable String rawText, @Nullable String error) {}
+  private record ParsedAmount(BigDecimal value, @Nullable String rawText, @Nullable String error) {}
 
   private static ParsedAmount parseAmount(
       @Nullable JsonNode node, String material, List<String> warnings) {
@@ -462,7 +488,8 @@ final class GlazeImportParser {
       case "grams", "gram", "g" -> GlazeBook.Unit.GRAMS;
       default -> {
         warnings.add(
-            "Unknown additive unit \"%s\" on \"%s\"; defaulted to percent.".formatted(raw, material));
+            "Unknown additive unit \"%s\" on \"%s\"; defaulted to percent."
+                .formatted(raw, material));
         yield GlazeBook.Unit.PERCENT;
       }
     };
@@ -477,13 +504,12 @@ final class GlazeImportParser {
     String withoutPrefix = CONE_PREFIX.matcher(clean).replaceFirst("").strip();
     // Strip trailing atmosphere word when someone wrote "Cone 6 oxidation"
     String shortCone =
-        withoutPrefix
-            .replaceAll("(?i)\\s+(oxidation|reduction|neutral|ox|red)$", "")
-            .strip();
+        withoutPrefix.replaceAll("(?i)\\s+(oxidation|reduction|neutral|ox|red)$", "").strip();
     if (!shortCone.isEmpty() && shortCone.length() <= 10) {
       return shortCone;
     }
-    warnings.add("Cone \"%s\" didn't fit in 10 characters and was moved to notes.".formatted(clean));
+    warnings.add(
+        "Cone \"%s\" didn't fit in 10 characters and was moved to notes.".formatted(clean));
     noteParts.add("Firing: " + clean);
     return null;
   }
@@ -528,7 +554,8 @@ final class GlazeImportParser {
     };
   }
 
-  private static @Nullable BigDecimal parseTargetSg(@Nullable JsonNode node, List<String> warnings) {
+  private static @Nullable BigDecimal parseTargetSg(
+      @Nullable JsonNode node, List<String> warnings) {
     if (node == null || node.isNull() || node.isMissingNode()) {
       return null;
     }
@@ -541,7 +568,8 @@ final class GlazeImportParser {
                   ? new BigDecimal(node.asString().strip())
                   : null;
     } catch (NumberFormatException e) {
-      warnings.add("Ignored unparseable target specific gravity \"%s\".".formatted(node.asString("")));
+      warnings.add(
+          "Ignored unparseable target specific gravity \"%s\".".formatted(node.asString("")));
       return null;
     }
     if (value == null) {
@@ -550,7 +578,8 @@ final class GlazeImportParser {
     if (value.compareTo(GlazeEdits.MIN_SPECIFIC_GRAVITY) < 0
         || value.compareTo(GlazeEdits.MAX_SPECIFIC_GRAVITY) > 0) {
       warnings.add(
-          "Ignored out-of-range specific gravity %s (must be 1.0–2.5).".formatted(value.toPlainString()));
+          "Ignored out-of-range specific gravity %s (must be 1.0–2.5)."
+              .formatted(value.toPlainString()));
       return null;
     }
     if (value.scale() > 3) {

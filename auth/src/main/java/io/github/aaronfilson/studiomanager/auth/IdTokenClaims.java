@@ -105,7 +105,8 @@ public class IdTokenClaims implements OAuth2TokenCustomizer<JwtEncodingContext> 
 
     // RFC 8707 §2: if the token request also includes a resource parameter, it must match the
     // authorized resource.
-    if (context.getAuthorizationGrant() instanceof OAuth2AuthorizationCodeAuthenticationToken grant) {
+    if (context.getAuthorizationGrant()
+        instanceof OAuth2AuthorizationCodeAuthenticationToken grant) {
       String tokenResource =
           McpConsentController.stringParameter(
               grant.getAdditionalParameters(), McpResources.RESOURCE_PARAMETER);

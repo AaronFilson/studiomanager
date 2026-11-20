@@ -117,8 +117,7 @@ public final class KilnDtos {
     return dto;
   }
 
-  private static SuggestedFiringMatchDto toSuggestedDto(
-      KilnLogImportService.SuggestedMatch match) {
+  private static SuggestedFiringMatchDto toSuggestedDto(KilnLogImportService.SuggestedMatch match) {
     return new SuggestedFiringMatchDto()
         .firingId(match.firingId())
         .kind(FiringKindDto.valueOf(match.kind().name()))
@@ -126,8 +125,7 @@ public final class KilnDtos {
         .status(FiringStatusDto.valueOf(match.status().name()))
         .createdAt(match.createdAt().atOffset(ZoneOffset.UTC))
         .startedAt(match.startedAt() == null ? null : match.startedAt().atOffset(ZoneOffset.UTC))
-        .finishedAt(
-            match.finishedAt() == null ? null : match.finishedAt().atOffset(ZoneOffset.UTC))
+        .finishedAt(match.finishedAt() == null ? null : match.finishedAt().atOffset(ZoneOffset.UTC))
         .overlapDescription(match.overlapDescription());
   }
 }

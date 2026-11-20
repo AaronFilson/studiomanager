@@ -58,35 +58,31 @@ class McpResourcesTests {
 
   @Test
   void rejectsDisallowedOrMismatchedResourceTargets() {
-    assertThatThrownBy(
-            () ->
-                McpResources.validateAndResolve(
-                    "https://evil.example/api/v1/studios/" + STUDIO_ID + "/mcp", null, ALLOWED))
+    assertThatThrownBy(() ->
+            McpResources.validateAndResolve(
+                "https://evil.example/api/v1/studios/" + STUDIO_ID + "/mcp", null, ALLOWED))
         .isInstanceOf(OAuth2AuthenticationException.class)
         .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
         .isEqualTo(McpResources.INVALID_TARGET);
 
-    assertThatThrownBy(
-            () ->
-                McpResources.validateAndResolve(
-                    "https://api.studiomanager.test/api/v1/studios/" + STUDIO_ID + "/mcp",
-                    OTHER_STUDIO_ID.toString(),
-                    ALLOWED))
+    assertThatThrownBy(() ->
+            McpResources.validateAndResolve(
+                "https://api.studiomanager.test/api/v1/studios/" + STUDIO_ID + "/mcp",
+                OTHER_STUDIO_ID.toString(),
+                ALLOWED))
         .isInstanceOf(OAuth2AuthenticationException.class)
         .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
         .isEqualTo(McpResources.INVALID_TARGET);
 
-    assertThatThrownBy(
-            () ->
-                McpResources.validateAndResolve("https://api.studiomanager.test/mcp", null, ALLOWED))
+    assertThatThrownBy(() ->
+            McpResources.validateAndResolve("https://api.studiomanager.test/mcp", null, ALLOWED))
         .isInstanceOf(OAuth2AuthenticationException.class)
         .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
         .isEqualTo(McpResources.INVALID_TARGET);
 
-    assertThatThrownBy(
-            () ->
-                McpResources.validateAndResolve(
-                    "https://api.studiomanager.test/mcp?x=1", STUDIO_ID.toString(), ALLOWED))
+    assertThatThrownBy(() ->
+            McpResources.validateAndResolve(
+                "https://api.studiomanager.test/mcp?x=1", STUDIO_ID.toString(), ALLOWED))
         .isInstanceOf(OAuth2AuthenticationException.class)
         .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
         .isEqualTo(McpResources.INVALID_TARGET);
