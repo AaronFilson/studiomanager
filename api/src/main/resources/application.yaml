@@ -187,3 +187,12 @@ studiomanager:
     # Publishes StudioStreamEvents to Kafka. Off by default: there's no broker locally unless
     # compose's "stream" profile is up, and none deployed (docs/planning/11)
     enabled: ${STUDIOMANAGER_STREAM_ENABLED:false}
+  glazecalc:
+    # Deep integration with Aaron Filson's Glazecalc (https://glazecalcapp.com, ADR 17)
+    base-url: ${STUDIOMANAGER_GLAZECALC_BASE_URL:https://glazecalcapp.com}
+    client-id: ${STUDIOMANAGER_GLAZECALC_CLIENT_ID:}
+    client-secret: ${STUDIOMANAGER_GLAZECALC_CLIENT_SECRET:}
+    redirect-uri: ${STUDIOMANAGER_GLAZECALC_REDIRECT_URI:}
+    token-encryption-key: ${STUDIOMANAGER_GLAZECALC_TOKEN_ENCRYPTION_KEY:}
+    # true lets tests point base-url at a local stub HttpServer; never set in production
+    allow-private-networks: ${STUDIOMANAGER_GLAZECALC_ALLOW_PRIVATE_NETWORKS:false}

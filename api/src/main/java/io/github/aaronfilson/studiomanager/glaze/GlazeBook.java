@@ -1,11 +1,16 @@
 package io.github.aaronfilson.studiomanager.glaze;
 
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
+import io.github.aaronfilson.studiomanager.platform.storage.UploadedImages;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,8 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  * everyone else, staff included, and lets only the owner change them. Studio glazes are staff-only
  * to change, which {@link GlazeEdits} checks.
  *
- * <p>Each list is a fixed number of queries however long it is: the recipes with their lines, then
- * one lookup of all their owners' names.
+ * <p>Each list is a fixed number of queries however long it is: the recipes with their lines, their
+ * ready test-tile photos in one query, then one lookup of all their owners' names.
  */
 @Service
 public class GlazeBook {
@@ -29,10 +34,18 @@ public class GlazeBook {
   static final BigDecimal MAX_AMOUNT = new BigDecimal("100000");
 
   private final GlazeRecipeRepository recipes;
+  private final GlazePhotoRepository photos;
+  private final BlobStore blobs;
   private final AccountDirectory accounts;
 
-  GlazeBook(GlazeRecipeRepository recipes, AccountDirectory accounts) {
+  GlazeBook(
+      GlazeRecipeRepository recipes,
+      GlazePhotoRepository photos,
+      BlobStore blobs,
+      AccountDirectory accounts) {
     this.recipes = recipes;
+    this.photos = photos;
+    this.blobs = blobs;
     this.accounts = accounts;
   }
 
@@ -58,7 +71,29 @@ public class GlazeBook {
     GRAMS
   }
 
-  public record Line(LineKind kind, String material, BigDecimal amount, Unit unit) {}
+  /** Imported oxide analysis (% by weight) and LOI snapshot for a glaze line. */
+  public record Chemistry(
+      @Nullable String materialId, Map<String, Double> analysis, @Nullable Double loi) {
+    public Chemistry {
+      analysis = Map.copyOf(analysis);
+    }
+  }
+
+  public record Line(
+      LineKind kind,
+      String material,
+      BigDecimal amount,
+      @Nullable String amountText,
+      Unit unit,
+      @Nullable Chemistry chemistry) {
+
+    public Line(LineKind kind, String material, BigDecimal amount, Unit unit) {
+      this(kind, material, amount, null, unit, null);
+    }
+  }
+
+  public record Photo(
+      UUID id, URI url, URI thumbnailUrl, UUID uploadedByAccountId, Instant uploadedAt) {}
 
   /** What a recipe is made of, as typed or imported. */
   public record Draft(
@@ -84,7 +119,9 @@ public class GlazeBook {
       @Nullable BigDecimal targetSg,
       boolean sharedWithStudio,
       String source,
+      @Nullable UUID promotedFrom,
       List<Line> lines,
+      List<Photo> photos,
       boolean canEdit,
       int version,
       Instant updatedAt) {}
@@ -98,10 +135,23 @@ public class GlazeBook {
           case MINE -> recipes.findOwnedByWithLines(caller.accountId());
           case SHARED -> recipes.findSharedByOthersWithLines(caller.accountId());
         };
+    if (found.isEmpty()) {
+      return List.of();
+    }
+    Map<UUID, List<Photo>> photosByRecipe =
+        loadPhotos(caller.requireStudioId(), found.stream().map(GlazeRecipe::id).toList());
     Map<UUID, String> ownerNames =
         accounts.displayNames(
             found.stream().map(GlazeRecipe::ownerAccountId).filter(Objects::nonNull).toList());
-    return found.stream().map(recipe -> view(recipe, caller, ownerNames)).toList();
+    return found.stream()
+        .map(
+            recipe ->
+                view(
+                    recipe,
+                    caller,
+                    ownerNames,
+                    photosByRecipe.getOrDefault(recipe.id(), List.of())))
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -109,7 +159,7 @@ public class GlazeBook {
     return view(find(id), TenantContext.require());
   }
 
-  /** For {@link GlazeEdits}, which changes a recipe it has loaded. */
+  /** For services inside the glaze module that load and mutate a recipe. */
   GlazeRecipe find(UUID id) {
     return recipes.findWithLines(id).orElseThrow(() -> new NotFoundException("No such recipe."));
   }
@@ -118,7 +168,11 @@ public class GlazeBook {
   Recipe view(GlazeRecipe recipe, TenantContext caller) {
     UUID owner = recipe.ownerAccountId();
     Map<UUID, String> ownerNames = owner == null ? Map.of() : accounts.displayNames(List.of(owner));
-    return view(recipe, caller, ownerNames);
+    List<Photo> recipePhotos =
+        photos.findReady(recipe.id()).stream()
+            .map(photo -> toPhoto(caller.requireStudioId(), photo))
+            .toList();
+    return view(recipe, caller, ownerNames, recipePhotos);
   }
 
   /** Whether {@code caller} may change the recipe: staff for a studio glaze, else its owner. */
@@ -129,9 +183,36 @@ public class GlazeBook {
     };
   }
 
+  private Map<UUID, List<Photo>> loadPhotos(UUID studioId, List<UUID> recipeIds) {
+    Map<UUID, List<Photo>> byRecipe = new HashMap<>();
+    for (GlazePhoto photo : photos.findReadyForRecipes(recipeIds)) {
+      byRecipe
+          .computeIfAbsent(photo.recipeId(), key -> new ArrayList<>())
+          .add(toPhoto(studioId, photo));
+    }
+    return byRecipe;
+  }
+
+  private Photo toPhoto(UUID studioId, GlazePhoto photo) {
+    return new Photo(
+        photo.id(),
+        blobs.readUrl(
+            GlazePhotoService.full(studioId, photo.recipeId(), photo.id()),
+            UploadedImages.CONTENT_TYPE),
+        blobs.readUrl(
+            GlazePhotoService.thumbnail(studioId, photo.recipeId(), photo.id()),
+            UploadedImages.CONTENT_TYPE),
+        photo.uploadedBy(),
+        photo.readyAt());
+  }
+
   private static Recipe view(
-      GlazeRecipe recipe, TenantContext caller, Map<UUID, String> ownerNames) {
+      GlazeRecipe recipe,
+      TenantContext caller,
+      Map<UUID, String> ownerNames,
+      List<Photo> recipePhotos) {
     UUID owner = recipe.ownerAccountId();
-    return recipe.toRecipe(owner == null ? null : ownerNames.get(owner), canEdit(caller, recipe));
+    return recipe.toRecipe(
+        owner == null ? null : ownerNames.get(owner), canEdit(caller, recipe), recipePhotos);
   }
 }

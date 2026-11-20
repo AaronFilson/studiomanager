@@ -165,6 +165,35 @@ the Linux web job. It differs from the design above in a few ways:
   ([16](16-invoice-ocr-plan.md)) and API tokens with MCP ([17](17-mcp-and-api-tokens-plan.md)).
   The rest of this plan (the mix log, import, photos and promote) waits until after them.
 
+**Steps 3–5 + Glazecalc integration, 2026-11-20, on `plan14-glazecalc` (V46–V48, ADR 17).**
+- **Shared chemistry engine (`packages/glaze-chemistry`, `@studiomanager/glaze-chemistry`):** pure
+  TypeScript package usable by both `web/` and `mobile/`, modeled on MIT-licensed
+  `AaronFilson/glazecalc`. Includes 60+ built-in ceramic materials & aliases, prefers per-line
+  imported `chemistry` snapshots, and computes Seger UMF, `R2O:RO`, `Si:Al` + Stull surface
+  prediction, Appen CTE thermal expansion, Cone 04/6/10 limit checks, and slurry SG adjustments.
+- **Step 3 — Studio mix log & SG warnings (V46):** `glaze_mix` and `glaze_mix_reading` tables with
+  tenant RLS, `GET/POST /glazes/{id}/mixes` and `POST /glazes/{id}/mixes/{mixId}/readings`
+  (warns outside `±0.03` of target SG), `GlazeMixed` domain event wired into `glaze.mixed`
+  webhooks and Kafka `StudioStreamEvent.GlazeMixed`, MCP tool `log_glaze_mix` (gated on
+  `glazes.studio.edit` + `write:glazes`), and compact SVG SG trend chart in web.
+- **Step 4 — Import, export & share-link import:** maps `source_ref`, `source_rev`,
+  `source_updated_at`, `promoted_from`, `amount_text`, and `chemistry` JSONB. `POST /glazes/import`
+  enforces 2 MB (413 filter), 500 recipes, 60 lines/recipe, strips HTML, supports both
+  `glazecalc-export` v1 and `glaze-vault-export` v1 with dry-run preview and atomic commit.
+  `GET /glazes/{id}/export` emits valid `glazecalc-export` v1 JSON. `POST /glazes/import-share`
+  allowlists the Glazecalc host with `PublicAddresses` SSRF protection and fetches
+  `GET /api/shared/recipe` with `X-Share-Secret`.
+- **Step 5 — Test-tile photos & promote (V47):** `glaze_photo` with tenant + owner RLS, direct-to-blob
+  SAS endpoints (`POST /photos`, `POST /photos/{photoId}/complete`, `DELETE /photos/{photoId}`),
+  `GlazePhotoUploadSweep` acting as `PHOTO_CLEANUP`, and `POST /glazes/{id}/promote` copying a
+  shared member recipe into a new studio glaze (`source = MANUAL`, `promoted_from = originalId`).
+- **Live Glazecalc OAuth sync (V48):** `glazecalc_connection` with tenant + owner RLS and
+  `SecretCipher`-encrypted access/refresh tokens, PKCE (`S256`) OAuth connect/callback/status/sync/
+  disconnect endpoints, pulling `GET /api/export` through the same importer/deduper.
+- **Web UI & ADR 17:** chemistry & analysis panel, slurry SG helper, mix log + SG trend chart,
+  test-tile photo gallery, promote button, and import/share/Glazecalc OAuth wizard, documented in
+  [ADR 17](../adr/0017-glaze-book-and-glazecalc.md).
+
 ## In an interview
 "Members bring recipes from two other apps I wrote, so the import treats every file as untrusted:
 it detects the format, enforces size and count limits, does a dry-run preview, then commits all or

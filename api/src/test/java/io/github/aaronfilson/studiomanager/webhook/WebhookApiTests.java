@@ -249,6 +249,49 @@ class WebhookApiTests {
   }
 
   @Test
+  void aStudioGlazeMixIsPostedAsGlazeMixed() throws Exception {
+    endpoint("glaze.mixed");
+    String glazeId =
+        read(
+            post(
+                owner,
+                path("/glazes"),
+                """
+                {"ownerKind": "STUDIO", "name": "Tenmoku", "targetSpecificGravity": "1.45",
+                 "lines": [{"kind": "BASE", "material": "Custer Feldspar", "amount": "50", "unit": "PARTS"},
+                           {"kind": "BASE", "material": "Silica", "amount": "50", "unit": "PARTS"}]}
+                """),
+            "$.id");
+    assertThat(
+            post(
+                owner,
+                path("/glazes/" + glazeId + "/mixes"),
+                """
+                {"dryWeightG": "10000", "waterG": "7500", "specificGravity": "1.46", "notes": "Fresh bucket"}
+                """))
+        .hasStatus(HttpStatus.CREATED);
+
+    await().atMost(WAIT).until(() -> !received.isEmpty());
+    String body = received.peek().body();
+    assertThat((String) JsonPath.read(body, "$.type")).isEqualTo("glaze.mixed");
+    assertThat((String) JsonPath.read(body, "$.data.glaze.name")).isEqualTo("Tenmoku");
+    assertThat((String) JsonPath.read(body, "$.data.mix.dry_weight_g")).isEqualTo("10000");
+
+    String types =
+        mvc.get()
+            .uri(path("/webhooks/event-types"))
+            .with(owner.token())
+            .exchange()
+            .getResponse()
+            .getContentAsString();
+    List<Map<String, Object>> examples =
+        JsonPath.read(types, "$[?(@.type == 'glaze.mixed')].example.data");
+    Map<String, Object> real = JsonPath.read(body, "$.data");
+    assertThat(examples).hasSize(1);
+    assertThat(examples.getFirst()).containsOnlyKeys(real.keySet());
+  }
+
+  @Test
   void workThatRolledBackSendsNothing() {
     endpoint("member.joined");
     TenantContext.callAs(

@@ -89,7 +89,8 @@ class McpApiTests {
     List<String> writing =
         JsonPath.read(body(list), "$.result.tools[?(@.annotations.readOnlyHint == false)].name");
     assertThat(writing)
-        .containsExactlyInAnyOrder("propose_purchase_request", "propose_maintenance_task");
+        .containsExactlyInAnyOrder(
+            "propose_purchase_request", "propose_maintenance_task", "log_glaze_mix");
   }
 
   @Test
@@ -215,6 +216,59 @@ class McpApiTests {
             "$.secret");
     assertThat(rpc(writeOnly, "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
         .hasStatus(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void logGlazeMixRequiresWriteGlazesScopeAndLogsStudioMixes() {
+    String glazeId =
+        read(
+            post(
+                owner,
+                path("/glazes"),
+                """
+                {"ownerKind": "STUDIO", "name": "Studio Tenmoku", "targetSpecificGravity": "1.45",
+                 "lines": [{"kind": "BASE", "material": "Custer Feldspar", "amount": "50", "unit": "PARTS"},
+                           {"kind": "BASE", "material": "Silica", "amount": "50", "unit": "PARTS"}]}
+                """),
+            "$.id");
+
+    // Read-only token is refused even for the studio owner
+    MvcTestResult denied =
+        call(
+            "log_glaze_mix",
+            """
+            {"glazeId": "%s", "dryWeightG": 5000, "waterG": 3800, "specificGravity": 1.52}
+            """
+                .formatted(glazeId));
+    assertThat(denied).bodyJson().extractingPath("$.result.isError").isEqualTo(true);
+    assertThat(denied)
+        .bodyJson()
+        .extractingPath("$.result.content[0].text")
+        .asString()
+        .contains("write:glazes");
+
+    // Token with read + write:glazes succeeds and returns the mix with its SG warning
+    String writeGlazesToken =
+        read(
+            post(
+                owner,
+                path("/api-tokens"),
+                "{\"name\": \"Glaze Helper\", \"scopes\": [\"read\", \"write:glazes\"]}"),
+            "$.secret");
+    MvcTestResult logged =
+        rpc(
+            writeGlazesToken,
+            """
+            {"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+             "params": {"name": "log_glaze_mix",
+                        "arguments": {"glazeId": "%s", "dryWeightG": 5000, "waterG": 3800, "specificGravity": 1.52}}}
+            """
+                .formatted(glazeId));
+    assertThat(logged).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
+    assertThat(logged)
+        .bodyJson()
+        .extractingPath("$.result.structuredContent.result.readings[0].offTarget")
+        .isEqualTo(true);
   }
 
   private MvcTestResult call(String tool, String arguments) {

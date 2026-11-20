@@ -2,12 +2,14 @@ package io.github.aaronfilson.studiomanager.mcp;
 
 import io.github.aaronfilson.studiomanager.glaze.BatchCalculator;
 import io.github.aaronfilson.studiomanager.glaze.GlazeBook;
+import io.github.aaronfilson.studiomanager.glaze.GlazeMixService;
 import io.github.aaronfilson.studiomanager.kiln.FiringService;
 import io.github.aaronfilson.studiomanager.kiln.KilnService;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceService;
 import io.github.aaronfilson.studiomanager.maintenance.ProblemReportService;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TokenScope;
 import io.github.aaronfilson.studiomanager.proposal.PendingActionView;
 import io.github.aaronfilson.studiomanager.proposal.Proposals;
 import io.github.aaronfilson.studiomanager.supplies.SupplyService;
@@ -43,6 +45,7 @@ class McpTools {
       String description,
       Access access,
       Permission permission,
+      @Nullable TokenScope requiredScope,
       Map<String, Object> inputSchema,
       Function<JsonNode, Object> call) {
 
@@ -54,7 +57,27 @@ class McpTools {
         Permission permission,
         Map<String, Object> inputSchema,
         Function<JsonNode, Object> call) {
-      this(name, title, description, Access.READ, permission, inputSchema, call);
+      this(name, title, description, Access.READ, permission, null, inputSchema, call);
+    }
+
+    /** A tool that records a suggestion for staff to approve. */
+    Tool(
+        String name,
+        String title,
+        String description,
+        Access access,
+        Permission permission,
+        Map<String, Object> inputSchema,
+        Function<JsonNode, Object> call) {
+      this(
+          name,
+          title,
+          description,
+          access,
+          permission,
+          access == Access.PROPOSE ? TokenScope.PROPOSE : null,
+          inputSchema,
+          call);
     }
   }
 
@@ -63,7 +86,9 @@ class McpTools {
     /** Only reads. */
     READ,
     /** Records a suggestion for staff to approve; changes nothing else. Needs {@code propose}. */
-    PROPOSE
+    PROPOSE,
+    /** Writes a studio record directly; needs its area's write scope as well as the permission. */
+    WRITE
   }
 
   /** What a propose tool tells the assistant, which it passes on to the person. */
@@ -93,11 +118,13 @@ class McpTools {
       MaintenanceService maintenance,
       ProblemReportService problems,
       GlazeBook glazes,
+      GlazeMixService glazeMixes,
       Proposals proposals,
       Clock clock) {
     this.clock = clock;
     addReadTools(today, kilns, firings, supplies, maintenance, problems, glazes);
     addProposeTools(proposals);
+    addWriteTools(glazeMixes);
   }
 
   private void addReadTools(
@@ -328,6 +355,77 @@ class McpTools {
                         optionalWholeNumber(args, "everyDays"),
                         optionalWholeNumber(args, "everyFirings"),
                         optionalText(args, "reason")))));
+  }
+
+  /** Direct write tools gated on both the caller's permission and the area's token write scope. */
+  private void addWriteTools(GlazeMixService glazeMixes) {
+    add(
+        new Tool(
+            "log_glaze_mix",
+            "Log a studio glaze mix",
+            "Records a fresh mix of a studio glaze bucket (dry weight, optional water, optional initial "
+                + "specific gravity reading, and notes). Studio glazes only; warns if SG is off target.",
+            Access.WRITE,
+            Permission.GLAZES_STUDIO_EDIT,
+            TokenScope.WRITE_GLAZES,
+            Map.of(
+                "type",
+                "object",
+                "properties",
+                Map.of(
+                    "glazeId",
+                    Map.of(
+                        "type",
+                        "string",
+                        "format",
+                        "uuid",
+                        "description",
+                        "A studio glaze's id, from glaze_book"),
+                    "dryWeightG",
+                    Map.of(
+                        "type",
+                        "number",
+                        "exclusiveMinimum",
+                        0,
+                        "description",
+                        "Dry glaze weight in grams"),
+                    "waterG",
+                    Map.of(
+                        "type",
+                        "number",
+                        "minimum",
+                        0,
+                        "description",
+                        "Water added in grams (optional)"),
+                    "specificGravity",
+                    Map.of(
+                        "type",
+                        "number",
+                        "minimum",
+                        1,
+                        "maximum",
+                        2.5,
+                        "description",
+                        "Optional initial specific gravity reading, e.g. 1.45"),
+                    "notes",
+                    Map.of(
+                        "type",
+                        "string",
+                        "maxLength",
+                        2000,
+                        "description",
+                        "Notes about the mix or bucket")),
+                "required",
+                List.of("glazeId", "dryWeightG"),
+                "additionalProperties",
+                false),
+            args ->
+                glazeMixes.logMix(
+                    uuid(args, "glazeId"),
+                    decimal(args, "dryWeightG"),
+                    optionalDecimal(args, "waterG"),
+                    optionalDecimal(args, "specificGravity"),
+                    optionalText(args, "notes"))));
   }
 
   /** What the assistant hears back: that it's waiting, and the suggestion's id. */

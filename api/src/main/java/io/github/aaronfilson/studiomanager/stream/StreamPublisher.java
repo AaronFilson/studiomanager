@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.stream;
 
+import io.github.aaronfilson.studiomanager.glaze.GlazeMixed;
 import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.piece.PieceReceived;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
@@ -103,6 +104,21 @@ class StreamPublisher {
             change.target(),
             change.added(),
             change.removed()));
+  }
+
+  @EventListener
+  void on(GlazeMixed mixed) {
+    events.publishEvent(
+        new StudioStreamEvent.GlazeMixed(
+            mixed.studioId(),
+            mixed.mixedAt().truncatedTo(ChronoUnit.SECONDS),
+            mixed.mixId(),
+            mixed.recipeId(),
+            mixed.recipeName(),
+            mixed.mixedByAccountId(),
+            mixed.dryWeightG().toPlainString(),
+            mixed.waterG() == null ? null : mixed.waterG().toPlainString(),
+            mixed.specificGravity() == null ? null : mixed.specificGravity().toPlainString()));
   }
 
   private static Instant now() {

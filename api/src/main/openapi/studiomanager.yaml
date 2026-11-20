@@ -4306,6 +4306,418 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/glazes/import:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: importGlazes
+      x-permission: glazes.own.edit
+      summary: Preview or import member recipes from a Glazecalc or glaze-vault JSON export
+      description: |
+        Accepts a `glazecalc-export` v1 or `glaze-vault-export` v1 JSON document (up to 2 MB, 500
+        recipes, 60 lines per recipe). HTML is stripped from notes. When `dryRun` is true, writes
+        nothing and returns a per-recipe preview; when false, commits atomically if there are no
+        errors. Imported recipes always belong to the caller.
+      parameters:
+        - name: dryRun
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Preview or import outcome, one row per recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: Export file exceeds the 2 MB limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /api/v1/studios/{studioId}/glazes/import-share:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: importGlazeShare
+      x-permission: glazes.own.edit
+      summary: Preview or import a recipe from a Glazecalc share link
+      description: |
+        Fetches a shared recipe from Glazecalc (`GET /api/shared/recipe` with `X-Share-Secret`)
+        after allowlisting the host, then previews or imports it as the caller's recipe.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportGlazeShareRequest"
+      responses:
+        "200":
+          description: Preview or import outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/status:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [glazes]
+      operationId: getGlazecalcStatus
+      x-permission: glazes.read
+      summary: Caller's Glazecalc OAuth connection status
+      responses:
+        "200":
+          description: Whether Glazecalc OAuth is configured and connected for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazecalcStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/connect:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: connectGlazecalc
+      x-permission: glazes.own.edit
+      summary: Start PKCE OAuth connection to Glazecalc
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GlazecalcConnectRequest"
+      responses:
+        "200":
+          description: Authorization URL and signed state to redirect the member to Glazecalc.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazecalcConnectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/callback:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: completeGlazecalcCallback
+      x-permission: glazes.own.edit
+      summary: Complete Glazecalc OAuth callback and store encrypted tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GlazecalcCallbackRequest"
+      responses:
+        "200":
+          description: Updated Glazecalc connection status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazecalcStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/sync:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: syncGlazecalc
+      x-permission: glazes.own.edit
+      summary: Pull recipes from the connected Glazecalc account
+      parameters:
+        - name: dryRun
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Import summary for the synced Glazecalc recipes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/connection:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    delete:
+      tags: [glazes]
+      operationId: disconnectGlazecalc
+      x-permission: glazes.own.edit
+      summary: Disconnect the caller's Glazecalc account
+      responses:
+        "204":
+          description: Disconnected.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    get:
+      tags: [glazes]
+      operationId: exportGlaze
+      x-permission: glazes.read
+      summary: Export a recipe as a glazecalc-export v1 JSON document
+      responses:
+        "200":
+          description: A valid `glazecalc-export` v1 document containing this recipe.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/promote:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    post:
+      tags: [glazes]
+      operationId: promoteGlaze
+      x-permission: glazes.studio.edit
+      summary: Copy a shared member recipe into a new studio glaze (staff)
+      description: |
+        Creates a new studio glaze with `source = MANUAL` and `promotedFrom = glazeId`, leaving
+        the member's own recipe untouched.
+      responses:
+        "201":
+          description: The new studio glaze.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeRecipe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/mixes:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    get:
+      tags: [glazes]
+      operationId: listGlazeMixes
+      x-permission: glazes.read
+      summary: Mix history and SG readings for a studio glaze, newest first
+      responses:
+        "200":
+          description: The mixes, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GlazeMix"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [glazes]
+      operationId: logGlazeMix
+      x-permission: glazes.studio.edit
+      summary: Log a new mix of a studio glaze (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogGlazeMixRequest"
+      responses:
+        "201":
+          description: The mix.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeMix"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/mixes/{mixId}/readings:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+      - $ref: "#/components/parameters/MixId"
+    post:
+      tags: [glazes]
+      operationId: addGlazeMixReading
+      x-permission: glazes.studio.edit
+      summary: Record a specific gravity reading on a glaze mix (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddGlazeMixReadingRequest"
+      responses:
+        "201":
+          description: The reading, including any warning when outside ±0.03 of target SG.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeMixReading"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    post:
+      tags: [glazes]
+      operationId: startGlazePhotoUpload
+      x-permission: glazes.own.edit
+      summary: Start adding a test-tile photo to a glaze recipe
+      description: |
+        Returns two signed URLs for direct-to-blob upload (ADR 12), up to 6 photos per recipe.
+        Staff may add photos to studio glazes; members may add photos to their own recipes.
+      responses:
+        "201":
+          description: Where to upload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/photos/{photoId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+      - $ref: "#/components/parameters/PhotoId"
+    post:
+      tags: [glazes]
+      operationId: completeGlazePhotoUpload
+      x-permission: glazes.own.edit
+      summary: Finish adding a test-tile photo once both JPEGs are uploaded
+      responses:
+        "200":
+          description: The glaze recipe with its photos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeRecipe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+      - $ref: "#/components/parameters/PhotoId"
+    delete:
+      tags: [glazes]
+      operationId: deleteGlazePhoto
+      x-permission: glazes.own.edit
+      summary: Remove a test-tile photo from a glaze recipe
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/api-tokens:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -4970,6 +5382,13 @@ components:
         format: uuid
     GlazeId:
       name: glazeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MixId:
+      name: mixId
       in: path
       required: true
       schema:
@@ -8064,7 +8483,7 @@ components:
 
     WebhookEventType:
       type: string
-      enum: [pieces.ready, fee.charged, member.joined, access.changed, ping]
+      enum: [pieces.ready, fee.charged, member.joined, access.changed, glaze.mixed, ping]
 
     WeeklyActivity:
       type: object
@@ -8298,6 +8717,41 @@ components:
       pattern: "^[12](\\.\\d{1,3})?$"
       examples: ["1.45"]
 
+    GlazeLineChemistry:
+      type: object
+      description: Oxide analysis (% by weight) and LOI copied from an import, kept as sent.
+      properties:
+        materialId:
+          type: string
+        analysis:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        loi:
+          type: number
+          format: double
+
+    GlazePhoto:
+      type: object
+      required: [id, url, thumbnailUrl, uploadedByAccountId, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+        uploadedByAccountId:
+          type: string
+          format: uuid
+        uploadedAt:
+          type: string
+          format: date-time
+
     GlazeLine:
       type: object
       required: [kind, material, amount, unit]
@@ -8310,8 +8764,14 @@ components:
           maxLength: 80
         amount:
           $ref: "#/components/schemas/Decimal"
+        amountText:
+          type: string
+          maxLength: 30
+          description: Original amount text from an import, when present.
         unit:
           $ref: "#/components/schemas/GlazeAmountUnit"
+        chemistry:
+          $ref: "#/components/schemas/GlazeLineChemistry"
 
     GlazeRecipe:
       type: object
@@ -8346,10 +8806,18 @@ components:
           type: boolean
         source:
           $ref: "#/components/schemas/GlazeSource"
+        promotedFrom:
+          type: string
+          format: uuid
+          description: The member recipe this studio glaze was promoted from, if any.
         lines:
           type: array
           items:
             $ref: "#/components/schemas/GlazeLine"
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazePhoto"
         canEdit:
           type: boolean
           description: Whether the caller may change or delete it.
@@ -8421,6 +8889,206 @@ components:
           type: string
         weight:
           $ref: "#/components/schemas/Decimal"
+
+    GlazeMixReading:
+      type: object
+      required: [id, readAt, specificGravity, offTarget]
+      properties:
+        id:
+          type: string
+          format: uuid
+        readByAccountId:
+          type: string
+          format: uuid
+        readByName:
+          type: string
+        readAt:
+          type: string
+          format: date-time
+        specificGravity:
+          $ref: "#/components/schemas/SpecificGravity"
+        note:
+          type: string
+        offTarget:
+          type: boolean
+          description: True when outside ±0.03 of the recipe's target specific gravity.
+        warning:
+          type: string
+          description: Actionable warning when `offTarget` is true.
+
+    GlazeMix:
+      type: object
+      required: [id, recipeId, mixedByAccountId, mixedAt, dryWeightG, readings]
+      properties:
+        id:
+          type: string
+          format: uuid
+        recipeId:
+          type: string
+          format: uuid
+        mixedByAccountId:
+          type: string
+          format: uuid
+        mixedByName:
+          type: string
+        mixedAt:
+          type: string
+          format: date-time
+        dryWeightG:
+          $ref: "#/components/schemas/Decimal"
+        waterG:
+          $ref: "#/components/schemas/Decimal"
+        notes:
+          type: string
+        readings:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazeMixReading"
+
+    LogGlazeMixRequest:
+      type: object
+      required: [dryWeightG]
+      properties:
+        dryWeightG:
+          $ref: "#/components/schemas/Decimal"
+        waterG:
+          $ref: "#/components/schemas/Decimal"
+        specificGravity:
+          $ref: "#/components/schemas/SpecificGravity"
+          description: Optional initial SG reading recorded with the mix.
+        notes:
+          type: string
+          maxLength: 2000
+
+    AddGlazeMixReadingRequest:
+      type: object
+      required: [specificGravity]
+      properties:
+        specificGravity:
+          $ref: "#/components/schemas/SpecificGravity"
+        note:
+          type: string
+          maxLength: 500
+
+    GlazeImportOutcome:
+      type: string
+      enum: [NEW, UPDATED, UNCHANGED, ERROR]
+
+    GlazeImportRow:
+      type: object
+      required: [index, name, outcome, message, warnings]
+      properties:
+        index:
+          type: integer
+          format: int32
+        name:
+          type: string
+        sourceRef:
+          type: string
+        outcome:
+          $ref: "#/components/schemas/GlazeImportOutcome"
+        recipeId:
+          type: string
+          format: uuid
+        message:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    GlazeImportResult:
+      type: object
+      required: [format, committed, createdCount, updatedCount, unchangedCount, errorCount, rows]
+      properties:
+        format:
+          type: string
+        committed:
+          type: boolean
+        createdCount:
+          type: integer
+          format: int32
+        updatedCount:
+          type: integer
+          format: int32
+        unchangedCount:
+          type: integer
+          format: int32
+        errorCount:
+          type: integer
+          format: int32
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazeImportRow"
+
+    ImportGlazeShareRequest:
+      type: object
+      required: [shareUrlOrSecret]
+      properties:
+        shareUrlOrSecret:
+          type: string
+          minLength: 4
+          maxLength: 500
+          description: A Glazecalc share URL (`https://glazecalcapp.com/shared#<secret>`) or raw share secret.
+        dryRun:
+          type: boolean
+          default: true
+
+    GlazecalcStatus:
+      type: object
+      required: [configured, connected, baseUrl]
+      properties:
+        configured:
+          type: boolean
+        connected:
+          type: boolean
+        baseUrl:
+          type: string
+        connectedAt:
+          type: string
+          format: date-time
+        lastSyncedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        remoteAccountLabel:
+          type: string
+
+    GlazecalcConnectRequest:
+      type: object
+      properties:
+        redirectUri:
+          type: string
+          maxLength: 500
+
+    GlazecalcConnectResponse:
+      type: object
+      required: [authorizationUrl, state]
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+        state:
+          type: string
+
+    GlazecalcCallbackRequest:
+      type: object
+      required: [code, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 500
+        state:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        redirectUri:
+          type: string
+          maxLength: 500
 
     AiProvider:
       type: string

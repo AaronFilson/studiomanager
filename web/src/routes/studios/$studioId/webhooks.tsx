@@ -24,7 +24,13 @@ export const Route = createFileRoute('/studios/$studioId/webhooks')({
   component: WebhooksPage,
 });
 
-const subscribable: WebhookEventType[] = ['pieces.ready', 'fee.charged', 'member.joined', 'access.changed'];
+const subscribable: WebhookEventType[] = [
+  'pieces.ready',
+  'fee.charged',
+  'member.joined',
+  'access.changed',
+  'glaze.mixed',
+];
 
 function WebhooksPage() {
   const { studioId } = Route.useParams();
@@ -323,6 +329,8 @@ function eventLabel(type: WebhookEventType): string {
       return 'Member joined';
     case 'access.changed':
       return 'Access changed';
+    case 'glaze.mixed':
+      return 'Glaze mixed';
     case 'ping':
       return 'Test';
   }

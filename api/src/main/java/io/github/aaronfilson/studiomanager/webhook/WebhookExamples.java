@@ -75,6 +75,22 @@ final class WebhookExamples {
         data.put("via_token", false);
         data.put("changed_at", "2026-11-04T18:04:00Z");
       }
+      case GLAZE_MIXED -> {
+        Map<String, Object> glaze = new LinkedHashMap<>();
+        glaze.put("id", "0192f3a0-0000-7000-8000-000000000003");
+        glaze.put("name", "Tenmoku");
+        glaze.put("target_sg", "1.45");
+        Map<String, Object> mix = new LinkedHashMap<>();
+        mix.put("id", "0192f3a0-0000-7000-8000-000000000004");
+        mix.put("dry_weight_g", "10000");
+        mix.put("water_g", "7500");
+        mix.put("specific_gravity", "1.46");
+        mix.put("notes", "Fresh 10 kg bucket");
+        mix.put("mixed_at", "2026-11-04T18:04:00Z");
+        data.put("glaze", glaze);
+        data.put("mix", mix);
+        data.put("mixed_by", member);
+      }
       case PING ->
           data.put(
               "message", "A test from " + studioName + ". If you can see this, the webhook works.");

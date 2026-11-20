@@ -20,12 +20,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Adding, changing and deleting recipes. Reading them is {@link GlazeBook}. */
+/** Adding, changing, promoting, and deleting recipes. Reading them is {@link GlazeBook}. */
 @Service
 public class GlazeEdits {
 
-  private static final BigDecimal MIN_SPECIFIC_GRAVITY = BigDecimal.ONE;
-  private static final BigDecimal MAX_SPECIFIC_GRAVITY = new BigDecimal("2.5");
+  static final BigDecimal MIN_SPECIFIC_GRAVITY = BigDecimal.ONE;
+  static final BigDecimal MAX_SPECIFIC_GRAVITY = new BigDecimal("2.5");
 
   private final GlazeRecipeRepository recipes;
   private final GlazeBook book;
@@ -86,6 +86,51 @@ public class GlazeEdits {
     GlazeRecipe recipe = book.find(id);
     requireCanEdit(TenantContext.require(), recipe);
     recipes.delete(recipe);
+  }
+
+  /**
+   * Copies a shared member recipe into a new studio glaze ({@code source = MANUAL}, {@code
+   * promoted_from = originalId}), leaving the member's own copy untouched.
+   */
+  @Transactional
+  public Recipe promote(UUID id) {
+    TenantContext caller = TenantContext.require();
+    if (!caller.holds(Permission.GLAZES_STUDIO_EDIT)) {
+      throw new AccessDeniedException("Only staff can promote a recipe to a studio glaze.");
+    }
+    GlazeRecipe original = book.find(id);
+    if (original.ownerKind() != OwnerKind.MEMBER) {
+      throw new InvalidInputException("That's already a studio glaze.");
+    }
+    if (!original.sharedWithStudio()) {
+      throw new InvalidInputException(
+          "Only a shared member recipe can be promoted to a studio glaze.");
+    }
+    Draft copyDraft =
+        new Draft(
+            original.name(),
+            original.notes(),
+            original.cone(),
+            original.atmosphere(),
+            original.foodSurface(),
+            original.targetSg(),
+            false,
+            original.lineViews());
+    GlazeRecipe promoted =
+        new GlazeRecipe(
+            OwnerKind.STUDIO,
+            null,
+            check(OwnerKind.STUDIO, copyDraft),
+            GlazeRecipe.Source.MANUAL,
+            null,
+            null,
+            null,
+            original.id(),
+            caller.accountId(),
+            clock.instant());
+    entityManager.persist(promoted);
+    entityManager.flush();
+    return book.view(promoted, caller);
   }
 
   /** Trims and validates a draft, with messages a potter can act on. */
@@ -157,10 +202,14 @@ public class GlazeEdits {
       throw new InvalidInputException(
           "Base lines are in parts. Only additions can be a percent or grams.");
     }
-    return new Line(line.kind(), material, line.amount(), line.unit());
+    String amountText = strip(line.amountText());
+    if (amountText != null && amountText.length() > 30) {
+      amountText = amountText.substring(0, 30);
+    }
+    return new Line(line.kind(), material, line.amount(), amountText, line.unit(), line.chemistry());
   }
 
-  private static void requireCanEdit(TenantContext caller, GlazeRecipe recipe) {
+  static void requireCanEdit(TenantContext caller, GlazeRecipe recipe) {
     if (GlazeBook.canEdit(caller, recipe)) {
       return;
     }

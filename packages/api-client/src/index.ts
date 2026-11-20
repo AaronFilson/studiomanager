@@ -7,7 +7,7 @@ export { client } from './generated/client.gen';
 export { ApiError, hasProblemCode, isApiError } from './errors';
 export { type CappedList, cappedNote, FROM_THE_EXPORT } from './capped';
 export { type Can, type PermissionKey, useCan } from './permissions';
-export { type PhotoFiles, uploadPiecePhoto, uploadRecordPhoto } from './photos';
+export { type PhotoFiles, uploadGlazePhoto, uploadPiecePhoto, uploadRecordPhoto } from './photos';
 
 export interface ApiClientConfig {
   /** Absolute API origin, e.g. `https://api.example.com`. For the same origin, pass `window.location.origin`. */

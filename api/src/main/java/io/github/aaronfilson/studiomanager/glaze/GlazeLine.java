@@ -10,15 +10,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.TenantId;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One line of a recipe, at its position. The import-only columns ({@code amount_text}, {@code
- * chemistry}) aren't mapped: nothing here writes or shows them yet.
- */
-// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
+/** One line of a recipe, at its position, including optional imported amount text and chemistry. */
 @SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "glaze_line")
@@ -41,8 +40,13 @@ class GlazeLine {
 
   private BigDecimal amount;
 
+  private @Nullable String amountText;
+
   @Enumerated(EnumType.STRING)
   private GlazeBook.Unit unit;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  private @Nullable String chemistry;
 
   @SuppressWarnings("NullAway.Init")
   protected GlazeLine() {}
@@ -54,7 +58,9 @@ class GlazeLine {
     this.kind = line.kind();
     this.material = line.material();
     this.amount = line.amount();
+    this.amountText = line.amountText();
     this.unit = line.unit();
+    this.chemistry = GlazeChemistryJson.toJson(line.chemistry());
   }
 
   /** Puts a different line at this position. */
@@ -62,7 +68,9 @@ class GlazeLine {
     this.kind = line.kind();
     this.material = line.material();
     this.amount = line.amount();
+    this.amountText = line.amountText();
     this.unit = line.unit();
+    this.chemistry = GlazeChemistryJson.toJson(line.chemistry());
   }
 
   /** Whether this position already holds {@code line}; amounts compare by value, not scale. */
@@ -70,10 +78,18 @@ class GlazeLine {
     return kind == line.kind()
         && material.equals(line.material())
         && amount.compareTo(line.amount()) == 0
-        && unit == line.unit();
+        && Objects.equals(amountText, line.amountText())
+        && unit == line.unit()
+        && Objects.equals(GlazeChemistryJson.fromJson(chemistry), line.chemistry());
   }
 
   GlazeBook.Line toLine() {
-    return new GlazeBook.Line(kind, material, amount.stripTrailingZeros(), unit);
+    return new GlazeBook.Line(
+        kind,
+        material,
+        amount.stripTrailingZeros(),
+        amountText,
+        unit,
+        GlazeChemistryJson.fromJson(chemistry));
   }
 }

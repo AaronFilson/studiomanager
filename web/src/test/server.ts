@@ -55,6 +55,10 @@ const background = [
   http.get(`${API}/api/v1/studios/:studioId/members/:accountId/statement`, ({ params }) =>
     HttpResponse.json({ memberId: params.accountId, owed: '0', storedValues: [] }),
   ),
+  http.get(`${API}/api/v1/studios/:studioId/glazes/:glazeId/mixes`, () => HttpResponse.json([])),
+  http.get(`${API}/api/v1/studios/:studioId/glazes/glazecalc/status`, () =>
+    HttpResponse.json({ configured: false, connected: false, baseUrl: 'https://glazecalcapp.com' }),
+  ),
 ];
 
 export const server = setupServer(...background);
