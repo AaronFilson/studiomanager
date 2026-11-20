@@ -1,7 +1,9 @@
 import { isApiError } from '@studiomanager/api-client';
-import type { ReactNode } from 'react';
+import { type ReactNode, use } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +12,7 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 export interface Palette {
   background: string;
@@ -48,9 +51,37 @@ export function usePalette(): Palette {
   return useColorScheme() === 'dark' ? dark : light;
 }
 
-export function Screen({ children }: { children: ReactNode }) {
+export function Screen({
+  children,
+  edges,
+}: {
+  children: ReactNode;
+  edges?: readonly ('top' | 'bottom')[];
+}) {
   const palette = usePalette();
-  return <View style={[styles.screen, { backgroundColor: palette.background }]}>{children}</View>;
+  const insets = use(SafeAreaInsetsContext);
+  const topInset = edges?.includes('top') ? (insets?.top ?? 0) : 0;
+  const bottomInset = edges?.includes('bottom') ? (insets?.bottom ?? 0) : 0;
+
+  return (
+    <View
+      style={[
+        styles.screen,
+        {
+          backgroundColor: palette.background,
+          paddingTop: 16 + topInset,
+          paddingBottom: 16 + bottomInset,
+        },
+      ]}
+    >
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {children}
+      </KeyboardAvoidingView>
+    </View>
+  );
 }
 
 export function Title({ children }: { children: ReactNode }) {
@@ -62,9 +93,30 @@ export function Title({ children }: { children: ReactNode }) {
   );
 }
 
-export function Body({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
+export function SectionTitle({ children }: { children: ReactNode }) {
   const palette = usePalette();
-  return <Text style={[styles.body, { color: muted ? palette.muted : palette.text }]}>{children}</Text>;
+  return (
+    <Text accessibilityRole="header" style={[styles.sectionTitle, { color: palette.text }]}>
+      {children}
+    </Text>
+  );
+}
+
+export function Body({
+  children,
+  muted = false,
+  selectable = false,
+}: {
+  children: ReactNode;
+  muted?: boolean;
+  selectable?: boolean;
+}) {
+  const palette = usePalette();
+  return (
+    <Text selectable={selectable} style={[styles.body, { color: muted ? palette.muted : palette.text }]}>
+      {children}
+    </Text>
+  );
 }
 
 export function Badge({ children, warning = false }: { children: ReactNode; warning?: boolean }) {
@@ -81,11 +133,13 @@ export function Button({
   onPress,
   primary = false,
   disabled = false,
+  compact = false,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const palette = usePalette();
   return (
@@ -95,7 +149,7 @@ export function Button({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.button,
+        compact ? styles.buttonCompact : styles.button,
         {
           backgroundColor: primary ? palette.accent : palette.surface,
           borderColor: primary ? palette.accent : palette.border,
@@ -103,7 +157,9 @@ export function Button({
         },
       ]}
     >
-      <Text style={[styles.buttonText, { color: primary ? palette.onAccent : palette.text }]}>{label}</Text>
+      <Text style={[compact ? styles.buttonTextCompact : styles.buttonText, { color: primary ? palette.onAccent : palette.text }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -149,12 +205,16 @@ export function ErrorText({ error }: { error: unknown }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, padding: 16, gap: 12 },
+  screen: { flex: 1, paddingHorizontal: 16 },
+  flex: { flex: 1, gap: 12 },
   title: { fontSize: 24, fontWeight: '700' },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 22 },
   badge: { fontSize: 13, borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start' },
   button: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
+  buttonCompact: { borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' },
   buttonText: { fontSize: 16, fontWeight: '600' },
+  buttonTextCompact: { fontSize: 14, fontWeight: '600' },
   field: { gap: 4, flexGrow: 1 },
   label: { fontSize: 14 },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },

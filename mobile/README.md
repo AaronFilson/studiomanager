@@ -1,27 +1,61 @@
 # Studio Manager mobile
 
-The Expo (React Native) app for members and staff at the shelf. It uses the same generated API
-client as the web app (`@studiomanager/api-client`).
+The Expo (React Native) app for pottery studio members and staff. It uses the same generated API
+client (`@studiomanager/api-client`) and fine-grained permission model (`useCan(studioId)`) as the
+web app.
 
-What it does today:
+## What it does
 
-- **Sign in** with Microsoft Entra External ID, in the system browser (authorization code + PKCE).
-  Only the refresh token is stored, in the device keychain or keystore (`expo-secure-store`).
-- **Pieces:** members see their own pieces, their stage and when to collect them. Staff see the
-  whole shelf, filter it by stage, and move a piece to its next stage.
-- **Drop off:** take in a piece, measured in the studio's units. Staff can name the maker. A
-  photo taken with the camera here is added once the piece is in.
-- **Photos:** take or choose photos of a piece, up to 6, and remove them. Each is shrunk to a JPEG
-  photo and thumbnail on the phone (`expo-image-manipulator`, which also drops the location) and
-  uploaded straight to Blob Storage (see [ADR 12](../docs/adr/0012-direct-to-blob-photo-uploads.md)).
-  The shelf shows each piece's first photo.
-- **Tasks:** maintenance that falls to the member, by name or through a duty such as monitor. Tick
-  the checklist, add a note, mark it done. "Report a problem" from here tells the staff and
-  technicians about anything that's wrong.
-- **Notices:** the member's inbox, with an unread count on the tab. Opening a notice marks it read.
+**Bottom navigation (5 tabs):**
 
-Not yet: push notifications. The camera needs a development build on a device or emulator; it
-hasn't been tried on one yet.
+- **Pieces / My pieces:** members see their own pieces, stage, photos, and pickup dates. Staff
+  (`pieces.move`) see the whole shelf, filter by stage, and advance pieces to their next stage.
+- **Drop off:** take in a piece measured in the studio's units. Staff (`pieces.intake_for_others`)
+  can pick the maker by name. A photo taken here is shrunk to JPEG and uploaded straight to Blob
+  Storage ([ADR 12](../docs/adr/0012-direct-to-blob-photo-uploads.md)).
+- **Tasks:** maintenance assigned to the caller by name or duty, with checklist ticks and notes,
+  plus quick access to "Report a problem".
+- **Notices:** the member's inbox with an unread badge on the tab. Opening a notice marks it read.
+  Staff (`notices.send`) can send studio-wide notices directly from the top of the screen.
+- **Studio (More hub):** permission-gated access to the rest of the studio, plus **Switch studio**
+  and **Sign out**.
+
+**Studio hub screens:**
+
+- **Today (`today.read`):** staff handover dashboard with pull-to-refresh, uncovered shifts,
+  out-of-service kilns, low stock, open problems, kiln states, today's roster/bookings, and
+  tap-through shortcuts.
+- **Kilns (`kilns.manage`):** kiln list, queue loading with `Fill from queue` and per-member cap
+  indicators, firing transitions (start, unload & notify makers, cancel), out-of-service toggle,
+  and firing log.
+- **Supplies (`supplies.manage`):** search and category filters, low-stock & substitute alerts,
+  custom quantity stock movements (`Received`, `Used`, `Counted`), member sales with a name picker,
+  one-tap `Request more`, and open purchase requests (`supplies.purchase.approve` for
+  Approve/Reject, `supplies.manage` for Ordered/Received).
+- **Glaze book:** browse Studio glazes, My recipes, and Shared recipes, view full recipes, and
+  scale dry batches (`g`, `kg`, `lb`, `oz`) with the interactive **Mix a batch** calculator.
+- **Roster & My hours:** upcoming shifts (take open shifts, cover offered shifts, ask for/retract
+  cover, staff mark worked) plus the caller's credited hours ledger.
+- **Calendar:** week-by-week studio bookings, resource reservation with certification/availability
+  checks, and cancellation.
+- **Assistant suggestions (`proposals.review`):** review, approve, or reject MCP assistant
+  proposals with optional rejection notes.
+- **Maintenance (`maintenance.manage`):** staff view of open problem reports (with resolution) and
+  maintained assets (with out-of-service toggles for non-kiln assets).
+- **Members & Access (`members.read`):** billing contact picker (`owners.manage`), co-owner
+  promotion/step-down with last-owner guard, built-in and custom role assignment
+  (`members.role.assign`), duties checkboxes, equipment certifications, invite link creation with
+  native share sheet, bulk email invites, and open invite resend/withdraw (`members.invite`).
+- **Money & Payables (`money.read`, `money.payables.manage`):** member balances search and counter
+  payment recording, prepaid card redemption via a member name picker, and artist/instructor
+  payables with W-9 indicators, all formatted in the studio's real currency.
+- **My statement:** member's own balance, prepaid cards, and consignment summary (when applicable).
+- **Invite acceptance:** join a studio via `studiomanager://invites/<code>` deep link or by
+  pasting an invite code/link on the studio picker screen.
+
+**Deferred for v1:** push notifications (notices stay email + in-app inbox per owner decision) and
+complex desktop-only admin workflows (CSV imports, custom role matrix editing, AI key setup,
+bookkeeper exports).
 
 ## Settings
 
@@ -58,6 +92,5 @@ pnpm --filter @studiomanager/mobile run start     # later, to serve JavaScript c
 
 ## Checks
 
-`typecheck`, `lint` and `test` (Jest with jest-expo and React Native Testing Library) run with
-the rest of the workspace in `bash scripts/check.sh` and in CI. `build` bundles the app for
-Android with Metro (`expo export`), which catches dependencies Metro can't resolve.
+`typecheck`, `lint`, `test` (Jest with `jest-expo` and React Native Testing Library), and `build`
+(`expo export`) run with the rest of the workspace in `bash scripts/web-linux.sh` and in CI.

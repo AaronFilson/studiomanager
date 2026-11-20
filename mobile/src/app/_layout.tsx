@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useState } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { buildEnv, readConfig } from '../config';
@@ -16,24 +17,28 @@ export default function RootLayout() {
 
   if (!config.auth) {
     return (
-      <Screen>
-        <Title>Sign-in isn&apos;t set up</Title>
-        {config.problems.map((problem) => (
-          <Body key={problem}>{problem}</Body>
-        ))}
-        <Body muted>See mobile/README.md.</Body>
-      </Screen>
+      <SafeAreaProvider>
+        <Screen edges={['top', 'bottom']}>
+          <Title>Sign-in isn&apos;t set up</Title>
+          {config.problems.map((problem) => (
+            <Body key={problem}>{problem}</Body>
+          ))}
+          <Body muted>See mobile/README.md.</Body>
+        </Screen>
+      </SafeAreaProvider>
     );
   }
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider settings={config.auth}>
-        <ApiClient baseUrl={config.apiBaseUrl}>
-          <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }} />
-        </ApiClient>
-      </AuthProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider settings={config.auth}>
+          <ApiClient baseUrl={config.apiBaseUrl}>
+            <StatusBar style="auto" />
+            <Stack screenOptions={{ headerShown: false }} />
+          </ApiClient>
+        </AuthProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
 

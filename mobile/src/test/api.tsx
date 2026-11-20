@@ -43,6 +43,7 @@ export function stubApi(routes: Record<string, Handler | object | null>): Call[]
       throw new Error(`Unexpected request: ${call.method} ${call.path}`);
     }
     const result = typeof match.handler === 'function' ? (match.handler as Handler)(call) : match.handler;
+    if (result instanceof Response) return result;
     if (result === null) return new Response(null, { status: 204 });
     return Response.json(result);
   }) as typeof fetch;
