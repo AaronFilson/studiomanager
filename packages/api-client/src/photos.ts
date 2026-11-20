@@ -1,8 +1,11 @@
 import {
+  completeGlazePhotoUpload,
   completePhotoUpload,
   completeRecordPhotoUpload,
+  type GlazeRecipe,
   type Piece,
   type PhotoUpload,
+  startGlazePhotoUpload,
   startPhotoUpload,
   startRecordPhotoUpload,
 } from './generated';
@@ -37,6 +40,16 @@ export async function uploadRecordPhoto(studioId: string, recordId: string, file
     async (photoId) => {
       await completeRecordPhotoUpload({ path: { studioId, recordId, photoId }, throwOnError: true });
     },
+  );
+}
+
+/** Adds a test-tile photo to a glaze recipe, returning the updated recipe. */
+export async function uploadGlazePhoto(studioId: string, glazeId: string, files: PhotoFiles): Promise<GlazeRecipe> {
+  return uploadPhoto(
+    files,
+    async () => (await startGlazePhotoUpload({ path: { studioId, glazeId }, throwOnError: true })).data,
+    async (photoId) =>
+      (await completeGlazePhotoUpload({ path: { studioId, glazeId, photoId }, throwOnError: true })).data,
   );
 }
 

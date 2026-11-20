@@ -42,4 +42,13 @@ interface GlazeRecipeRepository extends JpaRepository<GlazeRecipe, UUID> {
       order by lower(r.name), r.id
       """)
   List<GlazeRecipe> findSharedByOthersWithLines(UUID viewerAccountId);
+
+  /** Existing imported recipes of one member from one source, for re-import deduplication. */
+  @Query(
+      """
+      select r from GlazeRecipe r left join fetch r.lines
+      where r.ownerAccountId = :ownerAccountId and r.source = :source and r.sourceRef is not null
+      """)
+  List<GlazeRecipe> findImportedByOwnerAndSourceWithLines(
+      UUID ownerAccountId, GlazeRecipe.Source source);
 }

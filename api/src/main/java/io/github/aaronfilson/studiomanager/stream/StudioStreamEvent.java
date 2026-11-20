@@ -229,4 +229,57 @@ public sealed interface StudioStreamEvent {
       return 1;
     }
   }
+
+  /** A studio glaze bucket was mixed. Carries ids and recipe label only, never person names. */
+  @JsonIgnoreProperties(
+      value = {"type", "version"},
+      allowGetters = true)
+  record GlazeMixed(
+      UUID id,
+      UUID studioId,
+      Instant occurredAt,
+      UUID mixId,
+      UUID recipeId,
+      String recipe,
+      UUID mixedByAccountId,
+      String dryWeightG,
+      @Nullable String waterG,
+      @Nullable String specificGravity)
+      implements StudioStreamEvent {
+
+    public static final String TYPE = "glaze.mixed";
+
+    GlazeMixed(
+        UUID studioId,
+        Instant occurredAt,
+        UUID mixId,
+        UUID recipeId,
+        String recipe,
+        UUID mixedByAccountId,
+        String dryWeightG,
+        @Nullable String waterG,
+        @Nullable String specificGravity) {
+      this(
+          idFor(TYPE + ":" + mixId),
+          studioId,
+          occurredAt,
+          mixId,
+          recipeId,
+          recipe,
+          mixedByAccountId,
+          dryWeightG,
+          waterG,
+          specificGravity);
+    }
+
+    @Override
+    public String type() {
+      return TYPE;
+    }
+
+    @Override
+    public int version() {
+      return 1;
+    }
+  }
 }

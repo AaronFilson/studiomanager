@@ -3,7 +3,9 @@ import {
   getGlazeBatchOptions,
   getGlazeOptions,
   getGlazeQueryKey,
+  promoteGlazeMutation,
   updateGlazeMutation,
+  useCan,
   type GlazeRecipe,
   type WeightUnit,
 } from '@studiomanager/api-client';
@@ -12,7 +14,11 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../../components/ErrorMessage';
+import { GlazeChemistryPanel } from '../../../../components/GlazeChemistryPanel';
 import { atmosphereLabel, GlazeForm, unitLabel } from '../../../../components/GlazeForm';
+import { GlazeMixLog } from '../../../../components/GlazeMixLog';
+import { GlazePhotos } from '../../../../components/GlazePhotos';
+import { SlurrySgHelper } from '../../../../components/SlurrySgHelper';
 
 export const Route = createFileRoute('/studios/$studioId/glazes/$glazeId')({
   component: GlazePage,
@@ -21,10 +27,13 @@ export const Route = createFileRoute('/studios/$studioId/glazes/$glazeId')({
 function GlazePage() {
   const { studioId, glazeId } = Route.useParams();
   const path = { studioId, glazeId };
+  const { can } = useCan(studioId);
+  const staff = can('glazes.studio.edit');
   const glaze = useQuery(getGlazeOptions({ path }));
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
+
   const update = useMutation({
     ...updateGlazeMutation(),
     onSuccess: (saved) => {
@@ -34,11 +43,23 @@ function GlazePage() {
       setEditing(false);
     },
   });
+
   const remove = useMutation({
     ...deleteGlazeMutation(),
     onSuccess: () => {
       void queryClient.invalidateQueries();
       void navigate({ to: '/studios/$studioId/glazes', params: { studioId } });
+    },
+  });
+
+  const promote = useMutation({
+    ...promoteGlazeMutation(),
+    onSuccess: (promoted) => {
+      void queryClient.invalidateQueries();
+      void navigate({
+        to: '/studios/$studioId/glazes/$glazeId',
+        params: { studioId, glazeId: promoted.id },
+      });
     },
   });
 
@@ -49,6 +70,7 @@ function GlazePage() {
     return <p>Loading recipe…</p>;
   }
   const g = glaze.data;
+  const canPromote = staff && g.ownerKind === 'MEMBER' && g.sharedWithStudio;
 
   return (
     <div className="stack">
@@ -59,7 +81,9 @@ function GlazePage() {
       </p>
       <h1>{g.name}</h1>
       <p>{describe(g)}</p>
-      {g.foodSurface && <p className="badge">Meant for food surfaces. Follow the studio&apos;s own food-safety rules.</p>}
+      {g.foodSurface && (
+        <p className="badge">Meant for food surfaces. Follow the studio&apos;s own food-safety rules.</p>
+      )}
       {editing ? (
         <>
           {update.isError && <ErrorMessage error={update.error} />}
@@ -79,17 +103,42 @@ function GlazePage() {
       ) : (
         <>
           <RecipeTable glaze={g} />
-          <BatchPanel studioId={studioId} glazeId={glazeId} />
+          <div className="row" style={{ alignItems: 'stretch' }}>
+            <div style={{ flex: '1 1 18rem' }}>
+              <BatchPanel studioId={studioId} glazeId={glazeId} />
+            </div>
+            <div style={{ flex: '1 1 18rem' }}>
+              <SlurrySgHelper targetSpecificGravity={g.targetSpecificGravity} />
+            </div>
+          </div>
+          <GlazeChemistryPanel studioId={studioId} glaze={g} />
+          <GlazePhotos studioId={studioId} glaze={g} />
+          {g.ownerKind === 'STUDIO' && <GlazeMixLog studioId={studioId} glaze={g} canEdit={staff} />}
           {g.notes && <p className="notes">{g.notes}</p>}
           {remove.isError && <ErrorMessage error={remove.error} />}
-          {g.canEdit && (
+          {promote.isError && <ErrorMessage error={promote.error} />}
+          {(g.canEdit || canPromote) && (
             <div className="row">
-              <button type="button" onClick={() => setEditing(true)}>
-                Edit
-              </button>
-              <button type="button" className="danger" onClick={() => remove.mutate({ path })}>
-                Delete
-              </button>
+              {g.canEdit && (
+                <>
+                  <button type="button" onClick={() => setEditing(true)}>
+                    Edit
+                  </button>
+                  <button type="button" className="danger" onClick={() => remove.mutate({ path })}>
+                    Delete
+                  </button>
+                </>
+              )}
+              {canPromote && (
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={promote.isPending}
+                  onClick={() => promote.mutate({ path })}
+                >
+                  {promote.isPending ? 'Promoting…' : 'Promote to studio glaze'}
+                </button>
+              )}
             </div>
           )}
         </>
@@ -202,7 +251,9 @@ function BatchPanel({ studioId, glazeId }: { studioId: string; glazeId: string }
 
 function describe(g: GlazeRecipe): string {
   const parts = [
-    g.ownerKind === 'STUDIO' ? 'Studio glaze' : `${g.ownerName ?? 'A member'}'s recipe${g.sharedWithStudio ? ', shared' : ''}`,
+    g.ownerKind === 'STUDIO'
+      ? 'Studio glaze'
+      : `${g.ownerName ?? 'A member'}'s recipe${g.sharedWithStudio ? ', shared' : ''}`,
     g.cone ? `cone ${g.cone}` : undefined,
     g.atmosphere ? atmosphereLabel[g.atmosphere].toLowerCase() : undefined,
     g.targetSpecificGravity ? `target SG ${g.targetSpecificGravity}` : undefined,
