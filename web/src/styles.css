@@ -410,3 +410,53 @@ textarea {
 .timeline li + li {
   margin-top: 0.5rem;
 }
+
+.firing-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.telemetry-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.telemetry-pill {
+  font-size: 0.8rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.telemetry-pill.warning {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.curve-wrap {
+  max-width: 22rem;
+}
+
+.curve-wrap.compact {
+  max-width: 14rem;
+}
+
+.firing-curve {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.curve-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}

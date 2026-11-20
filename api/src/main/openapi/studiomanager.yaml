@@ -1830,6 +1830,42 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/kilns/{kilnId}/log-imports:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    post:
+      tags: [kilns]
+      operationId: importKilnLog
+      x-permission: firings.manage
+      summary: Preview or import a kiln controller firing-log CSV (staff only)
+      description: |
+        Parses a Bartlett Genesis, Orton/TAP, or generic controller log (comma, semicolon, or tab
+        separated). With `dryRun: true`, returns the parsed telemetry, downsampled curve, and any
+        overlapping firing on this kiln without writing anything. With `dryRun: false`, attaches
+        the telemetry to `firingId` or creates a new COMPLETE firing and counts it against the kiln.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportKilnLogRequest"
+      responses:
+        "200":
+          description: The preview or committed import result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KilnLogImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/firings/{firingId}:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -6420,6 +6456,226 @@ components:
           description: Empty in the firing log; filled for one firing.
           items:
             $ref: "#/components/schemas/Piece"
+        peakTemp:
+          type: number
+          format: double
+          minimum: 0
+          description: Peak temperature from an imported controller log, in `tempUnit`.
+        tempUnit:
+          $ref: "#/components/schemas/TemperatureUnit"
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Firing duration in minutes from an imported controller log.
+        errorCode:
+          type: string
+          maxLength: 40
+          description: Controller error or fault code if one occurred (for example `E-1` or `FTH`).
+        logSource:
+          $ref: "#/components/schemas/KilnLogSource"
+        temperatureCurve:
+          type: array
+          description: Downsampled firing temperature series (at most 250 points) for charting.
+          items:
+            $ref: "#/components/schemas/TemperaturePoint"
+
+    TemperatureUnit:
+      type: string
+      enum: [F, C]
+
+    KilnLogSource:
+      type: string
+      description: |
+        Controller family used to map CSV columns. `GENESIS` and `TAP` presets follow documented
+        controller traits and stay marked unverified until checked against real controller exports.
+      enum: [GENESIS, TAP, OTHER]
+
+    TemperaturePoint:
+      type: object
+      required: [elapsedMinutes, temp]
+      properties:
+        elapsedMinutes:
+          type: number
+          format: double
+          minimum: 0
+          description: Minutes elapsed since the start of the firing.
+        temp:
+          type: number
+          format: double
+          description: Primary kiln temperature at this sample (mean of zones when multi-zone).
+        setpoint:
+          type: number
+          format: double
+          description: Controller target/setpoint temperature, when present.
+        zoneTemps:
+          type: array
+          description: Individual zone thermocouple readings (e.g. TC1, TC2, TC3), when present.
+          items:
+            type: number
+            format: double
+
+    KilnLogColumnMap:
+      type: object
+      description: Optional case-insensitive column header overrides for controller CSV parsing.
+      properties:
+        time:
+          type: string
+          maxLength: 80
+          description: Column header for timestamp or elapsed time.
+        temperature:
+          type: string
+          maxLength: 160
+          description: Column header for temperature, or comma-separated zone headers (e.g. `TC1, TC2, TC3`).
+        setpoint:
+          type: string
+          maxLength: 80
+          description: Column header for target/setpoint temperature.
+        segment:
+          type: string
+          maxLength: 80
+          description: Column header for firing segment number.
+        output:
+          type: string
+          maxLength: 80
+          description: Column header for output power percentage.
+        error:
+          type: string
+          maxLength: 80
+          description: Column header for error code or event text.
+
+    ImportKilnLogRequest:
+      type: object
+      required: [csvText, source, dryRun]
+      properties:
+        csvText:
+          type: string
+          minLength: 1
+          maxLength: 2097152
+          description: Raw CSV, semicolon-separated, or TSV controller log text (at most 2 MB).
+        source:
+          $ref: "#/components/schemas/KilnLogSource"
+        tempUnit:
+          $ref: "#/components/schemas/TemperatureUnit"
+          description: Optional unit override; inferred from headers, peak temp, or studio settings when absent.
+        columnMap:
+          $ref: "#/components/schemas/KilnLogColumnMap"
+        firingId:
+          type: string
+          format: uuid
+          description: Existing firing on this kiln to attach telemetry to. Omit to create a new COMPLETE firing.
+        kind:
+          $ref: "#/components/schemas/FiringKind"
+          description: Firing kind when creating a new COMPLETE firing; defaults to BISQUE.
+        cone:
+          type: string
+          maxLength: 10
+          description: Optional cone (for example `04` or `6`) when creating a new firing or filling a blank cone.
+        notes:
+          type: string
+          maxLength: 1000
+          description: Optional notes when creating a new firing.
+        dryRun:
+          type: boolean
+          description: When true, parses and checks for overlapping firings without saving anything.
+
+    SuggestedFiringMatch:
+      type: object
+      required: [firingId, kind, status, createdAt, overlapDescription]
+      properties:
+        firingId:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/FiringKind"
+        cone:
+          type: string
+        status:
+          $ref: "#/components/schemas/FiringStatus"
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        overlapDescription:
+          type: string
+          description: Why this existing firing was matched against the log timestamps.
+
+    KilnLogImportResult:
+      type: object
+      required:
+        - committed
+        - source
+        - presetUnverified
+        - tempUnit
+        - tempUnitInferred
+        - rowCount
+        - zoneCount
+        - durationMinutes
+        - peakTemp
+        - temperatureCurve
+        - warnings
+        - detectedColumns
+      properties:
+        committed:
+          type: boolean
+          description: True only when `dryRun` was false and the telemetry was saved.
+        source:
+          $ref: "#/components/schemas/KilnLogSource"
+        presetUnverified:
+          type: boolean
+          description: True for `GENESIS` and `TAP` presets until confirmed against real controller files.
+        tempUnit:
+          $ref: "#/components/schemas/TemperatureUnit"
+        tempUnitInferred:
+          type: boolean
+          description: True when `tempUnit` was inferred rather than explicitly provided.
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+        peakTemp:
+          type: number
+          format: double
+          minimum: 0
+        detectedCone:
+          type: string
+        errorCode:
+          type: string
+        rowCount:
+          type: integer
+          format: int32
+          minimum: 0
+        zoneCount:
+          type: integer
+          format: int32
+          minimum: 1
+        detectedColumns:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        temperatureCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemperaturePoint"
+        suggestedMatch:
+          $ref: "#/components/schemas/SuggestedFiringMatch"
+        firing:
+          $ref: "#/components/schemas/Firing"
 
     LoadKilnRequest:
       type: object

@@ -16,13 +16,16 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.TenantId;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
@@ -67,6 +70,21 @@ class Firing {
 
   private @Nullable Instant finishedAt;
 
+  private @Nullable BigDecimal peakTemp;
+
+  @Enumerated(EnumType.STRING)
+  private @Nullable TemperatureUnit tempUnit;
+
+  private @Nullable Integer durationMinutes;
+
+  private @Nullable String errorCode;
+
+  @Enumerated(EnumType.STRING)
+  private @Nullable KilnLogSource logSource;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  private @Nullable String temperatureCurve;
+
   @Version private @Nullable Long version;
 
   @OneToMany(mappedBy = "firing", cascade = CascadeType.PERSIST)
@@ -88,6 +106,33 @@ class Firing {
     }
   }
 
+  /** Telemetry fields persisted from a controller CSV log. */
+  record Telemetry(
+      BigDecimal peakTemp,
+      TemperatureUnit tempUnit,
+      int durationMinutes,
+      @Nullable String errorCode,
+      KilnLogSource logSource,
+      @Nullable String temperatureCurveJson) {}
+
+  /** A historical COMPLETE firing created directly from an imported controller log. */
+  static Firing completedFromLog(
+      Kiln kiln,
+      FiringKind kind,
+      @Nullable String cone,
+      @Nullable String notes,
+      @Nullable Instant startedAt,
+      Instant finishedAt,
+      Telemetry telemetry) {
+    Firing firing = new Firing(kiln, kind, cone, List.of());
+    firing.status = FiringView.Status.COMPLETE;
+    firing.notes = notes;
+    firing.startedAt = startedAt;
+    firing.finishedAt = finishedAt;
+    firing.applyTelemetry(telemetry);
+    return firing;
+  }
+
   UUID id() {
     return id;
   }
@@ -100,6 +145,10 @@ class Firing {
     return kind;
   }
 
+  @Nullable String cone() {
+    return cone;
+  }
+
   FiringView.Status status() {
     return status;
   }
@@ -108,12 +157,53 @@ class Firing {
     return Objects.requireNonNull(version, "A firing has a version once it's saved");
   }
 
+  Instant createdAt() {
+    return Objects.requireNonNull(createdAt, "A firing has a creation time once it's saved");
+  }
+
   @Nullable Instant startedAt() {
     return startedAt;
   }
 
   @Nullable Instant finishedAt() {
     return finishedAt;
+  }
+
+  boolean hasTelemetry() {
+    return logSource != null || peakTemp != null;
+  }
+
+  /** Attaches controller telemetry to this firing, filling blank timestamps or cone from the log. */
+  void attachTelemetry(
+      Telemetry telemetry,
+      @Nullable Instant logStartedAt,
+      @Nullable Instant logFinishedAt,
+      @Nullable String logCone,
+      @Nullable String logNotes) {
+    applyTelemetry(telemetry);
+    if (this.startedAt == null && logStartedAt != null) {
+      this.startedAt = logStartedAt;
+    }
+    if (this.finishedAt == null
+        && logFinishedAt != null
+        && this.status == FiringView.Status.COMPLETE) {
+      this.finishedAt = logFinishedAt;
+    }
+    if (this.cone == null && logCone != null) {
+      this.cone = logCone;
+    }
+    if (this.notes == null && logNotes != null) {
+      this.notes = logNotes;
+    }
+  }
+
+  private void applyTelemetry(Telemetry telemetry) {
+    this.peakTemp = telemetry.peakTemp();
+    this.tempUnit = telemetry.tempUnit();
+    this.durationMinutes = telemetry.durationMinutes();
+    this.errorCode = telemetry.errorCode();
+    this.logSource = telemetry.logSource();
+    this.temperatureCurve = telemetry.temperatureCurveJson();
   }
 
   /** The pieces in the load, ordered by id. Loads its piece rows if they aren't loaded yet. */
@@ -180,6 +270,12 @@ class Firing {
         finishedAt,
         pieceCount,
         version(),
-        loaded);
+        loaded,
+        peakTemp,
+        tempUnit,
+        durationMinutes,
+        errorCode,
+        logSource,
+        TemperatureCurveJson.read(temperatureCurve));
   }
 }
