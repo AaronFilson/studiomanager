@@ -26,7 +26,8 @@ class ClaudeInvoiceReaderTests {
     OutputConfig config = params.outputConfig().orElseThrow();
     assertThat(config.effort()).contains(OutputConfig.Effort.HIGH);
     assertThat(config.format()).isPresent();
-    assertThat(params.system().orElseThrow().toString()).contains("crossed out");
+    String system = params.system().orElseThrow().toString();
+    assertThat(system).contains("crossed out", "documentType", "payments", "rotation");
     assertThat(params.messages().getFirst().toString()).contains("uploaded on 2026-11-16");
   }
 

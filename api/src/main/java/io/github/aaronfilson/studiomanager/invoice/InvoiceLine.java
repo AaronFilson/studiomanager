@@ -11,7 +11,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.TenantId;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -46,6 +48,14 @@ class InvoiceLine {
 
   private @Nullable BigDecimal lineTotal;
 
+  @Enumerated(EnumType.STRING)
+  private InvoiceDraft.LineKind kind = InvoiceDraft.LineKind.ITEM;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String serialNumbers = "[]";
+
+  private boolean unclear;
+
   private @Nullable UUID supplyItemId;
 
   @Enumerated(EnumType.STRING)
@@ -64,6 +74,9 @@ class InvoiceLine {
     this.unit = line.unit();
     this.unitPrice = line.unitPrice();
     this.lineTotal = line.lineTotal();
+    this.kind = line.effectiveKind();
+    this.serialNumbers = InvoiceJson.writeStrings(line.serialNumbers());
+    this.unclear = line.unclear();
     this.supplyItemId = match.supplyItemId();
     this.matchSource = match.source();
   }
@@ -74,6 +87,14 @@ class InvoiceLine {
 
   @Nullable BigDecimal quantity() {
     return quantity;
+  }
+
+  @Nullable BigDecimal unitPrice() {
+    return unitPrice;
+  }
+
+  @Nullable BigDecimal lineTotal() {
+    return lineTotal;
   }
 
   String description() {
@@ -89,7 +110,16 @@ class InvoiceLine {
   }
 
   InvoiceDraft.Line toDraftLine() {
-    return new InvoiceDraft.Line(description, sku, quantity, unit, unitPrice, lineTotal);
+    return new InvoiceDraft.Line(
+        description,
+        sku,
+        quantity,
+        unit,
+        unitPrice,
+        lineTotal,
+        kind,
+        InvoiceJson.readStrings(serialNumbers),
+        unclear);
   }
 
   InvoiceView.Line toView() {

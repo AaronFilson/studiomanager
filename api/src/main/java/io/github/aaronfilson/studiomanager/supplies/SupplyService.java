@@ -13,6 +13,8 @@ import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.PurchaseRequest;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.RequestStatus;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -109,6 +111,21 @@ public class SupplyService {
     permissions.require(Permission.SUPPLIES_MANAGE, ONLY_STAFF);
     stock.adjust(itemId, kind, quantity, note);
     return item(itemId);
+  }
+
+  /**
+   * Records the latest unit purchase price paid for an item, e.g. when staff confirm a supplier
+   * invoice matched to it.
+   */
+  @Transactional
+  public void recordPurchasePrice(UUID itemId, BigDecimal unitPrice, Instant purchasedAt) {
+    permissions.require(Permission.SUPPLIES_MANAGE, ONLY_STAFF);
+    if (unitPrice.signum() < 0) {
+      throw new InvalidInputException("A purchase price can't be negative.");
+    }
+    SupplyItem item = stock.lock(itemId);
+    item.recordPurchasePrice(unitPrice.setScale(2, RoundingMode.HALF_UP), purchasedAt);
+    itemRepository.flush();
   }
 
   /** An item's movements, newest first, with the names of members who bought. */

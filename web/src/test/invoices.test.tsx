@@ -1,5 +1,5 @@
 import type { Invoice, SupplyItem } from '@studiomanager/api-client';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -232,5 +232,163 @@ describe('Supplies inbox', () => {
     expect(await screen.findByText('This reader isn’t set up on this server.')).toBeInTheDocument();
     expect(screen.getAllByText('This reader isn’t set up on this server.')).toHaveLength(1);
     expect(screen.getByText('didn’t run')).toBeInTheDocument();
+  });
+
+  it('creates a new supply item inline from an unmatched line and selects it immediately', async () => {
+    const studio = aStudio();
+    let createdPayload: unknown;
+    const supplyList: SupplyItem[] = [clay];
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json(supplyList)),
+      http.post(`${API}/api/v1/studios/:studioId/supplies`, async ({ request }) => {
+        createdPayload = await request.json();
+        const created: SupplyItem = {
+          id: 'i-new',
+          name: 'EPK Kaolin 50 lb',
+          category: 'GLAZE_MATERIAL',
+          unit: 'lb',
+          supplier: 'Riverbend Clay Supply',
+          onHand: '0',
+          onOrder: '0',
+          low: false,
+          needsOrdering: false,
+          version: 0,
+        };
+        supplyList.push(created);
+        return HttpResponse.json(created, { status: 201 });
+      }),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv1', status: 'READY', fileType: 'PDF', vendorName: 'Riverbend Clay Supply', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () =>
+        HttpResponse.json({
+          ...read,
+          status: 'READY',
+          problems: [],
+          lines: [{ description: 'EPK Kaolin 50 lb', quantity: '50', unit: 'lb', unitPrice: '1.20', lineTotal: '60.00', kind: 'ITEM' }],
+        }),
+      ),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(await screen.findByLabelText('Line 1 item')).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: '+ New item for line 1' }));
+
+    const inlineForm = within(screen.getByRole('group', { name: 'New supply item for line 1' }));
+    expect(inlineForm.getByLabelText('Item name')).toHaveValue('EPK Kaolin 50 lb');
+    expect(inlineForm.getByLabelText('Category')).toHaveValue('GLAZE_MATERIAL');
+    expect(inlineForm.getByLabelText('Unit')).toHaveValue('lb');
+    expect(inlineForm.getByLabelText('Supplier')).toHaveValue('Riverbend Clay Supply');
+
+    await user.click(inlineForm.getByRole('button', { name: 'Create item' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Line 1 item')).toHaveValue('i-new'));
+    expect(createdPayload).toEqual({
+      name: 'EPK Kaolin 50 lb',
+      category: 'GLAZE_MATERIAL',
+      unit: 'lb',
+      supplier: 'Riverbend Clay Supply',
+    });
+  });
+
+  it('shows last purchase price and date on supply items', async () => {
+    const studio = aStudio();
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () =>
+        HttpResponse.json([
+          {
+            ...clay,
+            lastPurchaseUnitPrice: '32.50',
+            lastPurchasedAt: '2026-10-14T15:30:00Z',
+          },
+        ]),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({ items: [], truncated: false, limit: 100 }),
+      ),
+    );
+
+    renderApp(`/studios/${studio.id}/supplies`);
+    expect(await screen.findByText(/last paid .*32\.50\/50 lb box/)).toBeInTheDocument();
+  });
+
+  it('shows v2 document type, reader notes, crossed-out rows, payments, payable amount, rotation and editable line kind', async () => {
+    const studio = aStudio();
+    let saved: { documentType?: string; lines: { kind?: string }[] } | undefined;
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([clay])),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv2', status: 'READY', fileType: 'JPEG', vendorName: 'Cascade Clay', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () =>
+        HttpResponse.json({
+          ...read,
+          id: 'inv2',
+          status: 'READY',
+          fileType: 'JPEG',
+          documentType: 'ORDER_FORM',
+          vendorName: 'Cascade Clay',
+          orderNumber: 'CTR-514',
+          invoiceDate: '2026-10-18',
+          invoiceDateYear: 'ASSUMED',
+          total: '95.00',
+          payableAmount: '177.70',
+          payments: [
+            { date: '2026-10-18', amount: '95.00', method: 'CARD', source: 'SLIP' },
+            { date: '2026-10-19', amount: '82.70', method: 'CARD', source: 'RECEIPT' },
+          ],
+          crossedOut: ['25 lb Redart Clay — 19.00'],
+          otherPapers: 'Two till receipts on top',
+          notes: ['Two card payments cover lines plus tax.'],
+          rotation: 90,
+          problems: [],
+          explanations: ['Paid 95.00 on 2026-10-18 and 82.70 on 2026-10-19: 95.00 + 82.70 = 177.70 matches lines and tax (written total is 95.00).'],
+          lines: [
+            { description: 'Lift-gate freight', quantity: '1', lineTotal: '75.00', kind: 'SHIPPING', unclear: true, serialNumbers: ['SN-100'] },
+          ],
+        }),
+      ),
+      http.put(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, async ({ request }) => {
+        saved = (await request.json()) as typeof saved;
+        return HttpResponse.json({ ...read, id: 'inv2', status: 'READY', version: 3 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(await screen.findByLabelText('Document type')).toHaveValue('ORDER_FORM');
+    expect(screen.getByText(/Two card payments cover lines plus tax/)).toBeInTheDocument();
+    expect(screen.getByText('25 lb Redart Clay — 19.00')).toBeInTheDocument();
+    expect(screen.getByText(/Two till receipts on top/)).toBeInTheDocument();
+    expect(screen.getByText(/95\.00 on 2026-10-18 \(card\) — from slip/)).toBeInTheDocument();
+    expect(screen.getByText(/Payable:/)).toHaveTextContent('Payable: 177.70');
+    expect(screen.getByText(/Year assumed/)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'The invoice' })).toHaveAttribute('data-rotation', '90');
+    expect(screen.getByLabelText('Line 1 kind')).toHaveValue('SHIPPING');
+    expect(screen.getByText(/Unclear/)).toBeInTheDocument();
+    expect(screen.getByText('S/N: SN-100')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Line 1 kind'), 'FEE');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(saved?.lines[0]?.kind).toBe('FEE'));
+    expect(saved?.documentType).toBe('ORDER_FORM');
   });
 });

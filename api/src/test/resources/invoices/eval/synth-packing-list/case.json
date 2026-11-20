@@ -1,0 +1,13 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "packing-list",
+  "seed": 20261116,
+  "split": "dev",
+  "tags": [
+    "synthetic",
+    "packing-list",
+    "show-through",
+    "no-prices"
+  ]
+}

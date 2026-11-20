@@ -4813,6 +4813,43 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/invoices/{invoiceId}/eval-export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [invoices]
+      operationId: exportInvoiceEval
+      x-permission: invoices.manage
+      summary: Download a confirmed invoice as a private eval case ZIP (staff)
+      description: |
+        A ZIP holding the confirmed draft as `expected.json`, case metadata as `case.json`, and
+        the invoice file when available, with no customer details. Ready to drop into a private
+        eval set. Refused until the invoice is confirmed.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The eval case ZIP.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -7114,6 +7151,13 @@ components:
           $ref: "#/components/schemas/Decimal"
         salePrice:
           $ref: "#/components/schemas/Decimal"
+        lastPurchaseUnitPrice:
+          $ref: "#/components/schemas/Decimal"
+          description: Unit price from the last confirmed invoice line for this item.
+        lastPurchasedAt:
+          type: string
+          format: date-time
+          description: When the last purchase price was recorded.
         taxCategory:
           type: string
         substitute:
@@ -8527,6 +8571,42 @@ components:
           type: integer
           format: int32
 
+    InvoiceDocumentType:
+      type: string
+      enum: [INVOICE, ORDER_FORM, RECEIPT, PACKING_LIST, CREDIT_MEMO, STATEMENT, QUOTE, OTHER]
+
+    InvoiceDateYearSource:
+      type: string
+      description: Where the year on the invoice date came from.
+      enum: [PRINTED, FROM_PAGE, ASSUMED]
+
+    InvoiceLineKind:
+      type: string
+      description: What kind of row the line is; shipping, fee, discount and deposit lines default to not stock.
+      enum: [ITEM, SHIPPING, FEE, DISCOUNT, DEPOSIT, OTHER]
+
+    InvoicePaymentMethod:
+      type: string
+      enum: [CARD, CASH, CHECK, ACCOUNT]
+
+    InvoicePaymentSource:
+      type: string
+      enum: [INVOICE, RECEIPT, SLIP]
+
+    InvoicePayment:
+      type: object
+      required: [amount]
+      properties:
+        date:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/InvoiceAmount"
+        method:
+          $ref: "#/components/schemas/InvoicePaymentMethod"
+        source:
+          $ref: "#/components/schemas/InvoicePaymentSource"
+
     InvoiceLine:
       type: object
       required: [description]
@@ -8547,6 +8627,16 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         lineTotal:
           $ref: "#/components/schemas/InvoiceAmount"
+        kind:
+          $ref: "#/components/schemas/InvoiceLineKind"
+        serialNumbers:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 60
+        unclear:
+          type: boolean
         supplyItemId:
           type: string
           format: uuid
@@ -8575,11 +8665,22 @@ components:
         readNote:
           type: string
           description: Why it wasn't read, or what was left out of what was read.
+        documentType:
+          $ref: "#/components/schemas/InvoiceDocumentType"
         vendorName:
           type: string
         invoiceNumber:
           type: string
+        orderNumber:
+          type: string
         invoiceDate:
+          type: string
+          format: date
+        invoiceDatePrinted:
+          type: string
+        invoiceDateYear:
+          $ref: "#/components/schemas/InvoiceDateYearSource"
+        dueDate:
           type: string
           format: date
         subtotal:
@@ -8590,6 +8691,34 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         total:
           $ref: "#/components/schemas/InvoiceAmount"
+        amountPaid:
+          $ref: "#/components/schemas/InvoiceAmount"
+        amountDue:
+          $ref: "#/components/schemas/InvoiceAmount"
+        payableAmount:
+          readOnly: true
+          $ref: "#/components/schemas/InvoiceAmount"
+          description: What is payable; defaults to the sum of payments when payments cover lines and tax, otherwise the written total.
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoicePayment"
+        crossedOut:
+          type: array
+          items:
+            type: string
+        otherPapers:
+          type: string
+        notes:
+          type: array
+          items:
+            type: string
+        rotation:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 270
+          description: Clockwise degrees (0, 90, 180 or 270) to turn the photo upright.
         lines:
           type: array
           items:
@@ -8597,6 +8726,11 @@ components:
         problems:
           type: array
           description: What doesn't add up. Empty when everything does.
+          items:
+            type: string
+        explanations:
+          type: array
+          description: Explanations from the checks, such as how split payments match the lines and tax.
           items:
             type: string
         uploadedBy:
@@ -8665,6 +8799,8 @@ components:
         costUsd:
           type: string
           description: The estimated cost in US dollars, from the configured prices.
+        documentType:
+          $ref: "#/components/schemas/InvoiceDocumentType"
         vendorName:
           type: string
         invoiceNumber:
@@ -8680,6 +8816,12 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         total:
           $ref: "#/components/schemas/InvoiceAmount"
+        payableAmount:
+          $ref: "#/components/schemas/InvoiceAmount"
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoicePayment"
         lines:
           type: array
           items:
@@ -8687,6 +8829,10 @@ components:
         problems:
           type: array
           description: What was dropped from the answer, and what doesn't add up.
+          items:
+            type: string
+        explanations:
+          type: array
           items:
             type: string
 
@@ -8803,6 +8949,46 @@ components:
           items:
             $ref: "#/components/schemas/StudioReaderUse"
 
+    ReaderAccuracy:
+      type: object
+      required:
+        - reader
+        - confirmedInvoices
+        - exactMatches
+        - fieldsRight
+        - fieldsTotal
+        - linesRight
+        - linesTotal
+        - fieldAccuracy
+        - lineAccuracy
+      properties:
+        reader:
+          $ref: "#/components/schemas/InvoiceReader"
+        confirmedInvoices:
+          type: integer
+          format: int64
+        exactMatches:
+          type: integer
+          format: int64
+        fieldsRight:
+          type: integer
+          format: int64
+        fieldsTotal:
+          type: integer
+          format: int64
+        linesRight:
+          type: integer
+          format: int64
+        linesTotal:
+          type: integer
+          format: int64
+        fieldAccuracy:
+          type: number
+          format: double
+        lineAccuracy:
+          type: number
+          format: double
+
     InvoiceReaderOverview:
       type: object
       required: [settings, saved, monthStart, usage]
@@ -8826,6 +9012,11 @@ components:
             federation). A reader that isn't set up never reads, whatever its rule says.
           items:
             $ref: "#/components/schemas/InvoiceReader"
+        accuracy:
+          type: array
+          description: How often each compared reader matched what staff confirmed, across all studios.
+          items:
+            $ref: "#/components/schemas/ReaderAccuracy"
 
     InvoiceSummary:
       type: object
@@ -8870,13 +9061,26 @@ components:
       type: object
       required: [lines, expectedVersion]
       properties:
+        documentType:
+          $ref: "#/components/schemas/InvoiceDocumentType"
         vendorName:
           type: string
           maxLength: 120
         invoiceNumber:
           type: string
           maxLength: 60
+        orderNumber:
+          type: string
+          maxLength: 60
         invoiceDate:
+          type: string
+          format: date
+        invoiceDatePrinted:
+          type: string
+          maxLength: 60
+        invoiceDateYear:
+          $ref: "#/components/schemas/InvoiceDateYearSource"
+        dueDate:
           type: string
           format: date
         subtotal:
@@ -8887,6 +9091,35 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         total:
           $ref: "#/components/schemas/InvoiceAmount"
+        amountPaid:
+          $ref: "#/components/schemas/InvoiceAmount"
+        amountDue:
+          $ref: "#/components/schemas/InvoiceAmount"
+        payments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/InvoicePayment"
+        crossedOut:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 200
+        otherPapers:
+          type: string
+          maxLength: 300
+        notes:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 200
+        rotation:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 270
         lines:
           type: array
           maxItems: 200

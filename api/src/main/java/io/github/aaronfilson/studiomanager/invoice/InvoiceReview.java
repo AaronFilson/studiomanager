@@ -11,6 +11,7 @@ import io.github.aaronfilson.studiomanager.supplies.PurchaseRequests;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyService;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -78,13 +79,25 @@ class InvoiceReview {
     InvoiceDrafts.Sanitized sanitized =
         InvoiceDrafts.sanitize(
             new InvoiceDraft(
+                header.documentType(),
                 header.vendorName(),
                 header.invoiceNumber(),
+                header.orderNumber(),
                 header.invoiceDate(),
+                header.invoiceDatePrinted(),
+                header.invoiceDateYear(),
+                header.dueDate(),
                 header.subtotal(),
                 header.shipping(),
                 header.tax(),
                 header.total(),
+                header.amountPaid(),
+                header.amountDue(),
+                header.payments(),
+                header.crossedOut(),
+                header.otherPapers(),
+                header.notes(),
+                header.rotation(),
                 reviewed.stream().map(ReviewedLine::line).toList()),
             LocalDate.now(clock.withZone(ZoneOffset.UTC)));
     if (sanitized.draft().lines().size() != reviewed.size()) {
@@ -114,9 +127,11 @@ class InvoiceReview {
   }
 
   /**
-   * Receives each matched line's quantity into stock, settles each item's request already on its
-   * way, remembers what the vendor's lines meant for next time, and marks the invoice confirmed.
-   * All in one transaction. A repeat of a confirmed invoice is refused.
+   * Receives each matched line's quantity into stock, records the last unit purchase price on each
+   * matched item, settles each item's request already on its way, remembers what the vendor's lines
+   * meant for next time, scores any stored Compare Readers drafts against the confirmed invoice,
+   * and marks the invoice confirmed. All in one transaction. A repeat of a confirmed invoice is
+   * refused.
    */
   @Transactional
   InvoiceView confirm(UUID studioId, UUID invoiceId, long expectedVersion) {
@@ -151,6 +166,10 @@ class InvoiceReview {
       }
       supplies.recordMovement(
           itemId, MovementKind.RECEIVED, Objects.requireNonNull(line.quantity()), note);
+      BigDecimal unitPrice = purchaseUnitPrice(line);
+      if (unitPrice != null && unitPrice.signum() >= 0) {
+        supplies.recordPurchasePrice(itemId, unitPrice, now);
+      }
       // The delivery an open request was waiting for: received here, so not again by hand
       if (settled.add(itemId)) {
         requests.settleOnWay(itemId);
@@ -167,7 +186,30 @@ class InvoiceReview {
             now);
       }
     }
-    return invoice.toView(InvoiceChecks.problems(invoice.draft()));
+    InvoiceDraft confirmedDraft = invoice.draft();
+    for (InvoiceQueries.StoredComparison compared : queries.comparisonsFor(invoiceId)) {
+      InvoiceScorer.Score score = InvoiceScorer.score(confirmedDraft, compared.draft());
+      InvoiceScorer.Checked checked = InvoiceScorer.checks(confirmedDraft, compared.draft(), score);
+      queries.saveComparisonScore(compared.id(), score, checked, now);
+    }
+    return invoice.toView(InvoiceChecks.problems(confirmedDraft));
+  }
+
+  /**
+   * The unit purchase price to record on the supply item: the line's explicit unit price if
+   * present, otherwise {@code lineTotal / quantity} rounded HALF_UP to 2 decimals.
+   */
+  private static @Nullable BigDecimal purchaseUnitPrice(InvoiceLine line) {
+    BigDecimal unitPrice = line.unitPrice();
+    if (unitPrice != null) {
+      return unitPrice.setScale(2, RoundingMode.HALF_UP);
+    }
+    BigDecimal lineTotal = line.lineTotal();
+    BigDecimal quantity = line.quantity();
+    if (lineTotal != null && quantity != null && quantity.signum() > 0) {
+      return lineTotal.divide(quantity, 2, RoundingMode.HALF_UP);
+    }
+    return null;
   }
 
   private void learn(

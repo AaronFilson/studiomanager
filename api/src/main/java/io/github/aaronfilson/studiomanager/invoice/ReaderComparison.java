@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -23,9 +24,9 @@ import org.springframework.transaction.support.TransactionOperations;
 /**
  * "Compare readers": one invoice through every reader at the same time, with what each read, how
  * long it took and what it cost (docs/planning/20, "Invoice readers"). A reader that may not read
- * for the studio is listed with the reason instead of being left out (docs/planning/24). The
- * invoice's own draft is left alone. Each run is recorded in {@code invoice_read} like any other,
- * so it counts toward the platform's page caps.
+ * for the studio is listed with the reason instead of being left out (docs/planning/24). Each
+ * successful compared draft is stored in {@code invoice_comparison} and scored when staff confirm
+ * the invoice (or immediately if the invoice is already confirmed).
  *
  * <p>Like the reading job, no transaction is open while a provider works.
  */
@@ -48,12 +49,16 @@ class ReaderComparison {
       InvoiceRead.@Nullable Outcome outcome,
       @Nullable InvoiceDraft draft,
       List<String> problems,
+      List<String> explanations,
       @Nullable String note,
       long elapsedMs,
       ReaderResult.@Nullable Usage usage) {}
 
+  private record Target(InvoiceFileType fileType, @Nullable InvoiceDraft confirmedDraft) {}
+
   private final InvoiceRepository invoices;
   private final InvoiceReadRepository reads;
+  private final InvoiceQueries queries;
   private final InvoiceReaders readers;
   private final BlobStore blobs;
   private final TransactionOperations transactions;
@@ -62,12 +67,14 @@ class ReaderComparison {
   ReaderComparison(
       InvoiceRepository invoices,
       InvoiceReadRepository reads,
+      InvoiceQueries queries,
       InvoiceReaders readers,
       BlobStore blobs,
       TransactionOperations transactions,
       Clock clock) {
     this.invoices = invoices;
     this.reads = reads;
+    this.queries = queries;
     this.readers = readers;
     this.blobs = blobs;
     this.transactions = transactions;
@@ -76,18 +83,23 @@ class ReaderComparison {
 
   List<Compared> compare(UUID studioId, UUID invoiceId) {
     InvoiceInbox.requireBound(studioId);
-    Invoice invoice =
-        transactions.execute(tx ->
-            invoices
-                .findById(invoiceId)
-                .orElseThrow(() -> new NotFoundException("No such invoice.")));
-    if (invoice == null) {
+    Target target =
+        transactions.execute(tx -> {
+          Invoice invoice =
+              invoices
+                  .findWithLines(invoiceId)
+                  .orElseThrow(() -> new NotFoundException("No such invoice."));
+          if (invoice.status() == InvoiceStatus.UPLOADING) {
+            throw new ConflictException("The file hasn't been uploaded yet.");
+          }
+          return new Target(
+              invoice.fileType(),
+              invoice.status() == InvoiceStatus.CONFIRMED ? invoice.draft() : null);
+        });
+    if (target == null) {
       throw new NotFoundException("No such invoice.");
     }
-    if (invoice.status() == InvoiceStatus.UPLOADING) {
-      throw new ConflictException("The file hasn't been uploaded yet.");
-    }
-    InvoiceFileType type = invoice.fileType();
+    InvoiceFileType type = target.fileType();
     // Every reader gets the same upright, size-limited copy (docs/planning/24, "Images")
     InvoiceFile file =
         ReadingCopy.of(
@@ -101,7 +113,10 @@ class ReaderComparison {
     try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
       for (InvoiceReader reader : readers.everyForBoundStudio()) {
         goes.add(
-            pool.submit(() -> TenantContext.callAs(caller, () -> go(reader, invoiceId, file))));
+            pool.submit(() ->
+                TenantContext.callAs(
+                    caller,
+                    () -> go(reader, studioId, invoiceId, file, target.confirmedDraft()))));
       }
     }
     List<Compared> compared = new ArrayList<>();
@@ -111,12 +126,25 @@ class ReaderComparison {
     return compared;
   }
 
-  private Compared go(InvoiceReader reader, UUID invoiceId, InvoiceFile file) {
+  private Compared go(
+      InvoiceReader reader,
+      UUID studioId,
+      UUID invoiceId,
+      InvoiceFile file,
+      @Nullable InvoiceDraft confirmedDraft) {
     ReaderAvailability availability = reader.availabilityForBoundStudio();
     return availability.ready()
-        ? run(reader, invoiceId, file)
+        ? run(reader, studioId, invoiceId, file, confirmedDraft)
         : new Compared(
-            reader.kind(), availability, null, null, List.of(), availability.reason(), 0, null);
+            reader.kind(),
+            availability,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            availability.reason(),
+            0,
+            null);
   }
 
   /** A finished go; the pool has closed, so every one is done. */
@@ -134,7 +162,12 @@ class ReaderComparison {
     }
   }
 
-  private Compared run(InvoiceReader reader, UUID invoiceId, InvoiceFile file) {
+  private Compared run(
+      InvoiceReader reader,
+      UUID studioId,
+      UUID invoiceId,
+      InvoiceFile file,
+      @Nullable InvoiceDraft confirmedDraft) {
     long started = clock.millis();
     ReaderResult result = null;
     InvoiceRead.Outcome outcome;
@@ -154,22 +187,51 @@ class ReaderComparison {
     long elapsed = clock.millis() - started;
     ReaderResult.Usage usage = result == null ? null : result.usage();
     InvoiceRead.Outcome ended = outcome;
-    transactions.executeWithoutResult(
-        tx -> reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed)));
+    Instant now = clock.instant();
     if (result == null) {
+      transactions.executeWithoutResult(
+          tx -> reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed)));
       return new Compared(
-          reader.kind(), ReaderAvailability.READY, outcome, null, List.of(), note, elapsed, null);
+          reader.kind(),
+          ReaderAvailability.READY,
+          outcome,
+          null,
+          List.of(),
+          List.of(),
+          note,
+          elapsed,
+          null);
     }
     InvoiceDrafts.Sanitized sanitized =
         InvoiceDrafts.sanitize(result.draft(), LocalDate.now(clock.withZone(ZoneOffset.UTC)));
+    InvoiceDraft draft = sanitized.draft();
+    transactions.executeWithoutResult(tx -> {
+      reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed));
+      UUID comparisonId =
+          queries.saveComparison(
+              studioId,
+              invoiceId,
+              reader.kind(),
+              usage == null ? null : usage.model(),
+              draft,
+              elapsed,
+              usage == null ? null : usage.costUsd(),
+              now);
+      if (confirmedDraft != null) {
+        InvoiceScorer.Score score = InvoiceScorer.score(confirmedDraft, draft);
+        InvoiceScorer.Checked checked = InvoiceScorer.checks(confirmedDraft, draft, score);
+        queries.saveComparisonScore(comparisonId, score, checked, now);
+      }
+    });
     List<String> problems = new ArrayList<>(sanitized.notes());
-    problems.addAll(InvoiceChecks.problems(sanitized.draft()));
+    problems.addAll(InvoiceChecks.problems(draft));
     return new Compared(
         reader.kind(),
         ReaderAvailability.READY,
         outcome,
-        sanitized.draft(),
+        draft,
         problems,
+        InvoiceChecks.explanations(draft),
         null,
         elapsed,
         result.usage());

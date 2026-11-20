@@ -19,6 +19,7 @@ const outcomeLabels: Record<ComparedRead['outcome'], string> = {
 };
 
 const rows: { label: string; value: (read: ComparedRead) => string | undefined }[] = [
+  { label: 'Document type', value: (read) => read.documentType },
   { label: 'Supplier', value: (read) => read.vendorName },
   { label: 'Invoice number', value: (read) => read.invoiceNumber },
   { label: 'Date', value: (read) => read.invoiceDate },
@@ -26,6 +27,7 @@ const rows: { label: string; value: (read: ComparedRead) => string | undefined }
   { label: 'Shipping', value: (read) => read.shipping },
   { label: 'Tax', value: (read) => read.tax },
   { label: 'Total', value: (read) => read.total },
+  { label: 'Payable', value: (read) => read.payableAmount },
   { label: 'Lines', value: (read) => String(read.lines.length) },
   { label: 'Problems', value: (read) => (read.problems.length === 0 ? 'none' : read.problems.join(' ')) },
   { label: 'Time', value: (read) => `${(read.elapsedMs / 1000).toFixed(1)} s` },

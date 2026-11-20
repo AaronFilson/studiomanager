@@ -19,7 +19,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { InvoiceInbox } from '../../../components/InvoiceInbox';
-import { formatMoney } from '../../../labels';
+import { formatDate, formatMoney } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/supplies')({
   component: SuppliesPage,
@@ -81,6 +81,13 @@ function ItemRow({ studioId, item, staff, currency }: { studioId: string; item: 
             {item.onHand} × {item.unit}
             {item.low && <strong className="warning"> · low{item.needsOrdering ? ', not on order' : `, ${item.onOrder} on order`}</strong>}
             {item.salePrice && <span className="badge"> · {formatMoney(item.salePrice, currency)} each</span>}
+            {item.lastPurchaseUnitPrice && (
+              <span className="badge">
+                {' '}
+                · last paid {formatMoney(item.lastPurchaseUnitPrice, currency)}/{item.unit}
+                {item.lastPurchasedAt && ` on ${formatDate(item.lastPurchasedAt)}`}
+              </span>
+            )}
           </div>
           {item.low && item.substitute && <div className="badge">{item.substitute}</div>}
         </div>

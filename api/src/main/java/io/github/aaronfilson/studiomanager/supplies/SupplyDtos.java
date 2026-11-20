@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.contract.SupplyCategoryDto;
 import io.github.aaronfilson.studiomanager.contract.SupplyItemDto;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.Item;
 import java.math.BigDecimal;
+import java.time.ZoneOffset;
 import org.jspecify.annotations.Nullable;
 
 /** Converts supply items to the HTTP contract, for this module and the "today" view. */
@@ -22,6 +23,14 @@ public final class SupplyDtos {
         .parLevel(plain(item.parLevel()))
         .reorderQuantity(plain(item.reorderQuantity()))
         .salePrice(item.salePrice() == null ? null : item.salePrice().toPlainString())
+        .lastPurchaseUnitPrice(
+            item.lastPurchaseUnitPrice() == null
+                ? null
+                : item.lastPurchaseUnitPrice().toPlainString())
+        .lastPurchasedAt(
+            item.lastPurchasedAt() == null
+                ? null
+                : item.lastPurchasedAt().atOffset(ZoneOffset.UTC))
         .taxCategory(item.taxCategory())
         .substitute(item.substitute())
         .onHand(item.onHand().stripTrailingZeros().toPlainString())

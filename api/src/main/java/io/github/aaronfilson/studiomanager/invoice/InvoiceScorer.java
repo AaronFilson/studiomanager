@@ -1,22 +1,27 @@
 package io.github.aaronfilson.studiomanager.invoice;
 
+import io.github.aaronfilson.studiomanager.invoice.InvoiceDraft.Payment;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Scores a reader's draft against a hand-written expected one (docs/planning/16, "Evaluation").
- * Numbers and dates must match exactly; text is compared normalized (case, punctuation and spacing
- * don't count). A line is right when its quantity, unit price and total all match; lines are
- * aligned in order first, so one missed line costs one line.
+ * Scores a reader's draft against an expected (or staff-confirmed) one (docs/planning/16,
+ * "Evaluation"; extended for schema v2 in docs/planning/24). Numbers and dates must match exactly;
+ * text is compared normalized (case, punctuation and spacing don't count). A line is right when its
+ * quantity, unit price, total and (when expected sets it) kind all match; lines are aligned in
+ * order first, so one missed line costs one line.
  *
- * <p>Shared by the eval in CI, the live eval report, and lane F1g's "Compare readers".
+ * <p>V2 header fields ({@code documentType}, {@code invoiceDateYear}, {@code payments}) are scored
+ * whenever the expected draft specifies them, keeping full backward compatibility with v1 eval
+ * cases.
  */
 public final class InvoiceScorer {
 
-  /** The header fields scored on every invoice. */
+  /** The core v1 header fields scored on every invoice. */
   static final int HEADER_FIELDS = 7;
 
   private InvoiceScorer() {}
@@ -42,6 +47,7 @@ public final class InvoiceScorer {
 
   public static Score score(InvoiceDraft expected, InvoiceDraft read) {
     int right = 0;
+    int total = HEADER_FIELDS;
     right += sameText(expected.vendorName(), read.vendorName()) ? 1 : 0;
     right += sameText(expected.invoiceNumber(), read.invoiceNumber()) ? 1 : 0;
     right += sameDate(expected.invoiceDate(), read.invoiceDate()) ? 1 : 0;
@@ -49,14 +55,24 @@ public final class InvoiceScorer {
     right += sameAmount(expected.shipping(), read.shipping()) ? 1 : 0;
     right += sameAmount(expected.tax(), read.tax()) ? 1 : 0;
     right += sameAmount(expected.total(), read.total()) ? 1 : 0;
+
+    if (expected.documentType() != null) {
+      total++;
+      right += expected.documentType() == read.documentType() ? 1 : 0;
+    }
+    if (expected.invoiceDateYear() != null) {
+      total++;
+      right += expected.invoiceDateYear() == read.invoiceDateYear() ? 1 : 0;
+    }
+    if (!expected.payments().isEmpty()) {
+      total++;
+      right += samePayments(expected.payments(), read.payments()) ? 1 : 0;
+    }
+
     int linesTotal = Math.max(expected.lines().size(), read.lines().size());
     int linesRight = alignedLinesRight(expected.lines(), read.lines());
     return new Score(
-        right,
-        HEADER_FIELDS,
-        linesRight,
-        linesTotal,
-        right == HEADER_FIELDS && linesRight == linesTotal);
+        right, total, linesRight, linesTotal, right == total && linesRight == linesTotal);
   }
 
   /**
@@ -99,9 +115,47 @@ public final class InvoiceScorer {
   }
 
   private static boolean sameLine(InvoiceDraft.Line expected, InvoiceDraft.Line read) {
-    return sameAmount(expected.quantity(), read.quantity())
-        && sameAmount(expected.unitPrice(), read.unitPrice())
-        && sameAmount(expected.lineTotal(), read.lineTotal());
+    if (!sameAmount(expected.quantity(), read.quantity())
+        || !sameAmount(expected.unitPrice(), read.unitPrice())
+        || !sameAmount(expected.lineTotal(), read.lineTotal())) {
+      return false;
+    }
+    if (expected.kind() != null && expected.kind() != read.effectiveKind()) {
+      return false;
+    }
+    if (expected.lineTotal() == null && expected.unitPrice() == null) {
+      return sameText(expected.description(), read.description());
+    }
+    return true;
+  }
+
+  private static boolean samePayments(List<Payment> expected, List<Payment> read) {
+    if (expected.size() != read.size()) {
+      return false;
+    }
+    List<Payment> remaining = new ArrayList<>(read);
+    for (Payment target : expected) {
+      int found = -1;
+      for (int i = 0; i < remaining.size(); i++) {
+        Payment candidate = remaining.get(i);
+        if (samePayment(target, candidate)) {
+          found = i;
+          break;
+        }
+      }
+      if (found < 0) {
+        return false;
+      }
+      remaining.remove(found);
+    }
+    return true;
+  }
+
+  private static boolean samePayment(Payment expected, Payment read) {
+    return sameDate(expected.date(), read.date())
+        && sameAmount(expected.amount(), read.amount())
+        && Objects.equals(expected.method(), read.method())
+        && Objects.equals(expected.source(), read.source());
   }
 
   private static boolean sameText(@Nullable String expected, @Nullable String read) {

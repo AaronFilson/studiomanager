@@ -1,0 +1,52 @@
+{
+  "documentType": "RECEIPT",
+  "vendorName": "Milltown Pottery Mart",
+  "invoiceNumber": "RCP-00419",
+  "orderNumber": "",
+  "invoiceDate": "2026-10-21",
+  "invoiceDatePrinted": "10/21/26",
+  "invoiceDateYear": "PRINTED",
+  "dueDate": "",
+  "subtotal": "54.50",
+  "shipping": "",
+  "tax": "4.63",
+  "total": "59.13",
+  "amountPaid": "59.13",
+  "amountDue": "0.00",
+  "payments": [
+    {
+      "date": "2026-10-21",
+      "amount": "59.13",
+      "method": "CARD",
+      "source": "RECEIPT"
+    }
+  ],
+  "crossedOut": [],
+  "otherPapers": "",
+  "notes": [],
+  "rotation": "0",
+  "lines": [
+    {
+      "description": "Large Yellow Elephant Ear Sponge",
+      "sku": "SP-04",
+      "quantity": "6",
+      "unit": "each",
+      "unitPrice": "4.25",
+      "lineTotal": "25.50",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Stainless Rib Set #2",
+      "sku": "RB-02",
+      "quantity": "2",
+      "unit": "set",
+      "unitPrice": "14.50",
+      "lineTotal": "29.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

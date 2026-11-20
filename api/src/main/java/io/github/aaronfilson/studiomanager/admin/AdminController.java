@@ -13,6 +13,7 @@ import io.github.aaronfilson.studiomanager.contract.PlatformReaderUseDto;
 import io.github.aaronfilson.studiomanager.contract.RateLimitBoostDto;
 import io.github.aaronfilson.studiomanager.contract.RateLimitOverviewDto;
 import io.github.aaronfilson.studiomanager.contract.RateLimitValuesDto;
+import io.github.aaronfilson.studiomanager.contract.ReaderAccuracyDto;
 import io.github.aaronfilson.studiomanager.contract.ScheduleBoostRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SettingChangeDto;
 import io.github.aaronfilson.studiomanager.contract.StudioReaderOrderDto;
@@ -214,6 +215,20 @@ class AdminController implements AdminApi {
                 .map(Map.Entry::getKey)
                 .sorted()
                 .map(reader -> InvoiceReaderDto.fromValue(reader.name()))
+                .toList())
+        .accuracy(
+            overview.accuracy().stream()
+                .map(acc ->
+                    new ReaderAccuracyDto()
+                        .reader(InvoiceReaderDto.fromValue(acc.reader().name()))
+                        .confirmedInvoices(acc.confirmedInvoices())
+                        .exactMatches(acc.exactMatches())
+                        .fieldsRight(acc.fieldsRight())
+                        .fieldsTotal(acc.fieldsTotal())
+                        .linesRight(acc.linesRight())
+                        .linesTotal(acc.linesTotal())
+                        .fieldAccuracy(acc.fieldAccuracy())
+                        .lineAccuracy(acc.lineAccuracy()))
                 .toList());
   }
 

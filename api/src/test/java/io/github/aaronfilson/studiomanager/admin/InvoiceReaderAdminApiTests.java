@@ -61,6 +61,7 @@ class InvoiceReaderAdminApiTests {
     assertThat(overview).bodyJson().extractingPath("$.settings.readers.length()").isEqualTo(2);
     assertThat(overview).bodyJson().extractingPath("$.settings.readers[0].scope").isEqualTo("NONE");
     assertThat(overview).bodyJson().extractingPath("$.usage[0].pages").isEqualTo(0);
+    assertThat(overview).bodyJson().extractingPath("$.accuracy").asArray().isNotNull();
     assertThat(rules.current().rule(InvoiceReaderKind.GOOGLE_DOCUMENT_AI).covers(UUID.randomUUID()))
         .isFalse();
   }
@@ -134,6 +135,16 @@ class InvoiceReaderAdminApiTests {
                     transactions.execute(tx ->
                         jdbc.sql("select studio_id from app.platform_reader_usage_by_studio(now())")
                             .query(UUID.class)
+                            .list())))
+        .rootCause()
+        .hasMessageContaining("Only a platform admin");
+    assertThatThrownBy(() ->
+            TenantContext.callAs(
+                person,
+                () ->
+                    transactions.execute(tx ->
+                        jdbc.sql("select reader from app.reader_accuracy_summary()")
+                            .query(String.class)
                             .list())))
         .rootCause()
         .hasMessageContaining("Only a platform admin");
