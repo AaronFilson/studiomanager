@@ -8,6 +8,7 @@ import io.github.aaronfilson.studiomanager.contract.PendingActionStatusDto;
 import io.github.aaronfilson.studiomanager.contract.PendingActionsApi;
 import io.github.aaronfilson.studiomanager.contract.ProposedMaintenanceTaskDto;
 import io.github.aaronfilson.studiomanager.contract.ProposedPurchaseRequestDto;
+import io.github.aaronfilson.studiomanager.contract.ProposedStudioNoticeDto;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import java.time.Instant;
@@ -97,6 +98,10 @@ class PendingActionController implements PendingActionsApi {
               .title(task.title())
               .everyDays(task.everyDays())
               .everyFirings(task.everyFirings()));
+    }
+    NoticeDraft notice = action.studioNotice();
+    if (notice != null) {
+      dto.studioNotice(new ProposedStudioNoticeDto(notice.title(), notice.body()));
     }
     return dto;
   }

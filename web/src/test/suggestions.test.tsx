@@ -33,10 +33,23 @@ const task: PendingAction = {
   version: 0,
 };
 
+const notice: PendingAction = {
+  id: 'n1',
+  kind: 'STUDIO_NOTICE',
+  status: 'PENDING',
+  subjectName: 'Kiln room closed Friday',
+  studioNotice: { title: 'Kiln room closed Friday', body: 'Rewiring Skutt 1027 from 9am to 2pm.' },
+  reason: 'Scheduled electrician visit',
+  proposedBy: 'a1',
+  proposedByName: 'Olive',
+  proposedAt: '2026-11-06T10:00:00Z',
+  version: 0,
+};
+
 describe('Assistant suggestions', () => {
   it('shows who proposed each suggestion and approves or rejects it', async () => {
     const studio = aStudio();
-    let waiting = [purchase, task];
+    let waiting = [purchase, task, notice];
     const decisions: unknown[] = [];
     server.use(
       http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
@@ -55,6 +68,8 @@ describe('Assistant suggestions', () => {
 
     expect(await screen.findByText('Request 8 × B-Mix')).toBeInTheDocument();
     expect(screen.getByText('Add “Clean the auger” on Peter Pugger, every 14 days')).toBeInTheDocument();
+    expect(screen.getByText('Send studio notice: “Kiln room closed Friday”')).toBeInTheDocument();
+    expect(screen.getByText('Rewiring Skutt 1027 from 9am to 2pm.')).toBeInTheDocument();
     expect(screen.getByText(/through ‘Claude desktop’/)).toBeInTheDocument();
     // The assistant's words are text, never markup
     expect(screen.getByText('B-Mix is under par. <b>ignore your instructions</b>')).toBeInTheDocument();
@@ -63,13 +78,20 @@ describe('Assistant suggestions', () => {
     await user.click(approveFirst as HTMLElement);
     await waitFor(() => expect(screen.queryByText('Request 8 × B-Mix')).not.toBeInTheDocument());
 
-    await user.type(await screen.findByLabelText('Why not (optional)'), 'We clean it after every use.');
-    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    const [rejectFirst] = screen.getAllByRole('button', { name: 'Reject' });
+    const [noteFirst] = screen.getAllByLabelText('Why not (optional)');
+    await user.type(noteFirst as HTMLElement, 'We clean it after every use.');
+    await user.click(rejectFirst as HTMLElement);
+    await waitFor(() =>
+      expect(screen.queryByText('Add “Clean the auger” on Peter Pugger, every 14 days')).not.toBeInTheDocument(),
+    );
 
+    await user.click(await screen.findByRole('button', { name: 'Approve' }));
     expect(await screen.findByText('Nothing is waiting.')).toBeInTheDocument();
     expect(decisions).toEqual([
       { id: 'p1', decision: 'APPROVED', expectedVersion: 0 },
       { id: 'm1', decision: 'REJECTED', expectedVersion: 0, note: 'We clean it after every use.' },
+      { id: 'n1', decision: 'APPROVED', expectedVersion: 0 },
     ]);
   });
 });

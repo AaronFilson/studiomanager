@@ -98,6 +98,18 @@ class InvoiceReadingJob {
     InvoiceReader reader = chosen.get();
     byte[] content =
         blobs.head(InvoiceBlobs.name(studioId, invoiceId, type), InvoiceBlobs.MAX_BYTES);
+    if (type == InvoiceFileType.PDF) {
+      var pages = PdfPageCounter.countPages(content);
+      if (pages.isPresent() && pages.getAsInt() > PdfPageCounter.MAX_PAGES) {
+        save(
+            invoiceId,
+            null,
+            null,
+            "This PDF has %d pages; automatic reading accepts up to %d pages, so fill this one in by hand."
+                .formatted(pages.getAsInt(), PdfPageCounter.MAX_PAGES));
+        return;
+      }
+    }
     InvoiceFile original = new InvoiceFile(content, type);
     InvoiceFile copy = ReadingCopy.of(original);
     String change = ReadingCopy.change(original, copy);

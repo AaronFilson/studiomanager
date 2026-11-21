@@ -97,6 +97,17 @@ class InvoiceInbox {
       throw new InvalidInputException(
           "The file isn't the %s it was started as.".formatted(invoice.fileType().name()));
     }
+    if (invoice.fileType() == InvoiceFileType.PDF) {
+      byte[] pdfBytes = blobs.head(blob, InvoiceBlobs.MAX_BYTES);
+      PdfPageCounter.countPages(pdfBytes)
+          .ifPresent(pages -> {
+            if (pages > PdfPageCounter.MAX_PAGES) {
+              throw new InvalidInputException(
+                  "This PDF has %d pages; the supplies inbox takes up to %d pages."
+                      .formatted(pages, PdfPageCounter.MAX_PAGES));
+            }
+          });
+    }
     invoice.uploaded(info.size());
     // Written before the event: the reader loads it in a transaction of its own
     invoices.flush();

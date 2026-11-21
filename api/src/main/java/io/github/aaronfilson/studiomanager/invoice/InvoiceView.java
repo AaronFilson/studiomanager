@@ -27,6 +27,7 @@ record InvoiceView(
     Instant uploadedAt,
     @Nullable UUID confirmedBy,
     @Nullable Instant confirmedAt,
+    @Nullable UUID ledgerEntryId,
     long version) {
 
   /** An invoice as the inbox lists it, without its lines. */

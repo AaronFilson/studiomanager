@@ -85,6 +85,14 @@ class TokenPermissionsTests {
         .extractingPath("$.result.content[0].text")
         .asString()
         .contains("maintenance.manage");
+
+    // tools/list hides tools the member's role can't invoke
+    MvcTestResult listed =
+        rpc(token, "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}");
+    List<String> toolNames = JsonPath.read(body(listed), "$.result.tools[*].name");
+    assertThat(toolNames)
+        .contains("kilns", "find_pieces", "glaze_book")
+        .doesNotContain("maintenance_due", "member_lookup", "propose_purchase_request");
   }
 
   @Test

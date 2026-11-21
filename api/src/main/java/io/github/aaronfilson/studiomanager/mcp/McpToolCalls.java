@@ -12,6 +12,7 @@ import io.github.aaronfilson.studiomanager.ratelimit.RateLimitSettings.Channel;
 import io.github.aaronfilson.studiomanager.ratelimit.RateLimiter;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
+import io.modelcontextprotocol.server.McpSyncListFilter;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -57,6 +58,18 @@ class McpToolCalls {
 
   List<SyncToolSpecification> specifications() {
     return tools.list().stream().map(this::specification).toList();
+  }
+
+  /**
+   * Filters {@code tools/list} per caller so an assistant only sees tools its signed-in person and
+   * token scopes can actually invoke (docs/planning/17-mcp-and-api-tokens-plan.md).
+   */
+  McpSyncListFilter<McpSchema.Tool> visibilityFilter() {
+    return (transportContext, schemaTool) ->
+        tools
+            .find(schemaTool.name())
+            .flatMap(tool -> TenantContext.current().map(caller -> refusal(tool, caller).isEmpty()))
+            .orElse(false);
   }
 
   private SyncToolSpecification specification(McpTools.Tool tool) {

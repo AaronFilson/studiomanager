@@ -158,7 +158,12 @@ class InvoiceController implements InvoicesApi {
   public ResponseEntity<InvoiceDto> confirmInvoice(
       UUID studioId, UUID invoiceId, ConfirmInvoiceRequestDto request) {
     return ResponseEntity.ok(
-        toDto(review.confirm(studioId, invoiceId, request.getExpectedVersion())));
+        toDto(
+            review.confirm(
+                studioId,
+                invoiceId,
+                request.getExpectedVersion(),
+                Boolean.TRUE.equals(request.getRecordPayable()))));
   }
 
   @Override
@@ -297,6 +302,7 @@ class InvoiceController implements InvoicesApi {
         .uploadedAt(utc(view.uploadedAt()))
         .confirmedBy(view.confirmedBy())
         .confirmedAt(view.confirmedAt() == null ? null : utc(view.confirmedAt()))
+        .ledgerEntryId(view.ledgerEntryId())
         .version(view.version());
   }
 

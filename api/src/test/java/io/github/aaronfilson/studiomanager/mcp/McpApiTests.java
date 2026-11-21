@@ -71,18 +71,43 @@ class McpApiTests {
         .extractingPath("$.result.serverInfo.name")
         .isEqualTo("studiomanager");
     assertThat(init).bodyJson().extractingPath("$.result.capabilities.tools").isNotNull();
+    assertThat(init).bodyJson().extractingPath("$.result.capabilities.resources").isNotNull();
 
     assertThat(rpc(token, "{\"jsonrpc\": \"2.0\", \"method\": \"notifications/initialized\"}"))
         .hasStatus(HttpStatus.ACCEPTED);
 
-    MvcTestResult list =
+    // Read-only token only sees read tools (per-caller tools/list filtering)
+    MvcTestResult readOnlyList =
         rpc(token, "{\"jsonrpc\": \"2.0\", \"id\": \"2\", \"method\": \"tools/list\"}");
-    assertThat(list).bodyJson().extractingPath("$.id").isEqualTo("2");
+    assertThat(readOnlyList).bodyJson().extractingPath("$.id").isEqualTo("2");
+    List<String> readOnlyNames = JsonPath.read(body(readOnlyList), "$.result.tools[*].name");
+    assertThat(readOnlyNames)
+        .contains(
+            "studio_today",
+            "find_pieces",
+            "kilns",
+            "kiln_queue",
+            "member_lookup",
+            "low_supplies",
+            "maintenance_due",
+            "glaze_batch")
+        .doesNotContain(
+            "propose_purchase_request",
+            "propose_maintenance_task",
+            "propose_notice",
+            "log_glaze_mix");
+
+    // Token with read + propose + write:glazes sees all non-destructive tools
+    String fullToken =
+        read(
+            post(
+                owner,
+                path("/api-tokens"),
+                "{\"name\": \"Full Assistant\", \"scopes\": [\"read\", \"propose\", \"write:glazes\"]}"),
+            "$.secret");
+    MvcTestResult list =
+        rpc(fullToken, "{\"jsonrpc\": \"2.0\", \"id\": \"2b\", \"method\": \"tools/list\"}");
     List<String> names = JsonPath.read(body(list), "$.result.tools[*].name");
-    assertThat(names)
-        .contains("studio_today", "kilns", "low_supplies", "maintenance_due", "glaze_batch");
-    // Nothing an assistant can call here is destructive. Only the propose tools aren't read-only,
-    // and all they do is record a suggestion for staff
     List<Boolean> destructive =
         JsonPath.read(body(list), "$.result.tools[*].annotations.destructiveHint");
     assertThat(destructive).hasSameSizeAs(names).containsOnly(false);
@@ -90,7 +115,164 @@ class McpApiTests {
         JsonPath.read(body(list), "$.result.tools[?(@.annotations.readOnlyHint == false)].name");
     assertThat(writing)
         .containsExactlyInAnyOrder(
-            "propose_purchase_request", "propose_maintenance_task", "log_glaze_mix");
+            "propose_purchase_request",
+            "propose_maintenance_task",
+            "propose_notice",
+            "log_glaze_mix");
+  }
+
+  @Test
+  void findPiecesKilnQueueMemberLookupAndProposeNoticeWorkEndToEnd() {
+    // Seed a piece and a kiln
+    assertThat(
+            post(
+                owner,
+                path("/pieces"),
+                """
+                {"description": "Speckled ramen bowl", "clayBody": "B-Mix", "makerMark": "OL", "size": {}}
+                """))
+        .hasStatus(HttpStatus.CREATED);
+    String kilnId =
+        read(
+            post(
+                owner,
+                path("/kilns"),
+                "{\"name\": \"Skutt 1027\", \"kind\": \"ELECTRIC\", \"maxPiecesPerMember\": 4}"),
+            "$.id");
+
+    MvcTestResult found = call("find_pieces", "{\"query\": \"ramen\"}");
+    assertThat(found).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
+    assertThat(found)
+        .bodyJson()
+        .extractingPath("$.result.structuredContent.result.totalMatches")
+        .isEqualTo(1);
+    assertThat(found)
+        .bodyJson()
+        .extractingPath("$.result.structuredContent.result.items[0].description")
+        .isEqualTo("Speckled ramen bowl");
+
+    MvcTestResult queue =
+        call("kiln_queue", "{\"kilnId\": \"%s\", \"kind\": \"BISQUE\"}".formatted(kilnId));
+    assertThat(queue).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
+    assertThat(queue)
+        .bodyJson()
+        .extractingPath("$.result.structuredContent.result.items")
+        .isNotNull();
+
+    MvcTestResult members = call("member_lookup", "{\"query\": \"olive\"}");
+    assertThat(members).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
+    assertThat(members)
+        .bodyJson()
+        .extractingPath("$.result.structuredContent.result[0].displayName")
+        .isEqualTo("Olive");
+
+    // Propose a studio notice with a propose-scoped token, then approve it as the owner
+    String proposeToken =
+        read(
+            post(
+                owner,
+                path("/api-tokens"),
+                "{\"name\": \"Notice Bot\", \"scopes\": [\"read\", \"propose\"]}"),
+            "$.secret");
+    MvcTestResult proposed =
+        rpc(
+            proposeToken,
+            """
+            {"jsonrpc": "2.0", "id": 11, "method": "tools/call",
+             "params": {"name": "propose_notice",
+                        "arguments": {"title": "Kiln room closed Friday",
+                                      "body": "Rewiring Skutt 1027 from 9am to 2pm.",
+                                      "reason": "Scheduled maintenance window"}}}
+            """);
+    assertThat(proposed).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
+    String actionId = read(proposed, "$.result.structuredContent.result.suggestionId");
+
+    MvcTestResult pending = mvc.get().uri(path("/pending-actions")).with(owner.token()).exchange();
+    assertThat(pending).hasStatusOk();
+    assertThat(pending).bodyJson().extractingPath("$.items[0].kind").isEqualTo("STUDIO_NOTICE");
+    assertThat(pending)
+        .bodyJson()
+        .extractingPath("$.items[0].studioNotice.title")
+        .isEqualTo("Kiln room closed Friday");
+    int version = JsonPath.read(body(pending), "$.items[0].version");
+
+    MvcTestResult approved =
+        mvc.put()
+            .uri(path("/pending-actions/" + actionId + "/decision"))
+            .with(owner.token())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"decision\": \"APPROVED\", \"expectedVersion\": %d}".formatted(version))
+            .exchange();
+    assertThat(approved).hasStatusOk();
+    assertThat(approved).bodyJson().extractingPath("$.status").isEqualTo("APPROVED");
+
+    MvcTestResult inbox = mvc.get().uri(path("/notifications")).with(owner.token()).exchange();
+    assertThat(inbox).hasStatusOk();
+    assertThat(JsonPath.<List<String>>read(body(inbox), "$.items[*].title"))
+        .contains("Kiln room closed Friday");
+  }
+
+  @Test
+  void resourcesExposeStudioPoliciesAndGlazes() {
+    String glazeId =
+        read(
+            post(
+                owner,
+                path("/glazes"),
+                """
+                {"ownerKind": "STUDIO", "name": "Shino", "cone": "10",
+                 "lines": [{"kind": "BASE", "material": "Nepheline Syenite", "amount": "75", "unit": "PARTS"},
+                           {"kind": "BASE", "material": "EPK", "amount": "25", "unit": "PARTS"}]}
+                """),
+            "$.id");
+
+    MvcTestResult resourcesList =
+        rpc(token, "{\"jsonrpc\": \"2.0\", \"id\": 20, \"method\": \"resources/list\"}");
+    assertThat(resourcesList).hasStatusOk();
+    assertThat(JsonPath.<List<String>>read(body(resourcesList), "$.result.resources[*].uri"))
+        .contains("studio://policies");
+
+    MvcTestResult templatesList =
+        rpc(token, "{\"jsonrpc\": \"2.0\", \"id\": 21, \"method\": \"resources/templates/list\"}");
+    assertThat(templatesList).hasStatusOk();
+    assertThat(
+            JsonPath.<List<String>>read(
+                body(templatesList), "$.result.resourceTemplates[*].uriTemplate"))
+        .contains("studio://glazes/{id}");
+
+    MvcTestResult policiesRead =
+        rpc(
+            token,
+            """
+            {"jsonrpc": "2.0", "id": 22, "method": "resources/read",
+             "params": {"uri": "studio://policies"}}
+            """);
+    assertThat(policiesRead).hasStatusOk();
+    String policiesJson = read(policiesRead, "$.result.contents[0].text");
+    assertThat(policiesJson).contains("Clay Club", "pickupHoldDays", "feeSchedule");
+
+    MvcTestResult glazeRead =
+        rpc(
+            token,
+            """
+            {"jsonrpc": "2.0", "id": 23, "method": "resources/read",
+             "params": {"uri": "studio://glazes/%s"}}
+            """
+                .formatted(glazeId));
+    assertThat(glazeRead).hasStatusOk();
+    String glazeJson = read(glazeRead, "$.result.contents[0].text");
+    assertThat(glazeJson).contains("Shino", "Nepheline Syenite");
+
+    MvcTestResult missingGlaze =
+        rpc(
+            token,
+            """
+            {"jsonrpc": "2.0", "id": 24, "method": "resources/read",
+             "params": {"uri": "studio://glazes/%s"}}
+            """
+                .formatted(UUID.randomUUID()));
+    assertThat(missingGlaze).hasStatusOk();
+    assertThat(missingGlaze).bodyJson().extractingPath("$.error.code").isEqualTo(-32002);
   }
 
   @Test

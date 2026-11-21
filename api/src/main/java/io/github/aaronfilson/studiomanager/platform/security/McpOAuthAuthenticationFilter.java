@@ -13,7 +13,6 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -21,14 +20,8 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.PathContainer;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
-import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
-import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -53,14 +46,17 @@ final class McpOAuthAuthenticationFilter extends OncePerRequestFilter {
       PathPatternParser.defaultInstance.parse("/api/v1/studios/{studioId}/mcp");
 
   private final McpOAuthProperties properties;
-  private final @Nullable JwtDecoder mcpDecoder;
+  private final McpOAuthJwtVerifier verifier;
   private final AuthenticationEntryPoint entryPoint;
   private final JsonMapper json;
 
   McpOAuthAuthenticationFilter(
-      McpOAuthProperties properties, AuthenticationEntryPoint entryPoint, JsonMapper json) {
+      McpOAuthProperties properties,
+      McpOAuthJwtVerifier verifier,
+      AuthenticationEntryPoint entryPoint,
+      JsonMapper json) {
     this.properties = properties;
-    this.mcpDecoder = properties.enabled() ? buildDecoder(properties) : null;
+    this.verifier = verifier;
     this.entryPoint = entryPoint;
     this.json = json;
   }
@@ -96,13 +92,13 @@ final class McpOAuthAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
     String bearer = bearerToken(request);
-    if (bearer == null || mcpDecoder == null) {
+    if (bearer == null || !verifier.enabled()) {
       refuse(request, response, "A valid MCP access token is required.");
       return;
     }
     Jwt jwt;
     try {
-      jwt = mcpDecoder.decode(bearer);
+      jwt = verifier.decode(bearer);
     } catch (JwtException invalid) {
       refuse(request, response, "This MCP access token isn't valid.");
       return;
@@ -155,19 +151,6 @@ final class McpOAuthAuthenticationFilter extends OncePerRequestFilter {
       return Optional.empty();
     }
     return Optional.ofNullable(parseStudioId(match.getUriVariables().get("studioId")));
-  }
-
-  private static JwtDecoder buildDecoder(McpOAuthProperties properties) {
-    NimbusJwtDecoder decoder =
-        NimbusJwtDecoder.withJwkSetUri(properties.effectiveJwkSetUri())
-            .jwsAlgorithm(SignatureAlgorithm.RS256)
-            .build();
-    decoder.setJwtValidator(
-        new DelegatingOAuth2TokenValidator<>(
-            List.of(
-                new JwtTimestampValidator(),
-                new JwtIssuerValidator(properties.normalizedIssuer()))));
-    return decoder;
   }
 
   private static @Nullable String bearerToken(HttpServletRequest request) {

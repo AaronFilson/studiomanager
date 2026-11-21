@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.proposal;
 import io.github.aaronfilson.studiomanager.apitoken.ApiTokens;
 import io.github.aaronfilson.studiomanager.maintenance.MaintenanceModel.TaskSettings;
 import io.github.aaronfilson.studiomanager.maintenance.TaskChanges;
+import io.github.aaronfilson.studiomanager.notify.NotificationService;
 import io.github.aaronfilson.studiomanager.platform.Capped;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -39,6 +40,7 @@ class PendingActionReview {
   private final PendingActionRepository pendingActions;
   private final PurchaseRequests purchaseRequests;
   private final TaskChanges taskChanges;
+  private final NotificationService notifications;
   private final AccountDirectory accounts;
   private final ApiTokens tokens;
   private final Clock clock;
@@ -48,6 +50,7 @@ class PendingActionReview {
       PendingActionRepository pendingActions,
       PurchaseRequests purchaseRequests,
       TaskChanges taskChanges,
+      NotificationService notifications,
       AccountDirectory accounts,
       ApiTokens tokens,
       Clock clock,
@@ -55,6 +58,7 @@ class PendingActionReview {
     this.pendingActions = pendingActions;
     this.purchaseRequests = purchaseRequests;
     this.taskChanges = taskChanges;
+    this.notifications = notifications;
     this.accounts = accounts;
     this.tokens = tokens;
     this.clock = clock;
@@ -79,7 +83,7 @@ class PendingActionReview {
     PendingAction action = findAtVersion(actionId, expectedVersion);
     // Before making anything, so a decided suggestion is never applied twice
     action.requirePending();
-    UUID madeId =
+    @Nullable UUID madeId =
         switch (action.kind()) {
           case PURCHASE_REQUEST -> {
             PurchaseRequestDraft draft = action.requirePurchaseRequest();
@@ -98,6 +102,11 @@ class PendingActionReview {
                         null,
                         null))
                 .id();
+          }
+          case STUDIO_NOTICE -> {
+            NoticeDraft draft = action.requireStudioNotice();
+            notifications.broadcast(draft.title(), draft.body());
+            yield null;
           }
         };
     action.approve(caller.accountId(), clock.instant(), madeId);

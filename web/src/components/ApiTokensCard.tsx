@@ -1,8 +1,12 @@
 import {
   createApiTokenMutation,
+  linkMcpIdentityMutation,
   listApiTokensOptions,
   listApiTokensQueryKey,
+  listMyIdentitiesOptions,
+  listMyIdentitiesQueryKey,
   revokeApiTokenMutation,
+  unlinkMyIdentityMutation,
   type ApiToken,
   type TokenScope,
 } from '@studiomanager/api-client';
@@ -151,7 +155,94 @@ export function ApiTokensCard({ studioId }: { studioId: string }) {
           </button>
         </div>
       </form>
+      <LinkedMcpIdentities />
     </section>
+  );
+}
+
+function LinkedMcpIdentities() {
+  const id = useId();
+  const queryClient = useQueryClient();
+  const identities = useQuery(listMyIdentitiesOptions());
+  const [mcpToken, setMcpToken] = useState('');
+  const refresh = () => queryClient.invalidateQueries({ queryKey: listMyIdentitiesQueryKey() });
+  const link = useMutation({
+    ...linkMcpIdentityMutation(),
+    onSuccess: () => {
+      setMcpToken('');
+      void refresh();
+    },
+  });
+  const unlink = useMutation({ ...unlinkMyIdentityMutation(), onSuccess: refresh });
+
+  return (
+    <div className="stack">
+      <h3>Linked MCP OAuth identities</h3>
+      <p>
+        When connecting an assistant over OAuth 2.1 instead of a personal token, link a signed MCP OAuth access token
+        here so it acts as your account.
+      </p>
+      {identities.isError && <ErrorMessage error={identities.error} />}
+      {identities.data && identities.data.length > 0 && (
+        <table>
+          <caption>Linked external identities</caption>
+          <thead>
+            <tr>
+              <th scope="col">Subject</th>
+              <th scope="col">Issuer</th>
+              <th scope="col">Linked</th>
+              <th scope="col" />
+            </tr>
+          </thead>
+          <tbody>
+            {identities.data.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <code>{item.subject}</code>
+                </td>
+                <td>{item.issuer}</td>
+                <td>{new Date(item.createdAt).toLocaleDateString()}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={unlink.isPending}
+                    onClick={() => unlink.mutate({ path: { identityId: item.id } })}
+                  >
+                    Unlink
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {unlink.isError && <ErrorMessage error={unlink.error} />}
+      <form
+        className="row"
+        onSubmit={(event) => {
+          event.preventDefault();
+          link.mutate({ body: { token: mcpToken.trim() } });
+        }}
+      >
+        <div className="field">
+          <label htmlFor={`${id}-mcp-token`}>MCP OAuth access token</label>
+          <input
+            id={`${id}-mcp-token`}
+            type="password"
+            minLength={20}
+            maxLength={8192}
+            placeholder="Paste signed MCP JWT"
+            value={mcpToken}
+            onChange={(e) => setMcpToken(e.target.value)}
+          />
+        </div>
+        <button type="submit" disabled={link.isPending || mcpToken.trim().length < 20}>
+          Link MCP identity
+        </button>
+      </form>
+      {link.isError && <ErrorMessage error={link.error} />}
+    </div>
   );
 }
 

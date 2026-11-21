@@ -93,11 +93,12 @@ class SecurityConfiguration {
       RolePermissions rolePermissions,
       ApiTokenResolver apiTokens,
       McpOAuthProperties mcpOAuth,
+      McpOAuthJwtVerifier mcpOAuthVerifier,
       JsonMapper json) {
     ProblemJsonSecurityHandler problems = new ProblemJsonSecurityHandler(json, mcpOAuth);
     DefaultBearerTokenResolver jwtBearer = new DefaultBearerTokenResolver();
     McpOAuthAuthenticationFilter mcpOAuthFilter =
-        new McpOAuthAuthenticationFilter(mcpOAuth, problems, json);
+        new McpOAuthAuthenticationFilter(mcpOAuth, mcpOAuthVerifier, problems, json);
     http.authorizeHttpRequests(requests ->
             requests
                 .requestMatchers("/actuator/health/**", "/error")
