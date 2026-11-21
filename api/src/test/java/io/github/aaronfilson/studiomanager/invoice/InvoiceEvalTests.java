@@ -2,23 +2,29 @@ package io.github.aaronfilson.studiomanager.invoice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The invoice eval, run in CI against recorded answers, so it's free and repeatable (docs/planning
- * /16, "Evaluation"). Each folder under {@code src/test/resources/invoices/eval} is one invoice:
+ * /16, "Evaluation"; v2 fields and splits in docs/planning/24). Each folder under {@code
+ * src/test/resources/invoices/eval} is one invoice:
  *
  * <ul>
- *   <li>{@code expected.json}: the hand-written answer, in Claude's answer shape;
+ *   <li>{@code expected.json}: the hand-written (or generated) answer, in Claude's v1/v2 shape;
+ *   <li>{@code case.json}: source, license, tags and split ({@code dev} or {@code test});
  *   <li>{@code claude.json}: what Claude answered, recorded by {@code LiveInvoiceEval};
  *   <li>{@code google.json}, {@code azure.json}: what Google Document AI and Azure AI Document
  *       Intelligence answered, recorded by {@code LiveDocumentServiceEval};
@@ -33,33 +39,53 @@ class InvoiceEvalTests {
 
   static final Path CASES = Path.of("src/test/resources/invoices/eval");
 
-  /** The synthetic set's known scores; real invoices from the owner will set the real floor. */
+  /** Known floors per split; real invoices from the owner tighten these via LiveInvoiceEval. */
   private static final double FIELD_FLOOR = 0.85;
 
   private static final double LINE_FLOOR = 0.85;
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
+  /** Metadata in {@code case.json}. Defaults to {@code dev} if a case predates splits. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record CaseMeta(
+      @Nullable String source,
+      @Nullable String license,
+      @Nullable List<String> tags,
+      @Nullable String split) {
+
+    String effectiveSplit() {
+      return "test".equalsIgnoreCase(split) ? "test" : "dev";
+    }
+  }
+
   @Test
-  void recordedClaudeAnswersScoreAtLeastTheFloor() throws IOException {
-    List<InvoiceScorer.Score> scores = new ArrayList<>();
+  void recordedClaudeAnswersScoreAtLeastTheFloorPerSplit() throws IOException {
+    List<InvoiceScorer.Score> allScores = new ArrayList<>();
+    Map<String, List<InvoiceScorer.Score>> bySplit = new LinkedHashMap<>();
+    bySplit.put("test", new ArrayList<>());
+    bySplit.put("dev", new ArrayList<>());
     List<InvoiceScorer.Checked> checks = new ArrayList<>();
     StringBuilder report =
-        new StringBuilder("case | fields | lines | no edits | false alarms | missed\n");
+        new StringBuilder("case | split | fields | lines | no edits | false alarms | missed\n");
     for (Path folder : cases()) {
       Path recorded = folder.resolve("claude.json");
       if (!Files.exists(recorded)) {
         continue;
       }
+      String split = caseMeta(folder).effectiveSplit();
+      InvoiceDraft expected = expected(folder);
       InvoiceDraft read = read(answer(recorded).toDraft());
-      InvoiceScorer.Score score = InvoiceScorer.score(expected(folder), read);
-      InvoiceScorer.Checked checked = InvoiceScorer.checks(expected(folder), read, score);
-      scores.add(score);
+      InvoiceScorer.Score score = InvoiceScorer.score(expected, read);
+      InvoiceScorer.Checked checked = InvoiceScorer.checks(expected, read, score);
+      allScores.add(score);
+      bySplit.computeIfAbsent(split, ignored -> new ArrayList<>()).add(score);
       checks.add(checked);
       report.append(
-          "%s | %d/%d | %d/%d | %s | %d | %s%n"
+          "%s | %s | %d/%d | %d/%d | %s | %d | %s%n"
               .formatted(
                   folder.getFileName(),
+                  split,
                   score.fieldsRight(),
                   score.fieldsTotal(),
                   score.linesRight(),
@@ -68,17 +94,238 @@ class InvoiceEvalTests {
                   checked.falseAlarms(),
                   checked.missed()));
     }
+    for (Map.Entry<String, List<InvoiceScorer.Score>> entry : bySplit.entrySet()) {
+      report.append(
+          "split=%s (%d cases): fields=%.1f%% lines=%.1f%%%n"
+              .formatted(
+                  entry.getKey(),
+                  entry.getValue().size(),
+                  100 * fieldAccuracy(entry.getValue()),
+                  100 * lineAccuracy(entry.getValue())));
+    }
     System.out.print(report);
 
-    assertThat(scores).isNotEmpty();
-    assertThat(fieldAccuracy(scores)).isGreaterThanOrEqualTo(FIELD_FLOOR);
-    assertThat(lineAccuracy(scores)).isGreaterThanOrEqualTo(LINE_FLOOR);
+    assertThat(allScores).isNotEmpty();
+    assertThat(bySplit.get("dev")).isNotEmpty();
+    assertThat(bySplit.get("test")).isNotEmpty();
+    assertThat(fieldAccuracy(allScores)).isGreaterThanOrEqualTo(FIELD_FLOOR);
+    assertThat(lineAccuracy(allScores)).isGreaterThanOrEqualTo(LINE_FLOOR);
+    for (Map.Entry<String, List<InvoiceScorer.Score>> entry : bySplit.entrySet()) {
+      assertThat(fieldAccuracy(entry.getValue()))
+          .as("field accuracy for split %s", entry.getKey())
+          .isGreaterThanOrEqualTo(FIELD_FLOOR);
+      assertThat(lineAccuracy(entry.getValue()))
+          .as("line accuracy for split %s", entry.getKey())
+          .isGreaterThanOrEqualTo(LINE_FLOOR);
+    }
     // What staff are told: no problem raised on a right draft, and a wrong one always says so
     assertThat(checks)
         .allSatisfy(checked -> {
           assertThat(checked.falseAlarms()).isZero();
           assertThat(checked.missed()).isFalse();
         });
+  }
+
+  @Test
+  void v2FieldsAreScoredWhenPresentInExpected() {
+    InvoiceDraft expected =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.ORDER_FORM,
+            "Cascade Clay",
+            null,
+            "CTR-1",
+            LocalDate.of(2026, 10, 18),
+            "10/18",
+            InvoiceDraft.DateYearSource.FROM_PAGE,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            new BigDecimal("8.00"),
+            new BigDecimal("60.00"),
+            new BigDecimal("108.00"),
+            BigDecimal.ZERO,
+            List.of(
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 18),
+                    new BigDecimal("60.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.SLIP),
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 19),
+                    new BigDecimal("48.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.RECEIPT)),
+            List.of(),
+            null,
+            List.of(),
+            90,
+            List.of(
+                new InvoiceDraft.Line(
+                    "Fireclay",
+                    null,
+                    new BigDecimal("100"),
+                    "lb",
+                    null,
+                    new BigDecimal("80.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false),
+                new InvoiceDraft.Line(
+                    "Freight",
+                    null,
+                    null,
+                    null,
+                    null,
+                    new BigDecimal("20.00"),
+                    InvoiceDraft.LineKind.SHIPPING,
+                    List.of(),
+                    false)));
+
+    InvoiceScorer.Score exact = InvoiceScorer.score(expected, expected);
+    // 7 core + documentType + invoiceDateYear + payments = 10
+    assertThat(exact.fieldsTotal()).isEqualTo(10);
+    assertThat(exact.fieldsRight()).isEqualTo(10);
+    assertThat(exact.linesRight()).isEqualTo(2);
+    assertThat(exact.needsNoEdits()).isTrue();
+    assertThat(InvoiceScorer.checks(expected, expected, exact))
+        .isEqualTo(new InvoiceScorer.Checked(0, false));
+
+    // Wrong documentType, assumed year, missing payments, wrong line kind
+    InvoiceDraft wrongV2 =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.INVOICE,
+            "Cascade Clay",
+            null,
+            "CTR-1",
+            LocalDate.of(2026, 10, 18),
+            "10/18",
+            InvoiceDraft.DateYearSource.ASSUMED,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            new BigDecimal("8.00"),
+            new BigDecimal("60.00"),
+            null,
+            null,
+            List.of(),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            List.of(
+                new InvoiceDraft.Line(
+                    "Fireclay",
+                    null,
+                    new BigDecimal("100"),
+                    "lb",
+                    null,
+                    new BigDecimal("80.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false),
+                new InvoiceDraft.Line(
+                    "Freight",
+                    null,
+                    null,
+                    null,
+                    null,
+                    new BigDecimal("20.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false)));
+    InvoiceScorer.Score mismatch = InvoiceScorer.score(expected, wrongV2);
+    assertThat(mismatch.fieldsTotal()).isEqualTo(10);
+    assertThat(mismatch.fieldsRight()).isEqualTo(7);
+    assertThat(mismatch.linesRight()).isEqualTo(1);
+    assertThat(mismatch.needsNoEdits()).isFalse();
+  }
+
+  @Test
+  void v2HallucinatedPaymentsArePenalized() {
+    InvoiceDraft expected =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.INVOICE,
+            "Cascade Clay",
+            "INV-42",
+            null,
+            LocalDate.of(2026, 10, 18),
+            null,
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            List.of(),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            List.of(
+                new InvoiceDraft.Line(
+                    "Fireclay",
+                    null,
+                    new BigDecimal("100"),
+                    "lb",
+                    null,
+                    new BigDecimal("100.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false)));
+
+    InvoiceScorer.Score clean = InvoiceScorer.score(expected, expected);
+    // 7 core + documentType = 8 (empty payments on both sides don't inflate fieldsTotal)
+    assertThat(clean.fieldsTotal()).isEqualTo(8);
+    assertThat(clean.fieldsRight()).isEqualTo(8);
+    assertThat(clean.needsNoEdits()).isTrue();
+
+    InvoiceDraft hallucinated =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.INVOICE,
+            "Cascade Clay",
+            "INV-42",
+            null,
+            LocalDate.of(2026, 10, 18),
+            null,
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            List.of(
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 18),
+                    new BigDecimal("100.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.INVOICE)),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            expected.lines());
+
+    InvoiceScorer.Score penalized = InvoiceScorer.score(expected, hallucinated);
+    assertThat(penalized.fieldsTotal()).isEqualTo(9);
+    assertThat(penalized.fieldsRight()).isEqualTo(8);
+    assertThat(penalized.needsNoEdits()).isFalse();
+  }
+
+  @Test
+  void committedSyntheticCasesCoverPackingListAndSplitPayments() {
+    InvoiceDraft counter = expected(CASES.resolve("synth-handwritten-counter-order"));
+    assertThat(counter.documentType()).isEqualTo(InvoiceDraft.DocumentType.ORDER_FORM);
+    assertThat(counter.payableAmount()).isEqualByComparingTo("177.70");
+    assertThat(InvoiceChecks.problems(counter)).isEmpty();
+    assertThat(InvoiceChecks.explanations(counter)).hasSize(1);
+
+    InvoiceDraft packing = expected(CASES.resolve("synth-packing-list"));
+    assertThat(packing.documentType()).isEqualTo(InvoiceDraft.DocumentType.PACKING_LIST);
+    assertThat(InvoiceChecks.problems(packing)).isEmpty();
   }
 
   @Test
@@ -202,6 +449,14 @@ class InvoiceEvalTests {
 
   static List<Path> privateCases() throws IOException {
     return Files.isDirectory(PRIVATE_CASES) ? casesIn(PRIVATE_CASES) : List.of();
+  }
+
+  static CaseMeta caseMeta(Path folder) {
+    Path file = folder.resolve("case.json");
+    if (!Files.exists(file)) {
+      return new CaseMeta(null, null, List.of(), "dev");
+    }
+    return JSON.readValue(file.toFile(), CaseMeta.class);
   }
 
   private static List<Path> casesIn(Path root) throws IOException {

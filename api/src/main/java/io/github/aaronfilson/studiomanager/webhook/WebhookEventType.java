@@ -15,6 +15,7 @@ public enum WebhookEventType {
   ACCESS_CHANGED(
       "access.changed",
       "Someone changed who may do what: a role's permissions, a member's role or duties, the owners, or the billing contact."),
+  GLAZE_MIXED("glaze.mixed", "A studio glaze bucket was mixed."),
   PING("ping", "A test, sent from the Webhooks page.");
 
   private final String wireName;

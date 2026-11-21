@@ -74,7 +74,6 @@ public enum TokenScope {
               Permission.SUPPLIES_MANAGE,
               Permission.SUPPLIES_PURCHASE_REQUEST,
               Permission.GLAZES_READ,
-              Permission.GLAZES_STUDIO_EDIT,
               Permission.MONEY_OWN_READ,
               Permission.NOTICES_READ,
               Permission.TODAY_READ,

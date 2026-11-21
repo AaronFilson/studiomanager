@@ -4,13 +4,17 @@ import io.github.aaronfilson.studiomanager.contract.FiringDto;
 import io.github.aaronfilson.studiomanager.contract.FiringKindDto;
 import io.github.aaronfilson.studiomanager.contract.FiringListDto;
 import io.github.aaronfilson.studiomanager.contract.FiringTransitionRequestDto;
+import io.github.aaronfilson.studiomanager.contract.ImportKilnLogRequestDto;
 import io.github.aaronfilson.studiomanager.contract.KilnAvailabilityRequestDto;
 import io.github.aaronfilson.studiomanager.contract.KilnDto;
+import io.github.aaronfilson.studiomanager.contract.KilnLogColumnMapDto;
+import io.github.aaronfilson.studiomanager.contract.KilnLogImportResultDto;
 import io.github.aaronfilson.studiomanager.contract.KilnsApi;
 import io.github.aaronfilson.studiomanager.contract.LoadKilnRequestDto;
 import io.github.aaronfilson.studiomanager.contract.QueueEntryDto;
 import io.github.aaronfilson.studiomanager.contract.QueueEntryListDto;
 import io.github.aaronfilson.studiomanager.contract.SaveKilnRequestDto;
+import io.github.aaronfilson.studiomanager.contract.TemperatureUnitDto;
 import io.github.aaronfilson.studiomanager.contract.UpdateKilnRequestDto;
 import io.github.aaronfilson.studiomanager.piece.PieceDtos;
 import io.github.aaronfilson.studiomanager.platform.Capped;
@@ -20,6 +24,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +36,7 @@ class KilnController implements KilnsApi {
   private final FiringService firings;
   private final FiringLoads loads;
   private final FiringTransitions transitions;
+  private final KilnLogImportService logImports;
   private final Clock clock;
 
   KilnController(
@@ -38,11 +44,13 @@ class KilnController implements KilnsApi {
       FiringService firings,
       FiringLoads loads,
       FiringTransitions transitions,
+      KilnLogImportService logImports,
       Clock clock) {
     this.kilns = kilns;
     this.firings = firings;
     this.loads = loads;
     this.transitions = transitions;
+    this.logImports = logImports;
     this.clock = clock;
   }
 
@@ -118,6 +126,31 @@ class KilnController implements KilnsApi {
 
   @Override
   @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
+  public ResponseEntity<KilnLogImportResultDto> importKilnLog(
+      UUID studioId, UUID kilnId, ImportKilnLogRequestDto request) {
+    TemperatureUnitDto reqUnit = request.getTempUnit();
+    FiringKindDto reqKind = request.getKind();
+    boolean dryRun = Boolean.TRUE.equals(request.getDryRun());
+    KilnLogImportService.ImportRequest importRequest =
+        new KilnLogImportService.ImportRequest(
+            request.getCsvText(),
+            KilnLogSource.valueOf(request.getSource().name()),
+            reqUnit == null ? null : TemperatureUnit.valueOf(reqUnit.name()),
+            columnMap(request.getColumnMap()),
+            request.getFiringId(),
+            reqKind == null ? null : FiringKind.valueOf(reqKind.name()),
+            request.getCone(),
+            request.getNotes(),
+            dryRun);
+    KilnLogImportService.ImportResult result =
+        dryRun
+            ? logImports.preview(kilnId, importRequest)
+            : logImports.commit(kilnId, importRequest);
+    return ResponseEntity.ok(KilnDtos.toDto(result, clock.instant()));
+  }
+
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'FIRINGS_MANAGE')")
   public ResponseEntity<FiringDto> getFiring(UUID studioId, UUID firingId) {
     return ResponseEntity.ok(toDto(firings.get(firingId)));
   }
@@ -142,6 +175,19 @@ class KilnController implements KilnsApi {
         request.getSite(),
         KilnView.KilnType.valueOf(request.getKind().name()),
         request.getMaxPiecesPerMember());
+  }
+
+  private static KilnLogParser.@Nullable ColumnMap columnMap(@Nullable KilnLogColumnMapDto dto) {
+    if (dto == null) {
+      return null;
+    }
+    return new KilnLogParser.ColumnMap(
+        dto.getTime(),
+        dto.getTemperature(),
+        dto.getSetpoint(),
+        dto.getSegment(),
+        dto.getOutput(),
+        dto.getError());
   }
 
   private static KilnDto toDto(KilnView kiln) {

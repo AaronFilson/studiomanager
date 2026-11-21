@@ -192,6 +192,9 @@ importers:
       '@studiomanager/api-client':
         specifier: workspace:*
         version: link:../packages/api-client
+      '@studiomanager/glaze-chemistry':
+        specifier: workspace:*
+        version: link:../packages/glaze-chemistry
       '@tanstack/react-query':
         specifier: 5.105.2
         version: 5.105.2(@types/react@19.3.0)(react@19.3.1)
@@ -314,6 +317,27 @@ importers:
         specifier: 5.1.0
         version: 5.1.0(@types/node@24.19.2)(jsdom@30.1.3)(msw@3.0.3(@types/node@24.19.2)(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)))(vite@8.3.5(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2))
 
+  packages/glaze-chemistry:
+    devDependencies:
+      '@eslint/js':
+        specifier: 10.0.1
+        version: 10.0.1(eslint@10.14.0(jiti@2.7.0)(supports-color@8.1.1))
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      eslint:
+        specifier: 10.14.0
+        version: 10.14.0(jiti@2.7.0)(supports-color@8.1.1)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      typescript-eslint:
+        specifier: 8.72.1
+        version: 8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@24.19.2)(jsdom@30.1.3)(msw@3.0.3(@types/node@24.19.2)(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)))(vite@8.3.5(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2))
+
   web:
     dependencies:
       '@azure/msal-browser':
@@ -325,6 +349,9 @@ importers:
       '@studiomanager/api-client':
         specifier: workspace:*
         version: link:../packages/api-client
+      '@studiomanager/glaze-chemistry':
+        specifier: workspace:*
+        version: link:../packages/glaze-chemistry
       '@tanstack/react-query':
         specifier: 5.105.2
         version: 5.105.2(@types/react@19.3.0)(react@19.3.1)

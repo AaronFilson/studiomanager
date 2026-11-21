@@ -38,6 +38,10 @@ class Account {
     return id;
   }
 
+  String issuer() {
+    return issuer;
+  }
+
   @Nullable String displayName() {
     return displayName;
   }

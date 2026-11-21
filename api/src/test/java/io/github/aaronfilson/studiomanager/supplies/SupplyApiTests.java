@@ -1,10 +1,16 @@
 package io.github.aaronfilson.studiomanager.supplies;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jayway.jsonpath.JsonPath;
 import io.github.aaronfilson.studiomanager.IntegrationTest;
 import io.github.aaronfilson.studiomanager.TestUser;
+import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
+import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +29,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 class SupplyApiTests {
 
   @Autowired MockMvcTester mvc;
+  @Autowired SupplyService supplies;
 
   private final TestUser owner = TestUser.named("Olive");
   private final TestUser tech = TestUser.named("Tam");
@@ -192,6 +199,86 @@ class SupplyApiTests {
     move(owner, clay, "RECEIVED", "1");
     move(owner, clay, "COUNTED", "0");
     assertThat(outNotices()).hasSize(2);
+  }
+
+  @Test
+  void recordingPurchasePriceUpdatesTheSupplyItemAndRejectsNegativePrices() throws Exception {
+    UUID clayId =
+        UUID.fromString(
+            read(
+                post(
+                    owner,
+                    path("/supplies"),
+                    "{\"name\": \"B-Mix 5\", \"category\": \"CLAY\", \"unit\": \"50 lb box\"}"),
+                "$.id"));
+    UUID ownerId =
+        UUID.fromString(
+            read(mvc.get().uri("/api/v1/me").with(owner.token()).exchange(), "$.account.id"));
+    TenantContext asOwner = new TenantContext(ownerId, studioId, StudioRole.OWNER);
+    Instant boughtAt = Instant.parse("2026-10-14T15:30:00Z");
+
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(clayId, new BigDecimal("32.505"), boughtAt);
+          return null;
+        });
+
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("32.505"))
+        .hasPathSatisfying(
+            "$[0].lastPurchasedAt", d -> assertThat(d).isEqualTo("2026-10-14T15:30:00Z"));
+
+    // Strictly older purchase timestamp does not overwrite newer price
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(
+              clayId, new BigDecimal("19.00"), Instant.parse("2026-10-01T00:00:00Z"));
+          return null;
+        });
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("32.505"))
+        .hasPathSatisfying(
+            "$[0].lastPurchasedAt", d -> assertThat(d).isEqualTo("2026-10-14T15:30:00Z"));
+
+    // Preserves up to 4 decimals (HALF_UP) and formats whole/tenths with at least 2 decimals
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(
+              clayId, new BigDecimal("0.08756"), Instant.parse("2026-10-15T00:00:00Z"));
+          return null;
+        });
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("0.0876"));
+
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(
+              clayId, new BigDecimal("18.5"), Instant.parse("2026-10-16T00:00:00Z"));
+          return null;
+        });
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("18.50"));
+
+    assertThatThrownBy(() ->
+            TenantContext.callAs(
+                asOwner,
+                () -> {
+                  supplies.recordPurchasePrice(clayId, new BigDecimal("-1.00"), boughtAt);
+                  return null;
+                }))
+        .isInstanceOf(InvalidInputException.class);
   }
 
   /** The maker's notices about something being out, newest first. */

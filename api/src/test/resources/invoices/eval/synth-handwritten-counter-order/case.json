@@ -1,0 +1,15 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "handwritten-counter",
+  "seed": 20261116,
+  "split": "test",
+  "tags": [
+    "synthetic",
+    "handwritten",
+    "split-payments",
+    "crossed-out",
+    "rotated",
+    "no-unit-price"
+  ]
+}

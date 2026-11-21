@@ -88,6 +88,8 @@ class TokenScopeTests {
               .as("%s allows mcp.use", scope)
               .isEqualTo(scope == TokenScope.READ);
         });
+    assertThat(TokenScope.READ.permissions()).doesNotContain(Permission.GLAZES_STUDIO_EDIT);
+    assertThat(TokenScope.WRITE_GLAZES.permissions()).contains(Permission.GLAZES_STUDIO_EDIT);
   }
 
   private static boolean needsAnOwnerOnlyPermission(PermissionContractTests.Operation operation) {

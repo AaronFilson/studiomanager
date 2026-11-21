@@ -18,7 +18,7 @@ export default function IntakeScreen() {
         <IntakeForm
           studioId={studioId}
           unitSystem={studio.data.unitSystem}
-          staff={permissions.can('pieces.intake_for_others')}
+          staff={permissions.can('pieces.intake_for_others') && permissions.can('members.read')}
         />
       )}
     </Screen>

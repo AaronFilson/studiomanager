@@ -57,6 +57,9 @@ final class SupplyMatcher {
       InvoiceDraft.Line line,
       Map<AliasKey, UUID> aliases,
       List<Candidate> items) {
+    if (!line.effectiveKind().isStockCandidate()) {
+      return Optional.empty();
+    }
     String vendorKey = normalize(vendorName);
     if (!vendorKey.isEmpty()) {
       String skuKey = normalize(line.sku());

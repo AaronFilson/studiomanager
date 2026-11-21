@@ -1,0 +1,13 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "shopify-order",
+  "seed": 20261116,
+  "split": "test",
+  "tags": [
+    "synthetic",
+    "online-order",
+    "serial-numbers",
+    "shipping-header"
+  ]
+}

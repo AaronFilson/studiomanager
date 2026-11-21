@@ -843,6 +843,159 @@ export type Firing = {
      * Empty in the firing log; filled for one firing.
      */
     pieces: Array<Piece>;
+    /**
+     * Peak temperature from an imported controller log, in `tempUnit`.
+     */
+    peakTemp?: number;
+    tempUnit?: TemperatureUnit;
+    /**
+     * Firing duration in minutes from an imported controller log.
+     */
+    durationMinutes?: number;
+    /**
+     * Controller error or fault code if one occurred (for example `E-1` or `FTH`).
+     */
+    errorCode?: string;
+    logSource?: KilnLogSource;
+    /**
+     * Downsampled firing temperature series (at most 250 points) for charting.
+     */
+    temperatureCurve?: Array<TemperaturePoint>;
+};
+
+export type TemperatureUnit = 'F' | 'C';
+
+/**
+ * Controller family used to map CSV columns. `GENESIS` and `TAP` presets follow documented
+ * controller traits and stay marked unverified until checked against real controller exports.
+ *
+ */
+export type KilnLogSource = 'GENESIS' | 'TAP' | 'OTHER';
+
+export type TemperaturePoint = {
+    /**
+     * Minutes elapsed since the start of the firing.
+     */
+    elapsedMinutes: number;
+    /**
+     * Primary kiln temperature at this sample (mean of zones when multi-zone).
+     */
+    temp: number;
+    /**
+     * Controller target/setpoint temperature, when present.
+     */
+    setpoint?: number;
+    /**
+     * Individual zone thermocouple readings (e.g. TC1, TC2, TC3), when present.
+     */
+    zoneTemps?: Array<number>;
+};
+
+/**
+ * Optional case-insensitive column header overrides for controller CSV parsing.
+ */
+export type KilnLogColumnMap = {
+    /**
+     * Column header for timestamp or elapsed time.
+     */
+    time?: string;
+    /**
+     * Column header for temperature, or comma-separated zone headers (e.g. `TC1, TC2, TC3`).
+     */
+    temperature?: string;
+    /**
+     * Column header for target/setpoint temperature.
+     */
+    setpoint?: string;
+    /**
+     * Column header for firing segment number.
+     */
+    segment?: string;
+    /**
+     * Column header for output power percentage.
+     */
+    output?: string;
+    /**
+     * Column header for error code or event text.
+     */
+    error?: string;
+};
+
+export type ImportKilnLogRequest = {
+    /**
+     * Raw CSV, semicolon-separated, or TSV controller log text (at most 2 MB).
+     */
+    csvText: string;
+    source: KilnLogSource;
+    /**
+     * Optional unit override; inferred from headers, peak temp, or studio settings when absent.
+     */
+    tempUnit?: TemperatureUnit;
+    columnMap?: KilnLogColumnMap;
+    /**
+     * Existing firing on this kiln to attach telemetry to. Omit to create a new COMPLETE firing.
+     */
+    firingId?: string;
+    /**
+     * Firing kind when creating a new COMPLETE firing; defaults to BISQUE.
+     */
+    kind?: FiringKind;
+    /**
+     * Optional cone (for example `04` or `6`) when creating a new firing or filling a blank cone.
+     */
+    cone?: string;
+    /**
+     * Optional notes when creating a new firing.
+     */
+    notes?: string;
+    /**
+     * When true, parses and checks for overlapping firings without saving anything.
+     */
+    dryRun: boolean;
+};
+
+export type SuggestedFiringMatch = {
+    firingId: string;
+    kind: FiringKind;
+    cone?: string;
+    status: FiringStatus;
+    createdAt: string;
+    startedAt?: string;
+    finishedAt?: string;
+    /**
+     * Why this existing firing was matched against the log timestamps.
+     */
+    overlapDescription: string;
+};
+
+export type KilnLogImportResult = {
+    /**
+     * True only when `dryRun` was false and the telemetry was saved.
+     */
+    committed: boolean;
+    source: KilnLogSource;
+    /**
+     * True for `GENESIS` and `TAP` presets until confirmed against real controller files.
+     */
+    presetUnverified: boolean;
+    tempUnit: TemperatureUnit;
+    /**
+     * True when `tempUnit` was inferred rather than explicitly provided.
+     */
+    tempUnitInferred: boolean;
+    startedAt?: string;
+    finishedAt?: string;
+    durationMinutes: number;
+    peakTemp: number;
+    detectedCone?: string;
+    errorCode?: string;
+    rowCount: number;
+    zoneCount: number;
+    detectedColumns: Array<string>;
+    warnings: Array<string>;
+    temperatureCurve: Array<TemperaturePoint>;
+    suggestedMatch?: SuggestedFiringMatch;
+    firing?: Firing;
 };
 
 export type LoadKilnRequest = {
@@ -1268,6 +1421,14 @@ export type SupplyItem = {
     parLevel?: Decimal;
     reorderQuantity?: Decimal;
     salePrice?: Decimal;
+    /**
+     * Unit price from the last confirmed invoice line for this item.
+     */
+    lastPurchaseUnitPrice?: Decimal;
+    /**
+     * When the last purchase price was recorded.
+     */
+    lastPurchasedAt?: string;
     taxCategory?: string;
     /**
      * What to tell members to use while this is out.
@@ -1754,7 +1915,7 @@ export type NecReport = {
     payees: Array<NecLine>;
 };
 
-export type WebhookEventType = 'pieces.ready' | 'fee.charged' | 'member.joined' | 'access.changed' | 'ping';
+export type WebhookEventType = 'pieces.ready' | 'fee.charged' | 'member.joined' | 'access.changed' | 'glaze.mixed' | 'ping';
 
 export type WeeklyActivity = {
     /**
@@ -1909,11 +2070,35 @@ export type GlazeAmountUnit = 'PARTS' | 'PERCENT' | 'GRAMS';
  */
 export type SpecificGravity = string;
 
+/**
+ * Oxide analysis (% by weight) and LOI copied from an import, kept as sent.
+ */
+export type GlazeLineChemistry = {
+    materialId?: string;
+    analysis?: {
+        [key: string]: number;
+    };
+    loi?: number;
+};
+
+export type GlazePhoto = {
+    id: string;
+    url: string;
+    thumbnailUrl: string;
+    uploadedByAccountId: string;
+    uploadedAt: string;
+};
+
 export type GlazeLine = {
     kind: GlazeLineKind;
     material: string;
     amount: Decimal;
+    /**
+     * Original amount text from an import, when present.
+     */
+    amountText?: string;
     unit: GlazeAmountUnit;
+    chemistry?: GlazeLineChemistry;
 };
 
 export type GlazeRecipe = {
@@ -1938,7 +2123,12 @@ export type GlazeRecipe = {
     targetSpecificGravity?: SpecificGravity;
     sharedWithStudio: boolean;
     source: GlazeSource;
+    /**
+     * The member recipe this studio glaze was promoted from, if any.
+     */
+    promotedFrom?: string;
     lines: Array<GlazeLine>;
+    photos?: Array<GlazePhoto>;
     /**
      * Whether the caller may change or delete it.
      */
@@ -1977,6 +2167,105 @@ export type GlazeBatchLine = {
     kind: GlazeLineKind;
     material: string;
     weight: Decimal;
+};
+
+export type GlazeMixReading = {
+    id: string;
+    readByAccountId?: string;
+    readByName?: string;
+    readAt: string;
+    specificGravity: SpecificGravity;
+    note?: string;
+    /**
+     * True when outside ±0.03 of the recipe's target specific gravity.
+     */
+    offTarget: boolean;
+    /**
+     * Actionable warning when `offTarget` is true.
+     */
+    warning?: string;
+};
+
+export type GlazeMix = {
+    id: string;
+    recipeId: string;
+    mixedByAccountId: string;
+    mixedByName?: string;
+    mixedAt: string;
+    dryWeightG: Decimal;
+    waterG?: Decimal;
+    notes?: string;
+    readings: Array<GlazeMixReading>;
+};
+
+export type LogGlazeMixRequest = {
+    dryWeightG: Decimal;
+    waterG?: Decimal;
+    /**
+     * Optional initial SG reading recorded with the mix.
+     */
+    specificGravity?: SpecificGravity;
+    notes?: string;
+};
+
+export type AddGlazeMixReadingRequest = {
+    specificGravity: SpecificGravity;
+    note?: string;
+};
+
+export type GlazeImportOutcome = 'NEW' | 'UPDATED' | 'UNCHANGED' | 'ERROR';
+
+export type GlazeImportRow = {
+    index: number;
+    name: string;
+    sourceRef?: string;
+    outcome: GlazeImportOutcome;
+    recipeId?: string;
+    message: string;
+    warnings: Array<string>;
+};
+
+export type GlazeImportResult = {
+    format: string;
+    committed: boolean;
+    createdCount: number;
+    updatedCount: number;
+    unchangedCount: number;
+    errorCount: number;
+    rows: Array<GlazeImportRow>;
+};
+
+export type ImportGlazeShareRequest = {
+    /**
+     * A Glazecalc share URL (`https://glazecalcapp.com/shared#<secret>`) or raw share secret.
+     */
+    shareUrlOrSecret: string;
+    dryRun?: boolean;
+};
+
+export type GlazecalcStatus = {
+    configured: boolean;
+    connected: boolean;
+    baseUrl: string;
+    connectedAt?: string;
+    lastSyncedAt?: string;
+    expiresAt?: string;
+    remoteAccountLabel?: string;
+};
+
+export type GlazecalcConnectRequest = {
+    redirectUri?: string;
+};
+
+export type GlazecalcConnectResponse = {
+    authorizationUrl: string;
+    state: string;
+};
+
+export type GlazecalcCallbackRequest = {
+    code: string;
+    state: string;
+    redirectUri?: string;
 };
 
 export type AiProvider = 'ANTHROPIC';
@@ -2046,6 +2335,29 @@ export type InvoiceUpload = {
     maxBytes: number;
 };
 
+export type InvoiceDocumentType = 'INVOICE' | 'ORDER_FORM' | 'RECEIPT' | 'PACKING_LIST' | 'CREDIT_MEMO' | 'STATEMENT' | 'QUOTE' | 'OTHER';
+
+/**
+ * Where the year on the invoice date came from.
+ */
+export type InvoiceDateYearSource = 'PRINTED' | 'FROM_PAGE' | 'ASSUMED';
+
+/**
+ * What kind of row the line is; shipping, fee, discount and deposit lines default to not stock.
+ */
+export type InvoiceLineKind = 'ITEM' | 'SHIPPING' | 'FEE' | 'DISCOUNT' | 'DEPOSIT' | 'OTHER';
+
+export type InvoicePaymentMethod = 'CARD' | 'CASH' | 'CHECK' | 'ACCOUNT';
+
+export type InvoicePaymentSource = 'INVOICE' | 'RECEIPT' | 'SLIP';
+
+export type InvoicePayment = {
+    date?: string;
+    amount: InvoiceAmount;
+    method?: InvoicePaymentMethod;
+    source?: InvoicePaymentSource;
+};
+
 export type InvoiceLine = {
     description: string;
     sku?: string;
@@ -2053,6 +2365,9 @@ export type InvoiceLine = {
     unit?: string;
     unitPrice?: InvoiceAmount;
     lineTotal?: InvoiceAmount;
+    kind?: InvoiceLineKind;
+    serialNumbers?: Array<string>;
+    unclear?: boolean;
     /**
      * The supply item this line is received into; none for a line that isn't stock.
      */
@@ -2073,18 +2388,41 @@ export type Invoice = {
      * Why it wasn't read, or what was left out of what was read.
      */
     readNote?: string;
+    documentType?: InvoiceDocumentType;
     vendorName?: string;
     invoiceNumber?: string;
+    orderNumber?: string;
     invoiceDate?: string;
+    invoiceDatePrinted?: string;
+    invoiceDateYear?: InvoiceDateYearSource;
+    dueDate?: string;
     subtotal?: InvoiceAmount;
     shipping?: InvoiceAmount;
     tax?: InvoiceAmount;
     total?: InvoiceAmount;
+    amountPaid?: InvoiceAmount;
+    amountDue?: InvoiceAmount;
+    /**
+     * What is payable; defaults to the sum of payments when payments cover lines and tax, otherwise the written total.
+     */
+    readonly payableAmount?: InvoiceAmount;
+    payments?: Array<InvoicePayment>;
+    crossedOut?: Array<string>;
+    otherPapers?: string;
+    notes?: Array<string>;
+    /**
+     * Clockwise degrees (0, 90, 180 or 270) to turn the photo upright.
+     */
+    rotation?: number;
     lines: Array<InvoiceLine>;
     /**
      * What doesn't add up. Empty when everything does.
      */
     problems: Array<string>;
+    /**
+     * Explanations from the checks, such as how split payments match the lines and tax.
+     */
+    explanations?: Array<string>;
     uploadedBy: string;
     uploadedAt: string;
     confirmedBy?: string;
@@ -2123,6 +2461,7 @@ export type ComparedRead = {
      * The estimated cost in US dollars, from the configured prices.
      */
     costUsd?: string;
+    documentType?: InvoiceDocumentType;
     vendorName?: string;
     invoiceNumber?: string;
     invoiceDate?: string;
@@ -2130,11 +2469,14 @@ export type ComparedRead = {
     shipping?: InvoiceAmount;
     tax?: InvoiceAmount;
     total?: InvoiceAmount;
+    payableAmount?: InvoiceAmount;
+    payments?: Array<InvoicePayment>;
     lines: Array<InvoiceLine>;
     /**
      * What was dropped from the answer, and what doesn't add up.
      */
     problems: Array<string>;
+    explanations?: Array<string>;
 };
 
 export type ReaderComparison = {
@@ -2199,6 +2541,18 @@ export type PlatformReaderUse = {
     studios: Array<StudioReaderUse>;
 };
 
+export type ReaderAccuracy = {
+    reader: InvoiceReader;
+    confirmedInvoices: number;
+    exactMatches: number;
+    fieldsRight: number;
+    fieldsTotal: number;
+    linesRight: number;
+    linesTotal: number;
+    fieldAccuracy: number;
+    lineAccuracy: number;
+};
+
 export type InvoiceReaderOverview = {
     settings: InvoiceReaderSettings;
     /**
@@ -2213,6 +2567,10 @@ export type InvoiceReaderOverview = {
      *
      */
     setUp?: Array<InvoiceReader>;
+    /**
+     * How often each compared reader matched what staff confirmed, across all studios.
+     */
+    accuracy?: Array<ReaderAccuracy>;
 };
 
 export type InvoiceSummary = {
@@ -2236,13 +2594,25 @@ export type InvoiceList = {
 };
 
 export type SaveInvoiceDraftRequest = {
+    documentType?: InvoiceDocumentType;
     vendorName?: string;
     invoiceNumber?: string;
+    orderNumber?: string;
     invoiceDate?: string;
+    invoiceDatePrinted?: string;
+    invoiceDateYear?: InvoiceDateYearSource;
+    dueDate?: string;
     subtotal?: InvoiceAmount;
     shipping?: InvoiceAmount;
     tax?: InvoiceAmount;
     total?: InvoiceAmount;
+    amountPaid?: InvoiceAmount;
+    amountDue?: InvoiceAmount;
+    payments?: Array<InvoicePayment>;
+    crossedOut?: Array<string>;
+    otherPapers?: string;
+    notes?: Array<string>;
+    rotation?: number;
     lines: Array<InvoiceLine>;
     expectedVersion: number;
 };
@@ -2576,6 +2946,9 @@ export type InvoiceLineWritable = {
     unit?: string;
     unitPrice?: InvoiceAmount;
     lineTotal?: InvoiceAmount;
+    kind?: InvoiceLineKind;
+    serialNumbers?: Array<string>;
+    unclear?: boolean;
     /**
      * The supply item this line is received into; none for a line that isn't stock.
      */
@@ -2595,18 +2968,37 @@ export type InvoiceWritable = {
      * Why it wasn't read, or what was left out of what was read.
      */
     readNote?: string;
+    documentType?: InvoiceDocumentType;
     vendorName?: string;
     invoiceNumber?: string;
+    orderNumber?: string;
     invoiceDate?: string;
+    invoiceDatePrinted?: string;
+    invoiceDateYear?: InvoiceDateYearSource;
+    dueDate?: string;
     subtotal?: InvoiceAmount;
     shipping?: InvoiceAmount;
     tax?: InvoiceAmount;
     total?: InvoiceAmount;
+    amountPaid?: InvoiceAmount;
+    amountDue?: InvoiceAmount;
+    payments?: Array<InvoicePayment>;
+    crossedOut?: Array<string>;
+    otherPapers?: string;
+    notes?: Array<string>;
+    /**
+     * Clockwise degrees (0, 90, 180 or 270) to turn the photo upright.
+     */
+    rotation?: number;
     lines: Array<InvoiceLineWritable>;
     /**
      * What doesn't add up. Empty when everything does.
      */
     problems: Array<string>;
+    /**
+     * Explanations from the checks, such as how split payments match the lines and tax.
+     */
+    explanations?: Array<string>;
     uploadedBy: string;
     uploadedAt: string;
     confirmedBy?: string;
@@ -2630,6 +3022,7 @@ export type ComparedReadWritable = {
      * The estimated cost in US dollars, from the configured prices.
      */
     costUsd?: string;
+    documentType?: InvoiceDocumentType;
     vendorName?: string;
     invoiceNumber?: string;
     invoiceDate?: string;
@@ -2637,11 +3030,14 @@ export type ComparedReadWritable = {
     shipping?: InvoiceAmount;
     tax?: InvoiceAmount;
     total?: InvoiceAmount;
+    payableAmount?: InvoiceAmount;
+    payments?: Array<InvoicePayment>;
     lines: Array<InvoiceLineWritable>;
     /**
      * What was dropped from the answer, and what doesn't add up.
      */
     problems: Array<string>;
+    explanations?: Array<string>;
 };
 
 export type ReaderComparisonWritable = {
@@ -2649,13 +3045,25 @@ export type ReaderComparisonWritable = {
 };
 
 export type SaveInvoiceDraftRequestWritable = {
+    documentType?: InvoiceDocumentType;
     vendorName?: string;
     invoiceNumber?: string;
+    orderNumber?: string;
     invoiceDate?: string;
+    invoiceDatePrinted?: string;
+    invoiceDateYear?: InvoiceDateYearSource;
+    dueDate?: string;
     subtotal?: InvoiceAmount;
     shipping?: InvoiceAmount;
     tax?: InvoiceAmount;
     total?: InvoiceAmount;
+    amountPaid?: InvoiceAmount;
+    amountDue?: InvoiceAmount;
+    payments?: Array<InvoicePayment>;
+    crossedOut?: Array<string>;
+    otherPapers?: string;
+    notes?: Array<string>;
+    rotation?: number;
     lines: Array<InvoiceLineWritable>;
     expectedVersion: number;
 };
@@ -2704,6 +3112,8 @@ export type EndpointId = string;
 export type TokenId = string;
 
 export type GlazeId = string;
+
+export type MixId = string;
 
 export type Year = number;
 
@@ -5272,6 +5682,49 @@ export type LoadKilnResponses = {
 };
 
 export type LoadKilnResponse = LoadKilnResponses[keyof LoadKilnResponses];
+
+export type ImportKilnLogData = {
+    body: ImportKilnLogRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        kilnId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/kilns/{kilnId}/log-imports';
+};
+
+export type ImportKilnLogErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ImportKilnLogError = ImportKilnLogErrors[keyof ImportKilnLogErrors];
+
+export type ImportKilnLogResponses = {
+    /**
+     * The preview or committed import result.
+     */
+    200: KilnLogImportResult;
+};
+
+export type ImportKilnLogResponse = ImportKilnLogResponses[keyof ImportKilnLogResponses];
 
 export type GetFiringData = {
     body?: never;
@@ -8958,6 +9411,619 @@ export type GetGlazeBatchResponses = {
 
 export type GetGlazeBatchResponse = GetGlazeBatchResponses[keyof GetGlazeBatchResponses];
 
+export type ImportGlazesData = {
+    body: {
+        [key: string]: unknown;
+    };
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        dryRun?: boolean;
+    };
+    url: '/api/v1/studios/{studioId}/glazes/import';
+};
+
+export type ImportGlazesErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * Export file exceeds the 2 MB limit.
+     */
+    413: Problem;
+};
+
+export type ImportGlazesError = ImportGlazesErrors[keyof ImportGlazesErrors];
+
+export type ImportGlazesResponses = {
+    /**
+     * Preview or import outcome, one row per recipe.
+     */
+    200: GlazeImportResult;
+};
+
+export type ImportGlazesResponse = ImportGlazesResponses[keyof ImportGlazesResponses];
+
+export type ImportGlazeShareData = {
+    body: ImportGlazeShareRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/import-share';
+};
+
+export type ImportGlazeShareErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ImportGlazeShareError = ImportGlazeShareErrors[keyof ImportGlazeShareErrors];
+
+export type ImportGlazeShareResponses = {
+    /**
+     * Preview or import outcome.
+     */
+    200: GlazeImportResult;
+};
+
+export type ImportGlazeShareResponse = ImportGlazeShareResponses[keyof ImportGlazeShareResponses];
+
+export type GetGlazecalcStatusData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/glazecalc/status';
+};
+
+export type GetGlazecalcStatusErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetGlazecalcStatusError = GetGlazecalcStatusErrors[keyof GetGlazecalcStatusErrors];
+
+export type GetGlazecalcStatusResponses = {
+    /**
+     * Whether Glazecalc OAuth is configured and connected for this member.
+     */
+    200: GlazecalcStatus;
+};
+
+export type GetGlazecalcStatusResponse = GetGlazecalcStatusResponses[keyof GetGlazecalcStatusResponses];
+
+export type ConnectGlazecalcData = {
+    body?: GlazecalcConnectRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/glazecalc/connect';
+};
+
+export type ConnectGlazecalcErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ConnectGlazecalcError = ConnectGlazecalcErrors[keyof ConnectGlazecalcErrors];
+
+export type ConnectGlazecalcResponses = {
+    /**
+     * Authorization URL and signed state to redirect the member to Glazecalc.
+     */
+    200: GlazecalcConnectResponse;
+};
+
+export type ConnectGlazecalcResponse = ConnectGlazecalcResponses[keyof ConnectGlazecalcResponses];
+
+export type CompleteGlazecalcCallbackData = {
+    body: GlazecalcCallbackRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/glazecalc/callback';
+};
+
+export type CompleteGlazecalcCallbackErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type CompleteGlazecalcCallbackError = CompleteGlazecalcCallbackErrors[keyof CompleteGlazecalcCallbackErrors];
+
+export type CompleteGlazecalcCallbackResponses = {
+    /**
+     * Updated Glazecalc connection status.
+     */
+    200: GlazecalcStatus;
+};
+
+export type CompleteGlazecalcCallbackResponse = CompleteGlazecalcCallbackResponses[keyof CompleteGlazecalcCallbackResponses];
+
+export type SyncGlazecalcData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: {
+        dryRun?: boolean;
+    };
+    url: '/api/v1/studios/{studioId}/glazes/glazecalc/sync';
+};
+
+export type SyncGlazecalcErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type SyncGlazecalcError = SyncGlazecalcErrors[keyof SyncGlazecalcErrors];
+
+export type SyncGlazecalcResponses = {
+    /**
+     * Import summary for the synced Glazecalc recipes.
+     */
+    200: GlazeImportResult;
+};
+
+export type SyncGlazecalcResponse = SyncGlazecalcResponses[keyof SyncGlazecalcResponses];
+
+export type DisconnectGlazecalcData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/glazecalc/connection';
+};
+
+export type DisconnectGlazecalcErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type DisconnectGlazecalcError = DisconnectGlazecalcErrors[keyof DisconnectGlazecalcErrors];
+
+export type DisconnectGlazecalcResponses = {
+    /**
+     * Disconnected.
+     */
+    204: void;
+};
+
+export type DisconnectGlazecalcResponse = DisconnectGlazecalcResponses[keyof DisconnectGlazecalcResponses];
+
+export type ExportGlazeData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/export';
+};
+
+export type ExportGlazeErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ExportGlazeError = ExportGlazeErrors[keyof ExportGlazeErrors];
+
+export type ExportGlazeResponses = {
+    /**
+     * A valid `glazecalc-export` v1 document containing this recipe.
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ExportGlazeResponse = ExportGlazeResponses[keyof ExportGlazeResponses];
+
+export type PromoteGlazeData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/promote';
+};
+
+export type PromoteGlazeErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type PromoteGlazeError = PromoteGlazeErrors[keyof PromoteGlazeErrors];
+
+export type PromoteGlazeResponses = {
+    /**
+     * The new studio glaze.
+     */
+    201: GlazeRecipe;
+};
+
+export type PromoteGlazeResponse = PromoteGlazeResponses[keyof PromoteGlazeResponses];
+
+export type ListGlazeMixesData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/mixes';
+};
+
+export type ListGlazeMixesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type ListGlazeMixesError = ListGlazeMixesErrors[keyof ListGlazeMixesErrors];
+
+export type ListGlazeMixesResponses = {
+    /**
+     * The mixes, newest first.
+     */
+    200: Array<GlazeMix>;
+};
+
+export type ListGlazeMixesResponse = ListGlazeMixesResponses[keyof ListGlazeMixesResponses];
+
+export type LogGlazeMixData = {
+    body: LogGlazeMixRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/mixes';
+};
+
+export type LogGlazeMixErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type LogGlazeMixError = LogGlazeMixErrors[keyof LogGlazeMixErrors];
+
+export type LogGlazeMixResponses = {
+    /**
+     * The mix.
+     */
+    201: GlazeMix;
+};
+
+export type LogGlazeMixResponse = LogGlazeMixResponses[keyof LogGlazeMixResponses];
+
+export type AddGlazeMixReadingData = {
+    body: AddGlazeMixReadingRequest;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+        mixId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/mixes/{mixId}/readings';
+};
+
+export type AddGlazeMixReadingErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type AddGlazeMixReadingError = AddGlazeMixReadingErrors[keyof AddGlazeMixReadingErrors];
+
+export type AddGlazeMixReadingResponses = {
+    /**
+     * The reading, including any warning when outside ±0.03 of target SG.
+     */
+    201: GlazeMixReading;
+};
+
+export type AddGlazeMixReadingResponse = AddGlazeMixReadingResponses[keyof AddGlazeMixReadingResponses];
+
+export type StartGlazePhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/photos';
+};
+
+export type StartGlazePhotoUploadErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type StartGlazePhotoUploadError = StartGlazePhotoUploadErrors[keyof StartGlazePhotoUploadErrors];
+
+export type StartGlazePhotoUploadResponses = {
+    /**
+     * Where to upload.
+     */
+    201: PhotoUpload;
+};
+
+export type StartGlazePhotoUploadResponse = StartGlazePhotoUploadResponses[keyof StartGlazePhotoUploadResponses];
+
+export type CompleteGlazePhotoUploadData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/photos/{photoId}/complete';
+};
+
+export type CompleteGlazePhotoUploadErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type CompleteGlazePhotoUploadError = CompleteGlazePhotoUploadErrors[keyof CompleteGlazePhotoUploadErrors];
+
+export type CompleteGlazePhotoUploadResponses = {
+    /**
+     * The glaze recipe with its photos.
+     */
+    200: GlazeRecipe;
+};
+
+export type CompleteGlazePhotoUploadResponse = CompleteGlazePhotoUploadResponses[keyof CompleteGlazePhotoUploadResponses];
+
+export type DeleteGlazePhotoData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        glazeId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/glazes/{glazeId}/photos/{photoId}';
+};
+
+export type DeleteGlazePhotoErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type DeleteGlazePhotoError = DeleteGlazePhotoErrors[keyof DeleteGlazePhotoErrors];
+
+export type DeleteGlazePhotoResponses = {
+    /**
+     * Removed.
+     */
+    204: void;
+};
+
+export type DeleteGlazePhotoResponse = DeleteGlazePhotoResponses[keyof DeleteGlazePhotoResponses];
+
 export type ListApiTokensData = {
     body?: never;
     path: {
@@ -9673,3 +10739,46 @@ export type ConfirmInvoiceResponses = {
 };
 
 export type ConfirmInvoiceResponse = ConfirmInvoiceResponses[keyof ConfirmInvoiceResponses];
+
+export type ExportInvoiceEvalData = {
+    body?: never;
+    path: {
+        /**
+         * The studio (tenant). Every studio-scoped route starts with it.
+         */
+        studioId: string;
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/studios/{studioId}/invoices/{invoiceId}/eval-export';
+};
+
+export type ExportInvoiceEvalErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type ExportInvoiceEvalError = ExportInvoiceEvalErrors[keyof ExportInvoiceEvalErrors];
+
+export type ExportInvoiceEvalResponses = {
+    /**
+     * The eval case ZIP.
+     */
+    200: Blob | File;
+};
+
+export type ExportInvoiceEvalResponse = ExportInvoiceEvalResponses[keyof ExportInvoiceEvalResponses];

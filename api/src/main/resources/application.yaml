@@ -187,3 +187,21 @@ studiomanager:
     # Publishes StudioStreamEvents to Kafka. Off by default: there's no broker locally unless
     # compose's "stream" profile is up, and none deployed (docs/planning/11)
     enabled: ${STUDIOMANAGER_STREAM_ENABLED:false}
+  mcp:
+    oauth:
+      # Optional OAuth 2.1 authorization server for MCP (plan 17 step 5, plan 18 step 3, ADR 26).
+      # Blank disables MCP OAuth: /.well-known/oauth-protected-resource returns 404.
+      issuer: ${STUDIOMANAGER_MCP_OAUTH_ISSUER:}
+      # Defaults to <issuer>/oauth2/jwks when blank
+      jwk-set-uri: ${STUDIOMANAGER_MCP_OAUTH_JWK_SET_URI:}
+      # RFC 8707 resource identifier (e.g. https://api.studiomanager.example/mcp)
+      audience: ${STUDIOMANAGER_MCP_OAUTH_AUDIENCE:}
+  glazecalc:
+    # Deep integration with Aaron Filson's Glazecalc (https://glazecalcapp.com, ADR 17)
+    base-url: ${STUDIOMANAGER_GLAZECALC_BASE_URL:https://glazecalcapp.com}
+    client-id: ${STUDIOMANAGER_GLAZECALC_CLIENT_ID:}
+    client-secret: ${STUDIOMANAGER_GLAZECALC_CLIENT_SECRET:}
+    redirect-uri: ${STUDIOMANAGER_GLAZECALC_REDIRECT_URI:}
+    token-encryption-key: ${STUDIOMANAGER_GLAZECALC_TOKEN_ENCRYPTION_KEY:}
+    # true lets tests point base-url at a local stub HttpServer; never set in production
+    allow-private-networks: ${STUDIOMANAGER_GLAZECALC_ALLOW_PRIVATE_NETWORKS:false}

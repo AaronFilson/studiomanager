@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvite, addOwner, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, compareInvoiceReaders, completeInvoiceUpload, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, confirmInvoice, createApiToken, createAsset, createBooking, createCertificationType, createCustomRole, createDemoToken, createGlaze, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, createWebhookEndpoint, decidePendingAction, decidePurchaseRequest, deleteAiKey, deleteCustomRole, deleteGlaze, deletePhoto, deleteWebhookEndpoint, discardInvoice, emailInvites, endRateLimitBoost, expireStoredValue, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getAiKey, getBillingContact, getClearing, getFeeSchedule, getFiring, getGlaze, getGlazeBatch, getHours, getInvoice, getInvoiceReaders, getKilnQueue, getLedgerSummary, getMe, getMyConsignment, getMyPermissions, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getRateLimits, getStatement, getStoredValueMovements, getStudio, getToday, getWeeklyActivity, grantCertification, importConsignment, importMembers, importPayout, intakePiece, listAccessChanges, listAdminStudios, listApiTokens, listAssets, listAssignableRoles, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listGlazes, listInvoices, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPendingActions, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listRoles, listSettingChanges, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, listWebhookDeliveries, listWebhookEndpoints, listWebhookEventTypes, loadKiln, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, payPayees, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, removeOwner, reportProblem, resendInvite, resendWebhookDelivery, resetDemoStudio, resetInvoiceReaders, resetNormalRateLimits, resetRolePermissions, resolveProblemReport, returnConsignment, revokeApiToken, revokeCertification, revokeInvite, rotateWebhookSecret, saveFeeSchedule, saveInvoiceDraft, savePiecePolicy, scheduleRateLimitBoost, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAiKey, setAssetAvailability, setBillingContact, setDuties, setInvoiceReaders, setKilnAvailability, setMemberRole, setNormalRateLimits, setPlatformReaderConsent, setRolePermissions, setTaxRate, startInvoiceUpload, startPhotoUpload, startRecordPhotoUpload, takeInConsignment, testAiKey, testWebhookEndpoint, transitionFiring, updateAsset, updateCustomRole, updateGlaze, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, updateWebhookEndpoint, useStoredValue } from '../sdk.gen';
-import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AddOwnerData, AddOwnerError, AddOwnerResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompareInvoiceReadersData, CompareInvoiceReadersError, CompareInvoiceReadersResponse, CompleteInvoiceUploadData, CompleteInvoiceUploadError, CompleteInvoiceUploadResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, ConfirmInvoiceData, ConfirmInvoiceError, ConfirmInvoiceResponse, CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateCustomRoleData, CreateCustomRoleError, CreateCustomRoleResponse, CreateDemoTokenData, CreateDemoTokenError, CreateDemoTokenResponse, CreateGlazeData, CreateGlazeError, CreateGlazeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, CreateWebhookEndpointData, CreateWebhookEndpointError, CreateWebhookEndpointResponse, DecidePendingActionData, DecidePendingActionError, DecidePendingActionResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeleteAiKeyData, DeleteAiKeyError, DeleteAiKeyResponse, DeleteCustomRoleData, DeleteCustomRoleError, DeleteCustomRoleResponse, DeleteGlazeData, DeleteGlazeError, DeleteGlazeResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, DeleteWebhookEndpointData, DeleteWebhookEndpointError, DeleteWebhookEndpointResponse, DiscardInvoiceData, DiscardInvoiceError, DiscardInvoiceResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, EndRateLimitBoostData, EndRateLimitBoostError, EndRateLimitBoostResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetAiKeyData, GetAiKeyError, GetAiKeyResponse, GetBillingContactData, GetBillingContactError, GetBillingContactResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetGlazeBatchData, GetGlazeBatchError, GetGlazeBatchResponse, GetGlazeData, GetGlazeError, GetGlazeResponse, GetHoursData, GetHoursError, GetHoursResponse, GetInvoiceData, GetInvoiceError, GetInvoiceReadersData, GetInvoiceReadersError, GetInvoiceReadersResponse, GetInvoiceResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetMyConsignmentData, GetMyConsignmentError, GetMyConsignmentResponse, GetMyPermissionsData, GetMyPermissionsError, GetMyPermissionsResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetRateLimitsData, GetRateLimitsError, GetRateLimitsResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GetWeeklyActivityData, GetWeeklyActivityError, GetWeeklyActivityResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportConsignmentData, ImportConsignmentError, ImportConsignmentResponse, ImportMembersData, ImportMembersError, ImportMembersResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAccessChangesData, ListAccessChangesError, ListAccessChangesResponse, ListAdminStudiosData, ListAdminStudiosError, ListAdminStudiosResponse, ListApiTokensData, ListApiTokensError, ListApiTokensResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListAssignableRolesData, ListAssignableRolesError, ListAssignableRolesResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListGlazesData, ListGlazesError, ListGlazesResponse, ListInvoicesData, ListInvoicesError, ListInvoicesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPendingActionsData, ListPendingActionsError, ListPendingActionsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSettingChangesData, ListSettingChangesError, ListSettingChangesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, ListWebhookDeliveriesData, ListWebhookDeliveriesError, ListWebhookDeliveriesResponse, ListWebhookEndpointsData, ListWebhookEndpointsError, ListWebhookEndpointsResponse, ListWebhookEventTypesData, ListWebhookEventTypesError, ListWebhookEventTypesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, PayPayeesData, PayPayeesError, PayPayeesResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, RemoveOwnerData, RemoveOwnerError, RemoveOwnerResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResendWebhookDeliveryData, ResendWebhookDeliveryError, ResendWebhookDeliveryResponse, ResetDemoStudioData, ResetDemoStudioError, ResetDemoStudioResponse, ResetInvoiceReadersData, ResetInvoiceReadersError, ResetInvoiceReadersResponse, ResetNormalRateLimitsData, ResetNormalRateLimitsError, ResetNormalRateLimitsResponse, ResetRolePermissionsData, ResetRolePermissionsError, ResetRolePermissionsResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeApiTokenData, RevokeApiTokenError, RevokeApiTokenResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, RotateWebhookSecretData, RotateWebhookSecretError, RotateWebhookSecretResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SaveInvoiceDraftData, SaveInvoiceDraftError, SaveInvoiceDraftResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, ScheduleRateLimitBoostData, ScheduleRateLimitBoostError, ScheduleRateLimitBoostResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAiKeyData, SetAiKeyError, SetAiKeyResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetBillingContactData, SetBillingContactError, SetBillingContactResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetInvoiceReadersData, SetInvoiceReadersError, SetInvoiceReadersResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetMemberRoleData, SetMemberRoleError, SetMemberRoleResponse, SetNormalRateLimitsData, SetNormalRateLimitsError, SetNormalRateLimitsResponse, SetPlatformReaderConsentData, SetPlatformReaderConsentError, SetPlatformReaderConsentResponse, SetRolePermissionsData, SetRolePermissionsError, SetRolePermissionsResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartInvoiceUploadData, StartInvoiceUploadError, StartInvoiceUploadResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TestAiKeyData, TestAiKeyError, TestAiKeyResponse, TestWebhookEndpointData, TestWebhookEndpointError, TestWebhookEndpointResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateCustomRoleData, UpdateCustomRoleError, UpdateCustomRoleResponse, UpdateGlazeData, UpdateGlazeError, UpdateGlazeResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UpdateWebhookEndpointData, UpdateWebhookEndpointError, UpdateWebhookEndpointResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
+import { acceptInvite, addGlazeMixReading, addOwner, adjustHours, archiveAsset, archiveMaintenanceTask, assignShift, cancelBooking, compareInvoiceReaders, completeGlazecalcCallback, completeGlazePhotoUpload, completeInvoiceUpload, completeMaintenanceTask, completePhotoUpload, completeRecordPhotoUpload, confirmInvoice, connectGlazecalc, createApiToken, createAsset, createBooking, createCertificationType, createCustomRole, createDemoToken, createGlaze, createInvite, createKiln, createMaintenanceTask, createPayee, createPurchaseRequest, createResource, createShifts, createStudio, createSupply, createWebhookEndpoint, decidePendingAction, decidePurchaseRequest, deleteAiKey, deleteCustomRole, deleteGlaze, deleteGlazePhoto, deletePhoto, deleteWebhookEndpoint, discardInvoice, disconnectGlazecalc, emailInvites, endRateLimitBoost, expireStoredValue, exportGlaze, exportInvoiceEval, exportJournal, exportMaintenanceRecords, exportNecReport, exportStudio, findGiftCard, getAiKey, getBillingContact, getClearing, getFeeSchedule, getFiring, getGlaze, getGlazeBatch, getGlazecalcStatus, getHours, getInvoice, getInvoiceReaders, getKilnQueue, getLedgerSummary, getMe, getMyConsignment, getMyPermissions, getNecReport, getPayeeStatement, getPiece, getPiecePolicy, getRateLimits, getStatement, getStoredValueMovements, getStudio, getToday, getWeeklyActivity, grantCertification, importConsignment, importGlazes, importGlazeShare, importKilnLog, importMembers, importPayout, intakePiece, listAccessChanges, listAdminStudios, listApiTokens, listAssets, listAssignableRoles, listBalances, listBookings, listCertifications, listCertificationTypes, listConsignmentItems, listConsignmentSales, listDuties, listGlazeMixes, listGlazes, listInvoices, listKilnFirings, listKilns, listMaintenanceRecords, listMembers, listMyMaintenanceTasks, listMyNotifications, listOpenInvites, listPayees, listPayouts, listPendingActions, listPieces, listProblemReports, listPurchaseRequests, listReportableAssets, listResources, listRoles, listSettingChanges, listShifts, listStockMovements, listStoredValues, listSuggestedMaintenanceTasks, listSupplies, listTaxRates, listWebhookDeliveries, listWebhookEndpoints, listWebhookEventTypes, loadKiln, logGlazeMix, markNotificationRead, markShiftWorked, movePiece, offerShift, type Options, payPayee, payPayees, promoteGlaze, quoteFee, recordEarning, recordPayment, recordRepair, recordStockMovement, refundConsignmentSale, removeOwner, reportProblem, resendInvite, resendWebhookDelivery, resetDemoStudio, resetInvoiceReaders, resetNormalRateLimits, resetRolePermissions, resolveProblemReport, returnConsignment, revokeApiToken, revokeCertification, revokeInvite, rotateWebhookSecret, saveFeeSchedule, saveInvoiceDraft, savePiecePolicy, scheduleRateLimitBoost, sellConsignment, sellStoredValue, sellSupply, sendNotice, setAiKey, setAssetAvailability, setBillingContact, setDuties, setInvoiceReaders, setKilnAvailability, setMemberRole, setNormalRateLimits, setPlatformReaderConsent, setRolePermissions, setTaxRate, startGlazePhotoUpload, startInvoiceUpload, startPhotoUpload, startRecordPhotoUpload, syncGlazecalc, takeInConsignment, testAiKey, testWebhookEndpoint, transitionFiring, updateAsset, updateCustomRole, updateGlaze, updateKiln, updateMaintenanceTask, updatePayee, updateSupply, updateWebhookEndpoint, useStoredValue } from '../sdk.gen';
+import type { AcceptInviteData, AcceptInviteError, AcceptInviteResponse, AddGlazeMixReadingData, AddGlazeMixReadingError, AddGlazeMixReadingResponse, AddOwnerData, AddOwnerError, AddOwnerResponse, AdjustHoursData, AdjustHoursError, AdjustHoursResponse, ArchiveAssetData, ArchiveAssetError, ArchiveAssetResponse, ArchiveMaintenanceTaskData, ArchiveMaintenanceTaskError, ArchiveMaintenanceTaskResponse, AssignShiftData, AssignShiftError, AssignShiftResponse, CancelBookingData, CancelBookingError, CancelBookingResponse, CompareInvoiceReadersData, CompareInvoiceReadersError, CompareInvoiceReadersResponse, CompleteGlazecalcCallbackData, CompleteGlazecalcCallbackError, CompleteGlazecalcCallbackResponse, CompleteGlazePhotoUploadData, CompleteGlazePhotoUploadError, CompleteGlazePhotoUploadResponse, CompleteInvoiceUploadData, CompleteInvoiceUploadError, CompleteInvoiceUploadResponse, CompleteMaintenanceTaskData, CompleteMaintenanceTaskError, CompleteMaintenanceTaskResponse, CompletePhotoUploadData, CompletePhotoUploadError, CompletePhotoUploadResponse, CompleteRecordPhotoUploadData, CompleteRecordPhotoUploadError, CompleteRecordPhotoUploadResponse, ConfirmInvoiceData, ConfirmInvoiceError, ConfirmInvoiceResponse, ConnectGlazecalcData, ConnectGlazecalcError, ConnectGlazecalcResponse, CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateAssetData, CreateAssetError, CreateAssetResponse, CreateBookingData, CreateBookingError, CreateBookingResponse, CreateCertificationTypeData, CreateCertificationTypeError, CreateCertificationTypeResponse, CreateCustomRoleData, CreateCustomRoleError, CreateCustomRoleResponse, CreateDemoTokenData, CreateDemoTokenError, CreateDemoTokenResponse, CreateGlazeData, CreateGlazeError, CreateGlazeResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreateKilnData, CreateKilnError, CreateKilnResponse, CreateMaintenanceTaskData, CreateMaintenanceTaskError, CreateMaintenanceTaskResponse, CreatePayeeData, CreatePayeeError, CreatePayeeResponse, CreatePurchaseRequestData, CreatePurchaseRequestError, CreatePurchaseRequestResponse, CreateResourceData, CreateResourceError, CreateResourceResponse, CreateShiftsData, CreateShiftsError, CreateShiftsResponse, CreateStudioData, CreateStudioError, CreateStudioResponse, CreateSupplyData, CreateSupplyError, CreateSupplyResponse, CreateWebhookEndpointData, CreateWebhookEndpointError, CreateWebhookEndpointResponse, DecidePendingActionData, DecidePendingActionError, DecidePendingActionResponse, DecidePurchaseRequestData, DecidePurchaseRequestError, DecidePurchaseRequestResponse, DeleteAiKeyData, DeleteAiKeyError, DeleteAiKeyResponse, DeleteCustomRoleData, DeleteCustomRoleError, DeleteCustomRoleResponse, DeleteGlazeData, DeleteGlazeError, DeleteGlazePhotoData, DeleteGlazePhotoError, DeleteGlazePhotoResponse, DeleteGlazeResponse, DeletePhotoData, DeletePhotoError, DeletePhotoResponse, DeleteWebhookEndpointData, DeleteWebhookEndpointError, DeleteWebhookEndpointResponse, DiscardInvoiceData, DiscardInvoiceError, DiscardInvoiceResponse, DisconnectGlazecalcData, DisconnectGlazecalcError, DisconnectGlazecalcResponse, EmailInvitesData, EmailInvitesError, EmailInvitesResponse, EndRateLimitBoostData, EndRateLimitBoostError, EndRateLimitBoostResponse, ExpireStoredValueData, ExpireStoredValueError, ExpireStoredValueResponse, ExportGlazeData, ExportGlazeError, ExportGlazeResponse, ExportInvoiceEvalData, ExportInvoiceEvalError, ExportInvoiceEvalResponse, ExportJournalData, ExportJournalError, ExportJournalResponse, ExportMaintenanceRecordsData, ExportMaintenanceRecordsError, ExportMaintenanceRecordsResponse, ExportNecReportData, ExportNecReportError, ExportNecReportResponse, ExportStudioData, ExportStudioError, ExportStudioResponse, FindGiftCardData, FindGiftCardError, FindGiftCardResponse, GetAiKeyData, GetAiKeyError, GetAiKeyResponse, GetBillingContactData, GetBillingContactError, GetBillingContactResponse, GetClearingData, GetClearingError, GetClearingResponse, GetFeeScheduleData, GetFeeScheduleError, GetFeeScheduleResponse, GetFiringData, GetFiringError, GetFiringResponse, GetGlazeBatchData, GetGlazeBatchError, GetGlazeBatchResponse, GetGlazecalcStatusData, GetGlazecalcStatusError, GetGlazecalcStatusResponse, GetGlazeData, GetGlazeError, GetGlazeResponse, GetHoursData, GetHoursError, GetHoursResponse, GetInvoiceData, GetInvoiceError, GetInvoiceReadersData, GetInvoiceReadersError, GetInvoiceReadersResponse, GetInvoiceResponse, GetKilnQueueData, GetKilnQueueError, GetKilnQueueResponse, GetLedgerSummaryData, GetLedgerSummaryError, GetLedgerSummaryResponse, GetMeData, GetMeError, GetMeResponse, GetMyConsignmentData, GetMyConsignmentError, GetMyConsignmentResponse, GetMyPermissionsData, GetMyPermissionsError, GetMyPermissionsResponse, GetNecReportData, GetNecReportError, GetNecReportResponse, GetPayeeStatementData, GetPayeeStatementError, GetPayeeStatementResponse, GetPieceData, GetPieceError, GetPiecePolicyData, GetPiecePolicyError, GetPiecePolicyResponse, GetPieceResponse, GetRateLimitsData, GetRateLimitsError, GetRateLimitsResponse, GetStatementData, GetStatementError, GetStatementResponse, GetStoredValueMovementsData, GetStoredValueMovementsError, GetStoredValueMovementsResponse, GetStudioData, GetStudioError, GetStudioResponse, GetTodayData, GetTodayError, GetTodayResponse, GetWeeklyActivityData, GetWeeklyActivityError, GetWeeklyActivityResponse, GrantCertificationData, GrantCertificationError, GrantCertificationResponse, ImportConsignmentData, ImportConsignmentError, ImportConsignmentResponse, ImportGlazesData, ImportGlazesError, ImportGlazeShareData, ImportGlazeShareError, ImportGlazeShareResponse, ImportGlazesResponse, ImportKilnLogData, ImportKilnLogError, ImportKilnLogResponse, ImportMembersData, ImportMembersError, ImportMembersResponse, ImportPayoutData, ImportPayoutError, ImportPayoutResponse, IntakePieceData, IntakePieceError, IntakePieceResponse, ListAccessChangesData, ListAccessChangesError, ListAccessChangesResponse, ListAdminStudiosData, ListAdminStudiosError, ListAdminStudiosResponse, ListApiTokensData, ListApiTokensError, ListApiTokensResponse, ListAssetsData, ListAssetsError, ListAssetsResponse, ListAssignableRolesData, ListAssignableRolesError, ListAssignableRolesResponse, ListBalancesData, ListBalancesError, ListBalancesResponse, ListBookingsData, ListBookingsError, ListBookingsResponse, ListCertificationsData, ListCertificationsError, ListCertificationsResponse, ListCertificationTypesData, ListCertificationTypesError, ListCertificationTypesResponse, ListConsignmentItemsData, ListConsignmentItemsError, ListConsignmentItemsResponse, ListConsignmentSalesData, ListConsignmentSalesError, ListConsignmentSalesResponse, ListDutiesData, ListDutiesError, ListDutiesResponse, ListGlazeMixesData, ListGlazeMixesError, ListGlazeMixesResponse, ListGlazesData, ListGlazesError, ListGlazesResponse, ListInvoicesData, ListInvoicesError, ListInvoicesResponse, ListKilnFiringsData, ListKilnFiringsError, ListKilnFiringsResponse, ListKilnsData, ListKilnsError, ListKilnsResponse, ListMaintenanceRecordsData, ListMaintenanceRecordsError, ListMaintenanceRecordsResponse, ListMembersData, ListMembersError, ListMembersResponse, ListMyMaintenanceTasksData, ListMyMaintenanceTasksError, ListMyMaintenanceTasksResponse, ListMyNotificationsData, ListMyNotificationsError, ListMyNotificationsResponse, ListOpenInvitesData, ListOpenInvitesError, ListOpenInvitesResponse, ListPayeesData, ListPayeesError, ListPayeesResponse, ListPayoutsData, ListPayoutsError, ListPayoutsResponse, ListPendingActionsData, ListPendingActionsError, ListPendingActionsResponse, ListPiecesData, ListPiecesError, ListPiecesResponse, ListProblemReportsData, ListProblemReportsError, ListProblemReportsResponse, ListPurchaseRequestsData, ListPurchaseRequestsError, ListPurchaseRequestsResponse, ListReportableAssetsData, ListReportableAssetsError, ListReportableAssetsResponse, ListResourcesData, ListResourcesError, ListResourcesResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSettingChangesData, ListSettingChangesError, ListSettingChangesResponse, ListShiftsData, ListShiftsError, ListShiftsResponse, ListStockMovementsData, ListStockMovementsError, ListStockMovementsResponse, ListStoredValuesData, ListStoredValuesError, ListStoredValuesResponse, ListSuggestedMaintenanceTasksData, ListSuggestedMaintenanceTasksError, ListSuggestedMaintenanceTasksResponse, ListSuppliesData, ListSuppliesError, ListSuppliesResponse, ListTaxRatesData, ListTaxRatesError, ListTaxRatesResponse, ListWebhookDeliveriesData, ListWebhookDeliveriesError, ListWebhookDeliveriesResponse, ListWebhookEndpointsData, ListWebhookEndpointsError, ListWebhookEndpointsResponse, ListWebhookEventTypesData, ListWebhookEventTypesError, ListWebhookEventTypesResponse, LoadKilnData, LoadKilnError, LoadKilnResponse, LogGlazeMixData, LogGlazeMixError, LogGlazeMixResponse, MarkNotificationReadData, MarkNotificationReadError, MarkNotificationReadResponse, MarkShiftWorkedData, MarkShiftWorkedError, MarkShiftWorkedResponse, MovePieceData, MovePieceError, MovePieceResponse, OfferShiftData, OfferShiftError, OfferShiftResponse, PayPayeeData, PayPayeeError, PayPayeeResponse, PayPayeesData, PayPayeesError, PayPayeesResponse, PromoteGlazeData, PromoteGlazeError, PromoteGlazeResponse, QuoteFeeData, QuoteFeeError, QuoteFeeResponse, RecordEarningData, RecordEarningError, RecordEarningResponse, RecordPaymentData, RecordPaymentError, RecordPaymentResponse, RecordRepairData, RecordRepairError, RecordRepairResponse, RecordStockMovementData, RecordStockMovementError, RecordStockMovementResponse, RefundConsignmentSaleData, RefundConsignmentSaleError, RefundConsignmentSaleResponse, RemoveOwnerData, RemoveOwnerError, RemoveOwnerResponse, ReportProblemData, ReportProblemError, ReportProblemResponse, ResendInviteData, ResendInviteError, ResendInviteResponse, ResendWebhookDeliveryData, ResendWebhookDeliveryError, ResendWebhookDeliveryResponse, ResetDemoStudioData, ResetDemoStudioError, ResetDemoStudioResponse, ResetInvoiceReadersData, ResetInvoiceReadersError, ResetInvoiceReadersResponse, ResetNormalRateLimitsData, ResetNormalRateLimitsError, ResetNormalRateLimitsResponse, ResetRolePermissionsData, ResetRolePermissionsError, ResetRolePermissionsResponse, ResolveProblemReportData, ResolveProblemReportError, ResolveProblemReportResponse, ReturnConsignmentData, ReturnConsignmentError, ReturnConsignmentResponse, RevokeApiTokenData, RevokeApiTokenError, RevokeApiTokenResponse, RevokeCertificationData, RevokeCertificationError, RevokeCertificationResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, RotateWebhookSecretData, RotateWebhookSecretError, RotateWebhookSecretResponse, SaveFeeScheduleData, SaveFeeScheduleError, SaveFeeScheduleResponse, SaveInvoiceDraftData, SaveInvoiceDraftError, SaveInvoiceDraftResponse, SavePiecePolicyData, SavePiecePolicyError, SavePiecePolicyResponse, ScheduleRateLimitBoostData, ScheduleRateLimitBoostError, ScheduleRateLimitBoostResponse, SellConsignmentData, SellConsignmentError, SellConsignmentResponse, SellStoredValueData, SellStoredValueError, SellStoredValueResponse, SellSupplyData, SellSupplyError, SellSupplyResponse, SendNoticeData, SendNoticeError, SendNoticeResponse, SetAiKeyData, SetAiKeyError, SetAiKeyResponse, SetAssetAvailabilityData, SetAssetAvailabilityError, SetAssetAvailabilityResponse, SetBillingContactData, SetBillingContactError, SetBillingContactResponse, SetDutiesData, SetDutiesError, SetDutiesResponse, SetInvoiceReadersData, SetInvoiceReadersError, SetInvoiceReadersResponse, SetKilnAvailabilityData, SetKilnAvailabilityError, SetKilnAvailabilityResponse, SetMemberRoleData, SetMemberRoleError, SetMemberRoleResponse, SetNormalRateLimitsData, SetNormalRateLimitsError, SetNormalRateLimitsResponse, SetPlatformReaderConsentData, SetPlatformReaderConsentError, SetPlatformReaderConsentResponse, SetRolePermissionsData, SetRolePermissionsError, SetRolePermissionsResponse, SetTaxRateData, SetTaxRateError, SetTaxRateResponse, StartGlazePhotoUploadData, StartGlazePhotoUploadError, StartGlazePhotoUploadResponse, StartInvoiceUploadData, StartInvoiceUploadError, StartInvoiceUploadResponse, StartPhotoUploadData, StartPhotoUploadError, StartPhotoUploadResponse, StartRecordPhotoUploadData, StartRecordPhotoUploadError, StartRecordPhotoUploadResponse, SyncGlazecalcData, SyncGlazecalcError, SyncGlazecalcResponse, TakeInConsignmentData, TakeInConsignmentError, TakeInConsignmentResponse, TestAiKeyData, TestAiKeyError, TestAiKeyResponse, TestWebhookEndpointData, TestWebhookEndpointError, TestWebhookEndpointResponse, TransitionFiringData, TransitionFiringError, TransitionFiringResponse, UpdateAssetData, UpdateAssetError, UpdateAssetResponse, UpdateCustomRoleData, UpdateCustomRoleError, UpdateCustomRoleResponse, UpdateGlazeData, UpdateGlazeError, UpdateGlazeResponse, UpdateKilnData, UpdateKilnError, UpdateKilnResponse, UpdateMaintenanceTaskData, UpdateMaintenanceTaskError, UpdateMaintenanceTaskResponse, UpdatePayeeData, UpdatePayeeError, UpdatePayeeResponse, UpdateSupplyData, UpdateSupplyError, UpdateSupplyResponse, UpdateWebhookEndpointData, UpdateWebhookEndpointError, UpdateWebhookEndpointResponse, UseStoredValueData, UseStoredValueError, UseStoredValueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -1329,6 +1329,29 @@ export const loadKilnMutation = (options?: Partial<Options<LoadKilnData>>): UseM
     const mutationOptions: UseMutationOptions<LoadKilnResponse, LoadKilnError, Options<LoadKilnData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await loadKiln({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Preview or import a kiln controller firing-log CSV (staff only)
+ *
+ * Parses a Bartlett Genesis, Orton/TAP, or generic controller log (comma, semicolon, or tab
+ * separated). With `dryRun: true`, returns the parsed telemetry, downsampled curve, and any
+ * overlapping firing on this kiln without writing anything. With `dryRun: false`, attaches
+ * the telemetry to `firingId` or creates a new COMPLETE firing and counts it against the kiln.
+ *
+ */
+export const importKilnLogMutation = (options?: Partial<Options<ImportKilnLogData>>): UseMutationOptions<ImportKilnLogResponse, ImportKilnLogError, Options<ImportKilnLogData>> => {
+    const mutationOptions: UseMutationOptions<ImportKilnLogResponse, ImportKilnLogError, Options<ImportKilnLogData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await importKilnLog({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -3071,6 +3094,282 @@ export const getGlazeBatchOptions = (options: Options<GetGlazeBatchData>) => que
     queryKey: getGlazeBatchQueryKey(options)
 });
 
+/**
+ * Preview or import member recipes from a Glazecalc or glaze-vault JSON export
+ *
+ * Accepts a `glazecalc-export` v1 or `glaze-vault-export` v1 JSON document (up to 2 MB, 500
+ * recipes, 60 lines per recipe). HTML is stripped from notes. When `dryRun` is true, writes
+ * nothing and returns a per-recipe preview; when false, commits atomically if there are no
+ * errors. Imported recipes always belong to the caller.
+ *
+ */
+export const importGlazesMutation = (options?: Partial<Options<ImportGlazesData>>): UseMutationOptions<ImportGlazesResponse, ImportGlazesError, Options<ImportGlazesData>> => {
+    const mutationOptions: UseMutationOptions<ImportGlazesResponse, ImportGlazesError, Options<ImportGlazesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await importGlazes({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Preview or import a recipe from a Glazecalc share link
+ *
+ * Fetches a shared recipe from Glazecalc (`GET /api/shared/recipe` with `X-Share-Secret`)
+ * after allowlisting the host, then previews or imports it as the caller's recipe.
+ *
+ */
+export const importGlazeShareMutation = (options?: Partial<Options<ImportGlazeShareData>>): UseMutationOptions<ImportGlazeShareResponse, ImportGlazeShareError, Options<ImportGlazeShareData>> => {
+    const mutationOptions: UseMutationOptions<ImportGlazeShareResponse, ImportGlazeShareError, Options<ImportGlazeShareData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await importGlazeShare({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getGlazecalcStatusQueryKey = (options: Options<GetGlazecalcStatusData>) => createQueryKey('getGlazecalcStatus', options);
+
+/**
+ * Caller's Glazecalc OAuth connection status
+ */
+export const getGlazecalcStatusOptions = (options: Options<GetGlazecalcStatusData>) => queryOptions<GetGlazecalcStatusResponse, GetGlazecalcStatusError, GetGlazecalcStatusResponse, ReturnType<typeof getGlazecalcStatusQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getGlazecalcStatus({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getGlazecalcStatusQueryKey(options)
+});
+
+/**
+ * Start PKCE OAuth connection to Glazecalc
+ */
+export const connectGlazecalcMutation = (options?: Partial<Options<ConnectGlazecalcData>>): UseMutationOptions<ConnectGlazecalcResponse, ConnectGlazecalcError, Options<ConnectGlazecalcData>> => {
+    const mutationOptions: UseMutationOptions<ConnectGlazecalcResponse, ConnectGlazecalcError, Options<ConnectGlazecalcData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await connectGlazecalc({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Complete Glazecalc OAuth callback and store encrypted tokens
+ */
+export const completeGlazecalcCallbackMutation = (options?: Partial<Options<CompleteGlazecalcCallbackData>>): UseMutationOptions<CompleteGlazecalcCallbackResponse, CompleteGlazecalcCallbackError, Options<CompleteGlazecalcCallbackData>> => {
+    const mutationOptions: UseMutationOptions<CompleteGlazecalcCallbackResponse, CompleteGlazecalcCallbackError, Options<CompleteGlazecalcCallbackData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await completeGlazecalcCallback({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Pull recipes from the connected Glazecalc account
+ */
+export const syncGlazecalcMutation = (options?: Partial<Options<SyncGlazecalcData>>): UseMutationOptions<SyncGlazecalcResponse, SyncGlazecalcError, Options<SyncGlazecalcData>> => {
+    const mutationOptions: UseMutationOptions<SyncGlazecalcResponse, SyncGlazecalcError, Options<SyncGlazecalcData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await syncGlazecalc({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Disconnect the caller's Glazecalc account
+ */
+export const disconnectGlazecalcMutation = (options?: Partial<Options<DisconnectGlazecalcData>>): UseMutationOptions<DisconnectGlazecalcResponse, DisconnectGlazecalcError, Options<DisconnectGlazecalcData>> => {
+    const mutationOptions: UseMutationOptions<DisconnectGlazecalcResponse, DisconnectGlazecalcError, Options<DisconnectGlazecalcData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await disconnectGlazecalc({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const exportGlazeQueryKey = (options: Options<ExportGlazeData>) => createQueryKey('exportGlaze', options);
+
+/**
+ * Export a recipe as a glazecalc-export v1 JSON document
+ */
+export const exportGlazeOptions = (options: Options<ExportGlazeData>) => queryOptions<ExportGlazeResponse, ExportGlazeError, ExportGlazeResponse, ReturnType<typeof exportGlazeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportGlaze({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportGlazeQueryKey(options)
+});
+
+/**
+ * Copy a shared member recipe into a new studio glaze (staff)
+ *
+ * Creates a new studio glaze with `source = MANUAL` and `promotedFrom = glazeId`, leaving
+ * the member's own recipe untouched.
+ *
+ */
+export const promoteGlazeMutation = (options?: Partial<Options<PromoteGlazeData>>): UseMutationOptions<PromoteGlazeResponse, PromoteGlazeError, Options<PromoteGlazeData>> => {
+    const mutationOptions: UseMutationOptions<PromoteGlazeResponse, PromoteGlazeError, Options<PromoteGlazeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await promoteGlaze({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listGlazeMixesQueryKey = (options: Options<ListGlazeMixesData>) => createQueryKey('listGlazeMixes', options);
+
+/**
+ * Mix history and SG readings for a studio glaze, newest first
+ */
+export const listGlazeMixesOptions = (options: Options<ListGlazeMixesData>) => queryOptions<ListGlazeMixesResponse, ListGlazeMixesError, ListGlazeMixesResponse, ReturnType<typeof listGlazeMixesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGlazeMixes({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGlazeMixesQueryKey(options)
+});
+
+/**
+ * Log a new mix of a studio glaze (staff)
+ */
+export const logGlazeMixMutation = (options?: Partial<Options<LogGlazeMixData>>): UseMutationOptions<LogGlazeMixResponse, LogGlazeMixError, Options<LogGlazeMixData>> => {
+    const mutationOptions: UseMutationOptions<LogGlazeMixResponse, LogGlazeMixError, Options<LogGlazeMixData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await logGlazeMix({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Record a specific gravity reading on a glaze mix (staff)
+ */
+export const addGlazeMixReadingMutation = (options?: Partial<Options<AddGlazeMixReadingData>>): UseMutationOptions<AddGlazeMixReadingResponse, AddGlazeMixReadingError, Options<AddGlazeMixReadingData>> => {
+    const mutationOptions: UseMutationOptions<AddGlazeMixReadingResponse, AddGlazeMixReadingError, Options<AddGlazeMixReadingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addGlazeMixReading({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start adding a test-tile photo to a glaze recipe
+ *
+ * Returns two signed URLs for direct-to-blob upload (ADR 12), up to 6 photos per recipe.
+ * Staff may add photos to studio glazes; members may add photos to their own recipes.
+ *
+ */
+export const startGlazePhotoUploadMutation = (options?: Partial<Options<StartGlazePhotoUploadData>>): UseMutationOptions<StartGlazePhotoUploadResponse, StartGlazePhotoUploadError, Options<StartGlazePhotoUploadData>> => {
+    const mutationOptions: UseMutationOptions<StartGlazePhotoUploadResponse, StartGlazePhotoUploadError, Options<StartGlazePhotoUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startGlazePhotoUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Finish adding a test-tile photo once both JPEGs are uploaded
+ */
+export const completeGlazePhotoUploadMutation = (options?: Partial<Options<CompleteGlazePhotoUploadData>>): UseMutationOptions<CompleteGlazePhotoUploadResponse, CompleteGlazePhotoUploadError, Options<CompleteGlazePhotoUploadData>> => {
+    const mutationOptions: UseMutationOptions<CompleteGlazePhotoUploadResponse, CompleteGlazePhotoUploadError, Options<CompleteGlazePhotoUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await completeGlazePhotoUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a test-tile photo from a glaze recipe
+ */
+export const deleteGlazePhotoMutation = (options?: Partial<Options<DeleteGlazePhotoData>>): UseMutationOptions<DeleteGlazePhotoResponse, DeleteGlazePhotoError, Options<DeleteGlazePhotoData>> => {
+    const mutationOptions: UseMutationOptions<DeleteGlazePhotoResponse, DeleteGlazePhotoError, Options<DeleteGlazePhotoData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteGlazePhoto({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listApiTokensQueryKey = (options: Options<ListApiTokensData>) => createQueryKey('listApiTokens', options);
 
 /**
@@ -3414,3 +3713,26 @@ export const confirmInvoiceMutation = (options?: Partial<Options<ConfirmInvoiceD
     };
     return mutationOptions;
 };
+
+export const exportInvoiceEvalQueryKey = (options: Options<ExportInvoiceEvalData>) => createQueryKey('exportInvoiceEval', options);
+
+/**
+ * Download a confirmed invoice as a private eval case ZIP (staff)
+ *
+ * A ZIP holding the confirmed draft as `expected.json`, case metadata as `case.json`, and
+ * the invoice file when available, with no customer details. Ready to drop into a private
+ * eval set. Refused until the invoice is confirmed.
+ *
+ */
+export const exportInvoiceEvalOptions = (options: Options<ExportInvoiceEvalData>) => queryOptions<ExportInvoiceEvalResponse, ExportInvoiceEvalError, ExportInvoiceEvalResponse, ReturnType<typeof exportInvoiceEvalQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportInvoiceEval({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportInvoiceEvalQueryKey(options)
+});

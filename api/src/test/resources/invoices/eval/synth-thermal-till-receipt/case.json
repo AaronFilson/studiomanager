@@ -1,0 +1,12 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "thermal-receipt",
+  "seed": 20261116,
+  "split": "dev",
+  "tags": [
+    "synthetic",
+    "receipt",
+    "thermal"
+  ]
+}

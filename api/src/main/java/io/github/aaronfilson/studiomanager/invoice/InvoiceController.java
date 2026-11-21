@@ -2,11 +2,17 @@ package io.github.aaronfilson.studiomanager.invoice;
 
 import io.github.aaronfilson.studiomanager.contract.ComparedReadDto;
 import io.github.aaronfilson.studiomanager.contract.ConfirmInvoiceRequestDto;
+import io.github.aaronfilson.studiomanager.contract.InvoiceDateYearSourceDto;
+import io.github.aaronfilson.studiomanager.contract.InvoiceDocumentTypeDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceFileTypeDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceLineDto;
+import io.github.aaronfilson.studiomanager.contract.InvoiceLineKindDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceListDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceMatchSourceDto;
+import io.github.aaronfilson.studiomanager.contract.InvoicePaymentDto;
+import io.github.aaronfilson.studiomanager.contract.InvoicePaymentMethodDto;
+import io.github.aaronfilson.studiomanager.contract.InvoicePaymentSourceDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceReadOutcomeDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceReaderDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceStatusDto;
@@ -18,15 +24,22 @@ import io.github.aaronfilson.studiomanager.contract.ReaderSkipReasonDto;
 import io.github.aaronfilson.studiomanager.contract.SaveInvoiceDraftRequestDto;
 import io.github.aaronfilson.studiomanager.contract.StartInvoiceUploadRequestDto;
 import io.github.aaronfilson.studiomanager.platform.Capped;
+import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,11 +50,17 @@ class InvoiceController implements InvoicesApi {
   private final InvoiceInbox inbox;
   private final InvoiceReview review;
   private final ReaderComparison comparison;
+  private final InvoiceEvalExport evalExport;
 
-  InvoiceController(InvoiceInbox inbox, InvoiceReview review, ReaderComparison comparison) {
+  InvoiceController(
+      InvoiceInbox inbox,
+      InvoiceReview review,
+      ReaderComparison comparison,
+      InvoiceEvalExport evalExport) {
     this.inbox = inbox;
     this.review = review;
     this.comparison = comparison;
+    this.evalExport = evalExport;
   }
 
   @Override
@@ -96,18 +115,39 @@ class InvoiceController implements InvoicesApi {
                         amount(line.getQuantity()),
                         line.getUnit(),
                         amount(line.getUnitPrice()),
-                        amount(line.getLineTotal())),
+                        amount(line.getLineTotal()),
+                        line.getKind() == null
+                            ? null
+                            : InvoiceDraft.LineKind.valueOf(line.getKind().getValue()),
+                        nonNullStrings(line.getSerialNumbers()),
+                        Boolean.TRUE.equals(line.getUnclear())),
                     line.getSupplyItemId()))
             .toList();
     InvoiceDraft header =
         new InvoiceDraft(
+            request.getDocumentType() == null
+                ? null
+                : InvoiceDraft.DocumentType.valueOf(request.getDocumentType().getValue()),
             request.getVendorName(),
             request.getInvoiceNumber(),
+            request.getOrderNumber(),
             request.getInvoiceDate(),
+            request.getInvoiceDatePrinted(),
+            request.getInvoiceDateYear() == null
+                ? null
+                : InvoiceDraft.DateYearSource.valueOf(request.getInvoiceDateYear().getValue()),
+            request.getDueDate(),
             amount(request.getSubtotal()),
             amount(request.getShipping()),
             amount(request.getTax()),
             amount(request.getTotal()),
+            amount(request.getAmountPaid()),
+            amount(request.getAmountDue()),
+            toPayments(request.getPayments()),
+            nonNullStrings(request.getCrossedOut()),
+            request.getOtherPapers(),
+            nonNullStrings(request.getNotes()),
+            request.getRotation(),
             List.of());
     return ResponseEntity.ok(
         toDto(review.edit(studioId, invoiceId, header, lines, request.getExpectedVersion())));
@@ -139,6 +179,20 @@ class InvoiceController implements InvoicesApi {
                     .toList()));
   }
 
+  @Override
+  @PreAuthorize("@studioAuthz.can(#studioId, 'INVOICES_MANAGE')")
+  public ResponseEntity<Resource> exportInvoiceEval(UUID studioId, UUID invoiceId) {
+    byte[] zip = evalExport.zip(studioId, invoiceId);
+    String filename = "invoice-eval-%s.zip".formatted(invoiceId);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType("application/zip"))
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.attachment().filename(filename).build().toString())
+        .header(HttpHeaders.CACHE_CONTROL, "no-store")
+        .body(new ByteArrayResource(zip));
+  }
+
   private static ComparedReadDto toDto(ReaderComparison.Compared compared) {
     InvoiceRead.Outcome outcome = compared.outcome();
     ComparedReadDto dto =
@@ -155,6 +209,7 @@ class InvoiceController implements InvoicesApi {
             .note(compared.note())
             .elapsedMs(compared.elapsedMs())
             .problems(compared.problems())
+            .explanations(compared.explanations())
             .lines(List.of());
     ReaderResult.Usage usage = compared.usage();
     if (usage != null) {
@@ -166,13 +221,19 @@ class InvoiceController implements InvoicesApi {
     }
     InvoiceDraft draft = compared.draft();
     if (draft != null) {
-      dto.vendorName(draft.vendorName())
+      dto.documentType(
+              draft.documentType() == null
+                  ? null
+                  : InvoiceDocumentTypeDto.fromValue(draft.documentType().name()))
+          .vendorName(draft.vendorName())
           .invoiceNumber(draft.invoiceNumber())
           .invoiceDate(draft.invoiceDate())
           .subtotal(text(draft.subtotal()))
           .shipping(text(draft.shipping()))
           .tax(text(draft.tax()))
           .total(text(draft.total()))
+          .payableAmount(text(draft.payableAmount()))
+          .payments(draft.payments().stream().map(InvoiceController::toDto).toList())
           .lines(
               draft.lines().stream()
                   .map(line ->
@@ -182,7 +243,13 @@ class InvoiceController implements InvoicesApi {
                           .quantity(text(line.quantity()))
                           .unit(line.unit())
                           .unitPrice(text(line.unitPrice()))
-                          .lineTotal(text(line.lineTotal())))
+                          .lineTotal(text(line.lineTotal()))
+                          .kind(
+                              line.kind() == null
+                                  ? null
+                                  : InvoiceLineKindDto.fromValue(line.kind().name()))
+                          .serialNumbers(line.serialNumbers())
+                          .unclear(line.unclear()))
                   .toList());
     }
     return dto;
@@ -197,20 +264,54 @@ class InvoiceController implements InvoicesApi {
         .fileType(InvoiceFileTypeDto.fromValue(view.fileType().name()))
         .reader(reader == null ? null : InvoiceReaderDto.fromValue(reader.name()))
         .readNote(view.readNote())
+        .documentType(
+            draft.documentType() == null
+                ? null
+                : InvoiceDocumentTypeDto.fromValue(draft.documentType().name()))
         .vendorName(draft.vendorName())
         .invoiceNumber(draft.invoiceNumber())
+        .orderNumber(draft.orderNumber())
         .invoiceDate(draft.invoiceDate())
+        .invoiceDatePrinted(draft.invoiceDatePrinted())
+        .invoiceDateYear(
+            draft.invoiceDateYear() == null
+                ? null
+                : InvoiceDateYearSourceDto.fromValue(draft.invoiceDateYear().name()))
+        .dueDate(draft.dueDate())
         .subtotal(text(draft.subtotal()))
         .shipping(text(draft.shipping()))
         .tax(text(draft.tax()))
         .total(text(draft.total()))
+        .amountPaid(text(draft.amountPaid()))
+        .amountDue(text(draft.amountDue()))
+        .payableAmount(text(draft.payableAmount()))
+        .payments(draft.payments().stream().map(InvoiceController::toDto).toList())
+        .crossedOut(draft.crossedOut())
+        .otherPapers(draft.otherPapers())
+        .notes(draft.notes())
+        .rotation(draft.rotation())
         .lines(view.lines().stream().map(InvoiceController::toDto).toList())
         .problems(view.problems())
+        .explanations(view.explanations())
         .uploadedBy(view.uploadedBy())
         .uploadedAt(utc(view.uploadedAt()))
         .confirmedBy(view.confirmedBy())
         .confirmedAt(view.confirmedAt() == null ? null : utc(view.confirmedAt()))
         .version(view.version());
+  }
+
+  private static InvoicePaymentDto toDto(InvoiceDraft.Payment payment) {
+    return new InvoicePaymentDto()
+        .date(payment.date())
+        .amount(payment.amount().toPlainString())
+        .method(
+            payment.method() == null
+                ? null
+                : InvoicePaymentMethodDto.fromValue(payment.method().name()))
+        .source(
+            payment.source() == null
+                ? null
+                : InvoicePaymentSourceDto.fromValue(payment.source().name()));
   }
 
   private static InvoiceLineDto toDto(InvoiceView.Line line) {
@@ -223,6 +324,9 @@ class InvoiceController implements InvoicesApi {
         .unit(read.unit())
         .unitPrice(text(read.unitPrice()))
         .lineTotal(text(read.lineTotal()))
+        .kind(InvoiceLineKindDto.fromValue(read.effectiveKind().name()))
+        .serialNumbers(read.serialNumbers())
+        .unclear(read.unclear())
         .supplyItemId(line.supplyItemId())
         .matchSource(source == null ? null : InvoiceMatchSourceDto.fromValue(source.name()));
   }
@@ -237,6 +341,32 @@ class InvoiceController implements InvoicesApi {
         .invoiceDate(summary.invoiceDate())
         .total(text(summary.total()))
         .uploadedAt(utc(summary.uploadedAt()));
+  }
+
+  private static List<InvoiceDraft.Payment> toPayments(@Nullable List<InvoicePaymentDto> payments) {
+    return payments == null
+        ? List.of()
+        : payments.stream().map(InvoiceController::toPayment).toList();
+  }
+
+  private static InvoiceDraft.Payment toPayment(InvoicePaymentDto payment) {
+    BigDecimal paid = amount(payment.getAmount());
+    if (paid == null) {
+      throw new InvalidInputException("Each payment needs an amount.");
+    }
+    return new InvoiceDraft.Payment(
+        payment.getDate(),
+        paid,
+        payment.getMethod() == null
+            ? null
+            : InvoiceDraft.PaymentMethod.valueOf(payment.getMethod().getValue()),
+        payment.getSource() == null
+            ? null
+            : InvoiceDraft.PaymentSource.valueOf(payment.getSource().getValue()));
+  }
+
+  private static List<String> nonNullStrings(@Nullable List<String> values) {
+    return values == null ? List.of() : values.stream().filter(Objects::nonNull).toList();
   }
 
   /** The contract's pattern has already checked it's a plain decimal. */

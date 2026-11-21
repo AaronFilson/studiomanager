@@ -25,9 +25,9 @@ export function PieceList({
     <View style={styles.list}>
       {staff && (
         <View style={styles.filters} accessibilityRole="radiogroup" accessibilityLabel="Stage">
-          <Button label="All" primary={!stage} onPress={() => setStage(undefined)} />
+          <Button label="All" primary={!stage} selected={!stage} onPress={() => setStage(undefined)} />
           {shelfStages.map((s) => (
-            <Button key={s} label={stageLabel(s)} primary={stage === s} onPress={() => setStage(s)} />
+            <Button key={s} label={stageLabel(s)} primary={stage === s} selected={stage === s} onPress={() => setStage(s)} />
           ))}
         </View>
       )}

@@ -72,4 +72,22 @@ class TokenPolicyTests {
     assertThat(TokenPolicy.refusal(everything, "GET", "something-new")).isPresent();
     assertThat(TokenPolicy.refusal(everything, "GET", null)).isPresent();
   }
+
+  @Test
+  void glazecalcOAuthLifecycleRoutesAreRefusedForApiTokens() {
+    Set<TokenScope> everything = Set.of(TokenScope.values());
+    assertThat(TokenPolicy.refusal(everything, "POST", "glazes", "/glazecalc/connect")).isPresent();
+    assertThat(TokenPolicy.refusal(everything, "POST", "glazes", "/glazecalc/callback"))
+        .isPresent();
+    assertThat(TokenPolicy.refusal(everything, "DELETE", "glazes", "/glazecalc/connection"))
+        .isPresent();
+    assertThat(TokenPolicy.refusal(everything, "POST", "glazes", "/glazecalc/connect/"))
+        .isPresent();
+
+    assertThat(TokenPolicy.refusal(READ, "GET", "glazes", "/glazecalc/status")).isEmpty();
+    assertThat(
+            TokenPolicy.refusal(
+                Set.of(TokenScope.WRITE_GLAZES), "POST", "glazes", "/glazecalc/sync"))
+        .isEmpty();
+  }
 }

@@ -117,6 +117,179 @@ class InvoiceChecksTests {
         .containsExactly("No lines were read.", "No total was read.");
   }
 
+  @Test
+  void packingListsGetNoMoneyChecks() {
+    InvoiceDraft packingList =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.PACKING_LIST,
+            "Clay Works",
+            null,
+            "SO-1",
+            LocalDate.of(2026, 10, 23),
+            null,
+            InvoiceDraft.DateYearSource.PRINTED,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            List.of(
+                new InvoiceDraft.Line(
+                    "B-Mix 5",
+                    null,
+                    amount("10"),
+                    "bag",
+                    null,
+                    null,
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false)));
+
+    assertThat(InvoiceChecks.problems(packingList)).isEmpty();
+  }
+
+  @Test
+  void receiptTotalsCheckAgainstWhatWasPaid() {
+    InvoiceDraft receipt =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.RECEIPT,
+            "Milltown Mart",
+            "R-1",
+            null,
+            LocalDate.of(2026, 10, 21),
+            null,
+            InvoiceDraft.DateYearSource.PRINTED,
+            null,
+            amount("50.00"),
+            null,
+            amount("4.50"),
+            amount("50.00"),
+            amount("54.50"),
+            BigDecimal.ZERO,
+            List.of(
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 21),
+                    new BigDecimal("54.50"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.RECEIPT)),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            List.of(line("Sponges", "10", "5.00", "50.00")));
+
+    assertThat(InvoiceChecks.problems(receipt)).isEmpty();
+    assertThat(receipt.payableAmount()).isEqualByComparingTo("54.50");
+  }
+
+  @Test
+  void splitPaymentsCoveringLinesAndTaxExplainInsteadOfRaisingAFalseAlarm() {
+    InvoiceDraft split =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.ORDER_FORM,
+            "Counter Supply",
+            null,
+            "CTR-2",
+            LocalDate.of(2026, 10, 18),
+            "10/18",
+            InvoiceDraft.DateYearSource.FROM_PAGE,
+            null,
+            amount("100.00"),
+            null,
+            amount("8.00"),
+            amount("60.00"),
+            amount("108.00"),
+            BigDecimal.ZERO,
+            List.of(
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 18),
+                    new BigDecimal("60.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.SLIP),
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 19),
+                    new BigDecimal("48.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.RECEIPT)),
+            List.of(),
+            null,
+            List.of(),
+            90,
+            List.of(line("Fireclay", "100", null, "100.00")));
+
+    assertThat(InvoiceChecks.problems(split)).isEmpty();
+    assertThat(split.payableAmount()).isEqualByComparingTo("108.00");
+    assertThat(InvoiceChecks.explanations(split))
+        .singleElement()
+        .asString()
+        .contains("60.00 on 2026-10-18", "48.00 on 2026-10-19", "108.00", "written total is 60.00");
+  }
+
+  @Test
+  void nonStockLinesDoNotRequireAQuantity() {
+    InvoiceDraft draft =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.INVOICE,
+            "Clay Co",
+            "INV-2",
+            null,
+            LocalDate.of(2026, 10, 1),
+            null,
+            InvoiceDraft.DateYearSource.PRINTED,
+            null,
+            amount("115.00"),
+            null,
+            null,
+            amount("115.00"),
+            null,
+            null,
+            List.of(),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            List.of(
+                new InvoiceDraft.Line(
+                    "B-Mix 5",
+                    null,
+                    amount("4"),
+                    "bag",
+                    amount("25.00"),
+                    amount("100.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false),
+                new InvoiceDraft.Line(
+                    "Freight",
+                    null,
+                    null,
+                    null,
+                    null,
+                    amount("20.00"),
+                    InvoiceDraft.LineKind.SHIPPING,
+                    List.of(),
+                    false),
+                new InvoiceDraft.Line(
+                    "Member discount",
+                    null,
+                    null,
+                    null,
+                    null,
+                    amount("-5.00"),
+                    InvoiceDraft.LineKind.DISCOUNT,
+                    List.of(),
+                    false)));
+
+    assertThat(InvoiceChecks.problems(draft)).isEmpty();
+  }
+
   private static InvoiceDraft clayOrder(
       String subtotal, String tax, String shipping, String total) {
     return new InvoiceDraft(

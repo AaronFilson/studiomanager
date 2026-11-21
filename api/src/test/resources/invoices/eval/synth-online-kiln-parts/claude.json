@@ -1,0 +1,56 @@
+{
+  "documentType": "ORDER_FORM",
+  "vendorName": "Hearthstone Ceramic Equipment",
+  "invoiceNumber": "HCE-77319",
+  "orderNumber": "WEB-77319",
+  "invoiceDate": "2026-10-15",
+  "invoiceDatePrinted": "October 15, 2026",
+  "invoiceDateYear": "PRINTED",
+  "dueDate": "",
+  "subtotal": "246.00",
+  "shipping": "28.50",
+  "tax": "19.68",
+  "total": "294.18",
+  "amountPaid": "294.18",
+  "amountDue": "0.00",
+  "payments": [
+    {
+      "date": "2026-10-15",
+      "amount": "294.18",
+      "method": "CARD",
+      "source": "INVOICE"
+    }
+  ],
+  "crossedOut": [],
+  "otherPapers": "",
+  "notes": [
+    "Web order paid in full by card."
+  ],
+  "rotation": "0",
+  "lines": [
+    {
+      "description": "KM-1027 Kanthal Replacement Element Set",
+      "sku": "HE-EL1027",
+      "quantity": "2",
+      "unit": "set",
+      "unitPrice": "89.00",
+      "lineTotal": "178.00",
+      "kind": "ITEM",
+      "serialNumbers": [
+        "SN-SK240-8814"
+      ],
+      "unclear": false
+    },
+    {
+      "description": "Type K Heavy Duty Thermocouple 8 Gauge",
+      "sku": "HE-TCK8",
+      "quantity": "2",
+      "unit": "each",
+      "unitPrice": "34.00",
+      "lineTotal": "68.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

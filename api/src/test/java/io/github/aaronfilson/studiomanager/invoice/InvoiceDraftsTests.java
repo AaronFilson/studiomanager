@@ -66,4 +66,65 @@ class InvoiceDraftsTests {
     assertThat(ClaudeInvoiceAnswer.date("10/01/2026")).isNull();
     assertThat(ClaudeInvoiceAnswer.date("2026-10-01")).isEqualTo(LocalDate.of(2026, 10, 1));
   }
+
+  @Test
+  void v2FieldsAreSanitizedAndCapped() {
+    InvoiceDraft read =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.ORDER_FORM,
+            "Clay Co",
+            "1",
+            "  PO-99\t",
+            LocalDate.of(2026, 10, 1),
+            " 10/1 ",
+            InvoiceDraft.DateYearSource.FROM_PAGE,
+            LocalDate.of(1999, 1, 1),
+            amount("50.00"),
+            null,
+            null,
+            amount("50.00"),
+            amount("50.005"),
+            amount("100000000"),
+            List.of(
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 1),
+                    amount("50.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.SLIP),
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 1),
+                    amount("99999999"),
+                    InvoiceDraft.PaymentMethod.CASH,
+                    InvoiceDraft.PaymentSource.RECEIPT)),
+            List.of("  Struck\u0000 row  ", "   "),
+            "x".repeat(400),
+            List.of("n1", "n2", "n3", "n4", "n5", "n6"),
+            45,
+            List.of(
+                new InvoiceDraft.Line(
+                    "Kiln element",
+                    "EL-1",
+                    amount("1"),
+                    "set",
+                    amount("50.00"),
+                    amount("50.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(" SN-123 ", ""),
+                    true)));
+
+    InvoiceDrafts.Sanitized sanitized = InvoiceDrafts.sanitize(read, TODAY);
+    InvoiceDraft cleaned = sanitized.draft();
+
+    assertThat(cleaned.orderNumber()).isEqualTo("PO-99");
+    assertThat(cleaned.dueDate()).isNull();
+    assertThat(cleaned.amountPaid()).isEqualByComparingTo("50.01");
+    assertThat(cleaned.amountDue()).isNull();
+    assertThat(cleaned.payments()).hasSize(1);
+    assertThat(cleaned.crossedOut()).containsExactly("Struck row");
+    assertThat(cleaned.otherPapers()).hasSize(InvoiceDrafts.OTHER_PAPERS_LENGTH);
+    assertThat(cleaned.notes()).containsExactly("n1", "n2", "n3", "n4", "n5");
+    assertThat(cleaned.rotation()).isNull();
+    assertThat(cleaned.lines().getFirst().serialNumbers()).containsExactly("SN-123");
+    assertThat(cleaned.lines().getFirst().unclear()).isTrue();
+  }
 }

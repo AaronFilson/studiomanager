@@ -64,7 +64,7 @@ function Limits() {
       {limits.data && (
         <>
           <p role="status">{describeLimits(limits.data)}</p>
-          <NormalLimits overview={limits.data} />
+          <NormalLimits key={JSON.stringify(limits.data.normal)} overview={limits.data} />
           <Boost overview={limits.data} />
         </>
       )}
@@ -88,7 +88,13 @@ function NormalLimits({ overview }: { overview: RateLimitOverview }) {
   const id = useId();
   const refresh = useRefreshAdmin();
   const [values, setValues] = useState<ChannelRateLimits>(overview.normal);
-  const save = useMutation({ ...setNormalRateLimitsMutation(), onSuccess: refresh });
+  const save = useMutation({
+    ...setNormalRateLimitsMutation(),
+    onSuccess: (after) => {
+      setValues(after.normal);
+      refresh(after);
+    },
+  });
   const reset = useMutation({
     ...resetNormalRateLimitsMutation(),
     onSuccess: (after) => {
@@ -173,6 +179,7 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
   const [unlimited, setUnlimited] = useState('30');
   const [easing, setEasing] = useState('60');
   const [startsAt, setStartsAt] = useState('');
+  const [startsAtError, setStartsAtError] = useState<string>();
   const [studioId, setStudioId] = useState('');
   const studios = useQuery(listAdminStudiosOptions());
   const schedule = useMutation({ ...scheduleRateLimitBoostMutation(), onSuccess: refresh });
@@ -183,11 +190,21 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
       className="stack"
       onSubmit={(event) => {
         event.preventDefault();
+        let startsAtIso: string | undefined;
+        if (startsAt) {
+          const parsed = new Date(startsAt);
+          if (Number.isNaN(parsed.getTime())) {
+            setStartsAtError('Enter a valid start date and time.');
+            return;
+          }
+          startsAtIso = parsed.toISOString();
+        }
+        setStartsAtError(undefined);
         schedule.mutate({
           body: {
             unlimitedMinutes: Number(unlimited),
             easingMinutes: Number(easing),
-            startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
+            startsAt: startsAtIso,
             studioId: studioId || undefined,
           },
         });
@@ -246,8 +263,21 @@ function Boost({ overview }: { overview: RateLimitOverview }) {
       </div>
       <div className="field">
         <label htmlFor={`${id}-starts`}>Starts (leave empty for now)</label>
-        <input id={`${id}-starts`} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+        <input
+          id={`${id}-starts`}
+          type="datetime-local"
+          value={startsAt}
+          onChange={(e) => {
+            setStartsAt(e.target.value);
+            setStartsAtError(undefined);
+          }}
+        />
       </div>
+      {startsAtError && (
+        <p role="alert" className="error">
+          {startsAtError}
+        </p>
+      )}
       <div className="field">
         <label htmlFor={`${id}-studio`}>Which studios</label>
         <select id={`${id}-studio`} value={studioId} onChange={(e) => setStudioId(e.target.value)}>

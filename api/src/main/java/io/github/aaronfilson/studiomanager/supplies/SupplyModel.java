@@ -50,6 +50,8 @@ public final class SupplyModel {
       @Nullable BigDecimal parLevel,
       @Nullable BigDecimal reorderQuantity,
       @Nullable BigDecimal salePrice,
+      @Nullable BigDecimal lastPurchaseUnitPrice,
+      @Nullable Instant lastPurchasedAt,
       @Nullable String taxCategory,
       @Nullable String substitute,
       BigDecimal onHand,

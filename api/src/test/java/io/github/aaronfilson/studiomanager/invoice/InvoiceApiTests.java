@@ -10,6 +10,7 @@ import io.github.aaronfilson.studiomanager.StatementCounts;
 import io.github.aaronfilson.studiomanager.TestUser;
 import io.github.aaronfilson.studiomanager.platform.tenancy.StudioRole;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
@@ -20,11 +21,15 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,12 +79,13 @@ class InvoiceApiTests {
   private final TestUser member = TestUser.named("Mo");
   private UUID studioId;
   private String bMix;
+  private String speckledBuff;
 
   @BeforeEach
   void aStudioWithSupplies() {
     studioId = UUID.fromString(read(studio(owner, "Clay Club"), "$.id"));
     bMix = item("B-Mix 5", "50 lb box");
-    item("Speckled Buff", "25 lb bag");
+    speckledBuff = item("Speckled Buff", "25 lb bag");
   }
 
   @Test
@@ -116,6 +122,9 @@ class InvoiceApiTests {
             get(owner, path("/supplies")).getResponse().getContentAsString(),
             "$[?(@.id == '%s')].onHand".formatted(bMix));
     assertThat(onHand).singleElement().asString().startsWith("5");
+    // Confirming also records the item's last purchase unit price and timestamp
+    assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.50");
+    assertThat(supplyField(bMix, "lastPurchasedAt")).isNotBlank();
 
     // The vendor's next invoice is matched by what staff confirmed: its SKU
     String next = upload("PDF", PDF);
@@ -123,6 +132,391 @@ class InvoiceApiTests {
         .bodyJson()
         .extractingPath("$.lines[0].matchSource")
         .isEqualTo("ALIAS_SKU");
+  }
+
+  @Test
+  void confirmingComputesUnitPriceFromLineTotalWhenUnitPriceIsMissing() throws Exception {
+    String invoice = upload("PNG", PNG);
+    long version = version(awaitRead(invoice));
+
+    MvcTestResult saved =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + invoice),
+            """
+            {
+              "documentType": "ORDER_FORM",
+              "vendorName": "Counter Clay",
+              "total": "65.00",
+              "expectedVersion": %d,
+              "lines": [
+                {
+                  "description": "B-Mix 5",
+                  "quantity": "2",
+                  "unit": "box",
+                  "lineTotal": "65.00",
+                  "kind": "ITEM",
+                  "supplyItemId": "%s"
+                }
+              ]
+            }
+            """
+                .formatted(version, bMix));
+    assertThat(saved).hasStatusOk();
+    assertThat(saved).bodyJson().extractingPath("$.documentType").isEqualTo("ORDER_FORM");
+    assertThat(saved).bodyJson().extractingPath("$.payableAmount").isEqualTo("65.00");
+
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version(saved))))
+        .hasStatusOk();
+
+    assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.50");
+    assertThat(supplyField(bMix, "lastPurchasedAt")).isNotBlank();
+  }
+
+  @Test
+  void lineOnlyEditBumpsVersionAndRejectsStaleExpectedVersion() throws Exception {
+    String invoice = upload("PNG", PNG);
+    long initialVersion = version(awaitRead(invoice));
+
+    MvcTestResult firstEdit =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + invoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "total": "50.00",
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "B-Mix 5", "quantity": "2", "unitPrice": "25.00", "lineTotal": "50.00"}
+              ]
+            }
+            """
+                .formatted(initialVersion));
+    assertThat(firstEdit).hasStatusOk();
+    assertThat(firstEdit).bodyJson().extractingPath("$.status").isEqualTo("READY");
+    long v1 = version(firstEdit);
+
+    // Edit ONLY the line (match supplyItemId and tweak description); every header column and status
+    // stay identical so Hibernate would skip updating invoice unless forced.
+    MvcTestResult lineOnlyEdit =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + invoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "total": "50.00",
+              "expectedVersion": %d,
+              "lines": [
+                {
+                  "description": "B-Mix 5 clay",
+                  "quantity": "2",
+                  "unitPrice": "25.00",
+                  "lineTotal": "50.00",
+                  "supplyItemId": "%s"
+                }
+              ]
+            }
+            """
+                .formatted(v1, bMix));
+    assertThat(lineOnlyEdit).hasStatusOk();
+    long v2 = version(lineOnlyEdit);
+    assertThat(v2).isGreaterThan(v1);
+
+    // Stale expectedVersion from before the line-only edit is rejected on both edit and confirm.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "total": "50.00",
+                  "expectedVersion": %d,
+                  "lines": [
+                    {"description": "B-Mix 5", "quantity": "2", "unitPrice": "25.00", "lineTotal": "50.00"}
+                  ]
+                }
+                """
+                    .formatted(v1)))
+        .hasStatus(HttpStatus.CONFLICT);
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(v1)))
+        .hasStatus(HttpStatus.CONFLICT);
+
+    // Confirming with the bumped version succeeds.
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(v2)))
+        .hasStatusOk()
+        .bodyJson()
+        .extractingPath("$.status")
+        .isEqualTo("CONFIRMED");
+  }
+
+  @Test
+  void staffEditRejectsOutOfRangeValuesAndInvalidRotation() throws Exception {
+    String invoice = upload("PNG", PNG);
+    long v = version(awaitRead(invoice));
+
+    // Out-of-range invoice date is rejected with 400 rather than silently cleared.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "invoiceDate": "1990-01-01",
+                  "total": "50.00",
+                  "expectedVersion": %d,
+                  "lines": [{"description": "B-Mix 5", "quantity": "2", "lineTotal": "50.00"}]
+                }
+                """
+                    .formatted(v)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Out-of-range amount is rejected with 400.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "total": "99999999.00",
+                  "expectedVersion": %d,
+                  "lines": [{"description": "B-Mix 5", "quantity": "2", "lineTotal": "50.00"}]
+                }
+                """
+                    .formatted(v)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Non-quarter-turn rotation is rejected with 400.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "total": "50.00",
+                  "rotation": 45,
+                  "expectedVersion": %d,
+                  "lines": [{"description": "B-Mix 5", "quantity": "2", "lineTotal": "50.00"}]
+                }
+                """
+                    .formatted(v)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void confirmingUsesWeightedAveragePriceIgnoresPromoLinesAndPreservesNewerDate() throws Exception {
+    String sampleClay = item("Sample Porcelain", "5 lb bag");
+
+    // Newer invoice with two positive-priced lines + one $0.00 bonus line for bMix,
+    // plus a 4-decimal fractional unit price for speckledBuff (8.75 / 100 = 0.0875).
+    String newerInvoice = upload("PNG", PNG);
+    long newerV = version(awaitRead(newerInvoice));
+    MvcTestResult newerSaved =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + newerInvoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "invoiceNumber": "INV-NEW",
+              "invoiceDate": "2026-10-20",
+              "total": "168.75",
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "B-Mix 5", "quantity": "4", "unitPrice": "30.00", "lineTotal": "120.00", "supplyItemId": "%s"},
+                {"description": "B-Mix 5", "quantity": "1", "unitPrice": "40.00", "lineTotal": "40.00", "supplyItemId": "%s"},
+                {"description": "B-Mix 5 promo", "quantity": "1", "unitPrice": "0.00", "lineTotal": "0.00", "supplyItemId": "%s"},
+                {"description": "Speckled Buff", "quantity": "100", "lineTotal": "8.75", "supplyItemId": "%s"}
+              ]
+            }
+            """
+                .formatted(newerV, bMix, bMix, bMix, speckledBuff));
+    assertThat(newerSaved).hasStatusOk();
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + newerInvoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version(newerSaved))))
+        .hasStatusOk();
+
+    // Quantity received includes promo line (4 + 1 + 1 = 6); unit price is weighted average of
+    // positive lines only: (4 * 30 + 1 * 40) / 5 = 32.00.
+    assertThat(onHand(bMix)).isEqualTo("6");
+    assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.00");
+    assertThat(supplyField(bMix, "lastPurchasedAt")).isEqualTo("2026-10-20T00:00:00Z");
+    assertThat(supplyField(speckledBuff, "lastPurchaseUnitPrice")).isEqualTo("0.0875");
+
+    // Older backfilled invoice must not clobber bMix's newer purchase price or timestamp,
+    // while an all-$0.00 invoice on a new item still records 0.00.
+    String olderInvoice = upload("PNG", PNG);
+    long olderV = version(awaitRead(olderInvoice));
+    MvcTestResult olderSaved =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + olderInvoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "invoiceNumber": "INV-OLD",
+              "invoiceDate": "2026-10-01",
+              "total": "20.00",
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "B-Mix 5", "quantity": "1", "unitPrice": "20.00", "lineTotal": "20.00", "supplyItemId": "%s"},
+                {"description": "Free Sample", "quantity": "2", "unitPrice": "0.00", "lineTotal": "0.00", "supplyItemId": "%s"}
+              ]
+            }
+            """
+                .formatted(olderV, bMix, sampleClay));
+    assertThat(olderSaved).hasStatusOk();
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + olderInvoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version(olderSaved))))
+        .hasStatusOk();
+
+    assertThat(onHand(bMix)).isEqualTo("7");
+    assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.00");
+    assertThat(supplyField(bMix, "lastPurchasedAt")).isEqualTo("2026-10-20T00:00:00Z");
+    assertThat(supplyField(sampleClay, "lastPurchaseUnitPrice")).isEqualTo("0.00");
+  }
+
+  @Test
+  void v2SplitPaymentsExplainTheGapAndSetPayableAmount() throws Exception {
+    String invoice = upload("PNG", PNG);
+    long version = version(awaitRead(invoice));
+
+    MvcTestResult saved =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + invoice),
+            """
+            {
+              "documentType": "ORDER_FORM",
+              "vendorName": "Cascade Clay",
+              "orderNumber": "CTR-514",
+              "invoiceDate": "2026-10-18",
+              "invoiceDatePrinted": "10/18",
+              "invoiceDateYear": "FROM_PAGE",
+              "subtotal": "100.00",
+              "tax": "8.00",
+              "total": "60.00",
+              "payments": [
+                {"date": "2026-10-18", "amount": "60.00", "method": "CARD", "source": "SLIP"},
+                {"date": "2026-10-19", "amount": "48.00", "method": "CARD", "source": "RECEIPT"}
+              ],
+              "crossedOut": ["25 lb Redart"],
+              "otherPapers": "Two till receipts on top",
+              "notes": ["Split across two card payments"],
+              "rotation": 90,
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "Fireclay", "quantity": "100", "unit": "lb", "lineTotal": "100.00", "kind": "ITEM"}
+              ]
+            }
+            """
+                .formatted(version));
+
+    assertThat(saved).hasStatusOk();
+    assertThat(saved).bodyJson().extractingPath("$.status").isEqualTo("READY");
+    assertThat(saved).bodyJson().extractingPath("$.problems").asArray().isEmpty();
+    assertThat(saved).bodyJson().extractingPath("$.payableAmount").isEqualTo("108.00");
+    assertThat(saved).bodyJson().extractingPath("$.rotation").isEqualTo(90);
+    assertThat(saved).bodyJson().extractingPath("$.crossedOut[0]").isEqualTo("25 lb Redart");
+    assertThat(saved)
+        .bodyJson()
+        .extractingPath("$.explanations[0]")
+        .asString()
+        .contains("60.00", "48.00", "108.00");
+  }
+
+  @Test
+  void compareReadersScoresAgainstConfirmedInvoiceAndSupportsEvalExport() throws Exception {
+    setKey(KEY);
+    String invoice = upload("PDF", PDF);
+    long version = version(awaitRead(invoice));
+
+    // Export is refused until the invoice is confirmed
+    assertThat(get(owner, path("/invoices/" + invoice + "/eval-export")))
+        .hasStatus(HttpStatus.CONFLICT);
+
+    // Run Compare readers before confirming: stores Claude's compared draft
+    MvcTestResult compared = post(owner, path("/invoices/" + invoice + "/compare-readers"), "");
+    assertThat(compared).hasStatusOk();
+    assertThat(compared).bodyJson().extractingPath("$.results[0].outcome").isEqualTo("READ");
+
+    // Confirming scores the stored comparison against the confirmed invoice
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version)))
+        .hasStatusOk();
+
+    // Platform admin sees Claude's accuracy on confirmed invoices
+    TestUser admin = TestUser.named("Ada");
+    assertThat(mvc.get().uri("/api/v1/me").with(admin.adminToken())).hasStatusOk();
+    MvcTestResult overview =
+        mvc.get().uri("/api/v1/admin/invoice-readers").with(admin.adminToken()).exchange();
+    assertThat(overview).hasStatusOk();
+    String overviewJson = overview.getResponse().getContentAsString();
+    List<Number> confirmedCounts =
+        JsonPath.read(overviewJson, "$.accuracy[?(@.reader == 'CLAUDE')].confirmedInvoices");
+    List<Number> exactCounts =
+        JsonPath.read(overviewJson, "$.accuracy[?(@.reader == 'CLAUDE')].exactMatches");
+    assertThat(confirmedCounts).isNotEmpty();
+    assertThat(confirmedCounts.getFirst().longValue()).isGreaterThanOrEqualTo(1L);
+    assertThat(exactCounts).isNotEmpty();
+    assertThat(exactCounts.getFirst().longValue()).isGreaterThanOrEqualTo(1L);
+
+    // Now eval-export succeeds with a ZIP containing expected.json, case.json and invoice.pdf
+    MvcTestResult exported = get(owner, path("/invoices/" + invoice + "/eval-export"));
+    assertThat(exported).hasStatusOk();
+    assertThat(exported.getResponse().getContentType()).contains("application/zip");
+    Map<String, byte[]> entries = new HashMap<>();
+    try (ZipInputStream zip =
+        new ZipInputStream(
+            new ByteArrayInputStream(exported.getResponse().getContentAsByteArray()))) {
+      for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+        entries.put(entry.getName(), zip.readAllBytes());
+      }
+    }
+    assertThat(entries.keySet())
+        .contains("expected.json", "case.json", "invoice.pdf", "README.txt");
+    String expectedJson =
+        new String(Objects.requireNonNull(entries.get("expected.json")), StandardCharsets.UTF_8);
+    assertThat(expectedJson)
+        .containsIgnoringCase("Riverbend Clay Supply")
+        .contains("RB-20417", "265.03")
+        .doesNotContain("Olive");
   }
 
   @Test

@@ -15,6 +15,7 @@
     "@azure/msal-browser": "5.27.0",
     "@azure/msal-react": "5.7.4",
     "@studiomanager/api-client": "workspace:*",
+    "@studiomanager/glaze-chemistry": "workspace:*",
     "@tanstack/react-query": "5.105.2",
     "@tanstack/react-router": "1.170.46",
     "react": "19.3.1",

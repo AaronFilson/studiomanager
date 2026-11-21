@@ -1,0 +1,12 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "credit-memo",
+  "seed": 20261116,
+  "split": "test",
+  "tags": [
+    "synthetic",
+    "credit-memo",
+    "negative-amounts"
+  ]
+}
