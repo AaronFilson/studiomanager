@@ -27,7 +27,9 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
@@ -78,7 +80,6 @@ class SecurityConfiguration {
                 .denyAll())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .csrf(AbstractHttpConfigurer::disable)
         .cors(Customizer.withDefaults());
     return http.build();
   }
@@ -119,12 +120,16 @@ class SecurityConfiguration {
                 .denyAll())
         .oauth2ResourceServer(oauth2 ->
             oauth2
-                // Personal API tokens and MCP OAuth JWTs have their own filters before this one
-                .bearerTokenResolver(request ->
-                    ApiTokenAuthenticationFilter.isApiToken(request)
-                            || mcpOAuthFilter.isMcpOAuthToken(request)
-                        ? null
-                        : jwtBearer.resolve(request))
+                // Personal API tokens and MCP OAuth JWTs have their own filters before this one;
+                // once one of them authenticates the request, skip Entra's bearer resolver.
+                .bearerTokenResolver(request -> {
+                  Authentication existing = SecurityContextHolder.getContext().getAuthentication();
+                  if (existing instanceof ApiTokenAuthentication
+                      || existing instanceof McpOAuthAuthentication) {
+                    return null;
+                  }
+                  return jwtBearer.resolve(request);
+                })
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(scopesAndAppRoles()))
                 .authenticationEntryPoint(problems)
                 .accessDeniedHandler(problems))

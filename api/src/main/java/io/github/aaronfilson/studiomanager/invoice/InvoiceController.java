@@ -123,10 +123,6 @@ class InvoiceController implements InvoicesApi {
                         Boolean.TRUE.equals(line.getUnclear())),
                     line.getSupplyItemId()))
             .toList();
-    List<InvoiceDraft.Payment> payments =
-        request.getPayments() == null
-            ? List.of()
-            : request.getPayments().stream().map(InvoiceController::toPayment).toList();
     InvoiceDraft header =
         new InvoiceDraft(
             request.getDocumentType() == null
@@ -147,7 +143,7 @@ class InvoiceController implements InvoicesApi {
             amount(request.getTotal()),
             amount(request.getAmountPaid()),
             amount(request.getAmountDue()),
-            payments,
+            toPayments(request.getPayments()),
             nonNullStrings(request.getCrossedOut()),
             request.getOtherPapers(),
             nonNullStrings(request.getNotes()),
@@ -345,6 +341,12 @@ class InvoiceController implements InvoicesApi {
         .invoiceDate(summary.invoiceDate())
         .total(text(summary.total()))
         .uploadedAt(utc(summary.uploadedAt()));
+  }
+
+  private static List<InvoiceDraft.Payment> toPayments(@Nullable List<InvoicePaymentDto> payments) {
+    return payments == null
+        ? List.of()
+        : payments.stream().map(InvoiceController::toPayment).toList();
   }
 
   private static InvoiceDraft.Payment toPayment(InvoicePaymentDto payment) {

@@ -83,13 +83,24 @@ class GlazeMixAndPhotoApiTests {
                 "{\"dryWeightG\": \"5000\", \"waterG\": \"3800\"}"))
         .hasStatus(HttpStatus.FORBIDDEN);
 
-    // Staff logs a mix with an on-target initial reading (trailing zeros past DB scale allowed)
+    // Specific gravity past the 3-decimal contract pattern is refused
+    assertThat(
+            post(
+                owner,
+                path("/glazes/" + studioGlazeId + "/mixes"),
+                """
+                {"dryWeightG": "10000", "specificGravity": "1.4600"}
+                """))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Staff logs a mix with an on-target initial reading (trailing zeros past DB scale allowed on
+    // weights within the Decimal contract)
     MvcTestResult mixed =
         post(
             owner,
             path("/glazes/" + studioGlazeId + "/mixes"),
             """
-            {"dryWeightG": "10000.000", "waterG": "7500.000", "specificGravity": "1.4600", "notes": "Bucket #1"}
+            {"dryWeightG": "10000.000", "waterG": "7500.000", "specificGravity": "1.460", "notes": "Bucket #1"}
             """);
     assertThat(mixed).hasStatus(HttpStatus.CREATED);
     assertThat(mixed).bodyJson().extractingPath("$.readings[0].offTarget").isEqualTo(false);

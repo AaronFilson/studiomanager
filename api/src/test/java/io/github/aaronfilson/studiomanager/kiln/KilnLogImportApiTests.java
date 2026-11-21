@@ -558,8 +558,11 @@ class KilnLogImportApiTests {
   }
 
   private static Map<String, Object> mapOf(Object... pairs) {
+    if (pairs.length % 2 != 0) {
+      throw new IllegalArgumentException("Expected an even number of key/value arguments.");
+    }
     Map<String, Object> map = new LinkedHashMap<>();
-    for (int i = 0; i < pairs.length; i += 2) {
+    for (int i = 0; i + 1 < pairs.length; i += 2) {
       map.put((String) pairs[i], pairs[i + 1]);
     }
     return map;

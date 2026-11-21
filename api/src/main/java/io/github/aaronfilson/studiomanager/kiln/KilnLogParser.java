@@ -1347,20 +1347,24 @@ public final class KilnLogParser {
     }
     Matcher clock = CLOCK_OR_ELAPSED.matcher(raw);
     if (clock.matches()) {
-      int first = Integer.parseInt(clock.group(1));
-      int second = Integer.parseInt(clock.group(2));
-      String thirdGroup = clock.group(3);
-      if (thirdGroup != null) {
-        int third = Integer.parseInt(thirdGroup);
-        double minutes = first * 60.0 + second + (third / 60.0);
+      try {
+        int first = Integer.parseInt(clock.group(1));
+        int second = Integer.parseInt(clock.group(2));
+        String thirdGroup = clock.group(3);
+        if (thirdGroup != null) {
+          int third = Integer.parseInt(thirdGroup);
+          double minutes = first * 60.0 + second + (third / 60.0);
+          return new ParsedClock(minutes, true, first >= 24);
+        }
+        if (unitKind == TimeUnitKind.HOURS || headerImpliesClock) {
+          double minutes = first * 60.0 + second;
+          return new ParsedClock(minutes, true, first >= 24);
+        }
+        double minutes = first + (second / 60.0);
         return new ParsedClock(minutes, true, first >= 24);
+      } catch (NumberFormatException e) {
+        return null;
       }
-      if (unitKind == TimeUnitKind.HOURS || headerImpliesClock) {
-        double minutes = first * 60.0 + second;
-        return new ParsedClock(minutes, true, first >= 24);
-      }
-      double minutes = first + (second / 60.0);
-      return new ParsedClock(minutes, true, first >= 24);
     }
 
     try {
