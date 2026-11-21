@@ -202,4 +202,28 @@ describe('pieces', () => {
     expect(screen.getByText('Enter all three measurements as numbers, or none.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Take in piece' })).toBeDisabled();
   });
+
+  it('trims whitespace around numeric dimensions and skips /members without members.read', async () => {
+    const calls = stubApi({
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'STAFF',
+        roleName: 'Shelf helper',
+        permissions: ['pieces.intake_for_others'],
+        duties: [],
+      },
+      'POST /api/v1/studios/:studioId/pieces': aPiece({ number: 58 }),
+    });
+
+    await renderWithQueries(<IntakeForm studioId={studioId} unitSystem="US_CUSTOMARY" staff />);
+    await fireEvent.changeText(screen.getByLabelText('Length'), ' 8 ');
+    await fireEvent.changeText(screen.getByLabelText('Width'), ' 6 ');
+    await fireEvent.changeText(screen.getByLabelText('Height'), ' 7.5 ');
+    await fireEvent.press(screen.getByRole('button', { name: 'Take in piece' }));
+
+    expect(await screen.findByText('Write 58 on its label.')).toBeOnTheScreen();
+    expect(calls.some((c) => c.path.includes('/members'))).toBe(false);
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
+      size: { dimensions: { length: '8', width: '6', height: '7.5', unit: 'INCH' } },
+    });
+  });
 });

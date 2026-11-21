@@ -13,7 +13,7 @@ describe('RosterSchedule', () => {
       'GET /api/v1/studios/:studioId/me/permissions': {
         role: 'STAFF',
         roleName: 'Staff',
-        permissions: ['schedule.manage'],
+        permissions: ['schedule.manage', 'schedule.hours.manage'],
         duties: ['MONITOR'],
       },
       'GET /api/v1/studios/:studioId/hours/:accountId': {

@@ -77,6 +77,7 @@ export function Screen({
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? (edges?.includes('top') ? 0 : 64) : 0}
       >
         {children}
       </KeyboardAvoidingView>
@@ -134,18 +135,20 @@ export function Button({
   primary = false,
   disabled = false,
   compact = false,
+  selected,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  selected?: boolean;
 }) {
   const palette = usePalette();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, ...(selected !== undefined ? { selected } : {}) }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -164,16 +167,25 @@ export function Button({
   );
 }
 
-export function Field({ label, ...input }: { label: string } & TextInputProps) {
+export function Field({
+  label,
+  accessibilityLabel,
+  style,
+  ...input
+}: { label: string; accessibilityLabel?: string } & TextInputProps) {
   const palette = usePalette();
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: palette.muted }]}>{label}</Text>
       <TextInput
-        accessibilityLabel={label}
         placeholderTextColor={palette.muted}
-        style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surface }]}
         {...input}
+        accessibilityLabel={accessibilityLabel ?? label}
+        style={[
+          styles.input,
+          { color: palette.text, borderColor: palette.border, backgroundColor: palette.surface },
+          style,
+        ]}
       />
     </View>
   );

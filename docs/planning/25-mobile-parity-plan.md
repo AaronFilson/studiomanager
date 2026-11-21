@@ -31,24 +31,25 @@ focused and preparing pre-store polish prior to Apple Developer / Google Play en
 | **M0** | Navigation, Studio hub, Invite acceptance | `StudioMenu.tsx`, `AcceptInvite.tsx` | `_layout.tsx`, `more.tsx`, `index.tsx`, `invites/[code].tsx` | Shipped |
 | **M1** | Members, co-owners, billing contact, custom roles, duties, certs, invites | `MemberList.tsx` | `members.tsx` | Shipped |
 | **M2** | Today handover & kiln operations (load, cap, transitions, availability, log) | `TodayDashboard.tsx`, `KilnList.tsx`, `KilnDetail.tsx` | `today.tsx`, `kilns/index.tsx`, `kilns/[kilnId].tsx` | Shipped |
-| **M3** | Supplies on-the-go (search, categories, stock moves, sales, purchase requests) | `SupplyList.tsx` | `supplies.tsx` | Shipped |
-| **M4** | Glaze book & interactive dry-batch calculator | `GlazeList.tsx`, `GlazeDetail.tsx` | `glazes/index.tsx`, `glazes/[glazeId].tsx` | Shipped |
+| **M3** | Supplies on-the-go (search, categories, stock moves, sales, purchase requests, last purchase price badge) | `SupplyList.tsx` | `supplies.tsx` | Shipped |
+| **M4** | Glaze book, dry-batch calculator, offline UMF chemistry, slurry SG helper, studio mix log | `GlazeList.tsx`, `GlazeDetail.tsx` | `glazes/index.tsx`, `glazes/[glazeId].tsx` | Shipped |
 | **M5** | Roster, My hours & Calendar bookings | `RosterSchedule.tsx`, `CalendarView.tsx` | `roster.tsx`, `calendar.tsx` | Shipped |
 | **M6** | Assistant suggestions, Staff maintenance & Studio notice broadcast | `SuggestionList.tsx`, `MaintenanceStaff.tsx`, `NoticeList.tsx` | `suggestions.tsx`, `maintenance.tsx`, `notices.tsx` | Shipped |
 | **M7** | Financials (balances, prepaid cards, payables) & My statement / consignment | `Financials.tsx`, `MyStatement.tsx` | `money.tsx`, `statement.tsx` | Shipped |
 
-## Post-Merge Follow-ups (Cross-Branch)
+## Cross-Branch Integrations (Completed)
 
-After Plans 14 and 24 merge into `main`, surface the newly generated API fields in mobile:
-- Glaze chemistry / UMF analysis readouts on `GlazeDetail.tsx` (Plan 14).
-- Supply `lastPurchaseUnitPrice` and `lastPurchasedAt` badges on `SupplyList.tsx` (Plan 24).
+Both cross-branch API/package integrations are now shipped in `mobile/`:
+- [x] Glaze chemistry / UMF analysis, slurry SG helper, and studio mix log / SG readings on `GlazeDetail.tsx` via `@studiomanager/glaze-chemistry` (Plan 14).
+- [x] Supply `lastPurchaseUnitPrice` and `lastPurchasedAt` badges on `SupplyList.tsx` (Plan 24).
 
 ## Pre-Store Readiness Checklist
 
 ### Completed (Free, Pre-Enrollment)
-- Safe-area & keyboard-avoiding `Screen` wrapper (`SafeAreaProvider` + `SafeAreaInsetsContext` + `KeyboardAvoidingView`) and selectable text support on `Body` (`mobile/src/ui.tsx`).
-- App icon, Android adaptive icon, and splash icon branding assets (`mobile/assets/icon.png`, `mobile/assets/adaptive-icon.png`, `mobile/assets/splash-icon.png`) wired into `mobile/app.config.ts`.
-- Full Jest test coverage across all feature lanes using exact OpenAPI SDK endpoints and methods.
+- Safe-area & keyboard-avoiding `Screen` wrapper (`SafeAreaProvider` + `SafeAreaInsetsContext` + `KeyboardAvoidingView` with iOS header offset), selectable text on `Body`, and dark-mode themed header/tab bars (`mobile/src/ui.tsx`, `mobile/src/app/studios/[studioId]/_layout.tsx`).
+- Clean OAuth redirect handling (`mobile/src/app/auth.tsx`), unknown-route fallback (`mobile/src/app/+not-found.tsx`), bounded OIDC discovery waiting, React Query cache clearing on sign-out, and exact backend permission gating (`useCan`).
+- App icon and Android adaptive icon branding assets (`mobile/assets/icon.png`, `mobile/assets/adaptive-icon.png`) wired into `mobile/app.config.ts`; `mobile/assets/splash-icon.png` is generated and ready to wire into the `expo-splash-screen` config plugin when the native splash package is added.
+- Full Jest test coverage across all feature lanes using exact OpenAPI SDK endpoints and methods, with clean per-test query teardown.
 - Verified clean `typecheck`, `lint`, `test`, and `expo export` build in Linux CI container (`scripts/web-linux.sh`).
 
 ### Remaining (Requires Developer Accounts & Real Devices)

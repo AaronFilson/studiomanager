@@ -12,6 +12,7 @@ import {
   loadKilnMutation,
   setKilnAvailabilityMutation,
   transitionFiringMutation,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -22,11 +23,19 @@ import { Badge, Body, Button, Card, ErrorText, Field, Loading, SectionTitle, Tit
 
 /** Kiln operations: load from queue, start/unload/cancel firing, availability, and firing log. */
 export function KilnDetail({ studioId, kilnId }: { studioId: string; kilnId: string }) {
-  const kilns = useQuery(listKilnsOptions({ path: { studioId } }));
-  const firings = useQuery(listKilnFiringsOptions({ path: { studioId, kilnId } }));
+  const permissions = useCan(studioId);
+  const canManageFirings = permissions.can('firings.manage');
+  const canManageKilns = permissions.can('kilns.manage');
 
-  if (kilns.isPending) return <Loading />;
+  const kilns = useQuery(listKilnsOptions({ path: { studioId } }));
+  const firings = useQuery({
+    ...listKilnFiringsOptions({ path: { studioId, kilnId } }),
+    enabled: canManageFirings,
+  });
+
+  if (kilns.isPending || permissions.isPending) return <Loading />;
   if (kilns.isError) return <ErrorText error={kilns.error} />;
+  if (permissions.isError) return <ErrorText error={permissions.error} />;
 
   const kiln = kilns.data.find((k) => k.id === kilnId);
   if (!kiln) {
@@ -42,10 +51,10 @@ export function KilnDetail({ studioId, kilnId }: { studioId: string; kilnId: str
       keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl
-          refreshing={kilns.isRefetching || firings.isRefetching}
+          refreshing={kilns.isRefetching || (canManageFirings && firings.isRefetching)}
           onRefresh={() => {
             void kilns.refetch();
-            void firings.refetch();
+            if (canManageFirings) void firings.refetch();
           }}
         />
       }
@@ -64,27 +73,36 @@ export function KilnDetail({ studioId, kilnId }: { studioId: string; kilnId: str
         </View>
       </Card>
 
-      {open ? <OpenFiringCard studioId={studioId} firingId={open.id} /> : <LoadFormCard studioId={studioId} kiln={kiln} />}
-
-      <AvailabilityCard studioId={studioId} kiln={kiln} />
-
-      <Card>
-        <SectionTitle>Firing log</SectionTitle>
-        {firings.isError && <ErrorText error={firings.error} />}
-        {firings.isSuccess && firings.data.items.length === 0 && <Body muted>No firings yet.</Body>}
-        {logCapNote && <Body muted>{logCapNote}</Body>}
-        {firings.data?.items.map((firing) => (
-          <View key={firing.id} style={styles.logRow}>
-            <Body>
-              {firing.kind === 'BISQUE' ? 'Bisque' : 'Glaze'}
-              {firing.cone ? ` · cone ${firing.cone}` : ''} · {String(firing.pieceCount)} pieces ·{' '}
-              {firing.status.toLowerCase()}
-            </Body>
-            <Body muted>{formatDateTime(firing.createdAt)}</Body>
-            {firing.notes && <Body muted>{firing.notes}</Body>}
-          </View>
+      {canManageFirings && firings.isPending && <Loading />}
+      {canManageFirings && firings.isError && <ErrorText error={firings.error} />}
+      {canManageFirings &&
+        firings.isSuccess &&
+        (open ? (
+          <OpenFiringCard key={open.id} studioId={studioId} firingId={open.id} />
+        ) : (
+          <LoadFormCard key={kiln.id} studioId={studioId} kiln={kiln} />
         ))}
-      </Card>
+
+      {canManageKilns && <AvailabilityCard key={kiln.id} studioId={studioId} kiln={kiln} />}
+
+      {canManageFirings && firings.isSuccess && (
+        <Card>
+          <SectionTitle>Firing log</SectionTitle>
+          {firings.data.items.length === 0 && <Body muted>No firings yet.</Body>}
+          {logCapNote && <Body muted>{logCapNote}</Body>}
+          {firings.data.items.map((firing) => (
+            <View key={firing.id} style={styles.logRow}>
+              <Body>
+                {firing.kind === 'BISQUE' ? 'Bisque' : 'Glaze'}
+                {firing.cone ? ` · cone ${firing.cone}` : ''} · {String(firing.pieceCount)} pieces ·{' '}
+                {firing.status.toLowerCase()}
+              </Body>
+              <Body muted>{formatDateTime(firing.createdAt)}</Body>
+              {firing.notes && <Body muted>{firing.notes}</Body>}
+            </View>
+          ))}
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -134,8 +152,8 @@ function LoadFormCard({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
       {!kiln.available && <Badge warning>This kiln is out of service.</Badge>}
 
       <View style={styles.rowWrap}>
-        <Button compact primary={kind === 'BISQUE'} label="Bisque" onPress={() => switchKind('BISQUE')} />
-        <Button compact primary={kind === 'GLAZE'} label="Glaze" onPress={() => switchKind('GLAZE')} />
+        <Button compact primary={kind === 'BISQUE'} selected={kind === 'BISQUE'} label="Bisque" onPress={() => switchKind('BISQUE')} />
+        <Button compact primary={kind === 'GLAZE'} selected={kind === 'GLAZE'} label="Glaze" onPress={() => switchKind('GLAZE')} />
       </View>
 
       <Field label="Cone (optional)" value={cone} onChangeText={setCone} maxLength={10} placeholder="e.g. 04 or 6" />

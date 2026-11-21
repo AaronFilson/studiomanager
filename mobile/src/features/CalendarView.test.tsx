@@ -77,5 +77,9 @@ describe('CalendarView', () => {
       ),
     );
     expect(await screen.findByText('Booked.')).toBeOnTheScreen();
+
+    // Reject impossible calendar dates like Feb 31
+    await fireEvent.changeText(screen.getByLabelText('Date (YYYY-MM-DD)'), '2026-02-31');
+    expect(screen.getByRole('button', { name: 'Book it' })).toBeDisabled();
   });
 });

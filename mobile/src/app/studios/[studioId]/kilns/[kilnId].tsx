@@ -8,7 +8,7 @@ export default function KilnDetailScreen() {
 
   return (
     <Screen>
-      <KilnDetail studioId={studioId} kilnId={kilnId} />
+      <KilnDetail key={`${studioId}:${kilnId}`} studioId={studioId} kilnId={kilnId} />
     </Screen>
   );
 }

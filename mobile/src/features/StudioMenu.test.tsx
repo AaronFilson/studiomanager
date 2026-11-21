@@ -100,8 +100,8 @@ describe('StudioMenu', () => {
     expect(await screen.findByRole('button', { name: 'Glaze book' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Roster' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Calendar' })).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'My statement' })).toBeOnTheScreen();
-    expect(await screen.findByRole('button', { name: 'My consignment' })).toBeOnTheScreen();
+    expect(await screen.findByRole('button', { name: 'My statement & consignment' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'My statement' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Report a problem' })).toBeOnTheScreen();
 
     expect(screen.queryByRole('button', { name: 'Today' })).toBeNull();
@@ -109,7 +109,7 @@ describe('StudioMenu', () => {
     expect(screen.queryByRole('button', { name: 'Members' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Money & payables' })).toBeNull();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'My consignment' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'My statement & consignment' }));
     expect(onNavigate).toHaveBeenCalledWith('statement');
   });
 });

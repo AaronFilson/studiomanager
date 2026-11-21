@@ -53,6 +53,7 @@ export function GlazeList({
             key={tab.filter}
             compact
             primary={filter === tab.filter}
+            selected={filter === tab.filter}
             label={tab.label}
             onPress={() => setFilter(tab.filter)}
           />
@@ -73,6 +74,7 @@ export function GlazeList({
         <FlatList
           data={items}
           keyExtractor={(g) => g.id}
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={glazes.isRefetching} onRefresh={() => void glazes.refetch()} />}
           ListEmptyComponent={<Body muted>{term ? 'No recipes match your search.' : emptyText(filter)}</Body>}
           contentContainerStyle={styles.items}

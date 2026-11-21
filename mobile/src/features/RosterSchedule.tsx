@@ -30,9 +30,9 @@ function createWindow() {
  * Members can take open shifts, cover offered shifts, or ask for cover; staff can mark shifts worked.
  */
 export function RosterSchedule({ studioId }: { studioId: string }) {
-  const [{ from, to, now }] = useState(createWindow);
+  const [{ from, to, now }, setWindow] = useState(createWindow);
   const { can } = useCan(studioId);
-  const staff = can('schedule.manage');
+  const canManageHours = can('schedule.hours.manage');
   const me = useQuery(getMeOptions());
   const myId = me.data?.account.id;
   const shifts = useQuery(listShiftsOptions({ path: { studioId }, query: { from, to } }));
@@ -46,10 +46,25 @@ export function RosterSchedule({ studioId }: { studioId: string }) {
   return (
     <ScrollView
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void shifts.refetch()} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={shifts.isRefetching}
+          onRefresh={() => {
+            const next = createWindow();
+            setWindow(next);
+            if (next.from === from && next.to === to) {
+              void shifts.refetch();
+            }
+            if (me.isError) {
+              void me.refetch();
+            }
+          }}
+        />
+      }
     >
       <Title>Roster</Title>
 
+      {me.isError && <ErrorText error={me.error} />}
       {myId && <MyHoursCard studioId={studioId} accountId={myId} />}
 
       {shifts.isPending && <Loading />}
@@ -60,7 +75,14 @@ export function RosterSchedule({ studioId }: { studioId: string }) {
       {capNote && <Body muted>{capNote}</Body>}
 
       {shifts.data?.items.map((shift) => (
-        <ShiftCard key={shift.id} studioId={studioId} shift={shift} staff={staff} myId={myId} now={now} />
+        <ShiftCard
+          key={shift.id}
+          studioId={studioId}
+          shift={shift}
+          canManageHours={canManageHours}
+          myId={myId}
+          now={now}
+        />
       ))}
     </ScrollView>
   );
@@ -91,13 +113,13 @@ function MyHoursCard({ studioId, accountId }: { studioId: string; accountId: str
 function ShiftCard({
   studioId,
   shift,
-  staff,
+  canManageHours,
   myId,
   now,
 }: {
   studioId: string;
   shift: Shift;
-  staff: boolean;
+  canManageHours: boolean;
   myId?: string;
   now: number;
 }) {
@@ -166,7 +188,7 @@ function ShiftCard({
             }
           />
         )}
-        {staff && shift.accountId && !shift.workedAt && (
+        {canManageHours && shift.accountId && !shift.workedAt && (
           <Button
             compact
             label="Mark worked"

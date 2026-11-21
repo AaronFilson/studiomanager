@@ -6,6 +6,12 @@ import { MaintenanceStaff } from './MaintenanceStaff';
 describe('MaintenanceStaff', () => {
   it('resolves open problem reports and toggles non-kiln asset availability', async () => {
     const calls = stubApi({
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'STAFF',
+        roleName: 'Staff',
+        permissions: ['maintenance.manage', 'kilns.read', 'kilns.manage'],
+        duties: [],
+      },
       'GET /api/v1/studios/:studioId/maintenance/assets': [
         {
           id: 'a1',

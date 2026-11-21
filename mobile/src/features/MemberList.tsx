@@ -55,9 +55,14 @@ export function MemberList({ studioId }: { studioId: string }) {
   const managesOwners = can('owners.manage');
   const canInvite = can('members.invite');
   const canAssignRole = can('members.role.assign');
+  const canManageDuties = can('members.duties.manage');
+  const canCertify = can('members.certify');
 
   const members = useQuery(listMembersOptions({ path: { studioId } }));
-  const duties = useQuery(listDutiesOptions({ path: { studioId } }));
+  const duties = useQuery({
+    ...listDutiesOptions({ path: { studioId } }),
+    enabled: canManageDuties,
+  });
   const certTypes = useQuery(listCertificationTypesOptions({ path: { studioId } }));
   const certifications = useQuery(listCertificationsOptions({ path: { studioId } }));
   const assignable = useQuery({
@@ -81,7 +86,7 @@ export function MemberList({ studioId }: { studioId: string }) {
           refreshing={members.isRefetching}
           onRefresh={() => {
             void members.refetch();
-            void duties.refetch();
+            if (canManageDuties) void duties.refetch();
             void certifications.refetch();
           }}
         />
@@ -99,7 +104,7 @@ export function MemberList({ studioId }: { studioId: string }) {
         </>
       )}
 
-      {duties.isError && <ErrorText error={duties.error} />}
+      {canManageDuties && duties.isError && <ErrorText error={duties.error} />}
       {certifications.isError && <ErrorText error={certifications.error} />}
 
       <View style={styles.section}>
@@ -110,6 +115,8 @@ export function MemberList({ studioId }: { studioId: string }) {
             studioId={studioId}
             member={member}
             managesOwners={managesOwners}
+            canManageDuties={canManageDuties}
+            canCertify={canCertify}
             ownerCount={ownerCount}
             roles={canAssignRole ? roles : []}
             memberDuties={duties.data?.find((d) => d.accountId === member.accountId)?.duties ?? []}
@@ -119,7 +126,7 @@ export function MemberList({ studioId }: { studioId: string }) {
         ))}
       </View>
 
-      <CertificationTypeCard studioId={studioId} />
+      {canCertify && <CertificationTypeCard studioId={studioId} />}
     </ScrollView>
   );
 }
@@ -207,7 +214,7 @@ function InviteLinkCard({ studioId, roles }: { studioId: string; roles: Role[] }
   function shareInvite(code: string) {
     void Share.share({
       message: `Join our studio on Studio Manager. Invite code: ${code} (studiomanager://invites/${code})`,
-    });
+    }).catch(() => {});
   }
 
   const createdInvite = invite.data;
@@ -413,6 +420,8 @@ function MemberCard({
   studioId,
   member,
   managesOwners,
+  canManageDuties,
+  canCertify,
   ownerCount,
   roles,
   memberDuties,
@@ -422,6 +431,8 @@ function MemberCard({
   studioId: string;
   member: Member;
   managesOwners: boolean;
+  canManageDuties: boolean;
+  canCertify: boolean;
   ownerCount: number;
   roles: Role[];
   memberDuties: Duty[];
@@ -452,31 +463,33 @@ function MemberCard({
       {managesOwners && <OwnerControls studioId={studioId} member={member} ownerCount={ownerCount} />}
       <RolePicker studioId={studioId} member={member} roles={roles} />
 
-      <View style={styles.group}>
-        <Body muted>Duties</Body>
-        <View style={styles.rowWrap}>
-          {allDuties.map((duty) => {
-            const checked = mine.has(duty);
-            return (
-              <Pressable
-                key={duty}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked }}
-                accessibilityLabel={`${name}: ${dutyLabel(duty)}`}
-                disabled={setDuties.isPending}
-                onPress={() => toggleDuty(duty)}
-                style={styles.checkbox}
-              >
-                <Body>
-                  {checked ? '☑' : '☐'} {dutyLabel(duty)}
-                </Body>
-              </Pressable>
-            );
-          })}
+      {canManageDuties && (
+        <View style={styles.group}>
+          <Body muted>Duties</Body>
+          <View style={styles.rowWrap}>
+            {allDuties.map((duty) => {
+              const checked = mine.has(duty);
+              return (
+                <Pressable
+                  key={duty}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked }}
+                  accessibilityLabel={`${name}: ${dutyLabel(duty)}`}
+                  disabled={setDuties.isPending}
+                  onPress={() => toggleDuty(duty)}
+                  style={styles.checkbox}
+                >
+                  <Body>
+                    {checked ? '☑' : '☐'} {dutyLabel(duty)}
+                  </Body>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-      </View>
+      )}
 
-      {(heldCerts.length > 0 || certTypes.length > 0) && (
+      {(heldCerts.length > 0 || (canCertify && certTypes.length > 0)) && (
         <View style={styles.group}>
           <Body muted>Certifications</Body>
           <View style={styles.rowWrap}>
@@ -486,17 +499,18 @@ function MemberCard({
                 {c.expiresAt ? ` (${c.valid ? 'until' : 'expired'} ${formatDate(c.expiresAt)})` : ''}
               </Badge>
             ))}
-            {certTypes
-              .filter((t) => !heldCerts.some((c) => c.typeId === t.id && c.valid))
-              .map((t) => (
-                <Button
-                  key={t.id}
-                  compact
-                  disabled={grant.isPending}
-                  label={`Certify: ${t.name}`}
-                  onPress={() => grant.mutate({ path: { studioId, typeId: t.id, accountId: member.accountId } })}
-                />
-              ))}
+            {canCertify &&
+              certTypes
+                .filter((t) => !heldCerts.some((c) => c.typeId === t.id && c.valid))
+                .map((t) => (
+                  <Button
+                    key={t.id}
+                    compact
+                    disabled={grant.isPending}
+                    label={`Certify: ${t.name}`}
+                    onPress={() => grant.mutate({ path: { studioId, typeId: t.id, accountId: member.accountId } })}
+                  />
+                ))}
           </View>
         </View>
       )}

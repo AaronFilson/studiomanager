@@ -116,7 +116,14 @@ function BatchCalculator({ studioId, glazeId }: { studioId: string; glazeId: str
       />
       <View style={styles.rowWrap} accessibilityRole="radiogroup" accessibilityLabel="Batch unit">
         {weightUnits.map((u) => (
-          <Button key={u} compact primary={unit === u} label={weightUnitLabel(u)} onPress={() => setUnit(u)} />
+          <Button
+            key={u}
+            compact
+            primary={unit === u}
+            selected={unit === u}
+            label={weightUnitLabel(u)}
+            onPress={() => setUnit(u)}
+          />
         ))}
       </View>
 
@@ -274,6 +281,7 @@ function ChemistrySummaryCard({ glaze }: { glaze: GlazeRecipe }) {
                 key={band}
                 compact
                 primary={coneBand === band}
+                selected={coneBand === band}
                 label={CONE_BAND_LABELS[band]}
                 onPress={() => setConeBand(band)}
               />
@@ -329,7 +337,11 @@ function StudioMixLogCard({
   });
 
   const dryTrimmed = dryWeightG.trim();
+  const waterTrimmed = waterG.trim();
+  const sgTrimmed = initialSg.trim();
   const dryValid = decimal.test(dryTrimmed) && Number(dryTrimmed) > 0;
+  const waterValid = !waterTrimmed || (decimal.test(waterTrimmed) && Number(waterTrimmed) > 0);
+  const sgValid = !sgTrimmed || (decimal.test(sgTrimmed) && Number(sgTrimmed) > 0);
 
   return (
     <Card>
@@ -363,18 +375,20 @@ function StudioMixLogCard({
             onChangeText={setNotes}
             placeholder="Sieved 80 mesh, bucket #2"
           />
+          {!waterValid && <Body>Enter water weight as a positive number, or leave blank.</Body>}
+          {!sgValid && <Body>Enter specific gravity as a positive number, or leave blank.</Body>}
           {logMix.isError && <ErrorText error={logMix.error} />}
           <Button
             primary
             label={logMix.isPending ? 'Logging…' : 'Log mix'}
-            disabled={logMix.isPending || !dryValid}
+            disabled={logMix.isPending || !dryValid || !waterValid || !sgValid}
             onPress={() =>
               logMix.mutate({
                 path: { studioId, glazeId: glaze.id },
                 body: {
                   dryWeightG: dryTrimmed,
-                  ...(waterG.trim() ? { waterG: waterG.trim() } : {}),
-                  ...(initialSg.trim() ? { specificGravity: initialSg.trim() } : {}),
+                  ...(waterTrimmed ? { waterG: waterTrimmed } : {}),
+                  ...(sgTrimmed ? { specificGravity: sgTrimmed } : {}),
                   ...(notes.trim() ? { notes: notes.trim() } : {}),
                 },
               })
@@ -448,14 +462,16 @@ function MixEntry({
       {canEdit && (
         <View style={styles.group}>
           <Field
-            label={`New SG reading for mix ${mix.id}`}
+            label="New SG reading"
+            accessibilityLabel={`New SG reading for mix ${mix.id}`}
             value={sg}
             onChangeText={setSg}
             keyboardType="decimal-pad"
             placeholder="1.45"
           />
           <Field
-            label={`Reading note for mix ${mix.id}`}
+            label="Reading note"
+            accessibilityLabel={`Reading note for mix ${mix.id}`}
             value={note}
             onChangeText={setNote}
             placeholder="Added 200 mL water"

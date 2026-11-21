@@ -6,6 +6,12 @@ import { TodayDashboard } from './TodayDashboard';
 describe('TodayDashboard', () => {
   it('shows handover alerts including uncovered shifts and bookings, and supports tap-through links', async () => {
     stubApi({
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'OWNER',
+        roleName: 'Owner',
+        permissions: ['today.read', 'kilns.read', 'firings.manage', 'supplies.manage'],
+        duties: [],
+      },
       'GET /api/v1/studios/:studioId/today': {
         date: '2026-11-20',
         kilns: [

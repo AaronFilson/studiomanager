@@ -25,12 +25,13 @@ export function AcceptInvite({
   onJoined,
   onCancel,
 }: {
-  code: string;
+  code?: string | string[];
   onJoined: (studioId: string) => void;
   onCancel?: () => void;
 }) {
   const queryClient = useQueryClient();
-  const cleanCode = extractInviteCode(code);
+  const normalizedCode = Array.isArray(code) ? (code[0] ?? '') : (code ?? '');
+  const cleanCode = extractInviteCode(normalizedCode);
   const accept = useMutation({
     ...acceptInviteMutation(),
     onSuccess: async (membership) => {

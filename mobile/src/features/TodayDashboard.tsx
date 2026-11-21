@@ -1,4 +1,4 @@
-import { getTodayOptions } from '@studiomanager/api-client';
+import { getTodayOptions, useCan } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -24,9 +24,15 @@ export function TodayDashboard({
   onOpenSupplies: () => void;
 }) {
   const today = useQuery(getTodayOptions({ path: { studioId } }));
+  const permissions = useCan(studioId);
 
-  if (today.isPending) return <Loading />;
+  if (today.isPending || permissions.isPending) return <Loading />;
   if (today.isError) return <ErrorText error={today.error} />;
+  if (permissions.isError) return <ErrorText error={permissions.error} />;
+
+  const canOpenKilns =
+    permissions.can('kilns.read') || permissions.can('kilns.manage') || permissions.can('firings.manage');
+  const canOpenSupplies = permissions.can('supplies.manage');
 
   const t = today.data;
   const attention = [
@@ -60,8 +66,8 @@ export function TodayDashboard({
       {attention.length > 0 && (
         <Card>
           <SectionTitle>Needs attention</SectionTitle>
-          {attention.map((line) => (
-            <Body key={line}>• {line}</Body>
+          {attention.map((line, index) => (
+            <Body key={`${String(index)}-${line}`}>• {line}</Body>
           ))}
         </Card>
       )}
@@ -80,6 +86,14 @@ export function TodayDashboard({
                   'pieces',
                 )}`
               : 'empty';
+          if (!canOpenKilns) {
+            return (
+              <View key={kiln.id} style={styles.kilnRow}>
+                <Body>{kiln.name}</Body>
+                <Badge warning={!kiln.available}>{status}</Badge>
+              </View>
+            );
+          }
           return (
             <Pressable
               key={kiln.id}
@@ -98,9 +112,9 @@ export function TodayDashboard({
           {String(t.readyForPickup)}.
         </Body>
         <View style={styles.actions}>
-          <Button compact label="Kilns" onPress={onOpenKilns} />
+          {canOpenKilns && <Button compact label="Kilns" onPress={onOpenKilns} />}
           <Button compact label="Pieces" onPress={onOpenPieces} />
-          <Button compact label="Supplies" onPress={onOpenSupplies} />
+          {canOpenSupplies && <Button compact label="Supplies" onPress={onOpenSupplies} />}
         </View>
       </Card>
 

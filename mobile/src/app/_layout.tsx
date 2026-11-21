@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { buildEnv, readConfig } from '../config';
-import { createQueryClient } from '../queryClient';
+import { createQueryClient, useClearCacheOnSignOut } from '../queryClient';
 import { Body, Screen, Title } from '../ui';
 
 const config = readConfig(buildEnv);
@@ -44,9 +44,10 @@ export default function RootLayout() {
 
 /** Points the shared API client at the API, with the session's tokens, before any screen queries it. */
 function ApiClient({ baseUrl, children }: { baseUrl: string; children: ReactNode }) {
-  const { getAccessToken } = useAuth();
+  const { getAccessToken, status } = useAuth();
   useState(() => {
     configureApiClient({ baseUrl, getAccessToken });
   });
+  useClearCacheOnSignOut(status);
   return children;
 }

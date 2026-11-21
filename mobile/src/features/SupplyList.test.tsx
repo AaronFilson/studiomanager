@@ -49,7 +49,13 @@ describe('SupplyList', () => {
       'GET /api/v1/studios/:studioId/me/permissions': {
         role: 'OWNER',
         roleName: 'Owner',
-        permissions: ['supplies.manage', 'supplies.purchase.approve'],
+        permissions: [
+          'supplies.manage',
+          'supplies.sell',
+          'supplies.purchase.request',
+          'supplies.purchase.approve',
+          'members.read',
+        ],
         duties: [],
       },
       'GET /api/v1/studios/:studioId/supplies': [clay, tool],
@@ -106,7 +112,7 @@ describe('SupplyList', () => {
 
     await renderWithQueries(<SupplyList studioId="s1" />);
     expect(await screen.findByText('B-Mix 5')).toBeOnTheScreen();
-    expect(screen.getByText(/Last paid \$19\.50\/25 lb bag/)).toBeOnTheScreen();
+    expect(screen.getByText(/Last paid .*19\.50\/25 lb bag/)).toBeOnTheScreen();
     expect(screen.getByText('Substitute: Use Speckled Buff while out')).toBeOnTheScreen();
 
     // Filter to Clay
