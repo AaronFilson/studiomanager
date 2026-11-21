@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import org.hibernate.annotations.TenantId;
@@ -45,6 +46,10 @@ class SupplyItem {
   private @Nullable BigDecimal reorderQuantity;
 
   private @Nullable BigDecimal salePrice;
+
+  private @Nullable BigDecimal lastPurchaseUnitPrice;
+
+  private @Nullable Instant lastPurchasedAt;
 
   private @Nullable String taxCategory;
 
@@ -97,6 +102,22 @@ class SupplyItem {
     apply(settings);
   }
 
+  @Nullable Instant lastPurchasedAt() {
+    return lastPurchasedAt;
+  }
+
+  /**
+   * Records the latest unit purchase price paid for this item, ignoring an entry strictly older
+   * than what is already recorded so backfilled invoices don't clobber a newer price.
+   */
+  void recordPurchasePrice(BigDecimal unitPrice, Instant at) {
+    if (this.lastPurchasedAt != null && at.isBefore(this.lastPurchasedAt)) {
+      return;
+    }
+    this.lastPurchaseUnitPrice = unitPrice;
+    this.lastPurchasedAt = at;
+  }
+
   private void apply(ItemSettings settings) {
     this.name = settings.name();
     this.category = settings.category();
@@ -121,6 +142,8 @@ class SupplyItem {
         parLevel,
         reorderQuantity,
         salePrice,
+        lastPurchaseUnitPrice,
+        lastPurchasedAt,
         taxCategory,
         substitute,
         onHand,

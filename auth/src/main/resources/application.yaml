@@ -56,3 +56,16 @@ studiomanager:
     signing-keys: ${STUDIOMANAGER_BRIDGE_SIGNING_KEYS}
     github-emails-uri: ${STUDIOMANAGER_BRIDGE_GITHUB_EMAILS_URI:https://api.github.com/user/emails}
     authorize-requests-per-minute: ${STUDIOMANAGER_BRIDGE_AUTHORIZE_REQUESTS_PER_MINUTE:60}
+    mcp:
+      # Phase 2 OAuth 2.1 authorization server for MCP (plan 17 step 5, plan 18 step 3, ADR 26).
+      # Off by default until explicitly enabled.
+      enabled: ${STUDIOMANAGER_BRIDGE_MCP_ENABLED:false}
+      # Comma-separated allowed RFC 8707 resource URIs or API origins (e.g. https://api.studiomanager.example)
+      allowed-resources: ${STUDIOMANAGER_BRIDGE_MCP_ALLOWED_RESOURCES:}
+      scopes: ${STUDIOMANAGER_BRIDGE_MCP_SCOPES:read,propose}
+      register-requests-per-minute: ${STUDIOMANAGER_BRIDGE_MCP_REGISTER_REQUESTS_PER_MINUTE:20}
+      register-requests-per-minute-per-ip: ${STUDIOMANAGER_BRIDGE_MCP_REGISTER_REQUESTS_PER_MINUTE_PER_IP:5}
+      access-token-time-to-live: ${STUDIOMANAGER_BRIDGE_MCP_ACCESS_TOKEN_TTL:1h}
+      # Optional pre-registered MCP client (in addition to RFC 7591 dynamic client registration)
+      pre-registered-client-id: ${STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_CLIENT_ID:}
+      pre-registered-redirect-uris: ${STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_REDIRECT_URIS:}

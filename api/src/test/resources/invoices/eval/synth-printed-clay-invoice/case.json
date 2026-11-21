@@ -1,0 +1,14 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "printed-supplier",
+  "seed": 20261116,
+  "split": "dev",
+  "tags": [
+    "synthetic",
+    "printed",
+    "shipping-line",
+    "fee-line",
+    "three-decimal-price"
+  ]
+}

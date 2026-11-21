@@ -54,6 +54,8 @@ class LiveInvoiceEval {
   private record Run(
       List<String> rows,
       List<InvoiceScorer.Score> scores,
+      List<InvoiceScorer.Score> testScores,
+      List<InvoiceScorer.Score> devScores,
       List<InvoiceScorer.Checked> checks,
       List<Long> millis,
       BigDecimal cost) {}
@@ -124,6 +126,8 @@ class LiveInvoiceEval {
       throws IOException {
     List<String> rows = new ArrayList<>();
     List<InvoiceScorer.Score> scores = new ArrayList<>();
+    List<InvoiceScorer.Score> testScores = new ArrayList<>();
+    List<InvoiceScorer.Score> devScores = new ArrayList<>();
     List<InvoiceScorer.Checked> checks = new ArrayList<>();
     List<Long> millis = new ArrayList<>();
     BigDecimal cost = BigDecimal.ZERO;
@@ -135,13 +139,16 @@ class LiveInvoiceEval {
       if (file.isEmpty()) {
         continue;
       }
+      String split = InvoiceEvalTests.caseMeta(folder).effectiveSplit();
       byte[] content = Files.readAllBytes(folder.resolve(file.get().getKey()));
       long started = System.nanoTime();
       ReaderResult result;
       try {
         result = reader.readWith(client, new InvoiceFile(content, file.get().getValue()));
       } catch (InvoiceReadException e) {
-        rows.add("| %s | failed: %s |||||||".formatted(folder.getFileName(), e.getMessage()));
+        rows.add(
+            "| %s | %s | failed: %s ||||||||"
+                .formatted(folder.getFileName(), split, e.getMessage()));
         continue;
       }
       long elapsed = Duration.ofNanos(System.nanoTime() - started).toMillis();
@@ -151,15 +158,21 @@ class LiveInvoiceEval {
       InvoiceScorer.Score score = InvoiceScorer.score(expected, read);
       InvoiceScorer.Checked checked = InvoiceScorer.checks(expected, read, score);
       scores.add(score);
+      if ("test".equals(split)) {
+        testScores.add(score);
+      } else {
+        devScores.add(score);
+      }
       checks.add(checked);
       millis.add(elapsed);
       BigDecimal spent =
           result.usage().costUsd() == null ? BigDecimal.ZERO : result.usage().costUsd();
       cost = cost.add(spent);
       rows.add(
-          "| %s | %d/%d | %d/%d | %s | %d | %d | %s | %.1f s | $%s |"
+          "| %s | %s | %d/%d | %d/%d | %s | %d | %d | %s | %.1f s | $%s |"
               .formatted(
                   folder.getFileName(),
+                  split,
                   score.fieldsRight(),
                   score.fieldsTotal(),
                   score.linesRight(),
@@ -171,7 +184,7 @@ class LiveInvoiceEval {
                   elapsed / 1000.0,
                   spent.setScale(4, RoundingMode.HALF_UP).toPlainString()));
     }
-    return new Run(rows, scores, checks, millis, cost);
+    return new Run(rows, scores, testScores, devScores, checks, millis, cost);
   }
 
   private static String report(String title, Run run, String privateTotals) {
@@ -180,28 +193,39 @@ class LiveInvoiceEval {
     long noEdits = run.scores().stream().filter(InvoiceScorer.Score::needsNoEdits).count();
     int falseAlarms = run.checks().stream().mapToInt(InvoiceScorer.Checked::falseAlarms).sum();
     long missed = run.checks().stream().filter(InvoiceScorer.Checked::missed).count();
+    String splitSummary =
+        "- **Test split (%d cases):** %.1f%% fields, %.1f%% lines%n- **Dev split (%d cases):** %.1f%% fields, %.1f%% lines"
+            .formatted(
+                run.testScores().size(),
+                100 * InvoiceEvalTests.fieldAccuracy(run.testScores()),
+                100 * InvoiceEvalTests.lineAccuracy(run.testScores()),
+                run.devScores().size(),
+                100 * InvoiceEvalTests.fieldAccuracy(run.devScores()),
+                100 * InvoiceEvalTests.lineAccuracy(run.devScores()));
     return """
     # Invoice eval: Claude (%s)
 
     Written by `LiveInvoiceEval`. Scores: numbers and dates exact, text normalized; lines aligned
-    in order, and a line is right when its quantity, unit price and total all match
-    (docs/planning/16, "Evaluation"). "Problems" is how many messages the checks raised on what
-    was read. "False alarms" are problems raised on a right draft beyond the invoice's own;
-    "missed" is a draft that needs edits with nothing raised (docs/planning/24, "Scoring changes").
+    in order, and a line is right when its quantity, unit price, total and kind all match
+    (docs/planning/16, "Evaluation"; v2 splits in docs/planning/24). "Problems" is how many messages
+    the checks raised on what was read. "False alarms" are problems raised on a right draft beyond
+    the invoice's own; "missed" is a draft that needs edits with nothing raised.
 
-    - **Field accuracy:** %.1f%%
-    - **Line accuracy:** %.1f%%
+    %s
+    - **Overall field accuracy:** %.1f%%
+    - **Overall line accuracy:** %.1f%%
     - **Needs no edits:** %d of %d
     - **The checks:** %d false alarms, %d missed
     - **Median time per invoice:** %.1f s
     - **Cost:** $%s in all, from the configured prices
     %s
-    | Case | Fields | Lines | No edits | Problems | False alarms | Missed | Time | Cost |
-    |---|---|---|---|---|---|---|---|---|
+    | Case | Split | Fields | Lines | No edits | Problems | False alarms | Missed | Time | Cost |
+    |---|---|---|---|---|---|---|---|---|---|
     %s
     """
         .formatted(
             title,
+            splitSummary,
             100 * InvoiceEvalTests.fieldAccuracy(run.scores()),
             100 * InvoiceEvalTests.lineAccuracy(run.scores()),
             noEdits,

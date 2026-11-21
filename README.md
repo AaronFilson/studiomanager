@@ -13,30 +13,36 @@ on Java 25 and PostgreSQL. The clients are a React web app and an Expo mobile ap
 
 **Status:** a dev environment runs on Azure (West US), deployed by CI on every merge to `main`.
 No studio uses it yet. The [first-deploy runbook](docs/runbooks/first-deploy.md) takes an empty
-Azure subscription to a running environment. The current plan is
-[reading real invoices](docs/planning/24-invoice-reading-upgrade-plan.md).
+Azure subscription to a running environment. Recent plans cover
+[glaze chemistry & Glazecalc](docs/planning/14-glaze-book-plan.md),
+[MCP OAuth 2.1](docs/planning/17-mcp-and-api-tokens-plan.md),
+[reading real invoices](docs/planning/24-invoice-reading-upgrade-plan.md), and
+[mobile parity](docs/planning/25-mobile-parity-plan.md).
 
 ## Feature tour
 
 - **Today.** One page with what's in the kilns, who's on duty, and what needs doing.
 - **Pieces.** Each piece moves from greenware through bisque and glaze to pickup, with photos and
   a hold period for unclaimed work.
-- **Kilns.** Queues with per-member caps, kiln loads, a firing log, and one "ready" notice per
-  batch.
+- **Kilns.** Queues with per-member caps, kiln loads, firing log with controller CSV curve import,
+  and one "ready" notice per batch.
 - **Money.** A double-entry ledger: member balances, stored value, firing fees, tax by date,
   consignment sales, payables to artists and instructors, and a journal export.
-- **Supplies.** Clay and supplies with par levels, purchase requests and sales to members.
+- **Supplies.** Clay and supplies with par levels, last purchase price from confirmed invoices,
+  purchase requests, and sales to members.
 - **Schedule.** Duties, expiring certifications, a bookable calendar and rosters with credited
   hours.
 - **Maintenance.** Recurring tasks for kilns, equipment and the building, counted in days or
   firings, with reminders and problem reports from a phone.
-- **Glaze book.** The studio's glaze recipes, line by line.
+- **Glaze book.** The studio's glaze recipes, offline UMF chemistry & cone-band limit checks,
+  slurry SG helper, studio bucket mix/SG logs, test-tile photos, and Glazecalc import/sync.
 - **Imports.** Members and consignment items from a CSV file.
 - **Invoices.** Upload a supplier invoice and a reader pulls out the lines for review. Three
   readers are available: Claude (with the studio's own key), Google Document AI and Azure Document
   Intelligence. "Compare readers" shows their answers side by side.
-- **Assistant.** Personal API tokens let an assistant connect over MCP. It reads freely, but
-  changes arrive as suggestions that staff approve or reject.
+- **Assistant.** Personal API tokens (and optional OAuth 2.1 with RFC 9728/7591/8707 metadata) let
+  an assistant connect over MCP. It reads freely, but changes arrive as suggestions that staff
+  approve or reject.
 - **Webhooks and events.** Signed outbound webhooks to a studio's own tools, and an optional Kafka
   event stream.
 - **Platform admin.** Which studios may use the platform-paid invoice readers, with monthly page
@@ -175,7 +181,8 @@ flowchart LR
 |---|---|
 | [`api/`](api) | Spring Boot 4.1 on Java 25: Spring Modulith, PostgreSQL 18, Flyway, Hibernate |
 | [`auth/`](auth) | The GitHub sign-in bridge |
-| [`packages/api-client/`](packages/api-client) | Generated TypeScript client and TanStack Query options |
+| [`packages/api-client/`](packages/api-client) | Generated TypeScript client, permission helpers, and TanStack Query options |
+| [`packages/glaze-chemistry/`](packages/glaze-chemistry) | Shared offline UMF, cone-band limits, and slurry SG calculator |
 | [`web/`](web) | React 19, Vite, TanStack Router and Query, MSAL |
 | [`mobile/`](mobile) | Expo and React Native |
 | [`infra/`](infra) | Terraform for Azure (and the Google Document AI project) |
@@ -188,12 +195,14 @@ You need JDK 25, Node 24, and Docker for the database and the integration tests.
 builds and tests run through the scripts in [`scripts/`](scripts), from the repo root:
 
 ```sh
-bash scripts/check.sh                  # everything: API, generated client, web
+bash scripts/check.sh                  # everything: API, generated client, packages, web, mobile
 bash scripts/api.sh                    # API build and tests
 bash scripts/api.sh bootRun            # any Gradle task, e.g. run the API on :8080
-bash scripts/js.sh -r run test         # API client and web tests
+bash scripts/js.sh -r run test         # API client, glaze chemistry, web and mobile tests
 bash scripts/integration.sh test       # API with Docker integration tests, inside WSL
-bash scripts/web-linux.sh              # the CI web job in a node:24 container
+bash scripts/web-linux.sh              # the CI JS job (packages, web, mobile) in a node:24 container
+bash scripts/sync-generated.sh         # regenerate OpenAPI client, routeTree and mobile assets in WSL Docker
+bash scripts/eval-sources.sh --list    # list or sparse-clone public invoice eval datasets
 ```
 
 The scripts find a JDK 25 and run the pinned pnpm. `docker compose up -d` starts PostgreSQL 18
@@ -223,7 +232,8 @@ When the images exist, replace this section with:
 
 - [Architecture decision records](docs/adr)
 - [Plans and research](docs/planning), including the
-  [invoice reading plan](docs/planning/24-invoice-reading-upgrade-plan.md)
+  [invoice reading plan](docs/planning/24-invoice-reading-upgrade-plan.md) and
+  [mobile parity plan](docs/planning/25-mobile-parity-plan.md)
 - [Runbooks](docs/runbooks)
 
 ## License

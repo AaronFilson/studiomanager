@@ -1,0 +1,74 @@
+{
+  "documentType": "ORDER_FORM",
+  "vendorName": "Cascade Clay & Minerals",
+  "invoiceNumber": "",
+  "orderNumber": "CTR-514",
+  "invoiceDate": "2026-10-18",
+  "invoiceDatePrinted": "10/18",
+  "invoiceDateYear": "FROM_PAGE",
+  "dueDate": "",
+  "subtotal": "164.50",
+  "shipping": "",
+  "tax": "13.20",
+  "total": "95.00",
+  "amountPaid": "177.70",
+  "amountDue": "0.00",
+  "payments": [
+    {
+      "date": "2026-10-18",
+      "amount": "95.00",
+      "method": "CARD",
+      "source": "SLIP"
+    },
+    {
+      "date": "2026-10-19",
+      "amount": "82.70",
+      "method": "CARD",
+      "source": "RECEIPT"
+    }
+  ],
+  "crossedOut": [
+    "25 lb Redart Clay — 19.00"
+  ],
+  "otherPapers": "Two till receipts and a card slip resting at the bottom",
+  "notes": [
+    "Written total shows only the first card payment; two payments cover lines plus tax.",
+    "Year taken from the dated card slip."
+  ],
+  "rotation": "90",
+  "lines": [
+    {
+      "description": "Hawthorne Bond Fireclay",
+      "sku": "",
+      "quantity": "100",
+      "unit": "lb",
+      "unitPrice": "",
+      "lineTotal": "54.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Dolomite 325 mesh",
+      "sku": "",
+      "quantity": "50",
+      "unit": "lb",
+      "unitPrice": "",
+      "lineTotal": "42.50",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Wax Resist Cotton Roll",
+      "sku": "",
+      "quantity": "2",
+      "unit": "roll",
+      "unitPrice": "",
+      "lineTotal": "68.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

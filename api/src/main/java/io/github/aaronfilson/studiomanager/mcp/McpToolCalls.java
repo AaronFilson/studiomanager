@@ -4,6 +4,7 @@ import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.ApiTokenAuthentication;
+import io.github.aaronfilson.studiomanager.platform.tenancy.McpOAuthAuthentication;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TokenScope;
 import io.github.aaronfilson.studiomanager.ratelimit.ApiCallLog;
@@ -83,31 +84,43 @@ class McpToolCalls {
             .openWorldHint(false);
     return switch (tool.access()) {
       case READ -> hints.readOnlyHint(true).idempotentHint(true).build();
-      case PROPOSE -> hints.readOnlyHint(false).idempotentHint(false).build();
+      case PROPOSE, WRITE -> hints.readOnlyHint(false).idempotentHint(false).build();
     };
   }
 
   /**
-   * Why the caller can't run this tool, or empty if they can. The caller must hold the tool's
-   * permission. A token's context holds only what its person holds and its scopes allow, so a
-   * propose tool also needs the {@code propose} scope; that case gets its own message.
+   * Why the caller can't run this tool, or empty if they can. A token must carry the tool's
+   * required scope (if any), and the caller must hold the tool's permission.
    */
   private static Optional<String> refusal(McpTools.Tool tool, TenantContext caller) {
+    TokenScope requiredScope = tool.requiredScope();
+    if (requiredScope != null) {
+      var auth = SecurityContextHolder.getContext().getAuthentication();
+      if (auth instanceof ApiTokenAuthentication tokenAuthentication
+          && !tokenAuthentication.token().scopes().contains(requiredScope)) {
+        if (requiredScope == TokenScope.PROPOSE) {
+          return Optional.of(
+              "This token can't propose changes. Ask the person to make a token with the propose scope.");
+        }
+        return Optional.of(
+            "This token can't use %s. Ask the person to make a token with the %s scope."
+                .formatted(tool.name(), requiredScope.wireName()));
+      }
+      if (auth instanceof McpOAuthAuthentication mcpAuthentication
+          && !mcpAuthentication.token().scopes().contains(requiredScope)) {
+        if (requiredScope == TokenScope.PROPOSE) {
+          return Optional.of(
+              "This token can't propose changes. Reconnect the assistant with the propose scope.");
+        }
+        return Optional.of(
+            "This token can't use %s. Reconnect the assistant with the %s scope."
+                .formatted(tool.name(), requiredScope.wireName()));
+      }
+    }
     if (caller.holds(tool.permission())) {
       return Optional.empty();
     }
-    return switch (tool.access()) {
-      case READ -> Optional.of(roleRefusal(tool));
-      case PROPOSE -> {
-        if (SecurityContextHolder.getContext().getAuthentication()
-                instanceof ApiTokenAuthentication tokenAuthentication
-            && !tokenAuthentication.token().scopes().contains(TokenScope.PROPOSE)) {
-          yield Optional.of(
-              "This token can't propose changes. Ask the person to make a token with the propose scope.");
-        }
-        yield Optional.of(roleRefusal(tool));
-      }
-    };
+    return Optional.of(roleRefusal(tool));
   }
 
   private static String roleRefusal(McpTools.Tool tool) {

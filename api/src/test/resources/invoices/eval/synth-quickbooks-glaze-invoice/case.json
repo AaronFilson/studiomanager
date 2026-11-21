@@ -1,0 +1,13 @@
+{
+  "source": "synthetic-generator",
+  "license": "MIT",
+  "template": "quickbooks-square",
+  "seed": 20261116,
+  "split": "test",
+  "tags": [
+    "synthetic",
+    "quickbooks",
+    "discount-line",
+    "glaze-materials"
+  ]
+}

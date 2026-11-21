@@ -7,9 +7,16 @@ const config: ExpoConfig = {
   scheme: 'studiomanager',
   version: '0.1.0',
   orientation: 'portrait',
+  icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   ios: { bundleIdentifier: 'io.github.aaronfilson.studiomanager' },
-  android: { package: 'io.github.aaronfilson.studiomanager' },
+  android: {
+    package: 'io.github.aaronfilson.studiomanager',
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#f7f4ef',
+    },
+  },
   plugins: [
     'expo-router',
     'expo-secure-store',

@@ -5,6 +5,19 @@ import type { ReactElement } from 'react';
 
 export const API = 'http://api.test';
 
+const originalFetch = globalThis.fetch;
+const createdClients = new Set<QueryClient>();
+
+/** Cancels active queries, clears every test QueryClient, and restores global fetch between tests. */
+export async function cleanupTestQueries(): Promise<void> {
+  for (const client of createdClients) {
+    await client.cancelQueries();
+    client.clear();
+  }
+  createdClients.clear();
+  globalThis.fetch = originalFetch;
+}
+
 export interface Call {
   method: string;
   path: string;
@@ -43,6 +56,7 @@ export function stubApi(routes: Record<string, Handler | object | null>): Call[]
       throw new Error(`Unexpected request: ${call.method} ${call.path}`);
     }
     const result = typeof match.handler === 'function' ? (match.handler as Handler)(call) : match.handler;
+    if (result instanceof Response) return result;
     if (result === null) return new Response(null, { status: 204 });
     return Response.json(result);
   }) as typeof fetch;
@@ -64,6 +78,7 @@ export async function renderWithQueries(ui: ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } },
   });
+  createdClients.add(queryClient);
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 

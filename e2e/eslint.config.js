@@ -16,7 +16,14 @@ export default defineConfig(
     },
   },
   {
-    files: ['eslint.config.js'],
+    files: ['eslint.config.js', 'scripts/**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+      },
+    },
   },
 );

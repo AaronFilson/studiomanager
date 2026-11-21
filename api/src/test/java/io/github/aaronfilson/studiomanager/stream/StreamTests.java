@@ -302,6 +302,22 @@ class StreamTests {
     assertThat(JsonPath.<String>read(new String(written, StandardCharsets.UTF_8), "$.type"))
         .isEqualTo("fee.charged");
     assertThat(json.readValue(written, StudioStreamEvent.FeeCharged.class)).isEqualTo(event);
+
+    var mixed =
+        new StudioStreamEvent.GlazeMixed(
+            studioId,
+            Instant.now(),
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Tenmoku",
+            UUID.randomUUID(),
+            "10000",
+            "7500",
+            "1.46");
+    byte[] mixedBytes = json.writeValueAsBytes(mixed);
+    assertThat(JsonPath.<String>read(new String(mixedBytes, StandardCharsets.UTF_8), "$.type"))
+        .isEqualTo("glaze.mixed");
+    assertThat(json.readValue(mixedBytes, StudioStreamEvent.GlazeMixed.class)).isEqualTo(mixed);
   }
 
   @Test

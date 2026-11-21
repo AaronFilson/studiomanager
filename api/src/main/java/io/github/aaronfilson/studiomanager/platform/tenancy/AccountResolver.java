@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.platform.tenancy;
 
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.security.oauth2.jwt.Jwt;
 
@@ -11,4 +12,12 @@ import org.springframework.security.oauth2.jwt.Jwt;
 public interface AccountResolver {
 
   UUID resolve(Jwt token);
+
+  /**
+   * Looks up an existing person account for an MCP OAuth token subject without creating one (ADR
+   * 26). Never matches a system account.
+   */
+  default Optional<UUID> findBySubject(String tokenIssuer, String subject) {
+    return Optional.empty();
+  }
 }

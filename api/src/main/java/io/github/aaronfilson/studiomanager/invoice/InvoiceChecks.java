@@ -1,5 +1,7 @@
 package io.github.aaronfilson.studiomanager.invoice;
 
+import io.github.aaronfilson.studiomanager.invoice.InvoiceDraft.DocumentType;
+import io.github.aaronfilson.studiomanager.invoice.InvoiceDraft.Payment;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -12,11 +14,18 @@ import org.jspecify.annotations.Nullable;
  * whole with a quantity and an amount: many invoices, handwritten counter forms above all, print no
  * unit price, and that isn't a problem. Where a unit price is printed, quantity × price must make
  * the amount. The lines must add up to the subtotal within a cent per line, and the subtotal (or
- * the lines) plus tax and shipping to the total within a cent. A draft that doesn't add up needs a
- * look; nothing is silently corrected.
+ * the lines) plus tax and shipping to the total within a cent.
  *
- * <p>Each kind of problem is one message, naming the lines it's about, so a form of twelve lines
- * without unit prices gets no message, and one of twelve lines without quantities gets one.
+ * <p>Schema v2 rules:
+ *
+ * <ul>
+ *   <li>Packing lists ({@link DocumentType#PACKING_LIST}) get no money checks.
+ *   <li>Receipts ({@link DocumentType#RECEIPT}) check against what was paid (sum of payments, else
+ *       amountPaid, else total).
+ *   <li>When payments sum to lines + tax (+ shipping), the gap against the written total is
+ *       explained clearly in {@link #explanations} instead of raising a false-alarm problem.
+ *   <li>Non-stock lines (shipping, fee, discount, deposit) do not require a quantity.
+ * </ul>
  */
 final class InvoiceChecks {
 
@@ -33,15 +42,37 @@ final class InvoiceChecks {
     if (draft.lines().isEmpty()) {
       problems.add("No lines were read.");
     }
-    if (draft.total() == null) {
+    if (draft.documentType() == DocumentType.PACKING_LIST) {
+      checkQuantitiesOnly(draft, problems);
+      return List.copyOf(problems);
+    }
+
+    boolean isReceipt = draft.documentType() == DocumentType.RECEIPT;
+    BigDecimal linesSum = sumOfLineTotals(draft);
+    BigDecimal beforeExtras = draft.subtotal() != null ? draft.subtotal() : linesSum;
+    BigDecimal expected =
+        beforeExtras == null
+            ? null
+            : beforeExtras.add(orZero(draft.tax())).add(orZero(draft.shipping()));
+    BigDecimal paidSum = sumOfPayments(draft.payments());
+    boolean paymentsCoverExpected =
+        paidSum != null && expected != null && !differsBy(paidSum, expected, CENT);
+
+    if (isReceipt) {
+      BigDecimal receiptPaid = receiptPaidTotal(draft, paidSum);
+      if (receiptPaid == null) {
+        problems.add("No total was read.");
+      }
+    } else if (draft.total() == null && !paymentsCoverExpected) {
       problems.add("No total was read.");
     }
+
     List<String> noQuantity = new ArrayList<>();
     List<String> noAmount = new ArrayList<>();
     for (int index = 0; index < draft.lines().size(); index++) {
       InvoiceDraft.Line line = draft.lines().get(index);
       String name = "line %d (%s)".formatted(index + 1, line.description());
-      if (line.quantity() == null) {
+      if (line.effectiveKind().isStockCandidate() && line.quantity() == null) {
         noQuantity.add(name);
       }
       if (line.lineTotal() == null) {
@@ -69,7 +100,6 @@ final class InvoiceChecks {
     if (!noAmount.isEmpty()) {
       problems.add(lines(noAmount, "has no amount", "have no amount"));
     }
-    BigDecimal linesSum = sumOfLineTotals(draft);
     if (draft.subtotal() != null && linesSum != null) {
       BigDecimal tolerance = CENT.multiply(BigDecimal.valueOf(Math.max(1, draft.lines().size())));
       if (differsBy(linesSum, draft.subtotal(), tolerance)) {
@@ -78,14 +108,144 @@ final class InvoiceChecks {
                 .formatted(linesSum.toPlainString(), draft.subtotal().toPlainString()));
       }
     }
-    BigDecimal beforeExtras = draft.subtotal() != null ? draft.subtotal() : linesSum;
-    if (draft.total() != null && beforeExtras != null) {
-      BigDecimal expected = beforeExtras.add(orZero(draft.tax())).add(orZero(draft.shipping()));
-      if (differsBy(expected, draft.total(), CENT)) {
+    if (expected != null) {
+      if (isReceipt) {
+        BigDecimal receiptPaid = receiptPaidTotal(draft, paidSum);
+        if (receiptPaid != null && differsBy(expected, receiptPaid, CENT)) {
+          problems.add(totalProblem(draft, expected, receiptPaid));
+        }
+      } else if (!paymentsCoverExpected
+          && draft.total() != null
+          && differsBy(expected, draft.total(), CENT)) {
         problems.add(totalProblem(draft, expected, draft.total()));
       }
     }
     return List.copyOf(problems);
+  }
+
+  /**
+   * Non-problem explanations for staff (for example, split payments that add up to lines + tax even
+   * when the written total only shows one payment).
+   */
+  static List<String> explanations(InvoiceDraft draft) {
+    if (draft.documentType() == DocumentType.PACKING_LIST || draft.payments().isEmpty()) {
+      return List.of();
+    }
+    BigDecimal paidSum = sumOfPayments(draft.payments());
+    if (paidSum == null) {
+      return List.of();
+    }
+    BigDecimal linesSum = sumOfLineTotals(draft);
+    BigDecimal beforeExtras = draft.subtotal() != null ? draft.subtotal() : linesSum;
+    if (beforeExtras == null) {
+      return List.of();
+    }
+    BigDecimal expected = beforeExtras.add(orZero(draft.tax())).add(orZero(draft.shipping()));
+    if (differsBy(paidSum, expected, CENT)) {
+      return List.of();
+    }
+    boolean totalDiffers = draft.total() == null || differsBy(expected, draft.total(), CENT);
+    if (!totalDiffers && draft.payments().size() <= 1) {
+      return List.of();
+    }
+    String parts = formatPayments(draft.payments());
+    String equation =
+        draft.payments().size() > 1
+            ? "%s = %s"
+                .formatted(
+                    String.join(
+                        " + ",
+                        draft.payments().stream()
+                            .map(p -> p.amount().setScale(2, RoundingMode.HALF_UP).toPlainString())
+                            .toList()),
+                    paidSum.toPlainString())
+            : paidSum.toPlainString();
+    String target =
+        draft.subtotal() != null
+            ? extras(draft, "subtotal")
+            : extras(draft, draft.lines().size() == 1 ? "line" : "lines");
+    if (draft.total() != null && differsBy(expected, draft.total(), CENT)) {
+      return List.of(
+          "Paid %s: %s matches %s (written total is %s)."
+              .formatted(parts, equation, target, draft.total().toPlainString()));
+    }
+    return List.of("Paid %s: %s matches %s.".formatted(parts, equation, target));
+  }
+
+  /**
+   * What is payable: defaults to the sum of payments when payments cover lines and tax (+
+   * shipping), otherwise the written total (or what was paid on a receipt).
+   */
+  static @Nullable BigDecimal payableAmount(InvoiceDraft draft) {
+    if (draft.documentType() == DocumentType.PACKING_LIST) {
+      return draft.total();
+    }
+    BigDecimal paidSum = sumOfPayments(draft.payments());
+    if (paidSum != null) {
+      BigDecimal linesSum = sumOfLineTotals(draft);
+      BigDecimal beforeExtras = draft.subtotal() != null ? draft.subtotal() : linesSum;
+      if (beforeExtras != null) {
+        BigDecimal expected = beforeExtras.add(orZero(draft.tax())).add(orZero(draft.shipping()));
+        if (!differsBy(paidSum, expected, CENT)) {
+          return paidSum;
+        }
+      }
+      if (draft.documentType() == DocumentType.RECEIPT || draft.total() == null) {
+        return paidSum;
+      }
+    }
+    if (draft.documentType() == DocumentType.RECEIPT && draft.amountPaid() != null) {
+      return draft.amountPaid();
+    }
+    return draft.total();
+  }
+
+  private static void checkQuantitiesOnly(InvoiceDraft draft, List<String> problems) {
+    List<String> noQuantity = new ArrayList<>();
+    for (int index = 0; index < draft.lines().size(); index++) {
+      InvoiceDraft.Line line = draft.lines().get(index);
+      if (line.effectiveKind().isStockCandidate() && line.quantity() == null) {
+        noQuantity.add("line %d (%s)".formatted(index + 1, line.description()));
+      }
+    }
+    if (!noQuantity.isEmpty()) {
+      problems.add(lines(noQuantity, "has no quantity", "have no quantity"));
+    }
+  }
+
+  private static @Nullable BigDecimal receiptPaidTotal(
+      InvoiceDraft draft, @Nullable BigDecimal paidSum) {
+    if (paidSum != null) {
+      return paidSum;
+    }
+    return draft.amountPaid() != null ? draft.amountPaid() : draft.total();
+  }
+
+  private static @Nullable BigDecimal sumOfPayments(List<Payment> payments) {
+    if (payments.isEmpty()) {
+      return null;
+    }
+    return payments.stream()
+        .map(Payment::amount)
+        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private static String formatPayments(List<Payment> payments) {
+    List<String> items =
+        payments.stream()
+            .map(p -> {
+              String amount = p.amount().setScale(2, RoundingMode.HALF_UP).toPlainString();
+              return p.date() == null ? amount : amount + " on " + p.date();
+            })
+            .toList();
+    if (items.size() == 1) {
+      return items.getFirst();
+    }
+    if (items.size() == 2) {
+      return items.get(0) + " and " + items.get(1);
+    }
+    return String.join(", ", items.subList(0, items.size() - 1)) + " and " + items.getLast();
   }
 
   /**

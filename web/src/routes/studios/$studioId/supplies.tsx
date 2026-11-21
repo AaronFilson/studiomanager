@@ -19,7 +19,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { ErrorMessage } from '../../../components/ErrorMessage';
 import { InvoiceInbox } from '../../../components/InvoiceInbox';
-import { formatMoney } from '../../../labels';
+import { formatDate, formatMoney } from '../../../labels';
 
 export const Route = createFileRoute('/studios/$studioId/supplies')({
   component: SuppliesPage,
@@ -54,7 +54,7 @@ function SuppliesPage() {
         ))}
       </ul>
       {staff && <Requests studioId={studioId} canApprove={can('supplies.purchase.approve')} />}
-      {can('invoices.manage') && <InvoiceInbox studioId={studioId} canCompare={can('studio.ai_key.manage')} />}
+      {can('invoices.manage') && <InvoiceInbox key={studioId} studioId={studioId} canCompare={can('studio.ai_key.manage')} />}
       {staff && <AddItemForm studioId={studioId} currency={studio.currency} />}
     </div>
   );
@@ -81,6 +81,13 @@ function ItemRow({ studioId, item, staff, currency }: { studioId: string; item: 
             {item.onHand} × {item.unit}
             {item.low && <strong className="warning"> · low{item.needsOrdering ? ', not on order' : `, ${item.onOrder} on order`}</strong>}
             {item.salePrice && <span className="badge"> · {formatMoney(item.salePrice, currency)} each</span>}
+            {item.lastPurchaseUnitPrice && (
+              <span className="badge">
+                {' '}
+                · last paid {formatMoney(item.lastPurchaseUnitPrice, currency)}/{item.unit}
+                {item.lastPurchasedAt && ` on ${formatDate(item.lastPurchasedAt)}`}
+              </span>
+            )}
           </div>
           {item.low && item.substitute && <div className="badge">{item.substitute}</div>}
         </div>
@@ -90,17 +97,33 @@ function ItemRow({ studioId, item, staff, currency }: { studioId: string; item: 
               <label htmlFor={`${id}-qty`}>Quantity</label>
               <input id={`${id}-qty`} inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value.trim())} />
             </div>
-            <button type="button" onClick={() => move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'RECEIVED', quantity } })}>
+            <button
+              type="button"
+              disabled={move.isPending}
+              onClick={() => move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'RECEIVED', quantity } })}
+            >
               Received
             </button>
-            <button type="button" onClick={() => move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'USED', quantity } })}>
+            <button
+              type="button"
+              disabled={move.isPending}
+              onClick={() => move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'USED', quantity } })}
+            >
               Used
             </button>
-            <button type="button" onClick={() => move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'COUNTED', quantity } })}>
+            <button
+              type="button"
+              disabled={move.isPending}
+              onClick={() => move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'COUNTED', quantity } })}
+            >
               Counted
             </button>
             {item.needsOrdering && (
-              <button type="button" onClick={() => request.mutate({ path: { studioId }, body: { itemId: item.id } })}>
+              <button
+                type="button"
+                disabled={request.isPending}
+                onClick={() => request.mutate({ path: { studioId }, body: { itemId: item.id } })}
+              >
                 Request more
               </button>
             )}
@@ -116,7 +139,7 @@ function ItemRow({ studioId, item, staff, currency }: { studioId: string; item: 
                 </select>
                 <button
                   type="button"
-                  disabled={!buyer}
+                  disabled={!buyer || sell.isPending}
                   onClick={() => sell.mutate({ path: { studioId, itemId: item.id }, body: { memberId: buyer, quantity } })}
                 >
                   Sell
@@ -135,6 +158,14 @@ function Requests({ studioId, canApprove }: { studioId: string; canApprove: bool
   const queryClient = useQueryClient();
   const requests = useQuery(listPurchaseRequestsOptions({ path: { studioId } }));
   const decide = useMutation({ ...decidePurchaseRequestMutation(), onSuccess: () => queryClient.invalidateQueries() });
+  if (requests.isError) {
+    return (
+      <section className="card stack" aria-label="Purchase requests">
+        <h2>Purchase requests</h2>
+        <ErrorMessage error={requests.error} />
+      </section>
+    );
+  }
   if (!requests.isSuccess || requests.data.length === 0) {
     return null;
   }
@@ -167,21 +198,21 @@ function Requests({ studioId, canApprove }: { studioId: string; canApprove: bool
             <span className="row">
               {r.status === 'REQUESTED' && canApprove && (
                 <>
-                  <button type="button" onClick={() => act(r, 'APPROVED')}>
+                  <button type="button" disabled={decide.isPending} onClick={() => act(r, 'APPROVED')}>
                     Approve
                   </button>
-                  <button type="button" onClick={() => act(r, 'REJECTED')}>
+                  <button type="button" disabled={decide.isPending} onClick={() => act(r, 'REJECTED')}>
                     Reject
                   </button>
                 </>
               )}
               {r.status === 'APPROVED' && (
-                <button type="button" onClick={() => act(r, 'ORDERED')}>
+                <button type="button" disabled={decide.isPending} onClick={() => act(r, 'ORDERED')}>
                   Ordered
                 </button>
               )}
               {(r.status === 'APPROVED' || r.status === 'ORDERED') && (
-                <button type="button" onClick={() => act(r, 'RECEIVED')}>
+                <button type="button" disabled={decide.isPending} onClick={() => act(r, 'RECEIVED')}>
                   Received
                 </button>
               )}
@@ -209,6 +240,10 @@ function AddItemForm({ studioId, currency }: { studioId: string; currency: strin
     onSuccess: async () => {
       setName('');
       setUnit('');
+      setSupplier('');
+      setPar('');
+      setReorder('');
+      setPrice('');
       await queryClient.invalidateQueries();
     },
   });

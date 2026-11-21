@@ -73,3 +73,30 @@ is the only route open now.
 - https://skutt.com/skutt-resources/operation/
 - https://www.ceramicindustry.com/articles/92788-web-based-kiln-monitoring (Blaauw)
 - https://www.ceramicindustry.com/articles/95468-ll-kilns-optional-genesis-touchscreen-control
+
+## Status
+
+Shipped on `plan09-kiln-log-import` (migration `V50__kiln_firing_logs.sql`):
+
+- **Schema & API contract:** Extended `firing` with optional `peak_temp`, `temp_unit` (`F`/`C`),
+  `duration_minutes`, `error_code`, `log_source` (`GENESIS`/`TAP`/`OTHER`), and a downsampled
+  `temperature_curve` (`jsonb`, capped at 250 points while preserving start, peak, and end).
+  Exposed all telemetry fields on `Firing` in `studiomanager.yaml`.
+- **Tolerant parser (`KilnLogParser`):** Pure Java parser supporting comma, semicolon, and tab
+  delimiters, scanning up to the first 20 lines for the header row and extracting controller
+  preamble metadata (date, cone, firing kind, error code, units). Enforces untrusted-input caps
+  (2 MB CSV, 50,000 rows, sanitized strings) and infers °F vs °C from headers, peak temperature
+  (> 1400 → °F), ambient temperature, or studio unit system, with explicit user override.
+- **Preview & commit endpoint (`POST /api/v1/studios/{studioId}/kilns/{kilnId}/log-imports`):**
+  Guarded by `firings.manage`. Supports `dryRun: true` previews with ±2 hour overlap matching
+  against existing firings on the kiln, and atomic `dryRun: false` commits that either attach
+  telemetry to a chosen firing or create a new `COMPLETE` firing and increment `total_firings`.
+- **Web UI (`$kilnId.tsx`):** Added an "Import controller log" card with CSV upload, controller
+  preset selector, °F/°C override, custom column overrides, dry-run preview with SVG firing-curve
+  sparkline and suggested firing match, and telemetry badges + SVG sparklines in the Firing Log.
+- **Unverified presets:** Both **Bartlett Genesis** and **Orton/TAP** presets remain explicitly
+  marked **unverified** in the API (`presetUnverified: true`) and UI (`Genesis (unverified)`,
+  `TAP (unverified)`) until verified against real controller export files from a pilot studio.
+  Current test fixtures (`api/src/test/resources/kilns/genesis-sample.csv`,
+  `genesis-error-sample.csv`, `tap-sample.csv`) are hand-made synthetic fixtures matching the
+  documented traits above.

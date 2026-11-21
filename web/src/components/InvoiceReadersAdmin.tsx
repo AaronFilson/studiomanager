@@ -83,6 +83,21 @@ function ReadersForm({ overview, studios }: { overview: InvoiceReaderOverview; s
           : 'The defaults: on for the demo studio only, so the platform pays nothing until a reader is turned on.'}{' '}
         A studio&apos;s owner must also consent in its AI key settings.
       </p>
+      {overview.accuracy && overview.accuracy.length > 0 && (
+        <section className="stack" aria-label="Reader accuracy on confirmed invoices">
+          <h3>Accuracy on confirmed invoices</h3>
+          <ul>
+            {overview.accuracy.map((acc) => (
+              <li key={acc.reader}>
+                {readerLabels[acc.reader]} matched {String(acc.exactMatches)} of {String(acc.confirmedInvoices)}{' '}
+                confirmed {acc.confirmedInvoices === 1 ? 'invoice' : 'invoices'} (
+                {String(Math.round(acc.fieldAccuracy * 100))}% fields, {String(Math.round(acc.lineAccuracy * 100))}%
+                lines).
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {settings.readers.map((rule, index) => (
         <ReaderRuleFields
           key={rule.reader}
@@ -141,6 +156,17 @@ function ReadersForm({ overview, studios }: { overview: InvoiceReaderOverview; s
   );
 }
 
+function notSetUpMessage(reader: InvoiceReader): string {
+  switch (reader) {
+    case 'GOOGLE_DOCUMENT_AI':
+      return 'Not set up on this server, so it never reads, whatever is chosen here. See docs/runbooks/google-document-ai.md.';
+    case 'AZURE_DOCUMENT_INTELLIGENCE':
+      return 'Not set up on this server, so it never reads, whatever is chosen here. Configure STUDIOMANAGER_INVOICES_AZURE_ENDPOINT in the API deployment.';
+    case 'CLAUDE':
+      return 'Not set up on this server, so it never reads, whatever is chosen here.';
+  }
+}
+
 function ReaderRuleFields({
   rule,
   studios,
@@ -159,12 +185,10 @@ function ReaderRuleFields({
   return (
     <fieldset className="stack">
       <legend>{label}</legend>
-      <p role="status" className={setUp ? undefined : 'warning'}>
-        {setUp
-          ? 'Set up on this server.'
-          : 'Not set up on this server, so it never reads, whatever is chosen here. See docs/runbooks/google-document-ai.md.'}
+      <p className={setUp ? undefined : 'warning'}>
+        {setUp ? 'Set up on this server.' : notSetUpMessage(rule.reader)}
       </p>
-      <p role="status">
+      <p>
         This month: {String(usage?.pages ?? 0)} pages in {String(usage?.reads ?? 0)} reads, about $
         {usage?.costUsd ?? '0.0000'}.
       </p>

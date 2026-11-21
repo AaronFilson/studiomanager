@@ -36,11 +36,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  *       that a change to the lines alone also counts as a change to the recipe and bumps its
  *       version.
  * </ul>
- *
- * The import-only columns ({@code source_ref}, {@code source_rev}, {@code source_updated_at},
- * {@code promoted_from}) aren't mapped: nothing writes them yet.
  */
-// Hibernate reads and writes the mapped fields by reflection; some have no Java reader
 @SuppressWarnings("UnusedVariable")
 @Entity
 @Table(name = "glaze_recipe")
@@ -49,7 +45,7 @@ class GlazeRecipe {
 
   private static final int FIRST_VERSION = 1;
 
-  /** Where a recipe came from. Only typed-in recipes exist until the importers are built. */
+  /** Where a recipe came from. */
   enum Source {
     MANUAL,
     GLAZECALC,
@@ -82,6 +78,14 @@ class GlazeRecipe {
   @Enumerated(EnumType.STRING)
   private Source source;
 
+  private @Nullable String sourceRef;
+
+  private @Nullable Integer sourceRev;
+
+  private @Nullable Instant sourceUpdatedAt;
+
+  private @Nullable UUID promotedFrom;
+
   @CreatedBy private @Nullable UUID createdBy;
 
   @CreatedDate private @Nullable Instant createdAt;
@@ -99,21 +103,46 @@ class GlazeRecipe {
   @SuppressWarnings("NullAway.Init")
   protected GlazeRecipe() {}
 
-  /**
-   * A new, typed-in recipe from a checked draft.
-   *
-   * @param ownerAccountId the member who owns it, or null for a studio glaze
-   */
+  /** A new, typed-in recipe from a checked draft. */
   GlazeRecipe(
       GlazeBook.OwnerKind ownerKind,
       @Nullable UUID ownerAccountId,
       GlazeBook.Draft draft,
       UUID createdByAccountId,
       Instant now) {
+    this(
+        ownerKind,
+        ownerAccountId,
+        draft,
+        Source.MANUAL,
+        null,
+        null,
+        null,
+        null,
+        createdByAccountId,
+        now);
+  }
+
+  /** A new imported or promoted recipe from a checked draft. */
+  GlazeRecipe(
+      GlazeBook.OwnerKind ownerKind,
+      @Nullable UUID ownerAccountId,
+      GlazeBook.Draft draft,
+      Source source,
+      @Nullable String sourceRef,
+      @Nullable Integer sourceRev,
+      @Nullable Instant sourceUpdatedAt,
+      @Nullable UUID promotedFrom,
+      UUID createdByAccountId,
+      Instant now) {
     this.id = Uuids.v7();
     this.ownerKind = ownerKind;
     this.ownerAccountId = ownerAccountId;
-    this.source = Source.MANUAL;
+    this.source = source;
+    this.sourceRef = sourceRef;
+    this.sourceRev = sourceRev;
+    this.sourceUpdatedAt = sourceUpdatedAt;
+    this.promotedFrom = promotedFrom;
     this.version = FIRST_VERSION;
     apply(draft);
     this.updatedBy = createdByAccountId;
@@ -132,8 +161,64 @@ class GlazeRecipe {
     return ownerAccountId;
   }
 
+  String name() {
+    return name;
+  }
+
+  @Nullable String notes() {
+    return notes;
+  }
+
+  @Nullable String cone() {
+    return cone;
+  }
+
+  @Nullable String atmosphere() {
+    return atmosphere;
+  }
+
+  boolean foodSurface() {
+    return foodSurface;
+  }
+
+  @Nullable BigDecimal targetSg() {
+    return targetSg;
+  }
+
+  boolean sharedWithStudio() {
+    return sharedWithStudio;
+  }
+
+  Source source() {
+    return source;
+  }
+
+  @Nullable String sourceRef() {
+    return sourceRef;
+  }
+
+  @Nullable Integer sourceRev() {
+    return sourceRev;
+  }
+
+  @Nullable Instant sourceUpdatedAt() {
+    return sourceUpdatedAt;
+  }
+
+  @Nullable UUID promotedFrom() {
+    return promotedFrom;
+  }
+
+  Instant updatedAt() {
+    return updatedAt;
+  }
+
   int version() {
     return version;
+  }
+
+  List<GlazeBook.Line> lineViews() {
+    return lines.stream().map(GlazeLine::toLine).toList();
   }
 
   /**
@@ -150,7 +235,46 @@ class GlazeRecipe {
     this.updatedAt = now;
   }
 
-  GlazeBook.Recipe toRecipe(@Nullable String ownerName, boolean canEdit) {
+  /** Updates an imported recipe from a newer export, preserving its existing sharing preference. */
+  void applyImport(
+      GlazeBook.Draft draft,
+      @Nullable Integer newSourceRev,
+      @Nullable Instant newSourceUpdatedAt,
+      UUID changedByAccountId,
+      Instant now) {
+    GlazeBook.Draft withShared =
+        new GlazeBook.Draft(
+            draft.name(),
+            draft.notes(),
+            draft.cone(),
+            draft.atmosphere(),
+            draft.foodSurface(),
+            draft.targetSg(),
+            this.sharedWithStudio,
+            draft.lines());
+    apply(withShared);
+    this.sourceRev = newSourceRev;
+    this.sourceUpdatedAt = newSourceUpdatedAt;
+    this.updatedBy = changedByAccountId;
+    this.updatedAt = now;
+  }
+
+  boolean matchesImportContent(GlazeBook.Draft draft) {
+    GlazeBook.Draft withShared =
+        new GlazeBook.Draft(
+            draft.name(),
+            draft.notes(),
+            draft.cone(),
+            draft.atmosphere(),
+            draft.foodSurface(),
+            draft.targetSg(),
+            this.sharedWithStudio,
+            draft.lines());
+    return matches(withShared);
+  }
+
+  GlazeBook.Recipe toRecipe(
+      @Nullable String ownerName, boolean canEdit, List<GlazeBook.Photo> photos) {
     return new GlazeBook.Recipe(
         id,
         ownerKind,
@@ -164,7 +288,9 @@ class GlazeRecipe {
         targetSg == null ? null : targetSg.stripTrailingZeros(),
         sharedWithStudio,
         source.name(),
-        lines.stream().map(GlazeLine::toLine).toList(),
+        promotedFrom,
+        lineViews(),
+        List.copyOf(photos),
         canEdit,
         version,
         updatedAt);

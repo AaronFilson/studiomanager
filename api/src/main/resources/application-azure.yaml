@@ -30,6 +30,8 @@ studiomanager:
   ai:
     # No default: studios' AI keys are encrypted under this, from Key Vault (docs/planning/16)
     key-encryption-key: ${STUDIOMANAGER_AI_KEY_ENCRYPTION_KEY}
+  glazecalc:
+    allow-private-networks: false
 
 logging:
   structured:

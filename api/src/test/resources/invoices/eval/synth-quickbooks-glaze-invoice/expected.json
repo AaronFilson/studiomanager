@@ -1,0 +1,67 @@
+{
+  "documentType": "INVOICE",
+  "vendorName": "Cedar Kiln & Supply Co.",
+  "invoiceNumber": "10842",
+  "orderNumber": "EST-992",
+  "invoiceDate": "2026-10-12",
+  "invoiceDatePrinted": "Oct 12, 2026",
+  "invoiceDateYear": "PRINTED",
+  "dueDate": "2026-11-11",
+  "subtotal": "202.50",
+  "shipping": "",
+  "tax": "15.71",
+  "total": "218.21",
+  "amountPaid": "0.00",
+  "amountDue": "218.21",
+  "payments": [],
+  "crossedOut": [],
+  "otherPapers": "",
+  "notes": [],
+  "rotation": "0",
+  "lines": [
+    {
+      "description": "EPK Kaolin Dry Material",
+      "sku": "CK-EPK",
+      "quantity": "50",
+      "unit": "lb",
+      "unitPrice": "1.25",
+      "lineTotal": "62.50",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Clear Zinc-Free Dipping Glaze",
+      "sku": "CK-GLZ10",
+      "quantity": "4",
+      "unit": "pint",
+      "unitPrice": "18.50",
+      "lineTotal": "74.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Orton Self-Supporting Cones 06",
+      "sku": "CK-C06",
+      "quantity": "4",
+      "unit": "box",
+      "unitPrice": "22.00",
+      "lineTotal": "88.00",
+      "kind": "ITEM",
+      "serialNumbers": [],
+      "unclear": false
+    },
+    {
+      "description": "Studio trade discount (10%)",
+      "sku": "",
+      "quantity": "",
+      "unit": "",
+      "unitPrice": "",
+      "lineTotal": "-22.00",
+      "kind": "DISCOUNT",
+      "serialNumbers": [],
+      "unclear": false
+    }
+  ]
+}

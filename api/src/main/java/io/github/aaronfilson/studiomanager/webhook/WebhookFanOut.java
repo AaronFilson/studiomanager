@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.webhook;
 
+import io.github.aaronfilson.studiomanager.glaze.GlazeMixed;
 import io.github.aaronfilson.studiomanager.kiln.FiringCompleted;
 import io.github.aaronfilson.studiomanager.piece.PieceReceived;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountDirectory;
@@ -212,6 +213,33 @@ class WebhookFanOut {
         "access.changed:%s:%s:%s:%s"
             .formatted(change.kind(), change.target(), change.at(), change.actorAccountId()),
         data);
+  }
+
+  @EventListener
+  void on(GlazeMixed mixed) {
+    Set<UUID> ids = Set.of(mixed.mixedByAccountId());
+    Map<String, Object> glaze = new LinkedHashMap<>();
+    glaze.put("id", mixed.recipeId().toString());
+    glaze.put("name", mixed.recipeName());
+    glaze.put("target_sg", mixed.targetSg() == null ? null : mixed.targetSg().toPlainString());
+
+    Map<String, Object> mix = new LinkedHashMap<>();
+    mix.put("id", mixed.mixId().toString());
+    mix.put("dry_weight_g", mixed.dryWeightG().toPlainString());
+    mix.put("water_g", mixed.waterG() == null ? null : mixed.waterG().toPlainString());
+    mix.put(
+        "specific_gravity",
+        mixed.specificGravity() == null ? null : mixed.specificGravity().toPlainString());
+    mix.put("notes", mixed.notes());
+    mix.put("mixed_at", mixed.mixedAt().truncatedTo(ChronoUnit.SECONDS).toString());
+
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("glaze", glaze);
+    data.put("mix", mix);
+    data.put(
+        "mixed_by",
+        member(mixed.mixedByAccountId(), accounts.displayNames(ids), accounts.emails(ids)));
+    events.publish(WebhookEventType.GLAZE_MIXED, "glaze.mixed:" + mixed.mixId(), data);
   }
 
   private Map<String, Object> charge(

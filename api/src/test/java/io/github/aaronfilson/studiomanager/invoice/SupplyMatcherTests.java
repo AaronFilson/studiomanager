@@ -60,6 +60,22 @@ class SupplyMatcherTests {
   }
 
   @Test
+  void nonStockLineKindsDefaultToUnmatched() {
+    Map<AliasKey, UUID> aliases = Map.of(new AliasKey("laguna", AliasKind.SKU, "wc 401"), bMix);
+    for (InvoiceDraft.LineKind kind :
+        List.of(
+            InvoiceDraft.LineKind.SHIPPING,
+            InvoiceDraft.LineKind.FEE,
+            InvoiceDraft.LineKind.DISCOUNT,
+            InvoiceDraft.LineKind.DEPOSIT)) {
+      InvoiceDraft.Line nonStock =
+          new InvoiceDraft.Line(
+              "B-Mix 5 freight", "WC-401", null, null, null, null, kind, List.of(), false);
+      assertThat(SupplyMatcher.match("Laguna", nonStock, aliases, items)).as(kind.name()).isEmpty();
+    }
+  }
+
+  @Test
   void trigramsArePaddedLikePgTrgm() {
     assertThat(SupplyMatcher.trigrams("cat")).containsExactlyInAnyOrder("  c", " ca", "cat", "at ");
   }

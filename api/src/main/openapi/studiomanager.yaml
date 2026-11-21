@@ -1830,6 +1830,42 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/kilns/{kilnId}/log-imports:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/KilnId"
+    post:
+      tags: [kilns]
+      operationId: importKilnLog
+      x-permission: firings.manage
+      summary: Preview or import a kiln controller firing-log CSV (staff only)
+      description: |
+        Parses a Bartlett Genesis, Orton/TAP, or generic controller log (comma, semicolon, or tab
+        separated). With `dryRun: true`, returns the parsed telemetry, downsampled curve, and any
+        overlapping firing on this kiln without writing anything. With `dryRun: false`, attaches
+        the telemetry to `firingId` or creates a new COMPLETE firing and counts it against the kiln.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportKilnLogRequest"
+      responses:
+        "200":
+          description: The preview or committed import result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KilnLogImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/firings/{firingId}:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -4306,6 +4342,418 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/studios/{studioId}/glazes/import:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: importGlazes
+      x-permission: glazes.own.edit
+      summary: Preview or import member recipes from a Glazecalc or glaze-vault JSON export
+      description: |
+        Accepts a `glazecalc-export` v1 or `glaze-vault-export` v1 JSON document (up to 2 MB, 500
+        recipes, 60 lines per recipe). HTML is stripped from notes. When `dryRun` is true, writes
+        nothing and returns a per-recipe preview; when false, commits atomically if there are no
+        errors. Imported recipes always belong to the caller.
+      parameters:
+        - name: dryRun
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Preview or import outcome, one row per recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: Export file exceeds the 2 MB limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /api/v1/studios/{studioId}/glazes/import-share:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: importGlazeShare
+      x-permission: glazes.own.edit
+      summary: Preview or import a recipe from a Glazecalc share link
+      description: |
+        Fetches a shared recipe from Glazecalc (`GET /api/shared/recipe` with `X-Share-Secret`)
+        after allowlisting the host, then previews or imports it as the caller's recipe.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportGlazeShareRequest"
+      responses:
+        "200":
+          description: Preview or import outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/status:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    get:
+      tags: [glazes]
+      operationId: getGlazecalcStatus
+      x-permission: glazes.read
+      summary: Caller's Glazecalc OAuth connection status
+      responses:
+        "200":
+          description: Whether Glazecalc OAuth is configured and connected for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazecalcStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/connect:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: connectGlazecalc
+      x-permission: glazes.own.edit
+      summary: Start PKCE OAuth connection to Glazecalc
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GlazecalcConnectRequest"
+      responses:
+        "200":
+          description: Authorization URL and signed state to redirect the member to Glazecalc.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazecalcConnectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/callback:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: completeGlazecalcCallback
+      x-permission: glazes.own.edit
+      summary: Complete Glazecalc OAuth callback and store encrypted tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GlazecalcCallbackRequest"
+      responses:
+        "200":
+          description: Updated Glazecalc connection status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazecalcStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/sync:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    post:
+      tags: [glazes]
+      operationId: syncGlazecalc
+      x-permission: glazes.own.edit
+      summary: Pull recipes from the connected Glazecalc account
+      parameters:
+        - name: dryRun
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Import summary for the synced Glazecalc recipes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/glazecalc/connection:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+    delete:
+      tags: [glazes]
+      operationId: disconnectGlazecalc
+      x-permission: glazes.own.edit
+      summary: Disconnect the caller's Glazecalc account
+      responses:
+        "204":
+          description: Disconnected.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    get:
+      tags: [glazes]
+      operationId: exportGlaze
+      x-permission: glazes.read
+      summary: Export a recipe as a glazecalc-export v1 JSON document
+      responses:
+        "200":
+          description: A valid `glazecalc-export` v1 document containing this recipe.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/promote:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    post:
+      tags: [glazes]
+      operationId: promoteGlaze
+      x-permission: glazes.studio.edit
+      summary: Copy a shared member recipe into a new studio glaze (staff)
+      description: |
+        Creates a new studio glaze with `source = MANUAL` and `promotedFrom = glazeId`, leaving
+        the member's own recipe untouched.
+      responses:
+        "201":
+          description: The new studio glaze.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeRecipe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/mixes:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    get:
+      tags: [glazes]
+      operationId: listGlazeMixes
+      x-permission: glazes.read
+      summary: Mix history and SG readings for a studio glaze, newest first
+      responses:
+        "200":
+          description: The mixes, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GlazeMix"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [glazes]
+      operationId: logGlazeMix
+      x-permission: glazes.studio.edit
+      summary: Log a new mix of a studio glaze (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogGlazeMixRequest"
+      responses:
+        "201":
+          description: The mix.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeMix"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/mixes/{mixId}/readings:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+      - $ref: "#/components/parameters/MixId"
+    post:
+      tags: [glazes]
+      operationId: addGlazeMixReading
+      x-permission: glazes.studio.edit
+      summary: Record a specific gravity reading on a glaze mix (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddGlazeMixReadingRequest"
+      responses:
+        "201":
+          description: The reading, including any warning when outside ±0.03 of target SG.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeMixReading"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+    post:
+      tags: [glazes]
+      operationId: startGlazePhotoUpload
+      x-permission: glazes.own.edit
+      summary: Start adding a test-tile photo to a glaze recipe
+      description: |
+        Returns two signed URLs for direct-to-blob upload (ADR 12), up to 6 photos per recipe.
+        Staff may add photos to studio glazes; members may add photos to their own recipes.
+      responses:
+        "201":
+          description: Where to upload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/photos/{photoId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+      - $ref: "#/components/parameters/PhotoId"
+    post:
+      tags: [glazes]
+      operationId: completeGlazePhotoUpload
+      x-permission: glazes.own.edit
+      summary: Finish adding a test-tile photo once both JPEGs are uploaded
+      responses:
+        "200":
+          description: The glaze recipe with its photos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlazeRecipe"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/studios/{studioId}/glazes/{glazeId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - $ref: "#/components/parameters/GlazeId"
+      - $ref: "#/components/parameters/PhotoId"
+    delete:
+      tags: [glazes]
+      operationId: deleteGlazePhoto
+      x-permission: glazes.own.edit
+      summary: Remove a test-tile photo from a glaze recipe
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/studios/{studioId}/api-tokens:
     parameters:
       - $ref: "#/components/parameters/StudioId"
@@ -4813,6 +5261,43 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/studios/{studioId}/invoices/{invoiceId}/eval-export:
+    parameters:
+      - $ref: "#/components/parameters/StudioId"
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [invoices]
+      operationId: exportInvoiceEval
+      x-permission: invoices.manage
+      summary: Download a confirmed invoice as a private eval case ZIP (staff)
+      description: |
+        A ZIP holding the confirmed draft as `expected.json`, case metadata as `case.json`, and
+        the invoice file when available, with no customer details. Ready to drop into a private
+        eval set. Refused until the invoice is confirmed.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The eval case ZIP.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -4970,6 +5455,13 @@ components:
         format: uuid
     GlazeId:
       name: glazeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MixId:
+      name: mixId
       in: path
       required: true
       schema:
@@ -6383,6 +6875,226 @@ components:
           description: Empty in the firing log; filled for one firing.
           items:
             $ref: "#/components/schemas/Piece"
+        peakTemp:
+          type: number
+          format: double
+          minimum: 0
+          description: Peak temperature from an imported controller log, in `tempUnit`.
+        tempUnit:
+          $ref: "#/components/schemas/TemperatureUnit"
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Firing duration in minutes from an imported controller log.
+        errorCode:
+          type: string
+          maxLength: 40
+          description: Controller error or fault code if one occurred (for example `E-1` or `FTH`).
+        logSource:
+          $ref: "#/components/schemas/KilnLogSource"
+        temperatureCurve:
+          type: array
+          description: Downsampled firing temperature series (at most 250 points) for charting.
+          items:
+            $ref: "#/components/schemas/TemperaturePoint"
+
+    TemperatureUnit:
+      type: string
+      enum: [F, C]
+
+    KilnLogSource:
+      type: string
+      description: |
+        Controller family used to map CSV columns. `GENESIS` and `TAP` presets follow documented
+        controller traits and stay marked unverified until checked against real controller exports.
+      enum: [GENESIS, TAP, OTHER]
+
+    TemperaturePoint:
+      type: object
+      required: [elapsedMinutes, temp]
+      properties:
+        elapsedMinutes:
+          type: number
+          format: double
+          minimum: 0
+          description: Minutes elapsed since the start of the firing.
+        temp:
+          type: number
+          format: double
+          description: Primary kiln temperature at this sample (mean of zones when multi-zone).
+        setpoint:
+          type: number
+          format: double
+          description: Controller target/setpoint temperature, when present.
+        zoneTemps:
+          type: array
+          description: Individual zone thermocouple readings (e.g. TC1, TC2, TC3), when present.
+          items:
+            type: number
+            format: double
+
+    KilnLogColumnMap:
+      type: object
+      description: Optional case-insensitive column header overrides for controller CSV parsing.
+      properties:
+        time:
+          type: string
+          maxLength: 80
+          description: Column header for timestamp or elapsed time.
+        temperature:
+          type: string
+          maxLength: 160
+          description: Column header for temperature, or comma-separated zone headers (e.g. `TC1, TC2, TC3`).
+        setpoint:
+          type: string
+          maxLength: 80
+          description: Column header for target/setpoint temperature.
+        segment:
+          type: string
+          maxLength: 80
+          description: Column header for firing segment number.
+        output:
+          type: string
+          maxLength: 80
+          description: Column header for output power percentage.
+        error:
+          type: string
+          maxLength: 80
+          description: Column header for error code or event text.
+
+    ImportKilnLogRequest:
+      type: object
+      required: [csvText, source, dryRun]
+      properties:
+        csvText:
+          type: string
+          minLength: 1
+          maxLength: 2097152
+          description: Raw CSV, semicolon-separated, or TSV controller log text (at most 2 MB).
+        source:
+          $ref: "#/components/schemas/KilnLogSource"
+        tempUnit:
+          $ref: "#/components/schemas/TemperatureUnit"
+          description: Optional unit override; inferred from headers, peak temp, or studio settings when absent.
+        columnMap:
+          $ref: "#/components/schemas/KilnLogColumnMap"
+        firingId:
+          type: string
+          format: uuid
+          description: Existing firing on this kiln to attach telemetry to. Omit to create a new COMPLETE firing.
+        kind:
+          $ref: "#/components/schemas/FiringKind"
+          description: Firing kind when creating a new COMPLETE firing; defaults to BISQUE.
+        cone:
+          type: string
+          maxLength: 10
+          description: Optional cone (for example `04` or `6`) when creating a new firing or filling a blank cone.
+        notes:
+          type: string
+          maxLength: 1000
+          description: Optional notes when creating a new firing.
+        dryRun:
+          type: boolean
+          description: When true, parses and checks for overlapping firings without saving anything.
+
+    SuggestedFiringMatch:
+      type: object
+      required: [firingId, kind, status, createdAt, overlapDescription]
+      properties:
+        firingId:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/FiringKind"
+        cone:
+          type: string
+        status:
+          $ref: "#/components/schemas/FiringStatus"
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        overlapDescription:
+          type: string
+          description: Why this existing firing was matched against the log timestamps.
+
+    KilnLogImportResult:
+      type: object
+      required:
+        - committed
+        - source
+        - presetUnverified
+        - tempUnit
+        - tempUnitInferred
+        - rowCount
+        - zoneCount
+        - durationMinutes
+        - peakTemp
+        - temperatureCurve
+        - warnings
+        - detectedColumns
+      properties:
+        committed:
+          type: boolean
+          description: True only when `dryRun` was false and the telemetry was saved.
+        source:
+          $ref: "#/components/schemas/KilnLogSource"
+        presetUnverified:
+          type: boolean
+          description: True for `GENESIS` and `TAP` presets until confirmed against real controller files.
+        tempUnit:
+          $ref: "#/components/schemas/TemperatureUnit"
+        tempUnitInferred:
+          type: boolean
+          description: True when `tempUnit` was inferred rather than explicitly provided.
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+        peakTemp:
+          type: number
+          format: double
+          minimum: 0
+        detectedCone:
+          type: string
+        errorCode:
+          type: string
+        rowCount:
+          type: integer
+          format: int32
+          minimum: 0
+        zoneCount:
+          type: integer
+          format: int32
+          minimum: 1
+        detectedColumns:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        temperatureCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemperaturePoint"
+        suggestedMatch:
+          $ref: "#/components/schemas/SuggestedFiringMatch"
+        firing:
+          $ref: "#/components/schemas/Firing"
 
     LoadKilnRequest:
       type: object
@@ -7114,6 +7826,13 @@ components:
           $ref: "#/components/schemas/Decimal"
         salePrice:
           $ref: "#/components/schemas/Decimal"
+        lastPurchaseUnitPrice:
+          $ref: "#/components/schemas/Decimal"
+          description: Unit price from the last confirmed invoice line for this item.
+        lastPurchasedAt:
+          type: string
+          format: date-time
+          description: When the last purchase price was recorded.
         taxCategory:
           type: string
         substitute:
@@ -8064,7 +8783,7 @@ components:
 
     WebhookEventType:
       type: string
-      enum: [pieces.ready, fee.charged, member.joined, access.changed, ping]
+      enum: [pieces.ready, fee.charged, member.joined, access.changed, glaze.mixed, ping]
 
     WeeklyActivity:
       type: object
@@ -8298,6 +9017,41 @@ components:
       pattern: "^[12](\\.\\d{1,3})?$"
       examples: ["1.45"]
 
+    GlazeLineChemistry:
+      type: object
+      description: Oxide analysis (% by weight) and LOI copied from an import, kept as sent.
+      properties:
+        materialId:
+          type: string
+        analysis:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        loi:
+          type: number
+          format: double
+
+    GlazePhoto:
+      type: object
+      required: [id, url, thumbnailUrl, uploadedByAccountId, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+        uploadedByAccountId:
+          type: string
+          format: uuid
+        uploadedAt:
+          type: string
+          format: date-time
+
     GlazeLine:
       type: object
       required: [kind, material, amount, unit]
@@ -8310,8 +9064,14 @@ components:
           maxLength: 80
         amount:
           $ref: "#/components/schemas/Decimal"
+        amountText:
+          type: string
+          maxLength: 30
+          description: Original amount text from an import, when present.
         unit:
           $ref: "#/components/schemas/GlazeAmountUnit"
+        chemistry:
+          $ref: "#/components/schemas/GlazeLineChemistry"
 
     GlazeRecipe:
       type: object
@@ -8346,10 +9106,18 @@ components:
           type: boolean
         source:
           $ref: "#/components/schemas/GlazeSource"
+        promotedFrom:
+          type: string
+          format: uuid
+          description: The member recipe this studio glaze was promoted from, if any.
         lines:
           type: array
           items:
             $ref: "#/components/schemas/GlazeLine"
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazePhoto"
         canEdit:
           type: boolean
           description: Whether the caller may change or delete it.
@@ -8421,6 +9189,206 @@ components:
           type: string
         weight:
           $ref: "#/components/schemas/Decimal"
+
+    GlazeMixReading:
+      type: object
+      required: [id, readAt, specificGravity, offTarget]
+      properties:
+        id:
+          type: string
+          format: uuid
+        readByAccountId:
+          type: string
+          format: uuid
+        readByName:
+          type: string
+        readAt:
+          type: string
+          format: date-time
+        specificGravity:
+          $ref: "#/components/schemas/SpecificGravity"
+        note:
+          type: string
+        offTarget:
+          type: boolean
+          description: True when outside ±0.03 of the recipe's target specific gravity.
+        warning:
+          type: string
+          description: Actionable warning when `offTarget` is true.
+
+    GlazeMix:
+      type: object
+      required: [id, recipeId, mixedByAccountId, mixedAt, dryWeightG, readings]
+      properties:
+        id:
+          type: string
+          format: uuid
+        recipeId:
+          type: string
+          format: uuid
+        mixedByAccountId:
+          type: string
+          format: uuid
+        mixedByName:
+          type: string
+        mixedAt:
+          type: string
+          format: date-time
+        dryWeightG:
+          $ref: "#/components/schemas/Decimal"
+        waterG:
+          $ref: "#/components/schemas/Decimal"
+        notes:
+          type: string
+        readings:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazeMixReading"
+
+    LogGlazeMixRequest:
+      type: object
+      required: [dryWeightG]
+      properties:
+        dryWeightG:
+          $ref: "#/components/schemas/Decimal"
+        waterG:
+          $ref: "#/components/schemas/Decimal"
+        specificGravity:
+          $ref: "#/components/schemas/SpecificGravity"
+          description: Optional initial SG reading recorded with the mix.
+        notes:
+          type: string
+          maxLength: 2000
+
+    AddGlazeMixReadingRequest:
+      type: object
+      required: [specificGravity]
+      properties:
+        specificGravity:
+          $ref: "#/components/schemas/SpecificGravity"
+        note:
+          type: string
+          maxLength: 500
+
+    GlazeImportOutcome:
+      type: string
+      enum: [NEW, UPDATED, UNCHANGED, ERROR]
+
+    GlazeImportRow:
+      type: object
+      required: [index, name, outcome, message, warnings]
+      properties:
+        index:
+          type: integer
+          format: int32
+        name:
+          type: string
+        sourceRef:
+          type: string
+        outcome:
+          $ref: "#/components/schemas/GlazeImportOutcome"
+        recipeId:
+          type: string
+          format: uuid
+        message:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    GlazeImportResult:
+      type: object
+      required: [format, committed, createdCount, updatedCount, unchangedCount, errorCount, rows]
+      properties:
+        format:
+          type: string
+        committed:
+          type: boolean
+        createdCount:
+          type: integer
+          format: int32
+        updatedCount:
+          type: integer
+          format: int32
+        unchangedCount:
+          type: integer
+          format: int32
+        errorCount:
+          type: integer
+          format: int32
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlazeImportRow"
+
+    ImportGlazeShareRequest:
+      type: object
+      required: [shareUrlOrSecret]
+      properties:
+        shareUrlOrSecret:
+          type: string
+          minLength: 4
+          maxLength: 500
+          description: A Glazecalc share URL (`https://glazecalcapp.com/shared#<secret>`) or raw share secret.
+        dryRun:
+          type: boolean
+          default: true
+
+    GlazecalcStatus:
+      type: object
+      required: [configured, connected, baseUrl]
+      properties:
+        configured:
+          type: boolean
+        connected:
+          type: boolean
+        baseUrl:
+          type: string
+        connectedAt:
+          type: string
+          format: date-time
+        lastSyncedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        remoteAccountLabel:
+          type: string
+
+    GlazecalcConnectRequest:
+      type: object
+      properties:
+        redirectUri:
+          type: string
+          maxLength: 500
+
+    GlazecalcConnectResponse:
+      type: object
+      required: [authorizationUrl, state]
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+        state:
+          type: string
+
+    GlazecalcCallbackRequest:
+      type: object
+      required: [code, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 500
+        state:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        redirectUri:
+          type: string
+          maxLength: 500
 
     AiProvider:
       type: string
@@ -8527,6 +9495,42 @@ components:
           type: integer
           format: int32
 
+    InvoiceDocumentType:
+      type: string
+      enum: [INVOICE, ORDER_FORM, RECEIPT, PACKING_LIST, CREDIT_MEMO, STATEMENT, QUOTE, OTHER]
+
+    InvoiceDateYearSource:
+      type: string
+      description: Where the year on the invoice date came from.
+      enum: [PRINTED, FROM_PAGE, ASSUMED]
+
+    InvoiceLineKind:
+      type: string
+      description: What kind of row the line is; shipping, fee, discount and deposit lines default to not stock.
+      enum: [ITEM, SHIPPING, FEE, DISCOUNT, DEPOSIT, OTHER]
+
+    InvoicePaymentMethod:
+      type: string
+      enum: [CARD, CASH, CHECK, ACCOUNT]
+
+    InvoicePaymentSource:
+      type: string
+      enum: [INVOICE, RECEIPT, SLIP]
+
+    InvoicePayment:
+      type: object
+      required: [amount]
+      properties:
+        date:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/InvoiceAmount"
+        method:
+          $ref: "#/components/schemas/InvoicePaymentMethod"
+        source:
+          $ref: "#/components/schemas/InvoicePaymentSource"
+
     InvoiceLine:
       type: object
       required: [description]
@@ -8547,6 +9551,16 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         lineTotal:
           $ref: "#/components/schemas/InvoiceAmount"
+        kind:
+          $ref: "#/components/schemas/InvoiceLineKind"
+        serialNumbers:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 60
+        unclear:
+          type: boolean
         supplyItemId:
           type: string
           format: uuid
@@ -8575,11 +9589,22 @@ components:
         readNote:
           type: string
           description: Why it wasn't read, or what was left out of what was read.
+        documentType:
+          $ref: "#/components/schemas/InvoiceDocumentType"
         vendorName:
           type: string
         invoiceNumber:
           type: string
+        orderNumber:
+          type: string
         invoiceDate:
+          type: string
+          format: date
+        invoiceDatePrinted:
+          type: string
+        invoiceDateYear:
+          $ref: "#/components/schemas/InvoiceDateYearSource"
+        dueDate:
           type: string
           format: date
         subtotal:
@@ -8590,6 +9615,34 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         total:
           $ref: "#/components/schemas/InvoiceAmount"
+        amountPaid:
+          $ref: "#/components/schemas/InvoiceAmount"
+        amountDue:
+          $ref: "#/components/schemas/InvoiceAmount"
+        payableAmount:
+          readOnly: true
+          $ref: "#/components/schemas/InvoiceAmount"
+          description: What is payable; defaults to the sum of payments when payments cover lines and tax, otherwise the written total.
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoicePayment"
+        crossedOut:
+          type: array
+          items:
+            type: string
+        otherPapers:
+          type: string
+        notes:
+          type: array
+          items:
+            type: string
+        rotation:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 270
+          description: Clockwise degrees (0, 90, 180 or 270) to turn the photo upright.
         lines:
           type: array
           items:
@@ -8597,6 +9650,11 @@ components:
         problems:
           type: array
           description: What doesn't add up. Empty when everything does.
+          items:
+            type: string
+        explanations:
+          type: array
+          description: Explanations from the checks, such as how split payments match the lines and tax.
           items:
             type: string
         uploadedBy:
@@ -8665,6 +9723,8 @@ components:
         costUsd:
           type: string
           description: The estimated cost in US dollars, from the configured prices.
+        documentType:
+          $ref: "#/components/schemas/InvoiceDocumentType"
         vendorName:
           type: string
         invoiceNumber:
@@ -8680,6 +9740,12 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         total:
           $ref: "#/components/schemas/InvoiceAmount"
+        payableAmount:
+          $ref: "#/components/schemas/InvoiceAmount"
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoicePayment"
         lines:
           type: array
           items:
@@ -8687,6 +9753,10 @@ components:
         problems:
           type: array
           description: What was dropped from the answer, and what doesn't add up.
+          items:
+            type: string
+        explanations:
+          type: array
           items:
             type: string
 
@@ -8803,6 +9873,46 @@ components:
           items:
             $ref: "#/components/schemas/StudioReaderUse"
 
+    ReaderAccuracy:
+      type: object
+      required:
+        - reader
+        - confirmedInvoices
+        - exactMatches
+        - fieldsRight
+        - fieldsTotal
+        - linesRight
+        - linesTotal
+        - fieldAccuracy
+        - lineAccuracy
+      properties:
+        reader:
+          $ref: "#/components/schemas/InvoiceReader"
+        confirmedInvoices:
+          type: integer
+          format: int64
+        exactMatches:
+          type: integer
+          format: int64
+        fieldsRight:
+          type: integer
+          format: int64
+        fieldsTotal:
+          type: integer
+          format: int64
+        linesRight:
+          type: integer
+          format: int64
+        linesTotal:
+          type: integer
+          format: int64
+        fieldAccuracy:
+          type: number
+          format: double
+        lineAccuracy:
+          type: number
+          format: double
+
     InvoiceReaderOverview:
       type: object
       required: [settings, saved, monthStart, usage]
@@ -8826,6 +9936,11 @@ components:
             federation). A reader that isn't set up never reads, whatever its rule says.
           items:
             $ref: "#/components/schemas/InvoiceReader"
+        accuracy:
+          type: array
+          description: How often each compared reader matched what staff confirmed, across all studios.
+          items:
+            $ref: "#/components/schemas/ReaderAccuracy"
 
     InvoiceSummary:
       type: object
@@ -8870,13 +9985,26 @@ components:
       type: object
       required: [lines, expectedVersion]
       properties:
+        documentType:
+          $ref: "#/components/schemas/InvoiceDocumentType"
         vendorName:
           type: string
           maxLength: 120
         invoiceNumber:
           type: string
           maxLength: 60
+        orderNumber:
+          type: string
+          maxLength: 60
         invoiceDate:
+          type: string
+          format: date
+        invoiceDatePrinted:
+          type: string
+          maxLength: 60
+        invoiceDateYear:
+          $ref: "#/components/schemas/InvoiceDateYearSource"
+        dueDate:
           type: string
           format: date
         subtotal:
@@ -8887,6 +10015,35 @@ components:
           $ref: "#/components/schemas/InvoiceAmount"
         total:
           $ref: "#/components/schemas/InvoiceAmount"
+        amountPaid:
+          $ref: "#/components/schemas/InvoiceAmount"
+        amountDue:
+          $ref: "#/components/schemas/InvoiceAmount"
+        payments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/InvoicePayment"
+        crossedOut:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 200
+        otherPapers:
+          type: string
+          maxLength: 300
+        notes:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 200
+        rotation:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 270
         lines:
           type: array
           maxItems: 200

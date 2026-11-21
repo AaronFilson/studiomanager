@@ -6,6 +6,7 @@
   "description": "Smoke tests against a deployed environment. Run by deploy-dev.yml after each deploy; not part of `pnpm -r run test`.",
   "scripts": {
     "smoke": "playwright test",
+    "generate-eval-invoices": "node scripts/generate-eval-invoices.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },

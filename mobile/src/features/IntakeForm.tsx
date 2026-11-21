@@ -6,6 +6,7 @@ import {
   type PieceSize,
   type UnitSystem,
   uploadPiecePhoto,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -74,15 +75,21 @@ export function IntakeForm({
     },
   });
 
-  const box = [length, width, height];
+  const trimmedLength = length.trim();
+  const trimmedWidth = width.trim();
+  const trimmedHeight = height.trim();
+  const trimmedWeight = weight.trim();
+  const box = [trimmedLength, trimmedWidth, trimmedHeight];
   const boxStarted = box.some(Boolean);
   const boxValid = !boxStarted || box.every((v) => decimal.test(v));
-  const weightValid = !weight || decimal.test(weight);
+  const weightValid = !trimmedWeight || decimal.test(trimmedWeight);
 
   function submit() {
     const size: PieceSize = {};
-    if (boxStarted) size.dimensions = { length, width, height, unit: units.length };
-    if (weight) size.weight = { value: weight, unit: units.weight };
+    if (boxStarted) {
+      size.dimensions = { length: trimmedLength, width: trimmedWidth, height: trimmedHeight, unit: units.length };
+    }
+    if (trimmedWeight) size.weight = { value: trimmedWeight, unit: units.weight };
     intake.mutate({
       path: { studioId },
       body: {
@@ -160,11 +167,18 @@ function MakerPicker({
   onPick: (member: Member | null) => void;
 }) {
   const [search, setSearch] = useState('');
-  const members = useQuery(listMembersOptions({ path: { studioId } }));
+  const { can } = useCan(studioId);
+  const canReadMembers = can('members.read');
+  const members = useQuery({
+    ...listMembersOptions({ path: { studioId } }),
+    enabled: canReadMembers,
+  });
   const term = search.trim().toLowerCase();
   const matches = term
     ? (members.data ?? []).filter((m) => m.displayName?.toLowerCase().includes(term)).slice(0, 5)
     : [];
+
+  if (!canReadMembers) return null;
 
   if (maker) {
     return (
@@ -177,6 +191,7 @@ function MakerPicker({
   return (
     <View style={styles.picker}>
       <Field label="Whose piece? (blank for yours)" value={search} onChangeText={setSearch} autoCorrect={false} />
+      {members.isError && <ErrorText error={members.error} />}
       {matches.map((m) => (
         <Button
           key={m.accountId}

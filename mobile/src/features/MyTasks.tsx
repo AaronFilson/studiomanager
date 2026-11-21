@@ -23,6 +23,7 @@ export function MyTasks({ studioId, footer }: { studioId: string; footer?: React
     <FlatList
       data={tasks.data}
       keyExtractor={(task) => task.id}
+      keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
       ListEmptyComponent={<Body muted>No maintenance falls to you.</Body>}
       ListFooterComponent={footer}

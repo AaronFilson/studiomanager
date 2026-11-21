@@ -13,6 +13,8 @@ import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.PurchaseRequest;
 import io.github.aaronfilson.studiomanager.supplies.SupplyModel.RequestStatus;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -109,6 +111,52 @@ public class SupplyService {
     permissions.require(Permission.SUPPLIES_MANAGE, ONLY_STAFF);
     stock.adjust(itemId, kind, quantity, note);
     return item(itemId);
+  }
+
+  /**
+   * Records stock received from a confirmed supplier invoice and, when known, its unit purchase
+   * price, locking the supply item row once without re-querying the item view. Accepts either
+   * {@link Permission#INVOICES_MANAGE} or {@link Permission#SUPPLIES_MANAGE} so custom roles that
+   * confirm invoices don't also need full supply management.
+   */
+  @Transactional
+  public void receiveFromInvoice(
+      UUID itemId,
+      BigDecimal quantity,
+      @Nullable String note,
+      @Nullable BigDecimal unitPrice,
+      Instant purchasedAt) {
+    requireInvoiceOrSupplyPermission();
+    if (unitPrice != null && unitPrice.signum() < 0) {
+      throw new InvalidInputException("A purchase price can't be negative.");
+    }
+    SupplyItem item = stock.receive(itemId, quantity, note);
+    if (unitPrice != null) {
+      item.recordPurchasePrice(unitPrice.setScale(4, RoundingMode.HALF_UP), purchasedAt);
+      itemRepository.flush();
+    }
+  }
+
+  /**
+   * Records the latest unit purchase price paid for an item, e.g. when staff confirm a supplier
+   * invoice matched to it.
+   */
+  @Transactional
+  public void recordPurchasePrice(UUID itemId, BigDecimal unitPrice, Instant purchasedAt) {
+    requireInvoiceOrSupplyPermission();
+    if (unitPrice.signum() < 0) {
+      throw new InvalidInputException("A purchase price can't be negative.");
+    }
+    SupplyItem item = stock.lock(itemId);
+    item.recordPurchasePrice(unitPrice.setScale(4, RoundingMode.HALF_UP), purchasedAt);
+    itemRepository.flush();
+  }
+
+  private void requireInvoiceOrSupplyPermission() {
+    if (!permissions.has(Permission.SUPPLIES_MANAGE)
+        && !permissions.has(Permission.INVOICES_MANAGE)) {
+      permissions.require(Permission.SUPPLIES_MANAGE, ONLY_STAFF);
+    }
   }
 
   /** An item's movements, newest first, with the names of members who bought. */

@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.tenancy.AccountResolver;
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -67,6 +68,22 @@ class AccountService implements AccountResolver {
                 .param("email", email)
                 .query(UUID.class)
                 .single());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<UUID> findBySubject(String tokenIssuer, String subject) {
+    if (tokenIssuer.isBlank() || subject.isBlank() || SystemActor.ISSUER.equals(tokenIssuer)) {
+      return Optional.empty();
+    }
+    return accounts
+        .findByIssuerAndSubject(tokenIssuer, subject)
+        .filter(AccountService::isPerson)
+        .map(Account::id);
+  }
+
+  private static boolean isPerson(Account account) {
+    return !SystemActor.ISSUER.equals(account.issuer());
   }
 
   @Transactional(readOnly = true)

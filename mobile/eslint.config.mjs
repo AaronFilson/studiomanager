@@ -23,8 +23,8 @@ export default defineConfig(
     },
   },
   {
-    // Config files that ESLint, Babel and Jest load directly
-    files: ['eslint.config.mjs', 'babel.config.js', 'jest.config.js'],
+    // Config and build helper files that ESLint, Babel, Jest and Node load directly
+    files: ['eslint.config.mjs', 'babel.config.js', 'jest.config.js', 'scripts/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
   },

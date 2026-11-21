@@ -51,6 +51,8 @@ terraform.tfvars
 # The owner's own invoices for the eval: files, answers and notes all stay on the owner's machine
 # and never go to GitHub (api/src/test/resources/invoices/eval/README.md)
 api/src/test/resources/invoices/private/
+# Sparse-cloned public eval source repositories (scripts/eval-sources.sh)
+.eval-sources-cache/
 
 # Local environment and secrets
 .env
