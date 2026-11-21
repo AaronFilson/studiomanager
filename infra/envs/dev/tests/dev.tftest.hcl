@@ -208,6 +208,86 @@ run "the_github_bridge_needs_a_github_client_id" {
   expect_failures = [var.github_sign_in]
 }
 
+run "mcp_oauth_is_off_by_default" {
+  command = apply
+
+  assert {
+    condition     = !contains(keys(module.api.settings), "STUDIOMANAGER_MCP_OAUTH_ISSUER") && !contains(keys(module.api.settings), "STUDIOMANAGER_MCP_OAUTH_AUDIENCE")
+    error_message = "API must not receive MCP OAuth env vars while mcp_oauth is off."
+  }
+}
+
+run "mcp_oauth_stays_off_when_only_github_bridge_is_enabled" {
+  command = apply
+
+  variables {
+    github_sign_in = {
+      enabled          = true
+      github_client_id = "Ov23liTestClientId"
+    }
+  }
+
+  assert {
+    condition     = module.github_bridge[0].settings["STUDIOMANAGER_BRIDGE_MCP_ENABLED"] == "false" && module.github_bridge[0].settings["STUDIOMANAGER_BRIDGE_MCP_ALLOWED_RESOURCES"] == ""
+    error_message = "Turning on the GitHub bridge alone must leave MCP OAuth off."
+  }
+
+  assert {
+    condition     = !contains(keys(module.api.settings), "STUDIOMANAGER_MCP_OAUTH_ISSUER") && !contains(keys(module.api.settings), "STUDIOMANAGER_MCP_OAUTH_AUDIENCE")
+    error_message = "API must not receive MCP OAuth env vars until mcp_oauth.enabled is true."
+  }
+}
+
+run "mcp_oauth_wires_bridge_and_api_when_enabled" {
+  command = apply
+
+  variables {
+    github_sign_in = {
+      enabled          = true
+      github_client_id = "Ov23liTestClientId"
+    }
+    mcp_oauth = {
+      enabled                      = true
+      scopes                       = "read,propose"
+      pre_registered_client_id     = "claude-desktop"
+      pre_registered_redirect_uris = ["https://claude.ai/api/mcp/auth_callback"]
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for name, expected in {
+        STUDIOMANAGER_BRIDGE_MCP_ENABLED                      = "true"
+        STUDIOMANAGER_BRIDGE_MCP_ALLOWED_RESOURCES            = "https://ca-studiomanager-dev-api.happy-sea-123.westus.azurecontainerapps.io"
+        STUDIOMANAGER_BRIDGE_MCP_SCOPES                       = "read,propose"
+        STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_CLIENT_ID     = "claude-desktop"
+        STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_REDIRECT_URIS = "https://claude.ai/api/mcp/auth_callback"
+      } : module.github_bridge[0].settings[name] == expected
+    ])
+    error_message = "The bridge must receive the MCP OAuth settings and API origin."
+  }
+
+  assert {
+    condition = (
+      module.api.settings["STUDIOMANAGER_MCP_OAUTH_ISSUER"] == "https://ca-studiomanager-dev-auth.happy-sea-123.westus.azurecontainerapps.io" &&
+      module.api.settings["STUDIOMANAGER_MCP_OAUTH_AUDIENCE"] == "https://ca-studiomanager-dev-api.happy-sea-123.westus.azurecontainerapps.io"
+    )
+    error_message = "The API must trust the bridge as its MCP OAuth issuer with the API origin as its audience."
+  }
+}
+
+run "mcp_oauth_requires_the_github_bridge" {
+  command = plan
+
+  variables {
+    mcp_oauth = {
+      enabled = true
+    }
+  }
+
+  expect_failures = [var.mcp_oauth]
+}
+
 run "rejects_unfilled_placeholders" {
   command = plan
 

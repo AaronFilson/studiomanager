@@ -55,6 +55,41 @@ variable "entra_redirect_uris" {
   type        = list(string)
 }
 
+variable "mcp_enabled" {
+  description = "Enable the Phase 2 MCP OAuth 2.1 authorization server on the bridge (ADR 26)."
+  type        = bool
+  default     = false
+}
+
+variable "mcp_allowed_resources" {
+  description = "Allowed RFC 8707 resource URIs or API origins for MCP access tokens."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = !var.mcp_enabled || length(var.mcp_allowed_resources) > 0
+    error_message = "mcp_allowed_resources must contain at least one resource URI or API origin when mcp_enabled is true."
+  }
+}
+
+variable "mcp_scopes" {
+  description = "Comma-separated MCP OAuth scopes clients may request."
+  type        = string
+  default     = "read,propose"
+}
+
+variable "mcp_pre_registered_client_id" {
+  description = "Optional pre-registered public PKCE MCP client ID (in addition to RFC 7591 dynamic client registration)."
+  type        = string
+  default     = ""
+}
+
+variable "mcp_pre_registered_redirect_uris" {
+  description = "Redirect URIs for the optional pre-registered MCP client."
+  type        = list(string)
+  default     = []
+}
+
 variable "cpu" {
   type    = number
   default = 0.25

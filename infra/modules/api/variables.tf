@@ -106,6 +106,17 @@ variable "invoice_reader_env" {
   }
 }
 
+variable "mcp_oauth_env" {
+  description = "STUDIOMANAGER_MCP_OAUTH_* settings for Phase 2 MCP OAuth 2.1 (ADR 26). Empty leaves MCP OAuth off."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for name in keys(var.mcp_oauth_env) : startswith(name, "STUDIOMANAGER_MCP_OAUTH_")])
+    error_message = "Only STUDIOMANAGER_MCP_OAUTH_* settings go here."
+  }
+}
+
 variable "min_replicas" {
   description = "0 lets the API scale to zero when idle; the first request then pays a cold start."
   type        = number

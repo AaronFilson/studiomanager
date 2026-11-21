@@ -95,3 +95,55 @@ run "rejects_a_vault_uri_without_its_slash" {
 
   expect_failures = [var.key_vault_uri]
 }
+
+run "mcp_oauth_is_off_by_default" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for name, expected in {
+        STUDIOMANAGER_BRIDGE_MCP_ENABLED                      = "false"
+        STUDIOMANAGER_BRIDGE_MCP_ALLOWED_RESOURCES            = ""
+        STUDIOMANAGER_BRIDGE_MCP_SCOPES                       = "read,propose"
+        STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_CLIENT_ID     = ""
+        STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_REDIRECT_URIS = ""
+      } : { for e in azurerm_container_app.bridge.template[0].container[0].env : e.name => e.value }[name] == expected
+    ])
+    error_message = "MCP OAuth settings must default to disabled on the bridge."
+  }
+}
+
+run "mcp_oauth_wires_allowed_resources_scopes_and_pre_registered_client" {
+  command = plan
+
+  variables {
+    mcp_enabled                      = true
+    mcp_allowed_resources            = ["https://ca-studiomanager-test-api.happy-sea-123.westus.azurecontainerapps.io"]
+    mcp_scopes                       = "read"
+    mcp_pre_registered_client_id     = "claude-desktop"
+    mcp_pre_registered_redirect_uris = ["https://claude.ai/api/mcp/auth_callback", "http://127.0.0.1:6274/oauth/callback"]
+  }
+
+  assert {
+    condition = alltrue([
+      for name, expected in {
+        STUDIOMANAGER_BRIDGE_MCP_ENABLED                      = "true"
+        STUDIOMANAGER_BRIDGE_MCP_ALLOWED_RESOURCES            = "https://ca-studiomanager-test-api.happy-sea-123.westus.azurecontainerapps.io"
+        STUDIOMANAGER_BRIDGE_MCP_SCOPES                       = "read"
+        STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_CLIENT_ID     = "claude-desktop"
+        STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_REDIRECT_URIS = "https://claude.ai/api/mcp/auth_callback,http://127.0.0.1:6274/oauth/callback"
+      } : { for e in azurerm_container_app.bridge.template[0].container[0].env : e.name => e.value }[name] == expected
+    ])
+    error_message = "Enabled MCP OAuth settings must match auth/src/main/resources/application.yaml."
+  }
+}
+
+run "mcp_oauth_requires_at_least_one_allowed_resource" {
+  command = plan
+
+  variables {
+    mcp_enabled = true
+  }
+
+  expect_failures = [var.mcp_allowed_resources]
+}
