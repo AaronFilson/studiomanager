@@ -58,7 +58,8 @@ class InvoiceEvalExport {
                   .findWithLines(invoiceId)
                   .orElseThrow(() -> new NotFoundException("No such invoice."));
           if (invoice.status() != InvoiceStatus.CONFIRMED) {
-            throw new ConflictException("Confirm this invoice before exporting it as an eval case.");
+            throw new ConflictException(
+                "Confirm this invoice before exporting it as an eval case.");
           }
           InvoiceDraft draft = invoice.draft();
           String expectedJson = InvoiceJson.writeDraftPretty(draft) + "\n";

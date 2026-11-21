@@ -238,7 +238,8 @@ class GlazeImportParserTests {
     // Integral version outside int range must not overflow or crash
     assertThatThrownBy(() ->
             GlazeImportParser.parse(
-                json.readTree("{\"format\": \"glazecalc-export\", \"version\": 99999999999999999}")))
+                json.readTree(
+                    "{\"format\": \"glazecalc-export\", \"version\": 99999999999999999}")))
         .isInstanceOf(InvalidInputException.class);
   }
 
@@ -251,10 +252,10 @@ class GlazeImportParserTests {
     assertThat(elapsed).isLessThan(Duration.ofSeconds(2));
     assertThat(stripped).isNotNull();
 
-    assertThat(GlazeImportParser.stripHtml("<STYLE>body{color:red}</STYLE><p>Line 1</p><br/>Line 2"))
+    assertThat(
+            GlazeImportParser.stripHtml("<STYLE>body{color:red}</STYLE><p>Line 1</p><br/>Line 2"))
         .isEqualTo("Line 1\n\nLine 2");
-    assertThat(GlazeImportParser.stripHtml("<script type=\"text/javascript\">evil()"))
-        .isNull();
+    assertThat(GlazeImportParser.stripHtml("<script type=\"text/javascript\">evil()")).isNull();
   }
 
   @Test

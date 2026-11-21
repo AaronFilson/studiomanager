@@ -432,9 +432,9 @@ public final class KilnLogParser {
           if (parsed != null) {
             if (parsed.value() < MIN_TEMP || parsed.value() > MAX_TEMP) {
               throw new InvalidInputException(
-                  "Temperature reading %.1f on row %d is out of range (must be between 0 and"
-                      + " 9,999.9)."
-                          .formatted(parsed.value(), i + 1));
+                  ("Temperature reading %.1f on row %d is out of range (must be between 0 and"
+                          + " 9,999.9).")
+                      .formatted(parsed.value(), i + 1));
             }
             double temp = round1(parsed.value());
             zoneTemps.add(temp);
@@ -592,7 +592,8 @@ public final class KilnLogParser {
 
       int idx = rawPoints.size();
       rawPoints.add(
-          new TemperaturePoint(elapsedMinutes, sample.avgTemp(), sample.setpoint(), sample.zones()));
+          new TemperaturePoint(
+              elapsedMinutes, sample.avgTemp(), sample.setpoint(), sample.zones()));
       if (sample.avgTemp() > peakTemp) {
         peakTemp = sample.avgTemp();
         peakIndex = idx;

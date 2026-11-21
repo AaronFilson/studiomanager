@@ -108,8 +108,7 @@ public final class TokenPolicy {
   public static Optional<String> refusal(
       Set<TokenScope> scopes, String method, @Nullable String area, @Nullable String subPath) {
     if ("glazes".equals(area) && isGlazecalcOAuthLifecycleSubPath(subPath)) {
-      return Optional.of(
-          "Connect or disconnect Glazecalc while signed in, not with an API token.");
+      return Optional.of("Connect or disconnect Glazecalc while signed in, not with an API token.");
     }
     Access access =
         area == null

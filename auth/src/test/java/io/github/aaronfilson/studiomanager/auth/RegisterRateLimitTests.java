@@ -72,8 +72,9 @@ class RegisterRateLimitTests {
   @Test
   void rejectsOversizedRegistrationPayloadBeforeDeserialization() throws Exception {
     RegisterRateLimit filter = new RegisterRateLimit(10, 10);
-    byte[] oversized = ("{\"pad\":\"" + "a".repeat(RegisterRateLimit.MAX_BODY_BYTES + 128) + "\"}")
-        .getBytes(StandardCharsets.UTF_8);
+    byte[] oversized =
+        ("{\"pad\":\"" + "a".repeat(RegisterRateLimit.MAX_BODY_BYTES + 128) + "\"}")
+            .getBytes(StandardCharsets.UTF_8);
 
     // Rejected upfront via Content-Length
     MockHttpServletRequest withLength = new MockHttpServletRequest("POST", "/oauth2/register");

@@ -116,11 +116,39 @@ public class GlazecalcService {
 
   private record ParsedState(OAuthState state, String digest) {}
 
-  private record ConnectionSnapshot(
-      UUID connectionId,
-      byte[] accessTokenEnc,
-      byte @Nullable [] refreshTokenEnc,
-      @Nullable Instant expiresAt) {}
+  private static final class ConnectionSnapshot {
+    private final UUID connectionId;
+    private final byte[] accessTokenEnc;
+    private final byte @Nullable [] refreshTokenEnc;
+    private final @Nullable Instant expiresAt;
+
+    private ConnectionSnapshot(
+        UUID connectionId,
+        byte[] accessTokenEnc,
+        byte @Nullable [] refreshTokenEnc,
+        @Nullable Instant expiresAt) {
+      this.connectionId = connectionId;
+      this.accessTokenEnc = accessTokenEnc;
+      this.refreshTokenEnc = refreshTokenEnc;
+      this.expiresAt = expiresAt;
+    }
+
+    UUID connectionId() {
+      return connectionId;
+    }
+
+    byte[] accessTokenEnc() {
+      return accessTokenEnc;
+    }
+
+    byte @Nullable [] refreshTokenEnc() {
+      return refreshTokenEnc;
+    }
+
+    @Nullable Instant expiresAt() {
+      return expiresAt;
+    }
+  }
 
   /**
    * Fetches a recipe from Glazecalc using a share URL ({@code https://glazecalcapp.com/shared#...})
@@ -191,14 +219,7 @@ public class GlazecalcService {
         .findByAccountId(caller.accountId())
         .map(this::toStatus)
         .orElseGet(() ->
-            new Status(
-                oauthReady(),
-                false,
-                properties.resolvedBaseUrl(),
-                null,
-                null,
-                null,
-                null));
+            new Status(oauthReady(), false, properties.resolvedBaseUrl(), null, null, null, null));
   }
 
   public ConnectStart startConnect(@Nullable String requestedRedirectUri) {
@@ -375,7 +396,9 @@ public class GlazecalcService {
                     id,
                     accountId,
                     cipher.encrypt(id, tokens.accessToken()),
-                    tokens.refreshToken() == null ? null : cipher.encrypt(id, tokens.refreshToken()),
+                    tokens.refreshToken() == null
+                        ? null
+                        : cipher.encrypt(id, tokens.refreshToken()),
                     expiresAt,
                     now,
                     tokens.accountLabel());

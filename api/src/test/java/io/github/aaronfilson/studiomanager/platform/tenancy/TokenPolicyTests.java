@@ -85,7 +85,9 @@ class TokenPolicyTests {
         .isPresent();
 
     assertThat(TokenPolicy.refusal(READ, "GET", "glazes", "/glazecalc/status")).isEmpty();
-    assertThat(TokenPolicy.refusal(Set.of(TokenScope.WRITE_GLAZES), "POST", "glazes", "/glazecalc/sync"))
+    assertThat(
+            TokenPolicy.refusal(
+                Set.of(TokenScope.WRITE_GLAZES), "POST", "glazes", "/glazecalc/sync"))
         .isEmpty();
   }
 }

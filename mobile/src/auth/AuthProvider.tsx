@@ -131,6 +131,7 @@ export function AuthProvider({ settings, children }: { settings: AuthSettings; c
   useEffect(() => {
     let cancelled = false;
     let eventFired = false;
+    const isActive = () => !cancelled && !eventFired;
     const unsubscribe = session.onChange((signedIn) => {
       eventFired = true;
       setStatus(signedIn ? 'signedIn' : 'signedOut');
@@ -138,16 +139,16 @@ export function AuthProvider({ settings, children }: { settings: AuthSettings; c
     void session
       .restore()
       .then(async (restored) => {
-        if (cancelled || eventFired) return;
+        if (!isActive()) return;
         if (!restored) {
           setStatus('signedOut');
           return;
         }
         await discoveryGate.wait();
-        if (!cancelled && !eventFired) setStatus('signedIn');
+        if (isActive()) setStatus('signedIn');
       })
       .catch(() => {
-        if (!cancelled && !eventFired) setStatus('signedOut');
+        if (isActive()) setStatus('signedOut');
       });
     return () => {
       cancelled = true;

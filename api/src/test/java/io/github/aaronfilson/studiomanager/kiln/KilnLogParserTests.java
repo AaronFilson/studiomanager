@@ -264,8 +264,7 @@ class KilnLogParserTests {
         .hasMessageContaining("Setpoint");
 
     // Duration > 1 year (525,600 minutes) via timestamps
-    String multiYear =
-        "Timestamp,Temp\n2025-01-01T00:00:00Z,70\n2027-01-01T00:00:00Z,1800\n";
+    String multiYear = "Timestamp,Temp\n2025-01-01T00:00:00Z,70\n2027-01-01T00:00:00Z,1800\n";
     assertThatThrownBy(() ->
             KilnLogParser.parse(
                 multiYear, KilnLogSource.TAP, null, null, CHICAGO, TemperatureUnit.F))

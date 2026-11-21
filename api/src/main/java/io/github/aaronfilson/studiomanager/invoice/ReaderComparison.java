@@ -109,8 +109,8 @@ class ReaderComparison {
     try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
       for (InvoiceReader reader : readers.everyForBoundStudio()) {
         goes.add(
-            pool.submit(() ->
-                TenantContext.callAs(caller, () -> go(reader, studioId, invoiceId, file))));
+            pool.submit(
+                () -> TenantContext.callAs(caller, () -> go(reader, studioId, invoiceId, file))));
       }
     }
     List<Compared> compared = new ArrayList<>();

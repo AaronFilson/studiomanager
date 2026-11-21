@@ -30,12 +30,11 @@ class McpOAuthPropertiesTests {
         .isInstanceOf(IllegalStateException.class);
     assertThatThrownBy(() -> new McpOAuthProperties("https://auth.example", null, "urn:mcp:api"))
         .isInstanceOf(IllegalStateException.class);
-    assertThatThrownBy(
-            () -> new McpOAuthProperties("https://auth.example", null, "https://api.example/mcp?x=1"))
+    assertThatThrownBy(() ->
+            new McpOAuthProperties("https://auth.example", null, "https://api.example/mcp?x=1"))
         .isInstanceOf(IllegalStateException.class);
-    assertThatThrownBy(
-            () ->
-                new McpOAuthProperties("https://auth.example", null, "https://api.example/mcp#frag"))
+    assertThatThrownBy(() ->
+            new McpOAuthProperties("https://auth.example", null, "https://api.example/mcp#frag"))
         .isInstanceOf(IllegalStateException.class);
   }
 

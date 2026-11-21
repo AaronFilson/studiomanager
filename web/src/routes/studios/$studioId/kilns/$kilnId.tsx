@@ -98,12 +98,17 @@ function KilnPage() {
       ) : firings.isError ? (
         <ErrorMessage error={firings.error} />
       ) : open ? (
-        <OpenFiring key={open.id} studioId={studioId} firingId={open.id} />
+        <OpenFiring key={`firing-${open.id}`} studioId={studioId} firingId={open.id} />
       ) : (
-        <LoadForm key={kiln.id} studioId={studioId} kiln={kiln} />
+        <LoadForm key={`load-${kiln.id}`} studioId={studioId} kiln={kiln} />
       )}
-      <ImportKilnLog key={kiln.id} studioId={studioId} kilnId={kiln.id} firings={firings.data?.items ?? []} />
-      <Availability key={kiln.id} studioId={studioId} kiln={kiln} />
+      <ImportKilnLog
+        key={`import-${kiln.id}`}
+        studioId={studioId}
+        kilnId={kiln.id}
+        firings={firings.data?.items ?? []}
+      />
+      <Availability key={`avail-${kiln.id}`} studioId={studioId} kiln={kiln} />
       <p>
         <Link to="/studios/$studioId/maintenance" params={{ studioId }} hash={kiln.id}>
           Maintenance tasks and history for this kiln

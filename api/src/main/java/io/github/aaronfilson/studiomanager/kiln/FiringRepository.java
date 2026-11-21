@@ -52,7 +52,9 @@ interface FiringRepository extends JpaRepository<Firing, UUID> {
       Instant windowEnd,
       Limit limit);
 
-  /** Whether a non-cancelled firing on this kiln already matches this imported log's fingerprint. */
+  /**
+   * Whether a non-cancelled firing on this kiln already matches this imported log's fingerprint.
+   */
   @Query(
       """
       select (count(f) > 0) from Firing f

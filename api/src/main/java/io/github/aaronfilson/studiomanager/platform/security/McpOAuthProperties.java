@@ -110,10 +110,9 @@ public record McpOAuthProperties(
 
   private String requiredOrigin() {
     return resourceOrigin()
-        .orElseThrow(
-            () ->
-                new IllegalStateException(
-                    "studiomanager.mcp.oauth.audience must be a valid absolute http or https URI."));
+        .orElseThrow(() ->
+            new IllegalStateException(
+                "studiomanager.mcp.oauth.audience must be a valid absolute http or https URI."));
   }
 
   private static boolean isValidAudienceUri(String raw) {

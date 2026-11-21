@@ -281,8 +281,7 @@ public class BridgeSecurity {
   private static void consentSecurityHeaders(HeadersConfigurer<HttpSecurity> headers) {
     headers
         .contentSecurityPolicy(policy ->
-            policy.policyDirectives(
-                "default-src 'none'; style-src 'self'; frame-ancestors 'none'"))
+            policy.policyDirectives("default-src 'none'; style-src 'self'; frame-ancestors 'none'"))
         .referrerPolicy(
             referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER));
   }

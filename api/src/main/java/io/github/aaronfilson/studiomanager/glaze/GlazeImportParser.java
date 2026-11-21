@@ -524,7 +524,8 @@ final class GlazeImportParser {
       end--;
     }
     int len = end - start;
-    if (len == 2 && (s.regionMatches(true, start, "br", 0, 2) || s.regionMatches(true, start, "/p", 0, 2))) {
+    if (len == 2
+        && (s.regionMatches(true, start, "br", 0, 2) || s.regionMatches(true, start, "/p", 0, 2))) {
       return true;
     }
     if (len > 2 && s.regionMatches(true, start, "br", 0, 2)) {
@@ -550,23 +551,17 @@ final class GlazeImportParser {
     if (node.isNumber()) {
       if (!Double.isFinite(node.doubleValue())) {
         return new ParsedAmount(
-            BigDecimal.ZERO,
-            null,
-            "Amount for \"%s\" is not a valid number.".formatted(material));
+            BigDecimal.ZERO, null, "Amount for \"%s\" is not a valid number.".formatted(material));
       }
       try {
         parsed = node.decimalValue();
       } catch (NumberFormatException e) {
         return new ParsedAmount(
-            BigDecimal.ZERO,
-            null,
-            "Amount for \"%s\" is not a valid number.".formatted(material));
+            BigDecimal.ZERO, null, "Amount for \"%s\" is not a valid number.".formatted(material));
       }
       if (parsed.scale() > 12 || parsed.scale() < -12) {
         return new ParsedAmount(
-            BigDecimal.ZERO,
-            null,
-            "Amount for \"%s\" is not a valid number.".formatted(material));
+            BigDecimal.ZERO, null, "Amount for \"%s\" is not a valid number.".formatted(material));
       }
       if (parsed.signum() <= 0 || parsed.compareTo(GlazeBook.MAX_AMOUNT) > 0) {
         return new ParsedAmount(

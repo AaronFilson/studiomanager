@@ -478,9 +478,7 @@ class KilnLogImportApiTests {
 
     // Older historical firing (2026-09-01) imported AFTER the newer one
     String olderCsv =
-        "Timestamp,Temp (F)\n"
-            + "2026-09-01T10:00:00Z,70\n"
-            + "2026-09-01T14:00:00Z,1900\n";
+        "Timestamp,Temp (F)\n" + "2026-09-01T10:00:00Z,70\n" + "2026-09-01T14:00:00Z,1900\n";
     MvcTestResult olderCommitted =
         importLog(
             owner,

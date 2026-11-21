@@ -100,18 +100,17 @@ class McpResourcesTests {
 
   @Test
   void mcpPropertiesFailsFastWhenEnabledWithoutAllowedResources() {
-    assertThatThrownBy(
-            () -> new BridgeProperties.McpProperties(true, List.of(), null, 20, 5, null, null, null))
+    assertThatThrownBy(() ->
+            new BridgeProperties.McpProperties(true, List.of(), null, 20, 5, null, null, null))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("allowed-resources");
     assertThatThrownBy(
             () -> new BridgeProperties.McpProperties(true, null, null, 20, 5, null, null, null))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("allowed-resources");
-    assertThatThrownBy(
-            () ->
-                new BridgeProperties.McpProperties(
-                    true, List.of(URI.create("/relative")), null, 20, 5, null, null, null))
+    assertThatThrownBy(() ->
+            new BridgeProperties.McpProperties(
+                true, List.of(URI.create("/relative")), null, 20, 5, null, null, null))
         .isInstanceOf(IllegalStateException.class);
 
     BridgeProperties.McpProperties disabled =
