@@ -26,6 +26,9 @@ public class FiringService {
   /** The most firings {@link #listForKiln} returns. */
   static final int FIRINGS_PER_KILN_LIMIT = 500;
 
+  /** Maximum sparkline points returned per firing in list responses. */
+  static final int LIST_CURVE_POINTS = 32;
+
   private final FiringRepository firings;
   private final KilnService kilns;
   private final PieceService pieces;
@@ -82,7 +85,8 @@ public class FiringService {
             .collect(Collectors.toMap(FiringPieceCount::firingId, FiringPieceCount::pieces));
     return found.stream()
         .map(firing ->
-            firing.toView(Math.toIntExact(counts.getOrDefault(firing.id(), 0L)), List.of()))
+            firing.toListView(
+                Math.toIntExact(counts.getOrDefault(firing.id(), 0L)), LIST_CURVE_POINTS))
         .toList();
   }
 }

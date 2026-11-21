@@ -241,6 +241,81 @@ class InvoiceEvalTests {
   }
 
   @Test
+  void v2HallucinatedPaymentsArePenalized() {
+    InvoiceDraft expected =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.INVOICE,
+            "Cascade Clay",
+            "INV-42",
+            null,
+            LocalDate.of(2026, 10, 18),
+            null,
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            List.of(),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            List.of(
+                new InvoiceDraft.Line(
+                    "Fireclay",
+                    null,
+                    new BigDecimal("100"),
+                    "lb",
+                    null,
+                    new BigDecimal("100.00"),
+                    InvoiceDraft.LineKind.ITEM,
+                    List.of(),
+                    false)));
+
+    InvoiceScorer.Score clean = InvoiceScorer.score(expected, expected);
+    // 7 core + documentType = 8 (empty payments on both sides don't inflate fieldsTotal)
+    assertThat(clean.fieldsTotal()).isEqualTo(8);
+    assertThat(clean.fieldsRight()).isEqualTo(8);
+    assertThat(clean.needsNoEdits()).isTrue();
+
+    InvoiceDraft hallucinated =
+        new InvoiceDraft(
+            InvoiceDraft.DocumentType.INVOICE,
+            "Cascade Clay",
+            "INV-42",
+            null,
+            LocalDate.of(2026, 10, 18),
+            null,
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            new BigDecimal("100.00"),
+            null,
+            null,
+            List.of(
+                new InvoiceDraft.Payment(
+                    LocalDate.of(2026, 10, 18),
+                    new BigDecimal("100.00"),
+                    InvoiceDraft.PaymentMethod.CARD,
+                    InvoiceDraft.PaymentSource.INVOICE)),
+            List.of(),
+            null,
+            List.of(),
+            0,
+            expected.lines());
+
+    InvoiceScorer.Score penalized = InvoiceScorer.score(expected, hallucinated);
+    assertThat(penalized.fieldsTotal()).isEqualTo(9);
+    assertThat(penalized.fieldsRight()).isEqualTo(8);
+    assertThat(penalized.needsNoEdits()).isFalse();
+  }
+
+  @Test
   void committedSyntheticCasesCoverPackingListAndSplitPayments() {
     InvoiceDraft counter = expected(CASES.resolve("synth-handwritten-counter-order"));
     assertThat(counter.documentType()).isEqualTo(InvoiceDraft.DocumentType.ORDER_FORM);

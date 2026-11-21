@@ -14,6 +14,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +51,20 @@ public final class KilnLogParser {
   /** Maximum stored length for a controller error code (matches DB check constraint). */
   public static final int MAX_ERROR_CODE_LENGTH = 40;
 
+  /** Minimum accepted temperature reading in either °F or °C. */
+  public static final double MIN_TEMP = 0.0;
+
+  /** Maximum accepted temperature reading in either °F or °C (fits numeric(7,2) safely). */
+  public static final double MAX_TEMP = 9999.9;
+
+  /** Maximum accepted firing duration in minutes (1 year). */
+  public static final int MAX_DURATION_MINUTES = 525_600;
+
+  /** Maximum number of thermocouple zone columns accepted per log. */
+  public static final int MAX_ZONES = 16;
+
+  private static final int MAX_NON_BLANK_LINES = MAX_DATA_ROWS + MAX_HEADER_SCAN_LINES + 100;
+  private static final double MIDNIGHT_ROLLOVER_THRESHOLD_MINUTES = 360.0;
   private static final int MAX_CONE_LENGTH = 10;
   private static final int MAX_HEADER_LENGTH = 80;
   private static final int MAX_SKIP_WARNINGS = 3;
@@ -61,6 +76,10 @@ public final class KilnLogParser {
 
   private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}]+");
   private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
+  private static final Pattern NON_CHAMBER_TEMP =
+      Pattern.compile(
+          "(?:^|[^a-z])(?:board|ambient|case|cj|cold|room|offset|setpoint|set\\s+point|target|"
+              + "status|alarm|error|ramp|hold)(?:$|[^a-z])");
   private static final Pattern CONE_IN_TEXT = Pattern.compile("(?i)\\bcone\\s*(0?\\d{1,2})\\b");
   private static final Pattern CONE_VALUE = Pattern.compile("^(0?\\d{1,2})$");
   private static final Pattern HEADER_FAHRENHEIT =
@@ -357,10 +376,6 @@ public final class KilnLogParser {
     if (nonBlankLines.isEmpty()) {
       throw new InvalidInputException("Kiln log file is empty.");
     }
-    if (nonBlankLines.size() > MAX_DATA_ROWS + MAX_HEADER_SCAN_LINES + 100) {
-      throw new InvalidInputException(
-          "Kiln log exceeds the %,d-row limit.".formatted(MAX_DATA_ROWS));
-    }
 
     ColumnMap overrides = columnMap == null ? ColumnMap.empty() : columnMap;
     HeaderMatch header = locateHeader(nonBlankLines, source, overrides);
@@ -379,6 +394,10 @@ public final class KilnLogParser {
     }
 
     ColumnBinding binding = header.binding();
+    if (binding.tempIndices().size() > MAX_ZONES) {
+      throw new InvalidInputException(
+          "Kiln log exceeds the maximum of %d temperature zone columns.".formatted(MAX_ZONES));
+    }
     List<String> headers = header.headers();
     List<String> warnings = new ArrayList<>();
 
@@ -399,24 +418,10 @@ public final class KilnLogParser {
               .formatted(defaultStepMinutes));
     }
 
-    List<TemperaturePoint> rawPoints = new ArrayList<>(Math.min(rawDataCount, 2048));
-    @Nullable Instant firstInstant = null;
-    @Nullable Instant lastInstant = null;
-    @Nullable Double firstRawMinutes = null;
-    double lastElapsedMinutes = 0.0;
-    @Nullable Double previousClockMinutes = null;
-    long clockDayOffsetMinutes = 0L;
-    boolean treatTwoOrThreePartAsClock = false;
-    boolean clockModeDecided = false;
-    @Nullable LocalDate preambleDate = preamble.dateOnly();
-
-    double peakTemp = Double.NEGATIVE_INFINITY;
-    int peakIndex = -1;
-    @Nullable Double firstTemp = null;
+    List<RawSample> rawSamples = new ArrayList<>(Math.min(rawDataCount, 2048));
     @Nullable TemperatureUnit cellUnitHint = null;
     @Nullable String rowErrorCode = null;
     int skippedRows = 0;
-    boolean warnedUnparseableTime = false;
 
     for (int i = dataStart; i < nonBlankLines.size(); i++) {
       List<String> cells = parseCsvRow(nonBlankLines.get(i), header.delimiter());
@@ -425,7 +430,14 @@ public final class KilnLogParser {
         if (idx < cells.size()) {
           ParsedNumber parsed = parseNumberWithUnit(cells.get(idx));
           if (parsed != null) {
-            zoneTemps.add(round1(parsed.value()));
+            if (parsed.value() < MIN_TEMP || parsed.value() > MAX_TEMP) {
+              throw new InvalidInputException(
+                  "Temperature reading %.1f on row %d is out of range (must be between 0 and"
+                      + " 9,999.9)."
+                          .formatted(parsed.value(), i + 1));
+            }
+            double temp = round1(parsed.value());
+            zoneTemps.add(temp);
             if (cellUnitHint == null && parsed.unit() != null) {
               cellUnitHint = parsed.unit();
             }
@@ -441,14 +453,16 @@ public final class KilnLogParser {
       }
 
       double avgTemp = round1(average(zoneTemps));
-      if (firstTemp == null) {
-        firstTemp = avgTemp;
-      }
 
       @Nullable Double setpoint = null;
       if (binding.setpointIndex() >= 0 && binding.setpointIndex() < cells.size()) {
         ParsedNumber parsedSp = parseNumberWithUnit(cells.get(binding.setpointIndex()));
         if (parsedSp != null) {
+          if (parsedSp.value() < MIN_TEMP || parsedSp.value() > MAX_TEMP) {
+            throw new InvalidInputException(
+                "Setpoint reading %.1f on row %d is out of range (must be between 0 and 9,999.9)."
+                    .formatted(parsedSp.value(), i + 1));
+          }
           setpoint = round1(parsedSp.value());
           if (cellUnitHint == null && parsedSp.unit() != null) {
             cellUnitHint = parsedSp.unit();
@@ -465,78 +479,27 @@ public final class KilnLogParser {
         }
       }
 
-      double elapsedMinutes;
+      @Nullable Instant instant = null;
+      @Nullable ParsedClock clockVal = null;
+      boolean unparseableTime = false;
       if (binding.timeIndex() >= 0 && binding.timeIndex() < cells.size()) {
         String rawTime = sanitize(cells.get(binding.timeIndex()), 80);
-        @Nullable Instant instant = parseInstant(rawTime, studioZone);
-        if (instant != null) {
-          if (firstInstant == null) {
-            firstInstant = instant;
-          }
-          lastInstant = instant;
-          elapsedMinutes =
-              Math.max(0.0, Duration.between(firstInstant, instant).toMillis() / 60_000.0);
-        } else {
-          @Nullable ParsedClock clockVal =
-              parseClockOrElapsed(rawTime, headerTimeUnit, headerImpliesClock);
-          if (clockVal != null) {
-            if (!clockModeDecided) {
-              clockModeDecided = true;
-              treatTwoOrThreePartAsClock =
-                  clockVal.hasColons()
-                      && !clockVal.over24Hours()
-                      && !headerImpliesElapsed
-                      && clockVal.totalMinutes() > 0.0
-                      && (headerImpliesClock || preambleDate != null);
-            }
-            if (treatTwoOrThreePartAsClock) {
-              double clockMinutes = clockVal.totalMinutes();
-              if (previousClockMinutes != null && clockMinutes < previousClockMinutes) {
-                clockDayOffsetMinutes += 24L * 60L;
-              }
-              previousClockMinutes = clockMinutes;
-              double absoluteMinutes = clockMinutes + clockDayOffsetMinutes;
-              if (firstRawMinutes == null) {
-                firstRawMinutes = absoluteMinutes;
-                if (preambleDate != null && firstInstant == null) {
-                  LocalTime startClock =
-                      LocalTime.ofSecondOfDay(Math.round(clockMinutes * 60.0) % 86_400L);
-                  firstInstant = preambleDate.atTime(startClock).atZone(studioZone).toInstant();
-                }
-              }
-              elapsedMinutes = Math.max(0.0, absoluteMinutes - firstRawMinutes);
-              if (firstInstant != null) {
-                lastInstant = firstInstant.plusMillis(Math.round(elapsedMinutes * 60_000.0));
-              }
-            } else {
-              double valueMinutes = clockVal.totalMinutes();
-              if (firstRawMinutes == null) {
-                firstRawMinutes = valueMinutes;
-              }
-              elapsedMinutes = Math.max(0.0, valueMinutes - firstRawMinutes);
-            }
-          } else {
-            if (!warnedUnparseableTime) {
-              warnedUnparseableTime = true;
-              warnings.add("Some rows had unreadable timestamps and used estimated intervals.");
-            }
-            elapsedMinutes = rawPoints.isEmpty() ? 0.0 : lastElapsedMinutes + defaultStepMinutes;
+        instant = parseInstant(rawTime, studioZone);
+        if (instant == null) {
+          clockVal = parseClockOrElapsed(rawTime, headerTimeUnit, headerImpliesClock);
+          if (clockVal == null) {
+            unparseableTime = true;
           }
         }
-      } else {
-        elapsedMinutes = rawPoints.isEmpty() ? 0.0 : lastElapsedMinutes + defaultStepMinutes;
       }
 
-      elapsedMinutes = round1(elapsedMinutes);
-      lastElapsedMinutes = Math.max(lastElapsedMinutes, elapsedMinutes);
-
-      @Nullable List<Double> zones = binding.tempIndices().size() > 1 ? zoneTemps : null;
-      int idx = rawPoints.size();
-      rawPoints.add(new TemperaturePoint(elapsedMinutes, avgTemp, setpoint, zones));
-      if (avgTemp > peakTemp) {
-        peakTemp = avgTemp;
-        peakIndex = idx;
-      }
+      // Preserve zone alignment: if a multi-zone row has any missing zone cell, omit zoneTemps
+      // rather than shifting a later zone into an earlier slot.
+      @Nullable List<Double> zones =
+          binding.tempIndices().size() > 1 && zoneTemps.size() == binding.tempIndices().size()
+              ? List.copyOf(zoneTemps)
+              : null;
+      rawSamples.add(new RawSample(avgTemp, setpoint, zones, instant, clockVal, unparseableTime));
     }
 
     if (skippedRows > MAX_SKIP_WARNINGS) {
@@ -544,26 +507,134 @@ public final class KilnLogParser {
           "Skipped %d additional rows without valid temperature readings."
               .formatted(skippedRows - MAX_SKIP_WARNINGS));
     }
-    if (rawPoints.isEmpty()) {
+    if (rawSamples.isEmpty()) {
       throw new InvalidInputException(
           "No valid temperature readings were found after the header row.");
     }
-    if (peakTemp < 0.0) {
-      throw new InvalidInputException("Peak temperature cannot be negative.");
+
+    normalizeSampleOrder(rawSamples, headerImpliesElapsed);
+
+    List<TemperaturePoint> rawPoints = new ArrayList<>(rawSamples.size());
+    @Nullable Instant firstInstant = null;
+    @Nullable Instant lastInstant = null;
+    @Nullable Double firstRawMinutes = null;
+    double lastElapsedMinutes = 0.0;
+    @Nullable Double previousClockMinutes = null;
+    long clockDayOffsetMinutes = 0L;
+    boolean treatTwoOrThreePartAsClock = false;
+    boolean clockModeDecided = false;
+    @Nullable LocalDate preambleDate = preamble.dateOnly();
+
+    double peakTemp = Double.NEGATIVE_INFINITY;
+    int peakIndex = -1;
+    @Nullable Double firstTemp = null;
+    boolean warnedUnparseableTime = false;
+
+    for (RawSample sample : rawSamples) {
+      if (firstTemp == null) {
+        firstTemp = sample.avgTemp();
+      }
+
+      double elapsedMinutes;
+      Instant sampleInstant = sample.instant();
+      ParsedClock sampleClock = sample.clockVal();
+      if (sampleInstant != null) {
+        if (firstInstant == null) {
+          firstInstant = sampleInstant;
+        }
+        lastInstant = sampleInstant;
+        elapsedMinutes =
+            Math.max(0.0, Duration.between(firstInstant, sampleInstant).toMillis() / 60_000.0);
+      } else if (sampleClock != null) {
+        if (!clockModeDecided) {
+          clockModeDecided = true;
+          treatTwoOrThreePartAsClock =
+              sampleClock.hasColons()
+                  && !sampleClock.over24Hours()
+                  && !headerImpliesElapsed
+                  && sampleClock.totalMinutes() > 0.0
+                  && (headerImpliesClock || preambleDate != null);
+        }
+        if (treatTwoOrThreePartAsClock) {
+          double clockMinutes = sampleClock.totalMinutes();
+          if (previousClockMinutes != null
+              && previousClockMinutes - clockMinutes > MIDNIGHT_ROLLOVER_THRESHOLD_MINUTES) {
+            clockDayOffsetMinutes += 24L * 60L;
+          }
+          previousClockMinutes = clockMinutes;
+          double absoluteMinutes = clockMinutes + clockDayOffsetMinutes;
+          if (firstRawMinutes == null) {
+            firstRawMinutes = absoluteMinutes;
+            if (preambleDate != null && firstInstant == null) {
+              LocalTime startClock =
+                  LocalTime.ofSecondOfDay(Math.round(clockMinutes * 60.0) % 86_400L);
+              firstInstant = preambleDate.atTime(startClock).atZone(studioZone).toInstant();
+            }
+          }
+          elapsedMinutes = Math.max(0.0, absoluteMinutes - firstRawMinutes);
+        } else {
+          double valueMinutes = sampleClock.totalMinutes();
+          if (firstRawMinutes == null) {
+            firstRawMinutes = valueMinutes;
+          }
+          elapsedMinutes = Math.max(0.0, valueMinutes - firstRawMinutes);
+        }
+      } else {
+        if (sample.unparseableTime() && !warnedUnparseableTime) {
+          warnedUnparseableTime = true;
+          warnings.add("Some rows had unreadable timestamps and used estimated intervals.");
+        }
+        elapsedMinutes = rawPoints.isEmpty() ? 0.0 : lastElapsedMinutes + defaultStepMinutes;
+      }
+
+      elapsedMinutes = round1(elapsedMinutes);
+      lastElapsedMinutes = Math.max(lastElapsedMinutes, elapsedMinutes);
+
+      int idx = rawPoints.size();
+      rawPoints.add(
+          new TemperaturePoint(elapsedMinutes, sample.avgTemp(), sample.setpoint(), sample.zones()));
+      if (sample.avgTemp() > peakTemp) {
+        peakTemp = sample.avgTemp();
+        peakIndex = idx;
+      }
+    }
+
+    if (peakTemp < MIN_TEMP || peakTemp > MAX_TEMP) {
+      throw new InvalidInputException(
+          "Peak temperature %.1f is out of range (must be between 0 and 9,999.9)."
+              .formatted(peakTemp));
     }
 
     @Nullable Instant startedAt = firstInstant != null ? firstInstant : preamble.startedAt();
     @Nullable Instant finishedAt = lastInstant;
-    int durationMinutes;
-    if (firstInstant != null && lastInstant != null && !lastInstant.isBefore(firstInstant)) {
-      durationMinutes =
-          Math.max(
-              0, (int) Math.round(Duration.between(firstInstant, lastInstant).toSeconds() / 60.0));
-    } else {
-      durationMinutes = Math.max(0, (int) Math.round(lastElapsedMinutes));
-      if (startedAt != null && finishedAt == null) {
-        finishedAt = startedAt.plusMillis(Math.round(lastElapsedMinutes * 60_000.0));
+    long rawDurationMinutes;
+    if (firstInstant != null && lastInstant != null) {
+      if (lastInstant.isBefore(firstInstant)) {
+        throw new InvalidInputException(
+            "Kiln log timestamps are out of order (end time is before start time).");
       }
+      rawDurationMinutes =
+          Math.round(Duration.between(firstInstant, lastInstant).toSeconds() / 60.0);
+    } else {
+      if (!Double.isFinite(lastElapsedMinutes)
+          || lastElapsedMinutes < 0.0
+          || lastElapsedMinutes > MAX_DURATION_MINUTES) {
+        throw new InvalidInputException(
+            "Firing duration must be between 0 and %,d minutes.".formatted(MAX_DURATION_MINUTES));
+      }
+      rawDurationMinutes = Math.round(lastElapsedMinutes);
+    }
+    if (rawDurationMinutes < 0L || rawDurationMinutes > MAX_DURATION_MINUTES) {
+      throw new InvalidInputException(
+          "Firing duration must be between 0 and %,d minutes.".formatted(MAX_DURATION_MINUTES));
+    }
+    int durationMinutes = (int) rawDurationMinutes;
+    if (startedAt != null && finishedAt == null) {
+      finishedAt = startedAt.plusMillis(Math.round(lastElapsedMinutes * 60_000.0));
+    }
+    if (startedAt != null && finishedAt != null && finishedAt.isBefore(startedAt)) {
+      throw new InvalidInputException(
+          "Kiln log timestamps are out of order (end time is before start time).");
     }
 
     UnitDecision unit =
@@ -604,6 +675,84 @@ public final class KilnLogParser {
         curve);
   }
 
+  /**
+   * Reverses rows when a controller exported newest-first (monotonically non-increasing timestamps
+   * or elapsed values), and rejects logs whose start/end timestamps move backwards without being
+   * cleanly reversed.
+   */
+  private static void normalizeSampleOrder(List<RawSample> samples, boolean headerImpliesElapsed) {
+    @Nullable Instant firstInst = null;
+    @Nullable Instant prevInst = null;
+    @Nullable Instant lastInst = null;
+    int instantCount = 0;
+    boolean instantNonIncreasing = true;
+
+    @Nullable Double firstClock = null;
+    @Nullable Double prevClock = null;
+    @Nullable Double lastClock = null;
+    int clockCount = 0;
+    boolean clockNonIncreasing = true;
+    boolean anyHasColons = false;
+
+    for (RawSample sample : samples) {
+      Instant inst = sample.instant();
+      if (inst != null) {
+        instantCount++;
+        if (firstInst == null) {
+          firstInst = inst;
+        }
+        if (prevInst != null && inst.isAfter(prevInst)) {
+          instantNonIncreasing = false;
+        }
+        prevInst = inst;
+        lastInst = inst;
+      }
+      ParsedClock cv = sample.clockVal();
+      if (cv != null) {
+        clockCount++;
+        if (cv.hasColons()) {
+          anyHasColons = true;
+        }
+        double mins = cv.totalMinutes();
+        if (firstClock == null) {
+          firstClock = mins;
+        }
+        if (prevClock != null && mins > prevClock) {
+          clockNonIncreasing = false;
+        }
+        prevClock = mins;
+        lastClock = mins;
+      }
+    }
+
+    if (instantCount >= 2
+        && firstInst != null
+        && lastInst != null
+        && lastInst.isBefore(firstInst)) {
+      if (instantNonIncreasing) {
+        Collections.reverse(samples);
+      } else {
+        throw new InvalidInputException(
+            "Kiln log timestamps are out of order (end time is before start time).");
+      }
+      return;
+    }
+
+    if (instantCount == 0
+        && clockCount >= 2
+        && (!anyHasColons || headerImpliesElapsed)
+        && firstClock != null
+        && lastClock != null
+        && lastClock < firstClock) {
+      if (clockNonIncreasing) {
+        Collections.reverse(samples);
+      } else {
+        throw new InvalidInputException(
+            "Kiln log elapsed times are out of order (end time is before start time).");
+      }
+    }
+  }
+
   private static UnitDecision decideUnit(
       @Nullable TemperatureUnit override,
       @Nullable TemperatureUnit headerHint,
@@ -634,6 +783,24 @@ public final class KilnLogParser {
       return new UnitDecision(TemperatureUnit.C, true);
     }
     return new UnitDecision(studioDefault != null ? studioDefault : TemperatureUnit.F, true);
+  }
+
+  /** Downsamples a curve to at most {@code maxPoints} points, preserving start, peak, and end. */
+  static List<TemperaturePoint> downsample(List<TemperaturePoint> points, int maxPoints) {
+    int n = points.size();
+    if (n <= maxPoints) {
+      return List.copyOf(points);
+    }
+    int peakIndex = 0;
+    double peakTemp = Double.NEGATIVE_INFINITY;
+    for (int i = 0; i < n; i++) {
+      double t = points.get(i).temp();
+      if (t > peakTemp) {
+        peakTemp = t;
+        peakIndex = i;
+      }
+    }
+    return downsample(points, peakIndex, maxPoints);
   }
 
   private static List<TemperaturePoint> downsample(
@@ -749,10 +916,12 @@ public final class KilnLogParser {
       List<String> lines, int start, char delimiter, ColumnBinding binding) {
     int checked = 0;
     int valid = 0;
+    int maxTempCols = Math.min(binding.tempIndices().size(), MAX_ZONES);
     for (int i = start; i < lines.size() && checked < 5; i++) {
       checked++;
       List<String> cells = parseCsvRow(lines.get(i), delimiter);
-      for (int idx : binding.tempIndices()) {
+      for (int j = 0; j < maxTempCols; j++) {
+        int idx = binding.tempIndices().get(j);
         if (idx < cells.size() && parseNumberWithUnit(cells.get(idx)) != null) {
           valid++;
           break;
@@ -901,20 +1070,22 @@ public final class KilnLogParser {
       }
     }
 
-    // 3. Setpoint / target temperature
-    if (setpointIdx < 0) {
-      for (int i = 0; i < stripped.size(); i++) {
-        if (claimed.contains(i)) {
-          continue;
-        }
-        if (SETPOINT_ALIASES.contains(stripped.get(i))
-            || stripped.get(i).contains("setpoint")
-            || stripped.get(i).contains("set point")
-            || stripped.get(i).contains("target")) {
+    // 3. Setpoint / target temperature (claim ALL setpoint/target columns so multi-zone setpoints
+    // like "Zone 2 Setpoint" are never misclassified as chamber temperatures)
+    for (int i = 0; i < stripped.size(); i++) {
+      if (claimed.contains(i)) {
+        continue;
+      }
+      String key = stripped.get(i);
+      if (SETPOINT_ALIASES.contains(key)
+          || key.contains("setpoint")
+          || key.contains("set point")
+          || key.contains("target")
+          || key.endsWith(" sp")) {
+        if (setpointIdx < 0) {
           setpointIdx = i;
-          claimed.add(i);
-          break;
         }
+        claimed.add(i);
       }
     }
 
@@ -969,7 +1140,7 @@ public final class KilnLogParser {
           continue;
         }
         String key = stripped.get(i);
-        if (isOutputHeader(normalized.get(i), key)) {
+        if (isOutputHeader(normalized.get(i), key) || NON_CHAMBER_TEMP.matcher(key).find()) {
           continue;
         }
         if (ZONE_TEMP_ALIASES.contains(key)
@@ -1093,11 +1264,16 @@ public final class KilnLogParser {
 
   private static @Nullable KeyValue parsePreambleKeyValue(String line, char delimiter) {
     List<String> cells = parseCsvRow(line, delimiter);
-    if (cells.size() >= 2 && !cells.get(0).contains(":")) {
-      String key = sanitize(cells.get(0), 60);
-      String value = sanitize(cells.get(1), 160);
-      if (!key.isEmpty() && !value.isEmpty()) {
-        return new KeyValue(key, value);
+    if (cells.size() >= 2) {
+      String first = cells.get(0).strip();
+      String withoutTrailingColon =
+          first.endsWith(":") ? first.substring(0, first.length() - 1).strip() : first;
+      if (!withoutTrailingColon.contains(":")) {
+        String key = sanitize(withoutTrailingColon, 60);
+        String value = sanitize(cells.get(1), 160);
+        if (!key.isEmpty() && !value.isEmpty()) {
+          return new KeyValue(key, value);
+        }
       }
     }
     int colon = line.indexOf(':');
@@ -1318,6 +1494,10 @@ public final class KilnLogParser {
   private static void addIfNonBlank(List<String> lines, String text, int start, int end) {
     for (int i = start; i < end; i++) {
       if (!Character.isWhitespace(text.charAt(i))) {
+        if (lines.size() >= MAX_NON_BLANK_LINES) {
+          throw new InvalidInputException(
+              "Kiln log exceeds the %,d-row limit.".formatted(MAX_DATA_ROWS));
+        }
         lines.add(text.substring(start, end));
         return;
       }
@@ -1343,7 +1523,8 @@ public final class KilnLogParser {
         } else {
           cell.append(c);
         }
-      } else if (c == '"' && cell.isEmpty()) {
+      } else if (c == '"' && cell.toString().isBlank()) {
+        cell.setLength(0);
         quoted = true;
       } else if (c == delimiter) {
         cells.add(cell.toString().strip());
@@ -1431,6 +1612,14 @@ public final class KilnLogParser {
   private record ParsedNumber(double value, @Nullable TemperatureUnit unit) {}
 
   private record ParsedClock(double totalMinutes, boolean hasColons, boolean over24Hours) {}
+
+  private record RawSample(
+      double avgTemp,
+      @Nullable Double setpoint,
+      @Nullable List<Double> zones,
+      @Nullable Instant instant,
+      @Nullable ParsedClock clockVal,
+      boolean unparseableTime) {}
 
   private record KeyValue(String key, String value) {}
 

@@ -175,6 +175,7 @@ class Firing {
 
   /**
    * Attaches controller telemetry to this firing, filling blank timestamps or cone from the log.
+   * Only firings in progress or already complete may receive telemetry.
    */
   void attachTelemetry(
       Telemetry telemetry,
@@ -182,6 +183,10 @@ class Firing {
       @Nullable Instant logFinishedAt,
       @Nullable String logCone,
       @Nullable String logNotes) {
+    if (this.status != FiringView.Status.FIRING && this.status != FiringView.Status.COMPLETE) {
+      throw new InvalidInputException(
+          "Telemetry can only be attached to a firing in progress or already complete.");
+    }
     applyTelemetry(telemetry);
     if (this.startedAt == null && logStartedAt != null) {
       this.startedAt = logStartedAt;
@@ -252,13 +257,29 @@ class Firing {
   }
 
   /**
-   * The view the API returns.
+   * The view the API returns, with the full stored temperature curve (at most 250 points).
    *
    * @param pieceCount how many pieces are in the load, counted by the caller so lists stay at a
    *     fixed number of queries
    * @param loaded the pieces themselves, or none for a list
    */
   FiringView toView(int pieceCount, List<PieceView> loaded) {
+    return toView(pieceCount, loaded, TemperatureCurveJson.read(temperatureCurve));
+  }
+
+  /**
+   * List view with the temperature curve downsampled to at most {@code maxCurvePoints} points
+   * (preserving start, peak, and end) so inline sparklines stay lightweight.
+   */
+  FiringView toListView(int pieceCount, int maxCurvePoints) {
+    List<TemperaturePoint> full = TemperatureCurveJson.read(temperatureCurve);
+    List<TemperaturePoint> curve =
+        full == null ? null : KilnLogParser.downsample(full, maxCurvePoints);
+    return toView(pieceCount, List.of(), curve);
+  }
+
+  private FiringView toView(
+      int pieceCount, List<PieceView> loaded, @Nullable List<TemperaturePoint> curve) {
     return new FiringView(
         id,
         kiln.id(),
@@ -278,6 +299,6 @@ class Firing {
         durationMinutes,
         errorCode,
         logSource,
-        TemperatureCurveJson.read(temperatureCurve));
+        curve);
   }
 }

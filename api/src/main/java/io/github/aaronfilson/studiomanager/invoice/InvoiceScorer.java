@@ -64,7 +64,8 @@ public final class InvoiceScorer {
       total++;
       right += expected.invoiceDateYear() == read.invoiceDateYear() ? 1 : 0;
     }
-    if (!expected.payments().isEmpty()) {
+    if (!expected.payments().isEmpty()
+        || (expected.documentType() != null && !read.payments().isEmpty())) {
       total++;
       right += samePayments(expected.payments(), read.payments()) ? 1 : 0;
     }
