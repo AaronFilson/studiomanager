@@ -9,6 +9,12 @@
 #   scripts/integration.sh test --tests '*PieceApiTests'
 source "$(dirname "$0")/lib.sh"
 
+if ! command -v wsl.exe >/dev/null 2>&1; then
+    echo "scripts/integration.sh requires WSL (wsl.exe not found on PATH)." >&2
+    echo "On Linux/macOS with Docker installed locally, run bash scripts/api.sh instead." >&2
+    exit 1
+fi
+
 DISTRO="${STUDIOMANAGER_WSL_DISTRO:-Debian}"
 if [[ $# -eq 0 ]]; then
     set -- build

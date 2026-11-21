@@ -6,7 +6,8 @@ import { Body, Button, Card, Loading, Screen, Title } from '../../ui';
 
 /** Handles studiomanager://invites/<code> deep links. */
 export default function InviteCodeScreen() {
-  const { code } = useLocalSearchParams<{ code: string }>();
+  const { code } = useLocalSearchParams<{ code?: string | string[] }>();
+  const normalizedCode = Array.isArray(code) ? (code[0] ?? '') : (code ?? '');
   const auth = useAuth();
 
   if (auth.status === 'starting') {
@@ -31,7 +32,7 @@ export default function InviteCodeScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       <AcceptInvite
-        code={code}
+        code={normalizedCode}
         onJoined={(studioId) => router.replace(`/studios/${studioId}`)}
         onCancel={() => router.replace('/?choose=1')}
       />

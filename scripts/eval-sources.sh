@@ -70,6 +70,7 @@ case "$CMD" in
             shift
         fi
         FILTER_ID="${1:-}"
+        rows="$(parse_manifest tsv "$FILTER_ID")"
         mkdir -p "$CACHE_DIR"
         while IFS=$'\t' read -r id repo commit fetch_kind license paths_csv; do
             [[ -n "$id" ]] || continue
@@ -84,12 +85,18 @@ case "$CMD" in
             fi
             if [[ ! -d "$target/.git" ]]; then
                 git clone --filter=blob:none --no-checkout "$repo" "$target"
+            else
+                git -C "$target" fetch --depth=1 origin "$commit"
             fi
-            git -C "$target" sparse-checkout init --cone
+            git -C "$target" sparse-checkout init --no-cone
             IFS=',' read -r -a sparse_paths <<< "$paths_csv"
             git -C "$target" sparse-checkout set "${sparse_paths[@]}"
-            git -C "$target" checkout "$commit"
-        done < <(parse_manifest tsv "$FILTER_ID")
+            if [[ "$commit" == "HEAD" && -f "$target/.git/FETCH_HEAD" ]]; then
+                git -C "$target" checkout FETCH_HEAD
+            else
+                git -C "$target" checkout "$commit"
+            fi
+        done <<< "$rows"
         echo "Done. Review licenses and strip any customer details before copying into api/src/test/resources/invoices/eval/."
         ;;
     -h|--help|"")

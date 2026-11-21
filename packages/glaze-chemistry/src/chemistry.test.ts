@@ -7,6 +7,7 @@ import {
   findMaterial,
   MATERIALS,
   normalizeOxideKey,
+  normalizeOxideWithFactor,
   parseConeBand,
 } from './index';
 
@@ -31,6 +32,53 @@ describe('materials library & oxide normalization', () => {
     expect(normalizeOxideKey('Al2O3')).toBe('Al2O3');
     expect(normalizeOxideKey('fe2o3')).toBe('Fe2O3');
     expect(normalizeOxideKey('nope')).toBeUndefined();
+    expect(normalizeOxideWithFactor('FeO')).toEqual({ key: 'Fe2O3', weightFactor: 1.1113 });
+    expect(normalizeOxideWithFactor('MnO2')).toEqual({ key: 'MnO', weightFactor: 0.816 });
+    expect(normalizeOxideWithFactor('Cu2O')).toEqual({ key: 'CuO', weightFactor: 1.1118 });
+  });
+
+  it('uses accurate Ferro Frit 3269 and 3249 analyses and separate roasted/red oxide entries', () => {
+    const frit3269 = findMaterial('Ferro Frit 3269');
+    expect(frit3269?.loi).toBe(0);
+    expect(frit3269?.analysis).toEqual({
+      SiO2: 51.23,
+      Al2O3: 12.4,
+      B2O3: 15.06,
+      CaO: 0.41,
+      K2O: 7.42,
+      Na2O: 10.97,
+      ZnO: 0.97,
+    });
+
+    const frit3249 = findMaterial('Ferro Frit 3249');
+    expect(frit3249?.loi).toBe(0);
+    expect(frit3249?.analysis).toEqual({
+      SiO2: 42.1,
+      Al2O3: 13.3,
+      B2O3: 28.9,
+      MgO: 12.2,
+      CaO: 3.5,
+    });
+
+    const rawAlberta = findMaterial('Alberta Slip');
+    const roastedAlberta = findMaterial('Roasted Alberta Slip');
+    expect(roastedAlberta?.name).toBe('Roasted Alberta Slip');
+    expect(roastedAlberta?.loi).toBeCloseTo(0.5, 2);
+    expect(roastedAlberta?.analysis.SiO2 ?? 0).toBeGreaterThan(rawAlberta?.analysis.SiO2 ?? 0);
+
+    const blackCopper = findMaterial('Black Copper Oxide');
+    const redCopper = findMaterial('Red Copper Oxide');
+    expect(blackCopper?.name).toBe('Copper Oxide');
+    expect(redCopper?.name).toBe('Red Copper Oxide');
+    expect(redCopper?.loi).toBe(0);
+    expect(redCopper?.analysis.CuO).toBeCloseTo(111.2, 1);
+  });
+
+  it('trims leading and trailing punctuation in findMaterial', () => {
+    expect(findMaterial('Custer Feldspar.')?.name).toBe('Custer Feldspar');
+    expect(findMaterial('(EPK)')?.name).toBe('EPK');
+    expect(findMaterial('OM-4,')?.name).toBe('OM4 Ball Clay');
+    expect(findMaterial('Flint (325 mesh).')?.name).toBe('Silica');
   });
 });
 
@@ -127,14 +175,92 @@ describe('UMF, Stull surface, CTE & cone limit checks', () => {
   it('parses cone strings into Cone 04, Cone 6, and Cone 10 bands', () => {
     expect(parseConeBand('04')).toBe('CONE_04');
     expect(parseConeBand('Cone 06')).toBe('CONE_04');
+    expect(parseConeBand('c04')).toBe('CONE_04');
+    expect(parseConeBand('04ox')).toBe('CONE_04');
     expect(parseConeBand('5-6')).toBe('CONE_6');
     expect(parseConeBand('6')).toBe('CONE_6');
     expect(parseConeBand('10')).toBe('CONE_10');
+    expect(parseConeBand('10R')).toBe('CONE_10');
+    expect(parseConeBand('C10')).toBe('CONE_10');
     expect(parseConeBand('9-10')).toBe('CONE_10');
     expect(parseConeBand(null)).toBe('CONE_6');
 
     const report = checkLimits({ SiO2: 2.2, Al2O3: 0.18, B2O3: 0.3, Na2O: 0.2, CaO: 0.3 }, 'CONE_04');
     expect(report.outOfRange).toEqual([]);
+  });
+
+  it('applies stoichiometric weight conversion factors for FeO, MnO2, and Cu2O snapshots', () => {
+    const base = [
+      { material: 'Whiting', amount: 50, kind: 'BASE' as const, unit: 'PARTS' as const },
+      { material: 'Silica', amount: 50, kind: 'BASE' as const, unit: 'PARTS' as const },
+    ];
+    const fromAltStates = analyzeRecipe([
+      ...base,
+      {
+        material: 'Alternate Oxidation Blend',
+        amount: 10,
+        kind: 'ADDITION',
+        unit: 'PERCENT',
+        chemistry: { analysis: { FeO: 10, MnO2: 10, Cu2O: 10 }, loi: 0 },
+      },
+    ]);
+    const fromCanonical = analyzeRecipe([
+      ...base,
+      {
+        material: 'Canonical Oxidation Blend',
+        amount: 10,
+        kind: 'ADDITION',
+        unit: 'PERCENT',
+        chemistry: { analysis: { Fe2O3: 11.113, MnO: 8.16, CuO: 11.118 }, loi: 0 },
+      },
+    ]);
+
+    expect(fromAltStates.umf.Fe2O3).toBeCloseTo(fromCanonical.umf.Fe2O3 ?? 0, 4);
+    expect(fromAltStates.umf.MnO).toBeCloseTo(fromCanonical.umf.MnO ?? 0, 4);
+    expect(fromAltStates.umf.CuO).toBeCloseTo(fromCanonical.umf.CuO ?? 0, 4);
+  });
+
+  it('normalizes BASE PERCENT lines to 100 and excludes BASE GRAMS from baseSum', () => {
+    const standard = analyzeRecipe([
+      { material: 'Custer Feldspar', amount: 40, kind: 'BASE', unit: 'PARTS' },
+      { material: 'Silica', amount: 30, kind: 'BASE', unit: 'PARTS' },
+      { material: 'Whiting', amount: 20, kind: 'BASE', unit: 'PARTS' },
+      { material: 'EPK', amount: 10, kind: 'BASE', unit: 'PARTS' },
+      { material: 'Red Iron Oxide', amount: 4, kind: 'ADDITION', unit: 'PERCENT' },
+    ]);
+    const scaledPercent = analyzeRecipe([
+      { material: 'Custer Feldspar', amount: 20, kind: 'BASE', unit: 'PERCENT' },
+      { material: 'Silica', amount: 15, kind: 'BASE', unit: 'PERCENT' },
+      { material: 'Whiting', amount: 10, kind: 'BASE', unit: 'PERCENT' },
+      { material: 'EPK', amount: 5, kind: 'BASE', unit: 'PERCENT' },
+      { material: 'Epsom Salts', amount: 10, kind: 'BASE', unit: 'GRAMS' },
+      { material: 'Red Iron Oxide', amount: 4, kind: 'ADDITION', unit: 'PERCENT' },
+    ]);
+
+    expect(scaledPercent.umf).toEqual(standard.umf);
+  });
+
+  it('returns empty limit checks for zero-flux recipes and avoids glossy/high-silica on low-SiO2 recipes', () => {
+    const noFlux = analyzeRecipe([{ material: 'Silica', amount: 100, kind: 'BASE', unit: 'PARTS' }], { cone: '6' });
+    expect(noFlux.valid).toBe(false);
+    expect(noFlux.limits.band).toBe('CONE_6');
+    expect(noFlux.limits.checks).toEqual([]);
+    expect(noFlux.limits.outOfRange).toEqual([]);
+
+    const traceClay = analyzeRecipe([
+      { material: 'Whiting', amount: 99, kind: 'BASE', unit: 'PARTS' },
+      { material: 'EPK', amount: 0.2, kind: 'BASE', unit: 'PARTS' },
+      { material: 'Silica', amount: 0.8, kind: 'BASE', unit: 'PARTS' },
+    ]);
+    expect(traceClay.valid).toBe(true);
+    expect(traceClay.stull.surface).toBe('underfired');
+
+    const traceSilica = analyzeRecipe([
+      { material: 'Whiting', amount: 99, kind: 'BASE', unit: 'PARTS' },
+      { material: 'Silica', amount: 1, kind: 'BASE', unit: 'PARTS' },
+    ]);
+    expect(traceSilica.valid).toBe(true);
+    expect(traceSilica.stull.surface).toBe('underfired');
   });
 });
 
@@ -183,12 +309,24 @@ describe('slurry specific gravity adjustment calculator', () => {
     expect(adj.dryGlazeToAddG).toBe(0);
   });
 
-  it('rejects impossible specific gravities or non-positive amounts', () => {
+  it('rejects impossible specific gravities or non-positive/non-finite amounts', () => {
     expect(() =>
       calculateSlurryAdjustment({ measuredSg: 1.0, targetSg: 1.45, slurryVolumeMl: 1000 }),
     ).toThrow(RangeError);
     expect(() =>
       calculateSlurryAdjustment({ measuredSg: 1.5, targetSg: 1.45, slurryVolumeMl: 0 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      calculateSlurryAdjustment({ measuredSg: 1.5, targetSg: 1.45, slurryVolumeMl: Number.POSITIVE_INFINITY }),
+    ).toThrow(RangeError);
+    expect(() =>
+      calculateSlurryAdjustment({ measuredSg: 1.5, targetSg: 1.45, slurryVolumeMl: Number.NaN }),
+    ).toThrow(RangeError);
+    expect(() =>
+      calculateSlurryAdjustment({ measuredSg: 1.5, targetSg: 1.45, slurryMassG: Number.POSITIVE_INFINITY }),
+    ).toThrow(RangeError);
+    expect(() =>
+      calculateSlurryAdjustment({ measuredSg: 1.5, targetSg: 1.45, slurryMassG: Number.NaN }),
     ).toThrow(RangeError);
   });
 });

@@ -55,14 +55,14 @@ export function calculateSlurryAdjustment(input: SlurryAdjustmentInput): SlurryA
   let volumeMl: number;
   let massG: number;
   if (input.slurryVolumeMl !== undefined) {
-    if (!(input.slurryVolumeMl > 0)) {
-      throw new RangeError('Slurry volume must be greater than 0.');
+    if (!Number.isFinite(input.slurryVolumeMl) || !(input.slurryVolumeMl > 0)) {
+      throw new RangeError('Slurry volume must be a finite number greater than 0.');
     }
     volumeMl = input.slurryVolumeMl;
     massG = volumeMl * input.measuredSg;
   } else if (input.slurryMassG !== undefined) {
-    if (!(input.slurryMassG > 0)) {
-      throw new RangeError('Slurry mass must be greater than 0.');
+    if (!Number.isFinite(input.slurryMassG) || !(input.slurryMassG > 0)) {
+      throw new RangeError('Slurry mass must be a finite number greater than 0.');
     }
     massG = input.slurryMassG;
     volumeMl = massG / input.measuredSg;

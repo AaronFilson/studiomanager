@@ -8,10 +8,12 @@ from one fixed path inside the repo, so use them, exactly as written, from the r
 
 | Task | Command |
 |---|---|
-| Everything (API, generated client, web) | `bash scripts/check.sh` |
+| Everything (API, generated client, packages, web, mobile) | `bash scripts/check.sh` |
 | API build and tests | `bash scripts/api.sh` |
 | API with the Docker integration tests (runs in WSL) | `bash scripts/integration.sh test` |
-| The CI web job on Linux (a node:24 container under WSL Docker) | `bash scripts/web-linux.sh` |
+| The CI JS job on Linux (a node:24 container under WSL Docker) | `bash scripts/web-linux.sh` |
+| Regenerate API client, routeTree, and mobile assets (WSL Docker) | `bash scripts/sync-generated.sh` (add `--lockfile` after changing `package.json`) |
+| List or fetch public invoice eval datasets | `bash scripts/eval-sources.sh --list` / `bash scripts/eval-sources.sh fetch` |
 | Any Gradle task | `bash scripts/api.sh compileJava` |
 | pnpm | `bash scripts/js.sh -r run test`, `bash scripts/js.sh --filter @studiomanager/api-client run generate` |
 
@@ -31,8 +33,9 @@ so skipped tests are visible. CI runs them too.
 
 ## Where things are
 
-- Plans and research: `docs/planning/`. The current plan is `02-wave1-plan.md`, revised from
-  `reports/Pottery studio manager role.md`.
+- Plans and research: `docs/planning/` (including `14-glaze-book-plan.md`,
+  `17-mcp-and-api-tokens-plan.md`, `24-invoice-reading-upgrade-plan.md`, and
+  `25-mobile-parity-plan.md`).
 - Decisions: `docs/adr/`.
 - The API contract: `api/src/main/openapi/studiomanager.yaml`. After changing it, run the
   client generate command above and commit the generated files.

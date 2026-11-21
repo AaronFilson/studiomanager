@@ -8,7 +8,7 @@ export default function GlazeDetailScreen() {
 
   return (
     <Screen>
-      <GlazeDetail studioId={studioId} glazeId={glazeId} />
+      <GlazeDetail key={`${studioId}:${glazeId}`} studioId={studioId} glazeId={glazeId} />
     </Screen>
   );
 }

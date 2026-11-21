@@ -8,8 +8,9 @@ import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import io.github.aaronfilson.studiomanager.supplies.PurchaseRequests;
-import io.github.aaronfilson.studiomanager.supplies.SupplyModel.MovementKind;
 import io.github.aaronfilson.studiomanager.supplies.SupplyService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -17,10 +18,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ class InvoiceReview {
   private final SupplyService supplies;
   private final PurchaseRequests requests;
   private final InvoiceDuplicates duplicates;
+  private final EntityManager entityManager;
   private final Clock clock;
 
   InvoiceReview(
@@ -48,6 +51,7 @@ class InvoiceReview {
       SupplyService supplies,
       PurchaseRequests requests,
       InvoiceDuplicates duplicates,
+      EntityManager entityManager,
       Clock clock) {
     this.invoices = invoices;
     this.matching = matching;
@@ -55,6 +59,7 @@ class InvoiceReview {
     this.supplies = supplies;
     this.requests = requests;
     this.duplicates = duplicates;
+    this.entityManager = entityManager;
     this.clock = clock;
   }
 
@@ -76,6 +81,13 @@ class InvoiceReview {
     // SQL first, before the entity changes (ADR 21, rule 5)
     Set<UUID> known = matching.itemIds();
     Invoice invoice = findAtVersion(invoiceId, expectedVersion);
+    Integer rotation = header.rotation();
+    if (rotation != null) {
+      int degrees = rotation;
+      if (degrees != 0 && degrees != 90 && degrees != 180 && degrees != 270) {
+        throw new InvalidInputException("Rotation must be 0, 90, 180, or 270 degrees.");
+      }
+    }
     InvoiceDrafts.Sanitized sanitized =
         InvoiceDrafts.sanitize(
             new InvoiceDraft(
@@ -97,11 +109,15 @@ class InvoiceReview {
                 header.crossedOut(),
                 header.otherPapers(),
                 header.notes(),
-                header.rotation(),
+                rotation,
                 reviewed.stream().map(ReviewedLine::line).toList()),
             LocalDate.now(clock.withZone(ZoneOffset.UTC)));
     if (sanitized.draft().lines().size() != reviewed.size()) {
       throw new InvalidInputException("Every line needs a description.");
+    }
+    if (!sanitized.notes().isEmpty()) {
+      throw new InvalidInputException(
+          "Check the invoice values: " + String.join(" ", sanitized.notes()));
     }
     List<InvoiceLine> before = invoice.lines();
     List<Invoice.LineMatch> matches = new ArrayList<>();
@@ -121,8 +137,14 @@ class InvoiceReview {
               : null;
       matches.add(new Invoice.LineMatch(itemId, kept == null ? MatchSource.STAFF : kept));
     }
+    long versionBefore = invoice.version();
     invoice.edited(sanitized.draft(), matches);
     invoices.flush();
+    if (invoice.version() == versionBefore) {
+      // Line-only edits don't dirty any column on invoice itself; force a synchronous version
+      // increment so invoice.version() matches the committed row and stale callers receive 409.
+      entityManager.lock(invoice, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    }
     return invoice.toView(duplicates.problems(invoice));
   }
 
@@ -153,37 +175,46 @@ class InvoiceReview {
       }
     }
     Instant now = clock.instant();
+    LocalDate invoiceDate = invoice.invoiceDate();
+    Instant purchasedAt =
+        invoiceDate != null ? invoiceDate.atStartOfDay(ZoneOffset.UTC).toInstant() : now;
     invoice.confirmed(caller.accountId(), now);
     // Supplies records the stock with SQL in this transaction, so write the invoice first
     invoices.flush();
     String note = receivedNote(invoice);
     String vendorKey = SupplyMatcher.normalize(invoice.vendorName());
-    Set<UUID> settled = new HashSet<>();
+    // Group matched lines by supply item in deterministic UUID order to prevent AB-BA deadlocks
+    // when two invoices touching the same supply items are confirmed concurrently.
+    Map<UUID, List<InvoiceLine>> byItem = new TreeMap<>();
     for (InvoiceLine line : lines) {
       UUID itemId = line.supplyItemId();
-      if (itemId == null) {
-        continue;
+      if (itemId != null) {
+        byItem.computeIfAbsent(itemId, ignored -> new ArrayList<>()).add(line);
       }
-      supplies.recordMovement(
-          itemId, MovementKind.RECEIVED, Objects.requireNonNull(line.quantity()), note);
-      BigDecimal unitPrice = purchaseUnitPrice(line);
-      if (unitPrice != null && unitPrice.signum() >= 0) {
-        supplies.recordPurchasePrice(itemId, unitPrice, now);
+    }
+    for (Map.Entry<UUID, List<InvoiceLine>> entry : byItem.entrySet()) {
+      UUID itemId = entry.getKey();
+      List<InvoiceLine> itemLines = entry.getValue();
+      BigDecimal totalQuantity = BigDecimal.ZERO;
+      for (InvoiceLine line : itemLines) {
+        totalQuantity = totalQuantity.add(Objects.requireNonNull(line.quantity()));
       }
+      BigDecimal unitPrice = weightedPurchaseUnitPrice(itemLines);
+      supplies.receiveFromInvoice(itemId, totalQuantity, note, unitPrice, purchasedAt);
       // The delivery an open request was waiting for: received here, so not again by hand
-      if (settled.add(itemId)) {
-        requests.settleOnWay(itemId);
-      }
+      requests.settleOnWay(itemId);
       if (!vendorKey.isEmpty()) {
-        learn(studioId, vendorKey, AliasKind.SKU, line.sku(), itemId, caller.accountId(), now);
-        learn(
-            studioId,
-            vendorKey,
-            AliasKind.DESCRIPTION,
-            line.description(),
-            itemId,
-            caller.accountId(),
-            now);
+        for (InvoiceLine line : itemLines) {
+          learn(studioId, vendorKey, AliasKind.SKU, line.sku(), itemId, caller.accountId(), now);
+          learn(
+              studioId,
+              vendorKey,
+              AliasKind.DESCRIPTION,
+              line.description(),
+              itemId,
+              caller.accountId(),
+              now);
+        }
       }
     }
     InvoiceDraft confirmedDraft = invoice.draft();
@@ -196,18 +227,43 @@ class InvoiceReview {
   }
 
   /**
-   * The unit purchase price to record on the supply item: the line's explicit unit price if
-   * present, otherwise {@code lineTotal / quantity} rounded HALF_UP to 2 decimals.
+   * Computes the quantity-weighted average unit purchase price across positive-priced lines for one
+   * supply item. Zero-priced promo/bonus lines are ignored when any positive-priced line exists;
+   * {@code 0.0000} is recorded only when every line for the item is explicitly {@code $0.00}.
    */
-  private static @Nullable BigDecimal purchaseUnitPrice(InvoiceLine line) {
-    BigDecimal unitPrice = line.unitPrice();
-    if (unitPrice != null) {
-      return unitPrice.setScale(2, RoundingMode.HALF_UP);
+  private static @Nullable BigDecimal weightedPurchaseUnitPrice(List<InvoiceLine> itemLines) {
+    BigDecimal positiveCost = BigDecimal.ZERO;
+    BigDecimal positiveQuantity = BigDecimal.ZERO;
+    boolean allExplicitZero = !itemLines.isEmpty();
+    for (InvoiceLine line : itemLines) {
+      BigDecimal quantity = Objects.requireNonNull(line.quantity());
+      BigDecimal unitPrice = line.unitPrice();
+      BigDecimal lineTotal = line.lineTotal();
+      if (unitPrice != null) {
+        if (unitPrice.signum() > 0) {
+          positiveCost = positiveCost.add(unitPrice.multiply(quantity));
+          positiveQuantity = positiveQuantity.add(quantity);
+          allExplicitZero = false;
+        } else if (unitPrice.signum() < 0) {
+          allExplicitZero = false;
+        }
+      } else if (lineTotal != null) {
+        if (lineTotal.signum() > 0) {
+          positiveCost = positiveCost.add(lineTotal);
+          positiveQuantity = positiveQuantity.add(quantity);
+          allExplicitZero = false;
+        } else if (lineTotal.signum() < 0) {
+          allExplicitZero = false;
+        }
+      } else {
+        allExplicitZero = false;
+      }
     }
-    BigDecimal lineTotal = line.lineTotal();
-    BigDecimal quantity = line.quantity();
-    if (lineTotal != null && quantity != null && quantity.signum() > 0) {
-      return lineTotal.divide(quantity, 2, RoundingMode.HALF_UP);
+    if (positiveQuantity.signum() > 0) {
+      return positiveCost.divide(positiveQuantity, 4, RoundingMode.HALF_UP);
+    }
+    if (allExplicitZero) {
+      return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
     }
     return null;
   }

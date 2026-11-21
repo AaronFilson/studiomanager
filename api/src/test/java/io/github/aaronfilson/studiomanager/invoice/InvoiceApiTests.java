@@ -79,12 +79,13 @@ class InvoiceApiTests {
   private final TestUser member = TestUser.named("Mo");
   private UUID studioId;
   private String bMix;
+  private String speckledBuff;
 
   @BeforeEach
   void aStudioWithSupplies() {
     studioId = UUID.fromString(read(studio(owner, "Clay Club"), "$.id"));
     bMix = item("B-Mix 5", "50 lb box");
-    item("Speckled Buff", "25 lb bag");
+    speckledBuff = item("Speckled Buff", "25 lb bag");
   }
 
   @Test
@@ -175,6 +176,236 @@ class InvoiceApiTests {
 
     assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.50");
     assertThat(supplyField(bMix, "lastPurchasedAt")).isNotBlank();
+  }
+
+  @Test
+  void lineOnlyEditBumpsVersionAndRejectsStaleExpectedVersion() throws Exception {
+    String invoice = upload("PNG", PNG);
+    long initialVersion = version(awaitRead(invoice));
+
+    MvcTestResult firstEdit =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + invoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "total": "50.00",
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "B-Mix 5", "quantity": "2", "unitPrice": "25.00", "lineTotal": "50.00"}
+              ]
+            }
+            """
+                .formatted(initialVersion));
+    assertThat(firstEdit).hasStatusOk();
+    assertThat(firstEdit).bodyJson().extractingPath("$.status").isEqualTo("READY");
+    long v1 = version(firstEdit);
+
+    // Edit ONLY the line (match supplyItemId and tweak description); every header column and status
+    // stay identical so Hibernate would skip updating invoice unless forced.
+    MvcTestResult lineOnlyEdit =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + invoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "total": "50.00",
+              "expectedVersion": %d,
+              "lines": [
+                {
+                  "description": "B-Mix 5 clay",
+                  "quantity": "2",
+                  "unitPrice": "25.00",
+                  "lineTotal": "50.00",
+                  "supplyItemId": "%s"
+                }
+              ]
+            }
+            """
+                .formatted(v1, bMix));
+    assertThat(lineOnlyEdit).hasStatusOk();
+    long v2 = version(lineOnlyEdit);
+    assertThat(v2).isGreaterThan(v1);
+
+    // Stale expectedVersion from before the line-only edit is rejected on both edit and confirm.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "total": "50.00",
+                  "expectedVersion": %d,
+                  "lines": [
+                    {"description": "B-Mix 5", "quantity": "2", "unitPrice": "25.00", "lineTotal": "50.00"}
+                  ]
+                }
+                """
+                    .formatted(v1)))
+        .hasStatus(HttpStatus.CONFLICT);
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(v1)))
+        .hasStatus(HttpStatus.CONFLICT);
+
+    // Confirming with the bumped version succeeds.
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + invoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(v2)))
+        .hasStatusOk()
+        .bodyJson()
+        .extractingPath("$.status")
+        .isEqualTo("CONFIRMED");
+  }
+
+  @Test
+  void staffEditRejectsOutOfRangeValuesAndInvalidRotation() throws Exception {
+    String invoice = upload("PNG", PNG);
+    long v = version(awaitRead(invoice));
+
+    // Out-of-range invoice date is rejected with 400 rather than silently cleared.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "invoiceDate": "1990-01-01",
+                  "total": "50.00",
+                  "expectedVersion": %d,
+                  "lines": [{"description": "B-Mix 5", "quantity": "2", "lineTotal": "50.00"}]
+                }
+                """
+                    .formatted(v)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Out-of-range amount is rejected with 400.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "total": "99999999.00",
+                  "expectedVersion": %d,
+                  "lines": [{"description": "B-Mix 5", "quantity": "2", "lineTotal": "50.00"}]
+                }
+                """
+                    .formatted(v)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Non-quarter-turn rotation is rejected with 400.
+    assertThat(
+            send(
+                owner,
+                HttpMethod.PUT,
+                path("/invoices/" + invoice),
+                """
+                {
+                  "vendorName": "Cascade Clay",
+                  "total": "50.00",
+                  "rotation": 45,
+                  "expectedVersion": %d,
+                  "lines": [{"description": "B-Mix 5", "quantity": "2", "lineTotal": "50.00"}]
+                }
+                """
+                    .formatted(v)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void confirmingUsesWeightedAveragePriceIgnoresPromoLinesAndPreservesNewerDate() throws Exception {
+    String sampleClay = item("Sample Porcelain", "5 lb bag");
+
+    // Newer invoice with two positive-priced lines + one $0.00 bonus line for bMix,
+    // plus a 4-decimal fractional unit price for speckledBuff (8.75 / 100 = 0.0875).
+    String newerInvoice = upload("PNG", PNG);
+    long newerV = version(awaitRead(newerInvoice));
+    MvcTestResult newerSaved =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + newerInvoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "invoiceNumber": "INV-NEW",
+              "invoiceDate": "2026-10-20",
+              "total": "168.75",
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "B-Mix 5", "quantity": "4", "unitPrice": "30.00", "lineTotal": "120.00", "supplyItemId": "%s"},
+                {"description": "B-Mix 5", "quantity": "1", "unitPrice": "40.00", "lineTotal": "40.00", "supplyItemId": "%s"},
+                {"description": "B-Mix 5 promo", "quantity": "1", "unitPrice": "0.00", "lineTotal": "0.00", "supplyItemId": "%s"},
+                {"description": "Speckled Buff", "quantity": "100", "lineTotal": "8.75", "supplyItemId": "%s"}
+              ]
+            }
+            """
+                .formatted(newerV, bMix, bMix, bMix, speckledBuff));
+    assertThat(newerSaved).hasStatusOk();
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + newerInvoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version(newerSaved))))
+        .hasStatusOk();
+
+    // Quantity received includes promo line (4 + 1 + 1 = 6); unit price is weighted average of
+    // positive lines only: (4 * 30 + 1 * 40) / 5 = 32.00.
+    assertThat(onHand(bMix)).isEqualTo("6");
+    assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.00");
+    assertThat(supplyField(bMix, "lastPurchasedAt")).isEqualTo("2026-10-20T00:00:00Z");
+    assertThat(supplyField(speckledBuff, "lastPurchaseUnitPrice")).isEqualTo("0.0875");
+
+    // Older backfilled invoice must not clobber bMix's newer purchase price or timestamp,
+    // while an all-$0.00 invoice on a new item still records 0.00.
+    String olderInvoice = upload("PNG", PNG);
+    long olderV = version(awaitRead(olderInvoice));
+    MvcTestResult olderSaved =
+        send(
+            owner,
+            HttpMethod.PUT,
+            path("/invoices/" + olderInvoice),
+            """
+            {
+              "vendorName": "Cascade Clay",
+              "invoiceNumber": "INV-OLD",
+              "invoiceDate": "2026-10-01",
+              "total": "20.00",
+              "expectedVersion": %d,
+              "lines": [
+                {"description": "B-Mix 5", "quantity": "1", "unitPrice": "20.00", "lineTotal": "20.00", "supplyItemId": "%s"},
+                {"description": "Free Sample", "quantity": "2", "unitPrice": "0.00", "lineTotal": "0.00", "supplyItemId": "%s"}
+              ]
+            }
+            """
+                .formatted(olderV, bMix, sampleClay));
+    assertThat(olderSaved).hasStatusOk();
+    assertThat(
+            post(
+                owner,
+                path("/invoices/" + olderInvoice + "/confirm"),
+                "{\"expectedVersion\": %d}".formatted(version(olderSaved))))
+        .hasStatusOk();
+
+    assertThat(onHand(bMix)).isEqualTo("7");
+    assertThat(supplyField(bMix, "lastPurchaseUnitPrice")).isEqualTo("32.00");
+    assertThat(supplyField(bMix, "lastPurchasedAt")).isEqualTo("2026-10-20T00:00:00Z");
+    assertThat(supplyField(sampleClay, "lastPurchaseUnitPrice")).isEqualTo("0.00");
   }
 
   @Test

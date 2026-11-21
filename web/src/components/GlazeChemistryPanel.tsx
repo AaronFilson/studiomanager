@@ -47,12 +47,14 @@ export function GlazeChemistryPanel({ studioId, glaze }: { studioId: string; gla
           unit: line.unit,
           chemistry: line.chemistry ?? null,
         })),
-        { coneBand },
       ),
-    [glaze.lines, coneBand],
+    [glaze.lines],
   );
 
-  const limits = useMemo(() => checkLimits(analysis.umf, coneBand), [analysis.umf, coneBand]);
+  const limits = useMemo(
+    () => (analysis.valid ? checkLimits(analysis.umf, coneBand) : null),
+    [analysis.valid, analysis.umf, coneBand],
+  );
 
   async function handleExport(): Promise<void> {
     setExporting(true);
@@ -72,7 +74,9 @@ export function GlazeChemistryPanel({ studioId, glaze }: { studioId: string; gla
         link.click();
         link.remove();
       } finally {
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 1000);
       }
     } catch (err: unknown) {
       setExportError(err);
@@ -108,7 +112,7 @@ export function GlazeChemistryPanel({ studioId, glaze }: { studioId: string; gla
 
       {exportError !== null && <ErrorMessage error={exportError} />}
 
-      {!analysis.valid ? (
+      {!analysis.valid || !limits ? (
         <p className="badge">
           Not enough matched flux oxides to calculate a Unity Molecular Formula yet.
         </p>

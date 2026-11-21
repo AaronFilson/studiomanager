@@ -27,22 +27,26 @@ export function GlazeMixLog({
 }) {
   const id = useId();
   const queryClient = useQueryClient();
-  const mixesKey = listGlazeMixesQueryKey({ path: { studioId, glazeId: glaze.id } });
   const mixes = useQuery(listGlazeMixesOptions({ path: { studioId, glazeId: glaze.id } }));
 
   const [dryWeightG, setDryWeightG] = useState('');
   const [waterG, setWaterG] = useState('');
   const [initialSg, setInitialSg] = useState('');
   const [notes, setNotes] = useState('');
+  const [recentAlertId, setRecentAlertId] = useState<string | null>(null);
 
   const logMix = useMutation({
     ...logGlazeMixMutation(),
-    onSuccess: () => {
+    onSuccess: (created, variables) => {
       setDryWeightG('');
       setWaterG('');
       setInitialSg('');
       setNotes('');
-      void queryClient.invalidateQueries({ queryKey: mixesKey });
+      const offTargetReading = created.readings.find((r) => r.offTarget);
+      setRecentAlertId(offTargetReading ? offTargetReading.id : null);
+      void queryClient.invalidateQueries({
+        queryKey: listGlazeMixesQueryKey({ path: variables.path }),
+      });
     },
   });
 
@@ -134,6 +138,7 @@ export function GlazeMixLog({
         </form>
       )}
 
+      {mixes.isPending && <p>Loading mix log…</p>}
       {mixes.isError && <ErrorMessage error={mixes.error} />}
       {mixes.data?.length === 0 && <p className="badge">No mixes logged for this bucket yet.</p>}
       {mixes.data && mixes.data.length > 0 && (
@@ -145,8 +150,9 @@ export function GlazeMixLog({
               glazeId={glaze.id}
               mix={mix}
               canEdit={canEdit}
-              onReadingAdded={() => {
-                void queryClient.invalidateQueries({ queryKey: mixesKey });
+              recentAlertId={recentAlertId}
+              onReadingAdded={(reading) => {
+                setRecentAlertId(reading.offTarget ? reading.id : null);
               }}
             />
           ))}
@@ -161,23 +167,31 @@ function MixCard({
   glazeId,
   mix,
   canEdit,
+  recentAlertId,
   onReadingAdded,
 }: {
   studioId: string;
   glazeId: string;
   mix: GlazeMix;
   canEdit: boolean;
-  onReadingAdded: () => void;
+  recentAlertId: string | null;
+  onReadingAdded: (reading: GlazeMixReading) => void;
 }) {
   const id = useId();
+  const queryClient = useQueryClient();
   const [sg, setSg] = useState('');
   const [note, setNote] = useState('');
   const addReading = useMutation({
     ...addGlazeMixReadingMutation(),
-    onSuccess: () => {
+    onSuccess: (created, variables) => {
       setSg('');
       setNote('');
-      onReadingAdded();
+      onReadingAdded(created);
+      void queryClient.invalidateQueries({
+        queryKey: listGlazeMixesQueryKey({
+          path: { studioId: variables.path.studioId, glazeId: variables.path.glazeId },
+        }),
+      });
     },
   });
 
@@ -197,7 +211,7 @@ function MixCard({
               <strong>SG {r.specificGravity}</strong> · {formatDateTime(r.readAt)}
               {r.note ? ` — ${r.note}` : ''}
               {r.offTarget && (
-                <span className="badge warning" role="alert">
+                <span className="badge warning" role={r.id === recentAlertId ? 'alert' : undefined}>
                   {' '}
                   {r.warning ?? 'Off target specific gravity.'}
                 </span>
@@ -261,9 +275,12 @@ function SgTrendChart({ readings, targetSg }: { readings: GlazeMixReading[]; tar
   const values = readings.map((r) => Number(r.specificGravity));
   const target = targetSg ? Number(targetSg) : undefined;
   const allVals = target !== undefined ? [...values, target - 0.04, target + 0.04] : values;
-  const minVal = Math.min(...allVals) - 0.02;
-  const maxVal = Math.max(...allVals) + 0.02;
-  const span = Math.max(0.05, maxVal - minVal);
+  const rawMin = Math.min(...allVals) - 0.02;
+  const rawMax = Math.max(...allVals) + 0.02;
+  const span = Math.max(0.05, rawMax - rawMin);
+  const mid = (rawMin + rawMax) / 2;
+  const minVal = mid - span / 2;
+  const maxVal = mid + span / 2;
 
   const yOf = (val: number) => padY + ((maxVal - val) / span) * (height - 2 * padY);
   const xOf = (idx: number) =>

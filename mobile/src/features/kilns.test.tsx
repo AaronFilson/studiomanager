@@ -30,6 +30,12 @@ describe('kilns', () => {
 
   it('fills from queue respecting per-member cap, shows cappedNote, loads kiln, and toggles availability', async () => {
     const calls = stubApi({
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'OWNER',
+        roleName: 'Owner',
+        permissions: ['kilns.read', 'kilns.manage', 'firings.manage'],
+        duties: [],
+      },
       'GET /api/v1/studios/:studioId/kilns': [kiln],
       'GET /api/v1/studios/:studioId/kilns/:kilnId/firings': capped([], false, 500),
       'GET /api/v1/studios/:studioId/kilns/:kilnId/queue': capped(
@@ -105,6 +111,12 @@ describe('kilns', () => {
       pieces: [aPiece({ id: 'p5', number: 77, description: 'Vase' })],
     };
     const calls = stubApi({
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'OWNER',
+        roleName: 'Owner',
+        permissions: ['kilns.read', 'kilns.manage', 'firings.manage'],
+        duties: [],
+      },
       'GET /api/v1/studios/:studioId/kilns': [kiln],
       'GET /api/v1/studios/:studioId/kilns/:kilnId/firings': capped([openFiring], false, 500),
       'GET /api/v1/studios/:studioId/firings/:firingId': openFiring,
@@ -125,5 +137,24 @@ describe('kilns', () => {
         }),
       ),
     );
+  });
+
+  it('skips firings and queue endpoints when caller lacks firings.manage', async () => {
+    const calls = stubApi({
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'STAFF',
+        roleName: 'Kiln maintenance',
+        permissions: ['kilns.read', 'kilns.manage'],
+        duties: [],
+      },
+      'GET /api/v1/studios/:studioId/kilns': [kiln],
+    });
+
+    await renderWithQueries(<KilnDetail studioId="s1" kilnId="k1" />);
+    expect(await screen.findByText('Availability')).toBeOnTheScreen();
+    expect(screen.queryByText('Load the kiln')).toBeNull();
+    expect(screen.queryByText('Firing log')).toBeNull();
+    expect(calls.some((c) => c.path.includes('/firings'))).toBe(false);
+    expect(calls.some((c) => c.path.includes('/queue'))).toBe(false);
   });
 });

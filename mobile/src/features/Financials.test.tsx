@@ -27,7 +27,13 @@ describe('Financials', () => {
       'GET /api/v1/studios/:studioId/me/permissions': {
         role: 'OWNER',
         roleName: 'Owner',
-        permissions: ['money.read', 'money.payables.manage'],
+        permissions: [
+          'money.read',
+          'money.take_payment',
+          'money.stored_value.manage',
+          'money.payables.manage',
+          'members.read',
+        ],
         duties: [],
       },
       'GET /api/v1/studios/:studioId/balances': [
@@ -107,5 +113,26 @@ describe('Financials', () => {
     expect(await screen.findByText('Ada Artist')).toBeOnTheScreen();
     expect(screen.getByText('60% to artist')).toBeOnTheScreen();
     expect(screen.getByText('W-9 missing')).toBeOnTheScreen();
+  });
+
+  it('hides payment controls and prepaid tab without those permissions and skips /members', async () => {
+    const calls = stubApi({
+      'GET /api/v1/studios/:studioId': studio,
+      'GET /api/v1/studios/:studioId/me/permissions': {
+        role: 'STAFF',
+        roleName: 'Bookkeeper',
+        permissions: ['money.read'],
+        duties: [],
+      },
+      'GET /api/v1/studios/:studioId/balances': [{ memberId: 'm1', memberName: 'Mo Maker', owed: '24.50' }],
+    });
+
+    await renderWithQueries(<Financials studioId="s1" />);
+
+    expect(await screen.findByRole('header', { name: 'Mo Maker' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Prepaid cards' })).toBeNull();
+    expect(screen.queryByText('Record a payment')).toBeNull();
+    expect(calls.some((c) => c.path.includes('/members'))).toBe(false);
+    expect(calls.some((c) => c.path.includes('/stored-values'))).toBe(false);
   });
 });

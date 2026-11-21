@@ -98,6 +98,19 @@ public final class TokenPolicy {
   /** Why a token with these scopes can't make this request, or empty if it can. */
   public static Optional<String> refusal(
       Set<TokenScope> scopes, String method, @Nullable String area) {
+    return refusal(scopes, method, area, null);
+  }
+
+  /**
+   * Why a token with these scopes can't make this request, or empty if it can. Rejects specific
+   * interactive-only sub-paths (such as Glazecalc OAuth lifecycle endpoints) regardless of scope.
+   */
+  public static Optional<String> refusal(
+      Set<TokenScope> scopes, String method, @Nullable String area, @Nullable String subPath) {
+    if ("glazes".equals(area) && isGlazecalcOAuthLifecycleSubPath(subPath)) {
+      return Optional.of(
+          "Connect or disconnect Glazecalc while signed in, not with an API token.");
+    }
     Access access =
         area == null
             ? new Never("Tokens work only inside their studio.")
@@ -110,6 +123,19 @@ public final class TokenPolicy {
       case Writable(TokenScope writeScope) ->
           reading ? needsRead(scopes) : needsScope(scopes, writeScope);
     };
+  }
+
+  private static boolean isGlazecalcOAuthLifecycleSubPath(@Nullable String subPath) {
+    if (subPath == null) {
+      return false;
+    }
+    String normalized = subPath;
+    while (normalized.endsWith("/")) {
+      normalized = normalized.substring(0, normalized.length() - 1);
+    }
+    return normalized.equals("/glazecalc/connect")
+        || normalized.equals("/glazecalc/callback")
+        || normalized.equals("/glazecalc/connection");
   }
 
   /** Reading anything a token can reach needs the read scope. */

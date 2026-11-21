@@ -10,7 +10,7 @@ export default function PieceScreen() {
 
   return (
     <Screen>
-      <PieceDetail studioId={studioId} pieceId={pieceId} staff={can('pieces.move')} />
+      <PieceDetail key={`${studioId}:${pieceId}`} studioId={studioId} pieceId={pieceId} staff={can('pieces.move')} />
     </Screen>
   );
 }

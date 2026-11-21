@@ -1,9 +1,10 @@
-import { getStudioOptions, listMyNotificationsOptions, useCan } from '@studiomanager/api-client';
+import { getStudioOptions, isApiError, listMyNotificationsOptions, useCan } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
-import { router, Tabs, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, Tabs, useLocalSearchParams } from 'expo-router';
 import { type ColorValue, Pressable, StyleSheet, Text } from 'react-native';
 
-import { usePalette } from '../../../ui';
+import { useAuth } from '../../../auth/AuthProvider';
+import { Body, Button, Card, ErrorText, Loading, Screen, Title, usePalette } from '../../../ui';
 
 function TabGlyph({ glyph, color }: { glyph: string; color: ColorValue }) {
   return (
@@ -14,12 +15,62 @@ function TabGlyph({ glyph, color }: { glyph: string; color: ColorValue }) {
 }
 
 export default function StudioLayout() {
-  const { studioId } = useLocalSearchParams<{ studioId: string }>();
+  const { studioId } = useLocalSearchParams<{ studioId?: string | string[] }>();
+  const auth = useAuth();
+
+  if (auth.status === 'starting') {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <Loading />
+      </Screen>
+    );
+  }
+  if (auth.status === 'signedOut') {
+    return <Redirect href="/" />;
+  }
+  const id = Array.isArray(studioId) ? (studioId[0] ?? '') : (studioId ?? '');
+  if (!id) {
+    return <Redirect href="/" />;
+  }
+  return <StudioTabs studioId={id} />;
+}
+
+function StudioTabs({ studioId }: { studioId: string }) {
   const palette = usePalette();
   const studio = useQuery(getStudioOptions({ path: { studioId } }));
   const { can } = useCan(studioId);
-  const notices = useQuery(listMyNotificationsOptions({ path: { studioId } }));
+  const notices = useQuery({
+    ...listMyNotificationsOptions({ path: { studioId } }),
+    enabled: studio.isSuccess,
+  });
   const unread = notices.data?.items.filter((n) => !n.readAt).length ?? 0;
+
+  if (studio.isPending) {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <Loading />
+      </Screen>
+    );
+  }
+  if (studio.isError) {
+    const noAccess = isApiError(studio.error) && studio.error.status === 403;
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <Card>
+          <Title>{noAccess ? 'No access' : "Couldn't open studio"}</Title>
+          {noAccess ? (
+            <Body>
+              You don&apos;t have access to this studio. If you should, ask the studio&apos;s owner to invite you.
+            </Body>
+          ) : (
+            <ErrorText error={studio.error} />
+          )}
+          <Button primary label="Back to studios" onPress={() => router.replace('/?choose=1')} />
+          {!noAccess && <Button label="Try again" onPress={() => void studio.refetch()} />}
+        </Card>
+      </Screen>
+    );
+  }
 
   function goBack() {
     if (router.canGoBack()) {
@@ -44,8 +95,12 @@ export default function StudioLayout() {
     <Tabs
       backBehavior="history"
       screenOptions={{
-        headerTitle: studio.data?.name ?? '',
+        headerTitle: studio.data.name,
+        headerStyle: { backgroundColor: palette.surface },
+        headerTintColor: palette.text,
         tabBarActiveTintColor: palette.accent,
+        tabBarInactiveTintColor: palette.muted,
+        tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border },
         sceneStyle: { backgroundColor: palette.background },
       }}
     >

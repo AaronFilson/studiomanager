@@ -10,9 +10,9 @@ web app.
 
 - **Pieces / My pieces:** members see their own pieces, stage, photos, and pickup dates. Staff
   (`pieces.move`) see the whole shelf, filter by stage, and advance pieces to their next stage.
-- **Drop off:** take in a piece measured in the studio's units. Staff (`pieces.intake_for_others`)
-  can pick the maker by name. A photo taken here is shrunk to JPEG and uploaded straight to Blob
-  Storage ([ADR 12](../docs/adr/0012-direct-to-blob-photo-uploads.md)).
+- **Drop off:** take in a piece measured in the studio's units. Staff (`pieces.intake_for_others`
+  and `members.read`) can pick the maker by name. A photo taken here is shrunk to JPEG and uploaded
+  straight to Blob Storage ([ADR 12](../docs/adr/0012-direct-to-blob-photo-uploads.md)).
 - **Tasks:** maintenance assigned to the caller by name or duty, with checklist ticks and notes,
   plus quick access to "Report a problem".
 - **Notices:** the member's inbox with an unread badge on the tab. Opening a notice marks it read.
@@ -25,17 +25,20 @@ web app.
 - **Today (`today.read`):** staff handover dashboard with pull-to-refresh, uncovered shifts,
   out-of-service kilns, low stock, open problems, kiln states, today's roster/bookings, and
   tap-through shortcuts.
-- **Kilns (`kilns.manage`):** kiln list, queue loading with `Fill from queue` and per-member cap
-  indicators, firing transitions (start, unload & notify makers, cancel), out-of-service toggle,
-  and firing log.
-- **Supplies (`supplies.manage`):** search and category filters, low-stock & substitute alerts,
-  custom quantity stock movements (`Received`, `Used`, `Counted`), member sales with a name picker,
-  one-tap `Request more`, and open purchase requests (`supplies.purchase.approve` for
-  Approve/Reject, `supplies.manage` for Ordered/Received).
-- **Glaze book:** browse Studio glazes, My recipes, and Shared recipes, view full recipes, and
-  scale dry batches (`g`, `kg`, `lb`, `oz`) with the interactive **Mix a batch** calculator.
+- **Kilns (`kilns.manage` / `firings.manage`):** kiln list, queue loading with `Fill from queue`
+  and per-member cap indicators, firing transitions (start, unload & notify makers, cancel) and
+  firing log (`firings.manage`), and out-of-service toggle (`kilns.manage`).
+- **Supplies (`supplies.manage` / `supplies.sell` / `supplies.purchase.request`):** search and
+  category filters, low-stock & substitute alerts, last purchase price & date badges, custom
+  quantity stock movements (`Received`, `Used`, `Counted` via `supplies.manage`), member sales with
+  a name picker (`supplies.sell` + `members.read`), one-tap `Request more` and open purchase
+  requests (`supplies.purchase.request`, plus `supplies.purchase.approve` for Approve/Reject).
+- **Glaze book:** browse Studio glazes, My recipes, and Shared recipes, view full recipes, scale
+  dry batches (`g`, `kg`, `lb`, `oz`) with **Mix a batch**, adjust buckets with the offline
+  **Slurry SG helper**, inspect offline **Chemistry & UMF** limit checks (`@studiomanager/glaze-chemistry`),
+  and record studio bucket mixes & SG readings (`glazes.studio.edit`).
 - **Roster & My hours:** upcoming shifts (take open shifts, cover offered shifts, ask for/retract
-  cover, staff mark worked) plus the caller's credited hours ledger.
+  cover, staff `Mark worked` via `schedule.hours.manage`) plus the caller's credited hours ledger.
 - **Calendar:** week-by-week studio bookings, resource reservation with certification/availability
   checks, and cancellation.
 - **Assistant suggestions (`proposals.review`):** review, approve, or reject MCP assistant
@@ -44,14 +47,19 @@ web app.
   maintained assets (with out-of-service toggles for non-kiln assets).
 - **Members & Access (`members.read`):** billing contact picker (`owners.manage`), co-owner
   promotion/step-down with last-owner guard, built-in and custom role assignment
-  (`members.role.assign`), duties checkboxes, equipment certifications, invite link creation with
-  native share sheet, bulk email invites, and open invite resend/withdraw (`members.invite`).
-- **Money & Payables (`money.read`, `money.payables.manage`):** member balances search and counter
-  payment recording, prepaid card redemption via a member name picker, and artist/instructor
-  payables with W-9 indicators, all formatted in the studio's real currency.
-- **My statement:** member's own balance, prepaid cards, and consignment summary (when applicable).
-- **Invite acceptance:** join a studio via `studiomanager://invites/<code>` deep link or by
-  pasting an invite code/link on the studio picker screen.
+  (`members.role.assign`), duties checkboxes (`members.duties.manage`), equipment certifications
+  (`members.certify`), invite link creation with native share sheet, bulk email invites, and open
+  invite resend/withdraw (`members.invite`).
+- **Money & Payables (`money.read`, `money.take_payment`, `money.stored_value.manage`,
+  `money.payables.manage`):** member balances search (`money.read`), counter payment recording
+  (`money.take_payment`), prepaid card redemption (`money.stored_value.manage`), and
+  artist/instructor payables with W-9 indicators (`money.payables.manage`), all formatted in the
+  studio's currency.
+- **My statement / My statement & consignment:** member's own balance, prepaid cards, and
+  consignment summary (when applicable).
+- **Deep links & OAuth callbacks:** join a studio via `studiomanager://invites/<code>` or by pasting
+  an invite code/link on the studio picker screen; Entra redirect callbacks (`studiomanager://auth`)
+  and unknown deep links are handled cleanly via `src/app/auth.tsx` and `src/app/+not-found.tsx`.
 
 **Deferred for v1:** push notifications (notices stay email + in-app inbox per owner decision) and
 complex desktop-only admin workflows (CSV imports, custom role matrix editing, AI key setup,

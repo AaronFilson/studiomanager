@@ -5,9 +5,9 @@
  * lib/chemistry/umf & lib/chemistry/expansion).
  */
 
-import { checkLimits, parseConeBand, type ConeBand, type LimitReport } from './limits';
+import { checkLimits, CONE_BAND_LABELS, parseConeBand, type ConeBand, type LimitReport } from './limits';
 import { findMaterial, type OxideAnalysis } from './materials';
-import { isFluxGroup, normalizeOxideKey, OXIDE_KEYS, OXIDES, type OxideKey } from './oxides';
+import { isFluxGroup, normalizeOxideWithFactor, OXIDE_KEYS, OXIDES, type OxideKey } from './oxides';
 
 export interface ImportedChemistrySnapshot {
   materialId?: string | null;
@@ -99,13 +99,13 @@ function parseSnapshotAnalysis(
   const analysis: OxideAnalysis = {};
   let hasAny = false;
   for (const [rawKey, rawVal] of Object.entries(snapshot.analysis)) {
-    const key = normalizeOxideKey(rawKey);
-    if (!key) {
+    const normalized = normalizeOxideWithFactor(rawKey);
+    if (!normalized) {
       continue;
     }
     const num = typeof rawVal === 'number' ? rawVal : Number(rawVal);
     if (Number.isFinite(num) && num > 0) {
-      analysis[key] = (analysis[key] ?? 0) + num;
+      analysis[normalized.key] = (analysis[normalized.key] ?? 0) + num * normalized.weightFactor;
       hasAny = true;
     }
   }
@@ -121,6 +121,15 @@ function parseSnapshotAnalysis(
 function predictStull(siO2: number, al2O3: number): StullPrediction {
   if (siO2 <= 0 && al2O3 <= 0) {
     return { siO2: 0, al2O3: 0, siAlRatio: null, surface: 'unknown', label: 'Unknown' };
+  }
+  if (siO2 < 0.5) {
+    return {
+      siO2: round3(siO2),
+      al2O3: round3(al2O3),
+      siAlRatio: al2O3 > 0.0001 ? round2(siO2 / al2O3) : null,
+      surface: 'underfired',
+      label: 'Insufficient silica (underfired / non-glassy)',
+    };
   }
   if (al2O3 <= 0.0001) {
     return {
@@ -237,7 +246,7 @@ export function analyzeRecipe(
     .filter((line) => Number.isFinite(line.numericAmount) && line.numericAmount > 0);
 
   let baseSum = numericLines
-    .filter((l) => l.kind === 'BASE')
+    .filter((l) => l.kind === 'BASE' && l.unit !== 'GRAMS')
     .reduce((sum, l) => sum + l.numericAmount, 0);
   if (baseSum <= 0) {
     baseSum = numericLines
@@ -261,7 +270,7 @@ export function analyzeRecipe(
     }
 
     const parts =
-      line.unit === 'PERCENT'
+      line.kind === 'ADDITION' && line.unit === 'PERCENT'
         ? line.numericAmount
         : baseSum > 0
           ? (line.numericAmount / baseSum) * 100
@@ -373,16 +382,19 @@ export function analyzeRecipe(
     }
   }
 
+  const valid = fluxMoles > 0;
   const siO2 = umf.SiO2 ?? 0;
   const al2O3 = umf.Al2O3 ?? 0;
   const stull = predictStull(siO2, al2O3);
   const cte = computeAppenCte(moles);
   const ctePerC = cte === null ? null : round2(cte / 10);
-  const limits = checkLimits(umf, coneBand);
+  const limits: LimitReport = valid
+    ? checkLimits(umf, coneBand)
+    : { band: coneBand, bandLabel: CONE_BAND_LABELS[coneBand], checks: [], outOfRange: [] };
   const loiPercent = totalParts > 0 ? round1((totalLoiWeight / totalParts) * 100) : 0;
 
   return {
-    valid: fluxMoles > 0,
+    valid,
     umf,
     firedWeightPercent,
     r2o,

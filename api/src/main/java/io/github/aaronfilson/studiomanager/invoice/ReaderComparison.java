@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -54,8 +55,6 @@ class ReaderComparison {
       long elapsedMs,
       ReaderResult.@Nullable Usage usage) {}
 
-  private record Target(InvoiceFileType fileType, @Nullable InvoiceDraft confirmedDraft) {}
-
   private final InvoiceRepository invoices;
   private final InvoiceReadRepository reads;
   private final InvoiceQueries queries;
@@ -83,23 +82,20 @@ class ReaderComparison {
 
   List<Compared> compare(UUID studioId, UUID invoiceId) {
     InvoiceInbox.requireBound(studioId);
-    Target target =
+    InvoiceFileType type =
         transactions.execute(tx -> {
           Invoice invoice =
               invoices
-                  .findWithLines(invoiceId)
+                  .findById(invoiceId)
                   .orElseThrow(() -> new NotFoundException("No such invoice."));
           if (invoice.status() == InvoiceStatus.UPLOADING) {
             throw new ConflictException("The file hasn't been uploaded yet.");
           }
-          return new Target(
-              invoice.fileType(),
-              invoice.status() == InvoiceStatus.CONFIRMED ? invoice.draft() : null);
+          return invoice.fileType();
         });
-    if (target == null) {
+    if (type == null) {
       throw new NotFoundException("No such invoice.");
     }
-    InvoiceFileType type = target.fileType();
     // Every reader gets the same upright, size-limited copy (docs/planning/24, "Images")
     InvoiceFile file =
         ReadingCopy.of(
@@ -114,8 +110,7 @@ class ReaderComparison {
       for (InvoiceReader reader : readers.everyForBoundStudio()) {
         goes.add(
             pool.submit(() ->
-                TenantContext.callAs(
-                    caller, () -> go(reader, studioId, invoiceId, file, target.confirmedDraft()))));
+                TenantContext.callAs(caller, () -> go(reader, studioId, invoiceId, file))));
       }
     }
     List<Compared> compared = new ArrayList<>();
@@ -125,15 +120,10 @@ class ReaderComparison {
     return compared;
   }
 
-  private Compared go(
-      InvoiceReader reader,
-      UUID studioId,
-      UUID invoiceId,
-      InvoiceFile file,
-      @Nullable InvoiceDraft confirmedDraft) {
+  private Compared go(InvoiceReader reader, UUID studioId, UUID invoiceId, InvoiceFile file) {
     ReaderAvailability availability = reader.availabilityForBoundStudio();
     return availability.ready()
-        ? run(reader, studioId, invoiceId, file, confirmedDraft)
+        ? run(reader, studioId, invoiceId, file)
         : new Compared(
             reader.kind(),
             availability,
@@ -161,13 +151,8 @@ class ReaderComparison {
     }
   }
 
-  private Compared run(
-      InvoiceReader reader,
-      UUID studioId,
-      UUID invoiceId,
-      InvoiceFile file,
-      @Nullable InvoiceDraft confirmedDraft) {
-    long started = clock.millis();
+  private Compared run(InvoiceReader reader, UUID studioId, UUID invoiceId, InvoiceFile file) {
+    long startedNanos = System.nanoTime();
     ReaderResult result = null;
     InvoiceRead.Outcome outcome;
     String note = null;
@@ -183,13 +168,16 @@ class ReaderComparison {
       outcome = InvoiceRead.Outcome.UNAVAILABLE;
       note = InvoiceFailures.UNEXPECTED;
     }
-    long elapsed = clock.millis() - started;
+    long elapsed = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
     ReaderResult.Usage usage = result == null ? null : result.usage();
     InvoiceRead.Outcome ended = outcome;
     Instant now = clock.instant();
     if (result == null) {
-      transactions.executeWithoutResult(
-          tx -> reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed)));
+      transactions.executeWithoutResult(tx -> {
+        if (invoices.findForShare(invoiceId).isPresent()) {
+          reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed));
+        }
+      });
       return new Compared(
           reader.kind(),
           ReaderAvailability.READY,
@@ -205,6 +193,14 @@ class ReaderComparison {
         InvoiceDrafts.sanitize(result.draft(), LocalDate.now(clock.withZone(ZoneOffset.UTC)));
     InvoiceDraft draft = sanitized.draft();
     transactions.executeWithoutResult(tx -> {
+      // Reload under a shared row lock: if the invoice was discarded while reading, skip saving
+      // instead of failing an FK check; if it was confirmed in the meantime, score immediately so
+      // scored_at is never cleared on a confirmed invoice.
+      Optional<Invoice> current = invoices.findForShare(invoiceId);
+      if (current.isEmpty()) {
+        return;
+      }
+      Invoice invoice = current.get();
       reads.save(new InvoiceRead(invoiceId, reader.kind(), ended, usage, elapsed));
       UUID comparisonId =
           queries.saveComparison(
@@ -216,7 +212,8 @@ class ReaderComparison {
               elapsed,
               usage == null ? null : usage.costUsd(),
               now);
-      if (confirmedDraft != null) {
+      if (invoice.status() == InvoiceStatus.CONFIRMED) {
+        InvoiceDraft confirmedDraft = invoice.draft();
         InvoiceScorer.Score score = InvoiceScorer.score(confirmedDraft, draft);
         InvoiceScorer.Checked checked = InvoiceScorer.checks(confirmedDraft, draft, score);
         queries.saveComparisonScore(comparisonId, score, checked, now);

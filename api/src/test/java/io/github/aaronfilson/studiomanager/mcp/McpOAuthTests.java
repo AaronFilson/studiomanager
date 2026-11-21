@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import com.jayway.jsonpath.JsonPath;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -40,10 +41,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -81,22 +84,29 @@ class McpOAuthTests {
 
   private final TestUser owner = TestUser.named("Olive");
   private final TestUser staff = TestUser.named("Sam");
+  private final TestUser entraStaff = TestUser.named("Erin");
   private UUID studioA;
   private UUID studioB;
   private UUID ownerId;
   private UUID staffId;
+  private UUID entraStaffId;
 
   @BeforeEach
   void setUp() {
-    studioA = createStudio(owner, "Studio A");
-    studioB = createStudio(owner, "Studio B");
-    ownerId = accountOf(owner);
-    staffId = join(staff, "STAFF");
+    studioA = createStudio(owner, MCP_ISSUER, "Studio A");
+    studioB = createStudio(owner, MCP_ISSUER, "Studio B");
+    ownerId = accountOf(owner, MCP_ISSUER);
+    staffId = join(staff, MCP_ISSUER, "STAFF");
+    entraStaffId = join(entraStaff, TestUser.ISSUER, "STAFF");
   }
 
   @Test
   void rfc9728MetadataAndWwwAuthenticateHeaderAdvertiseAuthorizationServer() {
-    MvcTestResult root = mvc.get().uri("/.well-known/oauth-protected-resource").exchange();
+    MvcTestResult root =
+        mvc.get()
+            .uri("/.well-known/oauth-protected-resource")
+            .header(HttpHeaders.HOST, "evil.example")
+            .exchange();
     assertThat(root).hasStatusOk().hasContentType(MediaType.APPLICATION_JSON);
     assertThat(root).bodyJson().extractingPath("$.resource").isEqualTo(MCP_AUDIENCE);
     assertThat(root).bodyJson().extractingPath("$.authorization_servers[0]").isEqualTo(MCP_ISSUER);
@@ -108,6 +118,7 @@ class McpOAuthTests {
     MvcTestResult perStudio =
         mvc.get()
             .uri("/.well-known/oauth-protected-resource/api/v1/studios/{id}/mcp", studioA)
+            .header(HttpHeaders.HOST, "evil.example")
             .exchange();
     assertThat(perStudio).hasStatusOk().hasContentType(MediaType.APPLICATION_JSON);
     assertThat(perStudio)
@@ -123,10 +134,12 @@ class McpOAuthTests {
     assertThat(mvc.get().uri("/.well-known/oauth-protected-resource/api/v1/studios/not-a-uuid/mcp"))
         .hasStatus(HttpStatus.BAD_REQUEST);
 
-    // Unauthenticated MCP request returns 401 with WWW-Authenticate resource_metadata
+    // Unauthenticated MCP request returns 401 with WWW-Authenticate resource_metadata from
+    // configured audience (never reflecting Host header)
     MvcTestResult unauthenticated =
         mvc.post()
             .uri(mcpPath(studioA))
+            .header(HttpHeaders.HOST, "evil.example")
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
             .content("{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}")
@@ -142,7 +155,7 @@ class McpOAuthTests {
 
   @Test
   void validMcpOAuthJwtSucceedsOnMcpAndEnforcesScopesAndLivePermissions() throws Exception {
-    // Works with the Entra subject AND per-studio RFC 8707 audience
+    // Works with the MCP issuer's (iss, sub) AND per-studio RFC 8707 audience
     String perStudioAudience = "https://api.studiomanager.test/api/v1/studios/" + studioA + "/mcp";
     String readOnlyJwt = mintJwt(TRUSTED_KEY, owner.subject(), studioA, "read", perStudioAudience);
 
@@ -150,13 +163,41 @@ class McpOAuthTests {
     assertThat(today).hasStatusOk();
     assertThat(today).bodyJson().extractingPath("$.result.isError").isEqualTo(false);
 
-    // Also works with account UUID in sub AND base MCP audience
-    String accountSubJwt = mintJwt(TRUSTED_KEY, ownerId.toString(), studioA, "read", MCP_AUDIENCE);
-    assertThat(callTool(studioA, accountSubJwt, "kilns", "{}"))
+    // Also works with base MCP audience for the same (MCP_ISSUER, subject) account
+    String baseAudJwt = mintJwt(TRUSTED_KEY, owner.subject(), studioA, "read", MCP_AUDIENCE);
+    assertThat(callTool(studioA, baseAudJwt, "kilns", "{}"))
         .hasStatusOk()
         .bodyJson()
         .extractingPath("$.result.isError")
         .isEqualTo(false);
+
+    // Internal account.id UUID and cross-issuer Entra subject MUST be rejected (H3)
+    String internalUuidSubJwt =
+        mintJwt(TRUSTED_KEY, ownerId.toString(), studioA, "read", MCP_AUDIENCE);
+    assertThat(
+            rpc(
+                studioA,
+                internalUuidSubJwt,
+                "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
+
+    String crossIssuerEntraSubJwt =
+        mintJwt(TRUSTED_KEY, entraStaff.subject(), studioA, "read", MCP_AUDIENCE);
+    assertThat(
+            rpc(
+                studioA,
+                crossIssuerEntraSubJwt,
+                "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
+
+    String crossIssuerEntraUuidJwt =
+        mintJwt(TRUSTED_KEY, entraStaffId.toString(), studioA, "read", MCP_AUDIENCE);
+    assertThat(
+            rpc(
+                studioA,
+                crossIssuerEntraUuidJwt,
+                "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
 
     // Read-only MCP OAuth token cannot propose changes
     String itemId = createSupplyItem(studioA, "Cone 6 B-Mix");
@@ -200,6 +241,7 @@ class McpOAuthTests {
         read(
             post(
                 owner,
+                MCP_ISSUER,
                 "/api/v1/studios/" + studioA + "/api-tokens",
                 "{\"name\": \"Personal\", \"scopes\": [\"read\"]}"),
             "$.secret");
@@ -211,7 +253,7 @@ class McpOAuthTests {
     assertThat(
             mvc.post()
                 .uri(mcpPath(studioA))
-                .with(owner.token())
+                .with(entraStaff.token())
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
                 .content("{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
@@ -406,6 +448,7 @@ class McpOAuthTests {
     MvcTestResult created =
         post(
             owner,
+            MCP_ISSUER,
             "/api/v1/studios/" + studioId + "/supplies",
             """
             {"name": "%s", "category": "CLAY", "unit": "bag", "parLevel": "10", "reorderQuantity": "20"}
@@ -415,10 +458,11 @@ class McpOAuthTests {
     return read(created, "$.id");
   }
 
-  private UUID createStudio(TestUser user, String name) {
+  private UUID createStudio(TestUser user, String issuer, String name) {
     MvcTestResult created =
         post(
             user,
+            issuer,
             "/api/v1/studios",
             """
             {"name": "%s", "unitSystem": "US_CUSTOMARY", "timeZone": "America/Chicago", "country": "US"}
@@ -428,32 +472,52 @@ class McpOAuthTests {
     return UUID.fromString(read(created, "$.id"));
   }
 
-  private UUID join(TestUser user, String role) {
+  private UUID join(TestUser user, String issuer, String role) {
     String code =
         read(
-            post(owner, "/api/v1/studios/" + studioA + "/invites", "{\"role\": \"" + role + "\"}"),
+            post(
+                owner,
+                MCP_ISSUER,
+                "/api/v1/studios/" + studioA + "/invites",
+                "{\"role\": \"" + role + "\"}"),
             "$.code");
-    assertThat(mvc.post().uri("/api/v1/invites/{code}/accept", code).with(user.token()))
+    assertThat(
+            mvc.post()
+                .uri("/api/v1/invites/{code}/accept", code)
+                .with(tokenWithIssuer(user, issuer)))
         .hasStatusOk();
-    return accountOf(user);
+    return accountOf(user, issuer);
   }
 
-  private UUID accountOf(TestUser user) {
+  private UUID accountOf(TestUser user, String issuer) {
     return UUID.fromString(
-        read(mvc.get().uri("/api/v1/me").with(user.token()).exchange(), "$.account.id"));
+        read(
+            mvc.get().uri("/api/v1/me").with(tokenWithIssuer(user, issuer)).exchange(),
+            "$.account.id"));
   }
 
   private <T> T asOwner(ScopedValue.CallableOp<T, RuntimeException> operation) {
     return TenantContext.callAs(new TenantContext(ownerId, studioA, StudioRole.OWNER), operation);
   }
 
-  private MvcTestResult post(TestUser user, String uri, String json) {
+  private MvcTestResult post(TestUser user, String issuer, String uri, String json) {
     return mvc.post()
         .uri(uri)
-        .with(user.token())
+        .with(tokenWithIssuer(user, issuer))
         .contentType(MediaType.APPLICATION_JSON)
         .content(json)
         .exchange();
+  }
+
+  private static RequestPostProcessor tokenWithIssuer(TestUser user, String issuer) {
+    return jwt()
+        .jwt(token ->
+            token
+                .issuer(issuer)
+                .subject(user.subject())
+                .claim("name", user.name())
+                .claim("email", user.email()))
+        .authorities(new SimpleGrantedAuthority("SCOPE_access_as_user"));
   }
 
   private static String mcpPath(UUID studioId) {

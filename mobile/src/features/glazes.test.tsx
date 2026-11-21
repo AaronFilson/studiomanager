@@ -138,8 +138,12 @@ describe('glazes', () => {
       ),
     );
 
-    // Staff can log a new studio mix and record an SG reading
+    // Staff can log a new studio mix and record an SG reading (clean visible labels without mix UUID)
+    expect(screen.getByText('New SG reading')).toBeOnTheScreen();
+    expect(screen.queryByText('New SG reading for mix mix1')).toBeNull();
     await fireEvent.changeText(screen.getByLabelText('Dry weight (g)'), '10000');
+    await fireEvent.changeText(screen.getByLabelText('Water (g, optional)'), 'not-a-number');
+    expect(screen.getByRole('button', { name: 'Log mix' })).toBeDisabled();
     await fireEvent.changeText(screen.getByLabelText('Water (g, optional)'), '7500');
     await fireEvent.press(screen.getByRole('button', { name: 'Log mix' }));
     await waitFor(() =>

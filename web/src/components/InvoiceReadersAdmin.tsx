@@ -156,6 +156,17 @@ function ReadersForm({ overview, studios }: { overview: InvoiceReaderOverview; s
   );
 }
 
+function notSetUpMessage(reader: InvoiceReader): string {
+  switch (reader) {
+    case 'GOOGLE_DOCUMENT_AI':
+      return 'Not set up on this server, so it never reads, whatever is chosen here. See docs/runbooks/google-document-ai.md.';
+    case 'AZURE_DOCUMENT_INTELLIGENCE':
+      return 'Not set up on this server, so it never reads, whatever is chosen here. Configure STUDIOMANAGER_INVOICES_AZURE_ENDPOINT in the API deployment.';
+    case 'CLAUDE':
+      return 'Not set up on this server, so it never reads, whatever is chosen here.';
+  }
+}
+
 function ReaderRuleFields({
   rule,
   studios,
@@ -174,12 +185,10 @@ function ReaderRuleFields({
   return (
     <fieldset className="stack">
       <legend>{label}</legend>
-      <p role="status" className={setUp ? undefined : 'warning'}>
-        {setUp
-          ? 'Set up on this server.'
-          : 'Not set up on this server, so it never reads, whatever is chosen here. See docs/runbooks/google-document-ai.md.'}
+      <p className={setUp ? undefined : 'warning'}>
+        {setUp ? 'Set up on this server.' : notSetUpMessage(rule.reader)}
       </p>
-      <p role="status">
+      <p>
         This month: {String(usage?.pages ?? 0)} pages in {String(usage?.reads ?? 0)} reads, about $
         {usage?.costUsd ?? '0.0000'}.
       </p>

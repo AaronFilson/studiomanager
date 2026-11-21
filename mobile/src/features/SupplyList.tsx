@@ -30,18 +30,21 @@ export function SupplyList({ studioId }: { studioId: string }) {
   const studio = useQuery(getStudioOptions({ path: { studioId } }));
   const permissions = useCan(studioId);
   const { can } = permissions;
-  const staff = can('supplies.manage');
+  const canManage = can('supplies.manage');
+  const canRequest = can('supplies.purchase.request');
+  const canSell = can('supplies.sell') && can('members.read');
   const canApprove = can('supplies.purchase.approve');
 
   const supplies = useQuery(listSuppliesOptions({ path: { studioId } }));
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<SupplyCategory | undefined>(undefined);
 
-  if (supplies.isPending || permissions.isPending) return <Loading />;
+  if (studio.isPending || supplies.isPending || permissions.isPending) return <Loading />;
+  if (studio.isError) return <ErrorText error={studio.error} />;
   if (supplies.isError) return <ErrorText error={supplies.error} />;
   if (permissions.isError) return <ErrorText error={permissions.error} />;
 
-  const currency = studio.data?.currency ?? 'USD';
+  const currency = studio.data.currency;
   const term = search.trim().toLowerCase();
   const filtered = supplies.data.filter((item) => {
     if (category && item.category !== category) return false;
@@ -70,13 +73,14 @@ export function SupplyList({ studioId }: { studioId: string }) {
       />
 
       <View style={styles.rowWrap} accessibilityRole="radiogroup" accessibilityLabel="Category">
-        <Button compact label="All" primary={!category} onPress={() => setCategory(undefined)} />
+        <Button compact label="All" primary={!category} selected={!category} onPress={() => setCategory(undefined)} />
         {supplyCategories.map((c) => (
           <Button
             key={c}
             compact
             label={supplyCategoryLabel(c)}
             primary={category === c}
+            selected={category === c}
             onPress={() => setCategory(c)}
           />
         ))}
@@ -87,10 +91,18 @@ export function SupplyList({ studioId }: { studioId: string }) {
       )}
 
       {filtered.map((item) => (
-        <SupplyCard key={item.id} studioId={studioId} item={item} staff={staff} currency={currency} />
+        <SupplyCard
+          key={item.id}
+          studioId={studioId}
+          item={item}
+          canManage={canManage}
+          canRequest={canRequest}
+          canSell={canSell}
+          currency={currency}
+        />
       ))}
 
-      {staff && <PurchaseRequestsSection studioId={studioId} canApprove={canApprove} />}
+      {canRequest && <PurchaseRequestsSection studioId={studioId} canApprove={canApprove} />}
     </ScrollView>
   );
 }
@@ -98,12 +110,16 @@ export function SupplyList({ studioId }: { studioId: string }) {
 function SupplyCard({
   studioId,
   item,
-  staff,
+  canManage,
+  canRequest,
+  canSell,
   currency,
 }: {
   studioId: string;
   item: SupplyItem;
-  staff: boolean;
+  canManage: boolean;
+  canRequest: boolean;
+  canSell: boolean;
   currency: string;
 }) {
   const queryClient = useQueryClient();
@@ -126,13 +142,16 @@ function SupplyCard({
 
   const members = useQuery({
     ...listMembersOptions({ path: { studioId } }),
-    enabled: staff && item.salePrice !== undefined && selling,
+    enabled: canSell && item.salePrice !== undefined && selling,
   });
 
   const qtyTrimmed = quantity.trim();
   const qtyValid = decimal.test(qtyTrimmed);
   const qtyPositive = qtyValid && Number(qtyTrimmed) > 0;
   const error = move.error ?? request.error ?? sell.error;
+  const canSellItem = canSell && item.salePrice !== undefined;
+  const canRequestItem = canRequest && item.needsOrdering;
+  const showControls = canManage || canRequestItem || canSellItem;
 
   const memberTerm = memberSearch.trim().toLowerCase();
   const memberMatches = (members.data ?? [])
@@ -164,40 +183,46 @@ function SupplyCard({
       {item.supplier && <Body muted>Supplier: {item.supplier}</Body>}
       {item.low && item.substitute && <Badge warning>Substitute: {item.substitute}</Badge>}
 
-      {staff && (
+      {showControls && (
         <View style={styles.group}>
-          <Field
-            label={`Quantity for ${item.name}`}
-            value={quantity}
-            onChangeText={setQuantity}
-            keyboardType="decimal-pad"
-          />
+          {(canManage || canSellItem) && (
+            <Field
+              label={`Quantity for ${item.name}`}
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="decimal-pad"
+            />
+          )}
           <View style={styles.rowWrap}>
-            <Button
-              compact
-              label="Received"
-              disabled={move.isPending || !qtyPositive}
-              onPress={() =>
-                move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'RECEIVED', quantity: qtyTrimmed } })
-              }
-            />
-            <Button
-              compact
-              label="Used"
-              disabled={move.isPending || !qtyPositive}
-              onPress={() =>
-                move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'USED', quantity: qtyTrimmed } })
-              }
-            />
-            <Button
-              compact
-              label="Counted"
-              disabled={move.isPending || !qtyValid}
-              onPress={() =>
-                move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'COUNTED', quantity: qtyTrimmed } })
-              }
-            />
-            {item.needsOrdering && (
+            {canManage && (
+              <>
+                <Button
+                  compact
+                  label="Received"
+                  disabled={move.isPending || !qtyPositive}
+                  onPress={() =>
+                    move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'RECEIVED', quantity: qtyTrimmed } })
+                  }
+                />
+                <Button
+                  compact
+                  label="Used"
+                  disabled={move.isPending || !qtyPositive}
+                  onPress={() =>
+                    move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'USED', quantity: qtyTrimmed } })
+                  }
+                />
+                <Button
+                  compact
+                  label="Counted"
+                  disabled={move.isPending || !qtyValid}
+                  onPress={() =>
+                    move.mutate({ path: { studioId, itemId: item.id }, body: { kind: 'COUNTED', quantity: qtyTrimmed } })
+                  }
+                />
+              </>
+            )}
+            {canRequestItem && (
               <Button
                 compact
                 primary
@@ -206,7 +231,7 @@ function SupplyCard({
                 onPress={() => request.mutate({ path: { studioId }, body: { itemId: item.id } })}
               />
             )}
-            {item.salePrice !== undefined && (
+            {canSellItem && (
               <Button
                 compact
                 label={selling ? 'Cancel sale' : 'Sell to member'}
@@ -219,7 +244,7 @@ function SupplyCard({
             )}
           </View>
 
-          {selling && item.salePrice !== undefined && (
+          {selling && canSellItem && (
             <View style={styles.sellBox}>
               {buyer ? (
                 <View style={styles.group}>

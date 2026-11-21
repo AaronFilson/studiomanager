@@ -228,6 +228,192 @@ class KilnLogParserTests {
         .hasMessageContaining("NonexistentCol");
   }
 
+  @Test
+  void rejectsOutOfRangeTemperaturesDurationsAndTooManyZones() {
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "Elapsed,Temp\n0,72\n10,10000.0\n",
+                KilnLogSource.OTHER,
+                null,
+                null,
+                CHICAGO,
+                TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("out of range");
+
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "Elapsed,Temp\n0,-5\n10,500\n",
+                KilnLogSource.OTHER,
+                null,
+                null,
+                CHICAGO,
+                TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("out of range");
+
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "Elapsed,Temp,Setpoint\n0,72,72\n10,500,12000\n",
+                KilnLogSource.OTHER,
+                null,
+                null,
+                CHICAGO,
+                TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("Setpoint");
+
+    // Duration > 1 year (525,600 minutes) via timestamps
+    String multiYear =
+        "Timestamp,Temp\n2025-01-01T00:00:00Z,70\n2027-01-01T00:00:00Z,1800\n";
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                multiYear, KilnLogSource.TAP, null, null, CHICAGO, TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("525,600");
+
+    // Duration > 1 year via numeric elapsed
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                "Minutes,Temp\n0,70\n600000,1800\n",
+                KilnLogSource.OTHER,
+                null,
+                null,
+                CHICAGO,
+                TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("525,600");
+
+    // More than 16 zone columns rejected
+    StringBuilder seventeenZones = new StringBuilder("Elapsed");
+    StringBuilder row = new StringBuilder("0");
+    for (int z = 1; z <= 17; z++) {
+      seventeenZones.append(",TC").append(z);
+      row.append(",700");
+    }
+    String tooManyZonesCsv = seventeenZones + "\n" + row + "\n";
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                tooManyZonesCsv, KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("16");
+
+    // Dense newline payload aborts incrementally at row cap
+    String denseNewlines = "1\n".repeat(60_000);
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                denseNewlines, KilnLogSource.OTHER, null, null, CHICAGO, TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("50,000");
+  }
+
+  @Test
+  void ignoresMultiZoneSetpointsNonChamberTempsAndOmitsIncompleteZoneRows() {
+    String csv =
+        """
+        Elapsed,TC1,TC2,TC3,Zone 1 Setpoint,Zone 2 Setpoint,Zone 3 Setpoint,Board Temp,Ambient Temp,CJ Temp,TC1 Offset
+        00:00:00,72,70,74,75,75,75,85,71,72,0
+        01:00:00,600,,610,605,605,605,95,72,73,0
+        02:00:00,1200,1198,1202,1200,1200,1200,110,73,74,0
+        """;
+
+    KilnLogParser.ParsedLog parsed =
+        KilnLogParser.parse(csv, KilnLogSource.GENESIS, null, null, CHICAGO, TemperatureUnit.F);
+
+    // Only TC1, TC2, TC3 are counted as kiln chamber zones (not Zone 2/3 Setpoint or
+    // Board/Ambient/CJ/Offset)
+    assertThat(parsed.zoneCount()).isEqualTo(3);
+    assertThat(parsed.peakTemp()).isEqualByComparingTo(new BigDecimal("1200.00"));
+    assertThat(parsed.temperatureCurve()).hasSize(3);
+    assertThat(parsed.temperatureCurve().get(0).zoneTemps()).containsExactly(72.0, 70.0, 74.0);
+    // Partial row (blank TC2) computes average from TC1 & TC3 and omits zoneTemps rather than
+    // shifting TC3 into Zone 2.
+    assertThat(parsed.temperatureCurve().get(1).temp()).isEqualTo(605.0);
+    assertThat(parsed.temperatureCurve().get(1).zoneTemps()).isNull();
+    assertThat(parsed.temperatureCurve().get(2).zoneTemps())
+        .containsExactly(1200.0, 1198.0, 1202.0);
+  }
+
+  @Test
+  void handlesLeadingSpaceQuotesPreambleColonMidnightRolloverAndDescendingTimestamps() {
+    // Leading space before quoted header + preamble key with trailing colon before comma
+    String csv =
+        """
+        Start Time:,2026-11-10 08:00:00
+        Cone:,6
+        Elapsed, "Temp, Chamber", "Note, Extra"
+        0,72,"ok, fine"
+        60,1850,"peak"
+        """;
+
+    KilnLogParser.ParsedLog parsed =
+        KilnLogParser.parse(csv, KilnLogSource.OTHER, null, null, CHICAGO, TemperatureUnit.F);
+    assertThat(parsed.startedAt()).isEqualTo(Instant.parse("2026-11-10T14:00:00Z"));
+    assertThat(parsed.finishedAt()).isEqualTo(Instant.parse("2026-11-10T15:00:00Z"));
+    assertThat(parsed.detectedCone()).isEqualTo("6");
+    assertThat(parsed.peakTemp()).isEqualByComparingTo(new BigDecimal("1850.00"));
+
+    // Small backward clock step (DST fall-back or 1s jitter) does NOT trigger +24h rollover,
+    // while genuine midnight crossing (23:30 -> 00:30) does.
+    String dstJitterCsv =
+        """
+        Date: 2026-11-01
+        Time,Temp
+        01:55:00,500
+        01:54:59,510
+        01:00:00,600
+        02:30:00,1200
+        """;
+    KilnLogParser.ParsedLog dstParsed =
+        KilnLogParser.parse(
+            dstJitterCsv, KilnLogSource.OTHER, null, null, CHICAGO, TemperatureUnit.F);
+    assertThat(dstParsed.durationMinutes()).isEqualTo(35);
+
+    String midnightCsv =
+        """
+        Date: 2026-11-10
+        Time,Temp
+        23:30:00,500
+        00:30:00,1200
+        """;
+    KilnLogParser.ParsedLog midnightParsed =
+        KilnLogParser.parse(
+            midnightCsv, KilnLogSource.OTHER, null, null, CHICAGO, TemperatureUnit.F);
+    assertThat(midnightParsed.durationMinutes()).isEqualTo(60);
+
+    // Strictly descending timestamps are reversed into chronological order so
+    // finishedAt >= startedAt
+    String descendingCsv =
+        """
+        Timestamp,Temp (C)
+        2026-11-10 17:30,820
+        2026-11-10 15:30,1222
+        2026-11-10 09:00,22
+        """;
+    KilnLogParser.ParsedLog reversed =
+        KilnLogParser.parse(
+            descendingCsv, KilnLogSource.TAP, null, null, LONDON, TemperatureUnit.F);
+    assertThat(reversed.startedAt()).isEqualTo(Instant.parse("2026-11-10T09:00:00Z"));
+    assertThat(reversed.finishedAt()).isEqualTo(Instant.parse("2026-11-10T17:30:00Z"));
+    assertThat(reversed.durationMinutes()).isEqualTo(510);
+    assertThat(reversed.temperatureCurve().getFirst().temp()).isEqualTo(22.0);
+    assertThat(reversed.temperatureCurve().getLast().temp()).isEqualTo(820.0);
+
+    // Scrambled timestamps where end < start are rejected
+    String scrambledCsv =
+        """
+        Timestamp,Temp (C)
+        2026-11-10 10:00,100
+        2026-11-10 11:00,500
+        2026-11-10 09:00,22
+        """;
+    assertThatThrownBy(() ->
+            KilnLogParser.parse(
+                scrambledCsv, KilnLogSource.TAP, null, null, LONDON, TemperatureUnit.F))
+        .isInstanceOf(InvalidInputException.class)
+        .hasMessageContaining("out of order");
+  }
+
   private static String fixture(String path) throws IOException {
     return new ClassPathResource(path).getContentAsString(StandardCharsets.UTF_8);
   }

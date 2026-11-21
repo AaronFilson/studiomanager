@@ -156,6 +156,10 @@ class Invoice {
     return invoiceNumber;
   }
 
+  @Nullable LocalDate invoiceDate() {
+    return invoiceDate;
+  }
+
   List<InvoiceLine> lines() {
     return List.copyOf(lines);
   }

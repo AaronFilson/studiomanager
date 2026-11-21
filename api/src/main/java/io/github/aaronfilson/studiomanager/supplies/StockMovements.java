@@ -67,6 +67,21 @@ class StockMovements {
   }
 
   /**
+   * Records stock received from a confirmed supplier invoice, locking the item row once and
+   * returning it without querying current stock on hand (receiving stock can never cause a
+   * stock-out).
+   */
+  @Transactional
+  public SupplyItem receive(UUID itemId, BigDecimal quantity, @Nullable String note) {
+    SupplyItem item = lock(itemId);
+    BigDecimal change = SupplyService.positive(quantity);
+    entityManager.persist(
+        new StockMovement(itemId, MovementKind.RECEIVED, change, null, SupplyService.clean(note)));
+    entityManager.flush();
+    return item;
+  }
+
+  /**
    * Loads an item and holds its row until the transaction ends. Every movement starts here.
    *
    * @throws NotFoundException if the studio has no such item

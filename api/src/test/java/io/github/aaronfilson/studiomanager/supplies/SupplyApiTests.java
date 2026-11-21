@@ -227,9 +227,49 @@ class SupplyApiTests {
     assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
         .hasStatusOk()
         .bodyJson()
-        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("32.51"))
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("32.505"))
         .hasPathSatisfying(
             "$[0].lastPurchasedAt", d -> assertThat(d).isEqualTo("2026-10-14T15:30:00Z"));
+
+    // Strictly older purchase timestamp does not overwrite newer price
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(
+              clayId, new BigDecimal("19.00"), Instant.parse("2026-10-01T00:00:00Z"));
+          return null;
+        });
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("32.505"))
+        .hasPathSatisfying(
+            "$[0].lastPurchasedAt", d -> assertThat(d).isEqualTo("2026-10-14T15:30:00Z"));
+
+    // Preserves up to 4 decimals (HALF_UP) and formats whole/tenths with at least 2 decimals
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(
+              clayId, new BigDecimal("0.08756"), Instant.parse("2026-10-15T00:00:00Z"));
+          return null;
+        });
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("0.0876"));
+
+    TenantContext.callAs(
+        asOwner,
+        () -> {
+          supplies.recordPurchasePrice(
+              clayId, new BigDecimal("18.5"), Instant.parse("2026-10-16T00:00:00Z"));
+          return null;
+        });
+    assertThat(mvc.get().uri(path("/supplies")).with(owner.token()))
+        .hasStatusOk()
+        .bodyJson()
+        .hasPathSatisfying("$[0].lastPurchaseUnitPrice", p -> assertThat(p).isEqualTo("18.50"));
 
     assertThatThrownBy(() ->
             TenantContext.callAs(

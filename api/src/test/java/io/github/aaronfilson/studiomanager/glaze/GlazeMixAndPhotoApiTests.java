@@ -83,13 +83,13 @@ class GlazeMixAndPhotoApiTests {
                 "{\"dryWeightG\": \"5000\", \"waterG\": \"3800\"}"))
         .hasStatus(HttpStatus.FORBIDDEN);
 
-    // Staff logs a mix with an on-target initial reading
+    // Staff logs a mix with an on-target initial reading (trailing zeros past DB scale allowed)
     MvcTestResult mixed =
         post(
             owner,
             path("/glazes/" + studioGlazeId + "/mixes"),
             """
-            {"dryWeightG": "10000", "waterG": "7500", "specificGravity": "1.46", "notes": "Bucket #1"}
+            {"dryWeightG": "10000.000", "waterG": "7500.000", "specificGravity": "1.4600", "notes": "Bucket #1"}
             """);
     assertThat(mixed).hasStatus(HttpStatus.CREATED);
     assertThat(mixed).bodyJson().extractingPath("$.readings[0].offTarget").isEqualTo(false);
@@ -320,6 +320,31 @@ class GlazeMixAndPhotoApiTests {
         .bodyJson()
         .extractingPath("$.ownerKind")
         .isEqualTo("MEMBER");
+
+    // Deleting a recipe with an uploaded photo also removes its blobs after commit
+    MvcTestResult secondUpload = post(mo, path("/glazes/" + memberGlazeId + "/photos"), "");
+    String secondPhotoId = read(secondUpload, "$.photoId");
+    assertThat(put(read(secondUpload, "$.photoUploadUrl"), JPEG)).isEqualTo(201);
+    assertThat(put(read(secondUpload, "$.thumbnailUploadUrl"), JPEG)).isEqualTo(201);
+    MvcTestResult secondCompleted =
+        post(mo, path("/glazes/" + memberGlazeId + "/photos/" + secondPhotoId + "/complete"), "");
+    assertThat(secondCompleted).hasStatusOk();
+    String secondPhotoUrl = read(secondCompleted, "$.photos[0].url");
+    assertThat(
+            http.send(
+                    HttpRequest.newBuilder(URI.create(secondPhotoUrl)).build(),
+                    HttpResponse.BodyHandlers.discarding())
+                .statusCode())
+        .isEqualTo(200);
+
+    assertThat(mvc.delete().uri(path("/glazes/" + memberGlazeId)).with(mo.token()))
+        .hasStatus(HttpStatus.NO_CONTENT);
+    assertThat(
+            http.send(
+                    HttpRequest.newBuilder(URI.create(secondPhotoUrl)).build(),
+                    HttpResponse.BodyHandlers.discarding())
+                .statusCode())
+        .isEqualTo(404);
   }
 
   private int put(String url, byte[] body) throws Exception {

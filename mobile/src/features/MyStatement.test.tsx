@@ -101,4 +101,25 @@ describe('MyStatement', () => {
     expect(screen.getByText('No active prepaid balances.')).toBeOnTheScreen();
     expect(screen.queryByText('My consignment')).toBeNull();
   });
+
+  it('surfaces non-404 consignment errors instead of hiding them', async () => {
+    stubApi({
+      'GET /api/v1/me': { account: { id: 'm1', displayName: 'Mo Maker' }, memberships: [] },
+      'GET /api/v1/studios/:studioId': studio,
+      'GET /api/v1/studios/:studioId/members/:accountId/statement': {
+        memberId: 'm1',
+        owed: '0.00',
+        storedValues: [],
+      },
+      'GET /api/v1/studios/:studioId/my-consignment': () =>
+        new Response(JSON.stringify({ status: 500, detail: 'Consignment ledger unavailable' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/problem+json' },
+        }),
+    });
+
+    await renderWithQueries(<MyStatement studioId="s1" />);
+
+    expect(await screen.findByText('Consignment ledger unavailable')).toBeOnTheScreen();
+  });
 });

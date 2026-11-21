@@ -1,5 +1,6 @@
 package io.github.aaronfilson.studiomanager.kiln;
 
+import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.studio.StudioService;
 import io.github.aaronfilson.studiomanager.studio.StudioView;
@@ -9,8 +10,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Limit;
@@ -31,6 +34,8 @@ public class KilnLogImportService {
 
   static final Duration OVERLAP_WINDOW = Duration.ofHours(2);
   private static final int MATCH_SCAN_LIMIT = 100;
+  private static final Set<FiringView.Status> ATTACHABLE_STATUSES =
+      EnumSet.of(FiringView.Status.FIRING, FiringView.Status.COMPLETE);
 
   private final KilnService kilns;
   private final FiringService reads;
@@ -104,6 +109,7 @@ public class KilnLogImportService {
     if (targetFiringId != null) {
       Firing target = reads.find(targetFiringId);
       ensureSameKiln(target, kiln.id());
+      ensureAttachableStatus(target);
     }
     SuggestedMatch suggested = targetFiringId == null ? findOverlap(kiln.id(), parsed) : null;
     return toResult(false, parsed, suggested, null);
@@ -133,20 +139,33 @@ public class KilnLogImportService {
     if (targetFiringId != null) {
       Firing existing = reads.find(targetFiringId);
       ensureSameKiln(existing, kiln.id());
+      ensureAttachableStatus(existing);
       existing.attachTelemetry(
           telemetry, parsed.startedAt(), parsed.finishedAt(), chosenCone, chosenNotes);
       firings.flush();
       saved = existing;
     } else {
+      Instant parsedStarted = parsed.startedAt();
+      Instant parsedFinished = parsed.finishedAt();
+      if (parsedStarted != null
+          && parsedFinished != null
+          && firings.existsDuplicateLog(
+              kiln.id(),
+              parsedStarted,
+              parsedFinished,
+              parsed.peakTemp(),
+              parsed.source(),
+              FiringView.Status.CANCELLED)) {
+        throw ConflictException.duplicate("This firing log has already been imported.");
+      }
       FiringKind reqKind = request.kind();
       FiringKind detectedKind = parsed.detectedKind();
       FiringKind kind =
           reqKind != null ? reqKind : (detectedKind != null ? detectedKind : FiringKind.BISQUE);
-      Instant parsedFinished = parsed.finishedAt();
       Instant finishedAt = parsedFinished != null ? parsedFinished : clock.instant();
       Firing created =
           Firing.completedFromLog(
-              kiln, kind, chosenCone, chosenNotes, parsed.startedAt(), finishedAt, telemetry);
+              kiln, kind, chosenCone, chosenNotes, parsedStarted, finishedAt, telemetry);
       kiln.countFiring();
       firings.saveAndFlush(created);
       saved = created;
@@ -181,36 +200,18 @@ public class KilnLogImportService {
     Instant windowEnd = effectiveEnd.plus(OVERLAP_WINDOW);
     Instant logMid = midpoint(effectiveStart, effectiveEnd);
 
-    List<Firing> candidates = firings.findNewestForKiln(kilnId, Limit.of(MATCH_SCAN_LIMIT));
+    List<FiringOverlapCandidate> candidates =
+        firings.findOverlapCandidates(
+            kilnId, ATTACHABLE_STATUSES, windowStart, windowEnd, Limit.of(MATCH_SCAN_LIMIT));
     return candidates.stream()
-        .filter(candidate -> overlaps(candidate, windowStart, windowEnd))
         .min(
-            Comparator.comparing((Firing f) -> f.hasTelemetry())
-                .thenComparing(f -> f.status() == FiringView.Status.CANCELLED)
+            Comparator.comparing(FiringOverlapCandidate::hasTelemetry)
                 .thenComparingLong(f ->
-                    Math.abs(Duration.between(logMid, midpoint(startOf(f), endOf(f))).toSeconds())))
+                    Math.abs(
+                        Duration.between(logMid, midpoint(f.effectiveStart(), f.effectiveEnd()))
+                            .toSeconds())))
         .map(match -> toSuggestedMatch(match, effectiveStart, effectiveEnd))
         .orElse(null);
-  }
-
-  private static boolean overlaps(Firing firing, Instant windowStart, Instant windowEnd) {
-    Instant fStart = startOf(firing);
-    Instant fEnd = endOf(firing);
-    return !fEnd.isBefore(windowStart) && !fStart.isAfter(windowEnd);
-  }
-
-  private static Instant startOf(Firing firing) {
-    Instant started = firing.startedAt();
-    return started != null ? started : firing.createdAt();
-  }
-
-  private static Instant endOf(Firing firing) {
-    Instant finished = firing.finishedAt();
-    if (finished != null) {
-      return finished;
-    }
-    Instant started = firing.startedAt();
-    return started != null ? started : firing.createdAt();
   }
 
   private static Instant midpoint(Instant a, Instant b) {
@@ -218,9 +219,10 @@ public class KilnLogImportService {
     return a.plusMillis(halfMillis);
   }
 
-  private static SuggestedMatch toSuggestedMatch(Firing firing, Instant logStart, Instant logEnd) {
-    Instant fStart = startOf(firing);
-    Instant fEnd = endOf(firing);
+  private static SuggestedMatch toSuggestedMatch(
+      FiringOverlapCandidate firing, Instant logStart, Instant logEnd) {
+    Instant fStart = firing.effectiveStart();
+    Instant fEnd = firing.effectiveEnd();
     String description;
     if (!fEnd.isBefore(logStart) && !fStart.isAfter(logEnd)) {
       long startDiff = Math.abs(Duration.between(fStart, logStart).toMinutes());
@@ -249,6 +251,13 @@ public class KilnLogImportService {
   private static void ensureSameKiln(Firing firing, UUID kilnId) {
     if (!firing.kiln().id().equals(kilnId)) {
       throw new InvalidInputException("That firing belongs to a different kiln.");
+    }
+  }
+
+  private static void ensureAttachableStatus(Firing firing) {
+    if (!ATTACHABLE_STATUSES.contains(firing.status())) {
+      throw new InvalidInputException(
+          "Telemetry can only be attached to a firing in progress or already complete.");
     }
   }
 

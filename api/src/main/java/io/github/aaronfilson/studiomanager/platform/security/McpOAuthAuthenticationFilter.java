@@ -118,8 +118,7 @@ final class McpOAuthAuthenticationFilter extends OncePerRequestFilter {
       refuse(request, response, "This MCP access token has no valid studio_id.");
       return;
     }
-    if (!properties.acceptsAudience(
-        jwt.getAudience(), tokenStudioId, McpOAuthProperties.requestOrigin(request))) {
+    if (!properties.acceptsAudience(jwt.getAudience(), tokenStudioId)) {
       refuse(request, response, "This MCP access token wasn't issued for this MCP resource.");
       return;
     }

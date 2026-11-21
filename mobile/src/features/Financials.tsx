@@ -37,15 +37,14 @@ export function Financials({ studioId }: { studioId: string }) {
   const permissions = useCan(studioId);
   const { can } = permissions;
   const canReadMoney = can('money.read');
+  const canTakePayment = can('money.take_payment');
+  const canManageStoredValue = can('money.stored_value.manage');
   const canManagePayables = can('money.payables.manage');
+  const canReadMembers = can('members.read');
 
   const tabs: { key: FinancialsTab; label: string }[] = [
-    ...(canReadMoney
-      ? [
-          { key: 'BALANCES' as const, label: 'Balances' },
-          { key: 'PREPAID' as const, label: 'Prepaid cards' },
-        ]
-      : []),
+    ...(canReadMoney ? [{ key: 'BALANCES' as const, label: 'Balances' }] : []),
+    ...(canManageStoredValue ? [{ key: 'PREPAID' as const, label: 'Prepaid cards' }] : []),
     ...(canManagePayables ? [{ key: 'PAYABLES' as const, label: 'Payables' }] : []),
   ];
 
@@ -75,14 +74,24 @@ export function Financials({ studioId }: { studioId: string }) {
             key={tab.key}
             compact
             primary={activeTab === tab.key}
+            selected={activeTab === tab.key}
             label={tab.label}
             onPress={() => setChosenTab(tab.key)}
           />
         ))}
       </View>
 
-      {activeTab === 'BALANCES' && <BalancesPanel studioId={studioId} currency={currency} />}
-      {activeTab === 'PREPAID' && <PrepaidPanel studioId={studioId} currency={currency} />}
+      {activeTab === 'BALANCES' && (
+        <BalancesPanel
+          studioId={studioId}
+          currency={currency}
+          canTakePayment={canTakePayment}
+          canReadMembers={canReadMembers}
+        />
+      )}
+      {activeTab === 'PREPAID' && (
+        <PrepaidPanel studioId={studioId} currency={currency} canReadMembers={canReadMembers} />
+      )}
       {activeTab === 'PAYABLES' && <PayablesPanel studioId={studioId} currency={currency} />}
     </View>
   );
@@ -134,10 +143,23 @@ function MemberPicker({
   );
 }
 
-function BalancesPanel({ studioId, currency }: { studioId: string; currency: string }) {
+function BalancesPanel({
+  studioId,
+  currency,
+  canTakePayment,
+  canReadMembers,
+}: {
+  studioId: string;
+  currency: string;
+  canTakePayment: boolean;
+  canReadMembers: boolean;
+}) {
   const queryClient = useQueryClient();
   const balances = useQuery(listBalancesOptions({ path: { studioId } }));
-  const members = useQuery(listMembersOptions({ path: { studioId } }));
+  const members = useQuery({
+    ...listMembersOptions({ path: { studioId } }),
+    enabled: canTakePayment && canReadMembers,
+  });
   const [search, setSearch] = useState('');
   const [payer, setPayer] = useState<Member | null>(null);
   const [amount, setAmount] = useState('');
@@ -184,84 +206,109 @@ function BalancesPanel({ studioId, currency }: { studioId: string; currency: str
               {owedNum > 0 && <Badge warning>Owes {money(b.owed)}</Badge>}
               {owedNum < 0 && <Badge>{money(String(-owedNum))} in credit</Badge>}
               {owedNum === 0 && <Badge>Settled</Badge>}
-              <Button
-                compact
-                label="Record payment"
-                onPress={() => {
-                  const found = members.data?.find((m) => m.accountId === b.memberId);
-                  setPayer(
-                    found ?? {
-                      accountId: b.memberId,
-                      displayName: b.memberName,
-                      role: 'MEMBER',
-                      roleId: 'member',
-                      roleName: 'Member',
-                      joinedAt: '',
-                    },
-                  );
-                  if (owedNum > 0) setAmount(b.owed);
-                }}
-              />
+              {canTakePayment && (
+                <Button
+                  compact
+                  label="Record payment"
+                  onPress={() => {
+                    const found = members.data?.find((m) => m.accountId === b.memberId);
+                    setPayer(
+                      found ?? {
+                        accountId: b.memberId,
+                        displayName: b.memberName,
+                        role: 'MEMBER',
+                        roleId: 'member',
+                        roleName: 'Member',
+                        joinedAt: '',
+                      },
+                    );
+                    if (owedNum > 0) setAmount(b.owed);
+                  }}
+                />
+              )}
             </View>
           </Card>
         );
       })}
 
-      <Card>
-        <SectionTitle>Record a payment</SectionTitle>
-        {members.isError && <ErrorText error={members.error} />}
-        <MemberPicker
-          members={members.data ?? []}
-          selected={payer}
-          onSelect={setPayer}
-          label="Payment from"
-        />
-        <Field
-          label={`Amount (${currency})`}
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-        />
-        <Body muted>Paid by</Body>
-        <View style={styles.rowWrap}>
-          {providers.map((p) => (
-            <Button
-              key={p}
-              compact
-              primary={provider === p}
-              label={providerLabels[p]}
-              onPress={() => setProvider(p)}
+      {canTakePayment && (
+        <Card>
+          <SectionTitle>Record a payment</SectionTitle>
+          {canReadMembers && members.isError && <ErrorText error={members.error} />}
+          {canReadMembers ? (
+            <MemberPicker
+              members={members.data ?? []}
+              selected={payer}
+              onSelect={setPayer}
+              label="Payment from"
             />
-          ))}
-        </View>
-        <Field label="Reference (optional)" value={reference} onChangeText={setReference} maxLength={80} />
-        {pay.isError && <ErrorText error={pay.error} />}
-        {pay.isSuccess && <Body>Payment recorded.</Body>}
-        <Button
-          primary
-          label="Save payment"
-          disabled={pay.isPending || !payer || !amountValid}
-          onPress={() => {
-            if (!payer) return;
-            pay.mutate({
-              path: { studioId },
-              body: {
-                memberId: payer.accountId,
-                amount: amountTrimmed,
-                provider,
-                ...(reference.trim() ? { reference: reference.trim() } : {}),
-              },
-            });
-          }}
-        />
-      </Card>
+          ) : payer ? (
+            <View style={styles.rowWrap}>
+              <Body>Member: {payer.displayName ?? 'Unnamed member'}</Body>
+              <Button compact label="Change" onPress={() => setPayer(null)} />
+            </View>
+          ) : (
+            <Body muted>Tap “Record payment” on a member above to choose who is paying.</Body>
+          )}
+          <Field
+            label={`Amount (${currency})`}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+          />
+          <Body muted>Paid by</Body>
+          <View style={styles.rowWrap}>
+            {providers.map((p) => (
+              <Button
+                key={p}
+                compact
+                primary={provider === p}
+                selected={provider === p}
+                label={providerLabels[p]}
+                onPress={() => setProvider(p)}
+              />
+            ))}
+          </View>
+          <Field label="Reference (optional)" value={reference} onChangeText={setReference} maxLength={80} />
+          {pay.isError && <ErrorText error={pay.error} />}
+          {pay.isSuccess && <Body>Payment recorded.</Body>}
+          <Button
+            primary
+            label="Save payment"
+            disabled={pay.isPending || !payer || !amountValid}
+            onPress={() => {
+              if (!payer) return;
+              pay.mutate({
+                path: { studioId },
+                body: {
+                  memberId: payer.accountId,
+                  amount: amountTrimmed,
+                  provider,
+                  ...(reference.trim() ? { reference: reference.trim() } : {}),
+                },
+              });
+            }}
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }
 
-function PrepaidPanel({ studioId, currency }: { studioId: string; currency: string }) {
+function PrepaidPanel({
+  studioId,
+  currency,
+  canReadMembers,
+}: {
+  studioId: string;
+  currency: string;
+  canReadMembers: boolean;
+}) {
   const storedValues = useQuery(listStoredValuesOptions({ path: { studioId } }));
-  const members = useQuery(listMembersOptions({ path: { studioId } }));
+  const members = useQuery({
+    ...listMembersOptions({ path: { studioId } }),
+    enabled: canReadMembers,
+  });
   const capNote = cappedNote(storedValues.data, { order: 'newest', noun: 'balances' }, FROM_THE_EXPORT);
 
   return (
@@ -274,13 +321,20 @@ function PrepaidPanel({ studioId, currency }: { studioId: string; currency: stri
     >
       {storedValues.isPending && <Loading />}
       {storedValues.isError && <ErrorText error={storedValues.error} />}
-      {members.isError && <ErrorText error={members.error} />}
+      {canReadMembers && members.isError && <ErrorText error={members.error} />}
       {capNote && <Body muted>{capNote}</Body>}
       {storedValues.isSuccess && storedValues.data.items.length === 0 && (
         <Body muted>No active prepaid balances.</Body>
       )}
       {storedValues.data?.items.map((sv) => (
-        <PrepaidCard key={sv.id} studioId={studioId} sv={sv} currency={currency} members={members.data ?? []} />
+        <PrepaidCard
+          key={sv.id}
+          studioId={studioId}
+          sv={sv}
+          currency={currency}
+          members={members.data ?? []}
+          canReadMembers={canReadMembers}
+        />
       ))}
     </ScrollView>
   );
@@ -291,11 +345,13 @@ function PrepaidCard({
   sv,
   currency,
   members,
+  canReadMembers,
 }: {
   studioId: string;
   sv: StoredValue;
   currency: string;
   members: Member[];
+  canReadMembers: boolean;
 }) {
   const queryClient = useQueryClient();
   const [redeeming, setRedeeming] = useState(false);
@@ -349,7 +405,13 @@ function PrepaidCard({
 
       {redeeming && (
         <View style={styles.group}>
-          <MemberPicker members={members} selected={member} onSelect={setMember} label="Pays for member" />
+          {canReadMembers ? (
+            <MemberPicker members={members} selected={member} onSelect={setMember} label="Pays for member" />
+          ) : member ? (
+            <Body>Member: {member.displayName ?? 'Unnamed member'}</Body>
+          ) : (
+            <Body muted>Member-directory access is required to choose a recipient for this card.</Body>
+          )}
           <Field
             label={`Redeem amount (${currency})`}
             value={amount}

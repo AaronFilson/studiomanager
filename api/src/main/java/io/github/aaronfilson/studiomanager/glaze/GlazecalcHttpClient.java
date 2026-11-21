@@ -25,6 +25,8 @@ import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * SSRF-safe HTTP client for calling Glazecalc ({@code /api/shared/recipe}, {@code /oauth/token},
@@ -33,6 +35,7 @@ import org.jspecify.annotations.Nullable;
  */
 final class GlazecalcHttpClient implements AutoCloseable {
 
+  private static final Logger log = LoggerFactory.getLogger(GlazecalcHttpClient.class);
   private static final int MAX_RESPONSE_BYTES = GlazeImportParser.MAX_IMPORT_BYTES + 1;
 
   record Response(int statusCode, String body) {}
@@ -168,9 +171,12 @@ final class GlazecalcHttpClient implements AutoCloseable {
         for (InetAddress address : addresses) {
           var why = PublicAddresses.whyNot(address);
           if (why.isPresent()) {
-            throw new BlockedAddressException(
-                "%s resolves to %s, which %s. Glazecalc requests only go to public addresses."
-                    .formatted(host, address.getHostAddress(), why.get()));
+            log.warn(
+                "Blocked Glazecalc request to {} (resolved to {}, which {})",
+                host,
+                address.getHostAddress(),
+                why.get());
+            throw new BlockedAddressException("Glazecalc requests only go to public addresses.");
           }
         }
       }

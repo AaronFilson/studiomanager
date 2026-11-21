@@ -28,9 +28,8 @@ final class GlazeImportParser {
   static final String FORMAT_GLAZECALC = "glazecalc-export";
   static final String FORMAT_GLAZE_VAULT = "glaze-vault-export";
 
-  private static final Pattern SCRIPT_OR_STYLE =
-      Pattern.compile("(?is)<(script|style)[^>]*>.*?</\\1>");
-  private static final Pattern HTML_TAG = Pattern.compile("(?s)<[^>]*>");
+  private static final int MAX_HTML_INPUT_LENGTH = 65_536;
+  private static final Pattern PLAIN_DECIMAL = Pattern.compile("^[+-]?\\d{1,12}(\\.\\d{1,12})?$");
   private static final Pattern CONE_PREFIX = Pattern.compile("(?i)^(?:cone\\s*|c\\s*|\\^|Δ)\\s*");
 
   private GlazeImportParser() {}
@@ -58,7 +57,9 @@ final class GlazeImportParser {
     String format = textOrNull(root.get("format"));
     JsonNode versionNode = root.get("version");
     Integer version =
-        versionNode != null && versionNode.isIntegralNumber() ? versionNode.intValue() : null;
+        versionNode != null && versionNode.isIntegralNumber() && versionNode.canConvertToInt()
+            ? versionNode.intValue()
+            : null;
 
     if (FORMAT_GLAZECALC.equals(format)) {
       if (version == null || version != 1) {
@@ -260,7 +261,8 @@ final class GlazeImportParser {
   }
 
   private static GlazeBook.@Nullable Chemistry parseGlazecalcChemistry(JsonNode lineNode) {
-    String materialId = trimToMax(textOrNull(lineNode.get("_id")), 120);
+    String materialId =
+        trimToMax(textOrNull(lineNode.get("_id")), GlazeChemistryJson.MAX_MATERIAL_ID_LENGTH);
     Map<String, Double> analysis = extractAnalysis(lineNode.get("analysis"));
     Double loi = parseNonNegativeDouble(lineNode.get("loi"));
     if (materialId == null && analysis.isEmpty() && loi == null) {
@@ -411,16 +413,54 @@ final class GlazeImportParser {
         List.copyOf(warnings));
   }
 
-  /** Strips HTML tags, scripts, styles, and common HTML entities to plain text. */
+  /** Strips HTML tags, scripts, styles, and common HTML entities to plain text in O(N) time. */
   static @Nullable String stripHtml(@Nullable String raw) {
     if (raw == null) {
       return null;
     }
-    String text = SCRIPT_OR_STYLE.matcher(raw).replaceAll("");
-    text = text.replaceAll("(?i)<br\\s*/?>", "\n").replaceAll("(?i)</p>", "\n");
-    text = HTML_TAG.matcher(text).replaceAll("");
-    text =
-        text.replace("&nbsp;", " ")
+    String input =
+        raw.length() > MAX_HTML_INPUT_LENGTH ? raw.substring(0, MAX_HTML_INPUT_LENGTH) : raw;
+    StringBuilder out = new StringBuilder(input.length());
+    int len = input.length();
+    int nextGt = input.indexOf('>');
+    int i = 0;
+    while (i < len) {
+      char c = input.charAt(i);
+      if (c == '<') {
+        String blockTag = matchIgnoredBlockOpen(input, i, len);
+        if (blockTag != null) {
+          if (nextGt >= 0 && nextGt <= i) {
+            nextGt = input.indexOf('>', i + 1);
+          }
+          if (nextGt < 0) {
+            break;
+          }
+          int afterClose = findIgnoredBlockEnd(input, nextGt + 1, len, blockTag);
+          if (afterClose < 0) {
+            break;
+          }
+          i = afterClose;
+          continue;
+        }
+        if (nextGt >= 0 && nextGt <= i) {
+          nextGt = input.indexOf('>', i + 1);
+        }
+        if (nextGt < 0) {
+          out.append(input, i, len);
+          break;
+        }
+        if (isLineBreakTag(input, i + 1, nextGt)) {
+          out.append('\n');
+        }
+        i = nextGt + 1;
+        continue;
+      }
+      out.append(c);
+      i++;
+    }
+    String text =
+        out.toString()
+            .replace("&nbsp;", " ")
             .replace("&amp;", "&")
             .replace("&lt;", "<")
             .replace("&gt;", ">")
@@ -432,6 +472,71 @@ final class GlazeImportParser {
     return stripped.isEmpty() ? null : stripped;
   }
 
+  private static @Nullable String matchIgnoredBlockOpen(String s, int pos, int len) {
+    if (matchesTagName(s, pos + 1, len, "script")) {
+      return "script";
+    }
+    if (matchesTagName(s, pos + 1, len, "style")) {
+      return "style";
+    }
+    return null;
+  }
+
+  private static boolean matchesTagName(String s, int start, int len, String name) {
+    int nameLen = name.length();
+    if (start + nameLen > len || !s.regionMatches(true, start, name, 0, nameLen)) {
+      return false;
+    }
+    if (start + nameLen == len) {
+      return true;
+    }
+    char next = s.charAt(start + nameLen);
+    return Character.isWhitespace(next) || next == '>' || next == '/';
+  }
+
+  private static int findIgnoredBlockEnd(String s, int from, int len, String tagName) {
+    int tagLen = tagName.length();
+    int pos = from;
+    while (pos < len) {
+      int lt = s.indexOf('<', pos);
+      if (lt < 0 || lt + 2 + tagLen > len) {
+        return -1;
+      }
+      if (s.charAt(lt + 1) == '/' && s.regionMatches(true, lt + 2, tagName, 0, tagLen)) {
+        int afterName = lt + 2 + tagLen;
+        while (afterName < len && Character.isWhitespace(s.charAt(afterName))) {
+          afterName++;
+        }
+        if (afterName < len && s.charAt(afterName) == '>') {
+          return afterName + 1;
+        }
+      }
+      pos = lt + 1;
+    }
+    return -1;
+  }
+
+  private static boolean isLineBreakTag(String s, int start, int end) {
+    while (start < end && Character.isWhitespace(s.charAt(start))) {
+      start++;
+    }
+    while (end > start && Character.isWhitespace(s.charAt(end - 1))) {
+      end--;
+    }
+    int len = end - start;
+    if (len == 2 && (s.regionMatches(true, start, "br", 0, 2) || s.regionMatches(true, start, "/p", 0, 2))) {
+      return true;
+    }
+    if (len > 2 && s.regionMatches(true, start, "br", 0, 2)) {
+      int p = start + 2;
+      while (p < end && Character.isWhitespace(s.charAt(p))) {
+        p++;
+      }
+      return p == end - 1 && s.charAt(p) == '/';
+    }
+    return false;
+  }
+
   private record ParsedAmount(BigDecimal value, @Nullable String rawText, @Nullable String error) {}
 
   private static ParsedAmount parseAmount(
@@ -440,39 +545,73 @@ final class GlazeImportParser {
       return new ParsedAmount(
           BigDecimal.ZERO, null, "Amount for \"%s\" is missing.".formatted(material));
     }
+    BigDecimal parsed;
     String rawText;
     if (node.isNumber()) {
-      rawText = node.decimalValue().stripTrailingZeros().toPlainString();
+      if (!Double.isFinite(node.doubleValue())) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            null,
+            "Amount for \"%s\" is not a valid number.".formatted(material));
+      }
+      try {
+        parsed = node.decimalValue();
+      } catch (NumberFormatException e) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            null,
+            "Amount for \"%s\" is not a valid number.".formatted(material));
+      }
+      if (parsed.scale() > 12 || parsed.scale() < -12) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            null,
+            "Amount for \"%s\" is not a valid number.".formatted(material));
+      }
+      if (parsed.signum() <= 0 || parsed.compareTo(GlazeBook.MAX_AMOUNT) > 0) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            null,
+            "Amount for \"%s\" must be greater than 0 and at most 100,000.".formatted(material));
+      }
+      rawText = parsed.stripTrailingZeros().toPlainString();
     } else if (node.isString()) {
       rawText = node.asString().strip();
+      if (rawText.isEmpty()) {
+        return new ParsedAmount(
+            BigDecimal.ZERO, null, "Amount for \"%s\" is blank.".formatted(material));
+      }
+      if (!PLAIN_DECIMAL.matcher(rawText).matches()) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            trimToMax(rawText, 30),
+            "Amount \"%s\" for \"%s\" is not a valid number."
+                .formatted(truncate(rawText, 30), material));
+      }
+      try {
+        parsed = new BigDecimal(rawText);
+      } catch (NumberFormatException e) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            trimToMax(rawText, 30),
+            "Amount \"%s\" for \"%s\" is not a valid number."
+                .formatted(truncate(rawText, 30), material));
+      }
+      if (parsed.signum() <= 0 || parsed.compareTo(GlazeBook.MAX_AMOUNT) > 0) {
+        return new ParsedAmount(
+            BigDecimal.ZERO,
+            trimToMax(rawText, 30),
+            "Amount for \"%s\" must be greater than 0 and at most 100,000.".formatted(material));
+      }
     } else {
       return new ParsedAmount(
           BigDecimal.ZERO, null, "Amount for \"%s\" could not be parsed.".formatted(material));
-    }
-    if (rawText.isEmpty()) {
-      return new ParsedAmount(
-          BigDecimal.ZERO, null, "Amount for \"%s\" is blank.".formatted(material));
-    }
-    BigDecimal parsed;
-    try {
-      parsed = new BigDecimal(rawText);
-    } catch (NumberFormatException e) {
-      return new ParsedAmount(
-          BigDecimal.ZERO,
-          trimToMax(rawText, 30),
-          "Amount \"%s\" for \"%s\" is not a valid number.".formatted(rawText, material));
-    }
-    if (parsed.signum() <= 0 || parsed.compareTo(GlazeBook.MAX_AMOUNT) > 0) {
-      return new ParsedAmount(
-          BigDecimal.ZERO,
-          trimToMax(rawText, 30),
-          "Amount for \"%s\" must be greater than 0 and at most 100,000.".formatted(material));
     }
     if (parsed.scale() > 4) {
       parsed = parsed.setScale(4, RoundingMode.HALF_UP);
       warnings.add(
           "Amount \"%s\" for \"%s\" was rounded to 4 decimal places (original text preserved)."
-              .formatted(rawText, material));
+              .formatted(truncate(rawText, 30), material));
     }
     return new ParsedAmount(parsed.stripTrailingZeros(), trimToMax(rawText, 30), null);
   }
@@ -560,26 +699,47 @@ final class GlazeImportParser {
       return null;
     }
     BigDecimal value;
-    try {
-      value =
-          node.isNumber()
-              ? node.decimalValue()
-              : node.isString() && !node.asString().isBlank()
-                  ? new BigDecimal(node.asString().strip())
-                  : null;
-    } catch (NumberFormatException e) {
-      warnings.add(
-          "Ignored unparseable target specific gravity \"%s\".".formatted(node.asString("")));
-      return null;
-    }
-    if (value == null) {
+    String displayRaw;
+    if (node.isNumber()) {
+      displayRaw = truncate(node.toString(), 30);
+      if (!Double.isFinite(node.doubleValue())) {
+        warnings.add("Ignored unparseable target specific gravity \"%s\".".formatted(displayRaw));
+        return null;
+      }
+      try {
+        value = node.decimalValue();
+      } catch (NumberFormatException e) {
+        warnings.add("Ignored unparseable target specific gravity \"%s\".".formatted(displayRaw));
+        return null;
+      }
+      if (value.scale() > 12 || value.scale() < -12) {
+        warnings.add("Ignored unparseable target specific gravity \"%s\".".formatted(displayRaw));
+        return null;
+      }
+    } else if (node.isString()) {
+      String raw = node.asString().strip();
+      if (raw.isEmpty()) {
+        return null;
+      }
+      displayRaw = truncate(raw, 30);
+      if (!PLAIN_DECIMAL.matcher(raw).matches()) {
+        warnings.add("Ignored unparseable target specific gravity \"%s\".".formatted(displayRaw));
+        return null;
+      }
+      try {
+        value = new BigDecimal(raw);
+      } catch (NumberFormatException e) {
+        warnings.add("Ignored unparseable target specific gravity \"%s\".".formatted(displayRaw));
+        return null;
+      }
+    } else {
+      warnings.add("Ignored unparseable target specific gravity.");
       return null;
     }
     if (value.compareTo(GlazeEdits.MIN_SPECIFIC_GRAVITY) < 0
         || value.compareTo(GlazeEdits.MAX_SPECIFIC_GRAVITY) > 0) {
       warnings.add(
-          "Ignored out-of-range specific gravity %s (must be 1.0–2.5)."
-              .formatted(value.toPlainString()));
+          "Ignored out-of-range specific gravity %s (must be 1.0–2.5).".formatted(displayRaw));
       return null;
     }
     if (value.scale() > 3) {
@@ -594,9 +754,16 @@ final class GlazeImportParser {
     }
     Map<String, Double> out = new LinkedHashMap<>();
     for (var entry : analysisNode.properties()) {
+      if (out.size() >= GlazeChemistryJson.MAX_ANALYSIS_ENTRIES) {
+        break;
+      }
+      String key = entry.getKey().strip();
+      if (key.isEmpty() || key.length() > GlazeChemistryJson.MAX_OXIDE_KEY_LENGTH) {
+        continue;
+      }
       Double value = GlazeChemistryJson.parseDouble(entry.getValue());
       if (value != null && Double.isFinite(value) && value > 0) {
-        out.put(entry.getKey(), value);
+        out.put(key, value);
       }
     }
     return Map.copyOf(out);

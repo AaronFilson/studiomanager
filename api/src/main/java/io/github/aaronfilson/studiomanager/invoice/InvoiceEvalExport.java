@@ -17,7 +17,9 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Exports a confirmed invoice as a private eval case ZIP: {@code expected.json} (in {@link
@@ -27,40 +29,56 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class InvoiceEvalExport {
 
+  private record ExportSnapshot(InvoiceFileType fileType, String expectedJson, String caseJson) {}
+
   private final InvoiceRepository invoices;
   private final BlobStore blobs;
+  private final TransactionOperations readOnlyTransactions;
   private final Clock clock;
 
-  InvoiceEvalExport(InvoiceRepository invoices, BlobStore blobs, Clock clock) {
+  InvoiceEvalExport(
+      InvoiceRepository invoices,
+      BlobStore blobs,
+      PlatformTransactionManager transactionManager,
+      Clock clock) {
     this.invoices = invoices;
     this.blobs = blobs;
+    TransactionTemplate template = new TransactionTemplate(transactionManager);
+    template.setReadOnly(true);
+    this.readOnlyTransactions = template;
     this.clock = clock;
   }
 
-  @Transactional(readOnly = true)
   byte[] zip(UUID studioId, UUID invoiceId) {
     InvoiceInbox.requireBound(studioId);
-    Invoice invoice =
-        invoices
-            .findWithLines(invoiceId)
-            .orElseThrow(() -> new NotFoundException("No such invoice."));
-    if (invoice.status() != InvoiceStatus.CONFIRMED) {
-      throw new ConflictException("Confirm this invoice before exporting it as an eval case.");
+    ExportSnapshot snapshot =
+        readOnlyTransactions.execute(tx -> {
+          Invoice invoice =
+              invoices
+                  .findWithLines(invoiceId)
+                  .orElseThrow(() -> new NotFoundException("No such invoice."));
+          if (invoice.status() != InvoiceStatus.CONFIRMED) {
+            throw new ConflictException("Confirm this invoice before exporting it as an eval case.");
+          }
+          InvoiceDraft draft = invoice.draft();
+          String expectedJson = InvoiceJson.writeDraftPretty(draft) + "\n";
+          String caseJson = InvoiceJson.writeObjectPretty(metadata(invoice, draft)) + "\n";
+          return new ExportSnapshot(invoice.fileType(), expectedJson, caseJson);
+        });
+    if (snapshot == null) {
+      throw new NotFoundException("No such invoice.");
     }
-    InvoiceDraft draft = invoice.draft();
-    String expectedJson = InvoiceJson.writeDraftPretty(draft) + "\n";
-    String caseJson = InvoiceJson.writeObjectPretty(metadata(invoice, draft)) + "\n";
 
-    String blobName = InvoiceBlobs.name(studioId, invoiceId, invoice.fileType());
+    String blobName = InvoiceBlobs.name(studioId, invoiceId, snapshot.fileType());
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (ZipOutputStream zip = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
-      writeText(zip, "expected.json", expectedJson);
-      writeText(zip, "case.json", caseJson);
+      writeText(zip, "expected.json", snapshot.expectedJson());
+      writeText(zip, "case.json", snapshot.caseJson());
       if (blobs.info(blobName).isPresent()) {
         writeBytes(
             zip,
-            "invoice." + extension(invoice.fileType()),
+            "invoice." + extension(snapshot.fileType()),
             blobs.head(blobName, InvoiceBlobs.MAX_BYTES));
       }
       writeText(zip, "README.txt", readme(invoiceId));

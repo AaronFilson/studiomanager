@@ -50,12 +50,22 @@ export function StudioMenu({
 
   const staffLinks: { destination: StudioDestination; label: string }[] = [
     ...(can('today.read') ? [{ destination: 'today' as const, label: 'Today' }] : []),
-    ...(can('kilns.manage') ? [{ destination: 'kilns' as const, label: 'Kilns' }] : []),
-    ...(can('supplies.manage') ? [{ destination: 'supplies' as const, label: 'Supplies' }] : []),
+    ...(can('kilns.manage') || can('firings.manage') ? [{ destination: 'kilns' as const, label: 'Kilns' }] : []),
+    ...(can('supplies.manage') || can('supplies.sell') || can('supplies.purchase.request')
+      ? [{ destination: 'supplies' as const, label: 'Supplies' }]
+      : []),
     ...(can('maintenance.manage') ? [{ destination: 'maintenance' as const, label: 'Maintenance' }] : []),
     ...(can('proposals.review') ? [{ destination: 'suggestions' as const, label: 'Assistant suggestions' }] : []),
-    ...(can('money.read') || can('money.payables.manage')
-      ? [{ destination: 'money' as const, label: can('money.read') ? 'Money & payables' : 'Artists and instructors' }]
+    ...(can('money.read') || can('money.stored_value.manage') || can('money.payables.manage')
+      ? [
+          {
+            destination: 'money' as const,
+            label:
+              can('money.read') || can('money.stored_value.manage')
+                ? 'Money & payables'
+                : 'Artists and instructors',
+          },
+        ]
       : []),
     ...(can('members.read') ? [{ destination: 'members' as const, label: 'Members' }] : []),
     ...(can('notices.send') ? [{ destination: 'notices' as const, label: 'Send a studio notice' }] : []),
@@ -65,10 +75,10 @@ export function StudioMenu({
     { destination: 'glazes', label: 'Glaze book' },
     { destination: 'roster', label: 'Roster' },
     { destination: 'calendar', label: 'Calendar' },
-    { destination: 'statement', label: 'My statement' },
-    ...(!can('money.read') && consignment.isSuccess
-      ? [{ destination: 'statement' as const, label: 'My consignment' }]
-      : []),
+    {
+      destination: 'statement',
+      label: !can('money.read') && consignment.isSuccess ? 'My statement & consignment' : 'My statement',
+    },
     { destination: 'report', label: 'Report a problem' },
   ];
 

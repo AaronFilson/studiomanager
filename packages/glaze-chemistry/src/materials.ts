@@ -109,13 +109,13 @@ export const MATERIALS: readonly MaterialDefinition[] = [
   {
     name: 'Ferro Frit 3249',
     aliases: ['frit 3249', '3249', 'ferro 3249'],
-    analysis: { SiO2: 53.0, Al2O3: 7.4, B2O3: 23.3, MgO: 10.9, CaO: 5.4 },
+    analysis: { SiO2: 42.1, Al2O3: 13.3, B2O3: 28.9, MgO: 12.2, CaO: 3.5 },
     loi: 0,
   },
   {
     name: 'Ferro Frit 3269',
     aliases: ['frit 3269', '3269', 'ferro 3269'],
-    analysis: { SiO2: 51.4, Al2O3: 14.7, B2O3: 16.0, CaO: 6.9, K2O: 6.6, Na2O: 4.4 },
+    analysis: { SiO2: 51.23, Al2O3: 12.4, B2O3: 15.06, CaO: 0.41, K2O: 7.42, Na2O: 10.97, ZnO: 0.97 },
     loi: 0,
   },
   {
@@ -188,9 +188,15 @@ export const MATERIALS: readonly MaterialDefinition[] = [
   },
   {
     name: 'Alberta Slip',
-    aliases: ['albany slip', 'alberta slip clay', 'roasted alberta slip'],
+    aliases: ['albany slip', 'alberta slip clay'],
     analysis: { SiO2: 55.6, Al2O3: 13.0, CaO: 7.9, Fe2O3: 4.6, MgO: 2.9, K2O: 2.5, Na2O: 1.4, TiO2: 0.6 },
     loi: 11.3,
+  },
+  {
+    name: 'Roasted Alberta Slip',
+    aliases: ['calcined alberta slip'],
+    analysis: { SiO2: 62.4, Al2O3: 14.6, CaO: 8.9, Fe2O3: 5.2, MgO: 3.3, K2O: 2.8, Na2O: 1.6, TiO2: 0.7 },
+    loi: 0.5,
   },
   {
     name: 'Bentonite',
@@ -386,9 +392,15 @@ export const MATERIALS: readonly MaterialDefinition[] = [
   },
   {
     name: 'Copper Oxide',
-    aliases: ['black copper oxide', 'cuo', 'red copper oxide'],
+    aliases: ['black copper oxide', 'cuo'],
     analysis: { CuO: 99.0 },
     loi: 1.0,
+  },
+  {
+    name: 'Red Copper Oxide',
+    aliases: ['cu2o', 'cuprous oxide'],
+    analysis: { CuO: 111.2 },
+    loi: 0,
   },
   {
     name: 'Chrome Oxide',
@@ -418,10 +430,10 @@ export const MATERIALS: readonly MaterialDefinition[] = [
 
 function normalizeMaterialKey(name: string): string {
   return name
-    .trim()
     .toLowerCase()
     .replaceAll(/[()[\],.;:/_-]+/g, ' ')
-    .replaceAll(/\s+/g, ' ');
+    .replaceAll(/\s+/g, ' ')
+    .trim();
 }
 
 const MATERIAL_INDEX = new Map<string, MaterialDefinition>();

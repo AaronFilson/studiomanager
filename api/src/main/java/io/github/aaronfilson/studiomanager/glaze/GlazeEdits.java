@@ -7,6 +7,7 @@ import io.github.aaronfilson.studiomanager.glaze.GlazeBook.Recipe;
 import io.github.aaronfilson.studiomanager.glaze.GlazeBook.Unit;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.storage.BlobStore;
 import io.github.aaronfilson.studiomanager.platform.tenancy.Permission;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import jakarta.persistence.EntityManager;
@@ -16,25 +17,40 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Adding, changing, promoting, and deleting recipes. Reading them is {@link GlazeBook}. */
 @Service
 public class GlazeEdits {
 
+  private static final Logger log = LoggerFactory.getLogger(GlazeEdits.class);
+
   static final BigDecimal MIN_SPECIFIC_GRAVITY = BigDecimal.ONE;
   static final BigDecimal MAX_SPECIFIC_GRAVITY = new BigDecimal("2.5");
 
   private final GlazeRecipeRepository recipes;
+  private final GlazePhotoRepository photos;
+  private final BlobStore blobs;
   private final GlazeBook book;
   private final EntityManager entityManager;
   private final Clock clock;
 
   GlazeEdits(
-      GlazeRecipeRepository recipes, GlazeBook book, EntityManager entityManager, Clock clock) {
+      GlazeRecipeRepository recipes,
+      GlazePhotoRepository photos,
+      BlobStore blobs,
+      GlazeBook book,
+      EntityManager entityManager,
+      Clock clock) {
     this.recipes = recipes;
+    this.photos = photos;
+    this.blobs = blobs;
     this.book = book;
     this.entityManager = entityManager;
     this.clock = clock;
@@ -83,9 +99,47 @@ public class GlazeEdits {
 
   @Transactional
   public void delete(UUID id) {
+    TenantContext caller = TenantContext.require();
+    UUID studioId = caller.requireStudioId();
     GlazeRecipe recipe = book.find(id);
-    requireCanEdit(TenantContext.require(), recipe);
+    requireCanEdit(caller, recipe);
+    List<UUID> photoIds = List.copyOf(photos.findIdsByRecipeId(id));
     recipes.delete(recipe);
+    recipes.flush();
+    if (!photoIds.isEmpty()) {
+      deletePhotoBlobsAfterCommit(studioId, id, photoIds);
+    }
+  }
+
+  private void deletePhotoBlobsAfterCommit(UUID studioId, UUID recipeId, List<UUID> photoIds) {
+    Runnable cleanup = () -> deletePhotoBlobs(studioId, recipeId, photoIds);
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      TransactionSynchronizationManager.registerSynchronization(
+          new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+              cleanup.run();
+            }
+          });
+    } else {
+      cleanup.run();
+    }
+  }
+
+  private void deletePhotoBlobs(UUID studioId, UUID recipeId, List<UUID> photoIds) {
+    for (UUID photoId : photoIds) {
+      try {
+        blobs.delete(GlazePhotoService.full(studioId, recipeId, photoId));
+        blobs.delete(GlazePhotoService.thumbnail(studioId, recipeId, photoId));
+      } catch (RuntimeException e) {
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue("studioId", studioId)
+            .addKeyValue("recipeId", recipeId)
+            .addKeyValue("photoId", photoId)
+            .log("Couldn't delete blobs for glaze photo {} after recipe deletion", photoId);
+      }
+    }
   }
 
   /**

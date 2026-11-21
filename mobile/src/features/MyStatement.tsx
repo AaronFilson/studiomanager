@@ -3,6 +3,7 @@ import {
   getMyConsignmentOptions,
   getStatementOptions,
   getStudioOptions,
+  isApiError,
 } from '@studiomanager/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -36,6 +37,10 @@ export function MyStatement({ studioId }: { studioId: string }) {
   const day = (date: string) => formatDate(`${date}T12:00:00`);
   const owed = Number(statement.data?.owed ?? '0');
   const prepaid = (statement.data?.storedValues ?? []).filter((sv) => Number(sv.remaining) > 0);
+  const consignmentError =
+    consignment.isError && !(isApiError(consignment.error) && consignment.error.status === 404)
+      ? consignment.error
+      : null;
 
   return (
     <ScrollView
@@ -77,6 +82,13 @@ export function MyStatement({ studioId }: { studioId: string }) {
           ))
         )}
       </Card>
+
+      {consignmentError !== null && (
+        <Card>
+          <SectionTitle>My consignment</SectionTitle>
+          <ErrorText error={consignmentError} />
+        </Card>
+      )}
 
       {consignment.isSuccess && (
         <>

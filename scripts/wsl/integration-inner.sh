@@ -9,33 +9,58 @@ JDK="$SHARED/jdk-25"
 # One work folder per checkout, so worktrees can run side by side. The JDK and the Gradle home
 # are shared; Gradle locks its shared caches.
 WORK="$SHARED/checkouts/$(echo "$SRC" | sha1sum | cut -c1-12)"
-mkdir -p "$WORK"
+mkdir -p "$SHARED" "$WORK"
 
 if [[ ! -x "$JDK/bin/java" ]]; then
-    echo "Downloading Temurin 25 into $JDK"
-    # The release metadata names the archive and its SHA-256
-    assets="$(curl -fsSL "https://api.adoptium.net/v3/assets/latest/25/hotspot?os=linux&architecture=x64&image_type=jdk&vendor=eclipse")"
-    package="$(echo "$assets" | tr -d '\n ' | grep -o '"package":{[^}]*}' | head -n 1)"
-    link="$(echo "$package" | grep -o '"link":"[^"]*"' | cut -d'"' -f4)"
-    expected="$(echo "$package" | grep -o '"checksum":"[0-9a-f]*"' | cut -d'"' -f4)"
-    if [[ -z "$link" || ${#expected} -ne 64 ]]; then
-        echo "Couldn't read the Temurin 25 release metadata" >&2
-        exit 1
-    fi
-    curl -fsSL -o "$WORK/jdk.tar.gz" "$link"
-    echo "$expected  $WORK/jdk.tar.gz" | sha256sum -c -
-    rm -rf "$JDK"
-    mkdir -p "$JDK"
-    tar -xzf "$WORK/jdk.tar.gz" -C "$JDK" --strip-components=1
-    rm "$WORK/jdk.tar.gz"
+    (
+        flock 9
+        if [[ ! -x "$JDK/bin/java" ]]; then
+            case "$(uname -m)" in
+                x86_64) arch="x64" ;;
+                aarch64|arm64) arch="aarch64" ;;
+                *)
+                    echo "Unsupported Linux architecture for Temurin 25: $(uname -m)" >&2
+                    exit 1
+                    ;;
+            esac
+            echo "Downloading Temurin 25 ($arch) into $JDK"
+            jdk_tmp="$(mktemp -d "$SHARED/jdk-25.tmp.XXXXXX")"
+            trap 'rm -rf "$jdk_tmp"' EXIT
+            # The release metadata names the archive and its SHA-256
+            assets="$(curl -fsSL "https://api.adoptium.net/v3/assets/latest/25/hotspot?os=linux&architecture=${arch}&image_type=jdk&vendor=eclipse")"
+            package="$(echo "$assets" | tr -d '\n ' | grep -o '"package":{[^}]*}' | head -n 1)"
+            link="$(echo "$package" | grep -o '"link":"[^"]*"' | cut -d'"' -f4)"
+            expected="$(echo "$package" | grep -o '"checksum":"[0-9a-f]*"' | cut -d'"' -f4)"
+            if [[ -z "$link" || ${#expected} -ne 64 ]]; then
+                echo "Couldn't read the Temurin 25 release metadata" >&2
+                exit 1
+            fi
+            curl -fsSL -o "$jdk_tmp/jdk.tar.gz" "$link"
+            echo "$expected  $jdk_tmp/jdk.tar.gz" | sha256sum -c -
+            mkdir -p "$jdk_tmp/extract"
+            tar -xzf "$jdk_tmp/jdk.tar.gz" -C "$jdk_tmp/extract" --strip-components=1
+            rm -rf "$JDK"
+            mv "$jdk_tmp/extract" "$JDK"
+        fi
+    ) 9>"$SHARED/jdk-25.lock"
 fi
 
 # A fresh copy each run (tar, because rsync isn't installed everywhere)
 rm -rf "$WORK/api" "$WORK/auth"
 if [[ -d "$SRC/auth" ]]; then
-    tar -C "$SRC" --exclude=api/build --exclude=api/.gradle --exclude=auth/build --exclude=auth/.gradle -cf - api auth | tar -C "$WORK" -xf -
+    tar -C "$SRC" \
+        --exclude=api/build \
+        --exclude=api/.gradle \
+        --exclude=api/src/test/resources/invoices/private \
+        --exclude=auth/build \
+        --exclude=auth/.gradle \
+        -cf - api auth | tar -C "$WORK" -xf -
 else
-    tar -C "$SRC" --exclude=api/build --exclude=api/.gradle -cf - api | tar -C "$WORK" -xf -
+    tar -C "$SRC" \
+        --exclude=api/build \
+        --exclude=api/.gradle \
+        --exclude=api/src/test/resources/invoices/private \
+        -cf - api | tar -C "$WORK" -xf -
 fi
 cd "$WORK/api"
 # Files checked out on Windows may lack the executable bit
@@ -62,19 +87,19 @@ if compgen -G "build/test-results/test/*.xml" > /dev/null; then
         head -n 2 "$report" | grep -o 'testsuite name="[^"]*" tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' \
             | sed -E 's/testsuite name="io\.github\.aaronfilson\.studiomanager\.([^"]*)" /\1 /'
     done
-    # For each failure: the test, the root cause, and the application's own stack frames
-    if grep -l '<failure' build/test-results/test/*.xml > /dev/null 2>&1; then
+    # For each failure or error: the test, the root cause, and the application's own stack frames
+    if grep -El '<(failure|error)' build/test-results/test/*.xml > /dev/null 2>&1; then
         echo "== Failures"
-        for report in $(grep -l '<failure' build/test-results/test/*.xml); do
+        while IFS= read -r report; do
             sed -E 's/&#10;/\n/g; s/&#9;//g; s/&quot;/"/g' "$report" \
-                | grep -E '^(<testcase name=|.*<failure message=|\s*Caused by|\s*at io\.github\.aaronfilson)' \
+                | grep -E '^(<testcase name=|.*<(failure|error) message=|\s*Caused by|\s*at io\.github\.aaronfilson)' \
                 | grep -v -E 'Tests\.java|<testcase name="[^"]*" classname="[^"]*" time="[^"]*"/>' \
-                | cut -c1-300 | head -n 25
+                | cut -c1-300 | head -n 25 || true
             # The root cause's own frames, where a library threw
             sed -E 's/&#10;/\n/g; s/&#9;//g; s/&quot;/"/g' "$report" \
-                | awk '/^Caused by/ { n = NR } { line[NR] = $0 } END { for (i = n; i < n + 15 && i <= NR; i++) print line[i] }' \
-                | cut -c1-300
-        done
+                | awk '/^Caused by/ { n = NR } { line[NR] = $0 } END { if (n > 0) for (i = n; i < n + 15 && i <= NR; i++) print line[i] }' \
+                | cut -c1-300 || true
+        done < <(grep -El '<(failure|error)' build/test-results/test/*.xml)
     fi
 fi
 exit "$status"

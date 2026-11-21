@@ -12,17 +12,23 @@ export default function MoreScreen() {
     router.push(`/studios/${studioId}/${destination}`);
   }
 
+  async function handleSignOut() {
+    try {
+      await auth.signOut();
+    } catch {
+      // Still return to sign-in if secure-store cleanup fails.
+    } finally {
+      router.replace('/');
+    }
+  }
+
   return (
     <Screen>
       <StudioMenu
         studioId={studioId}
         onNavigate={open}
         onSwitchStudio={() => router.replace('/?choose=1')}
-        onSignOut={() => {
-          void auth.signOut().then(() => {
-            router.replace('/');
-          });
-        }}
+        onSignOut={() => void handleSignOut()}
       />
     </Screen>
   );

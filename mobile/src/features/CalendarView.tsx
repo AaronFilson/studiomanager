@@ -31,12 +31,41 @@ function toDateInput(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function parseLocalDateTime(dateInput: string, timeInput: string): Date | null {
+  const trimmedDate = dateInput.trim();
+  const trimmedTime = timeInput.trim();
+  if (!datePattern.test(trimmedDate) || !timePattern.test(trimmedTime)) return null;
+  const [yearStr, monthStr, dayStr] = trimmedDate.split('-');
+  const [hourStr, minuteStr] = trimmedTime.split(':');
+  if (!yearStr || !monthStr || !dayStr || !hourStr || !minuteStr) return null;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  const parsed = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day ||
+    parsed.getHours() !== hour ||
+    parsed.getMinutes() !== minute
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
 /** Upcoming studio bookings by week, with resource reservation and cancellation. */
 export function CalendarView({ studioId }: { studioId: string }) {
   const queryClient = useQueryClient();
   const { can } = useCan(studioId);
   const staff = can('schedule.manage');
-  const [baseDay] = useState(startOfToday);
+  const [baseDay, setBaseDay] = useState(startOfToday);
   const [weekOffset, setWeekOffset] = useState(0);
 
   const { from, to } = useMemo(() => {
@@ -68,7 +97,12 @@ export function CalendarView({ studioId }: { studioId: string }) {
         <RefreshControl
           refreshing={bookings.isRefetching}
           onRefresh={() => {
-            void bookings.refetch();
+            const today = startOfToday();
+            if (today.getTime() !== baseDay.getTime()) {
+              setBaseDay(today);
+            } else {
+              void bookings.refetch();
+            }
             void resources.refetch();
           }}
         />
@@ -158,14 +192,11 @@ function BookResourceCard({
   const chosenId = resourceId || resources[0]?.id || '';
   const selected = resources.find((r) => r.id === chosenId);
 
-  const datesValid = datePattern.test(date.trim()) && timePattern.test(startTime.trim()) && timePattern.test(endTime.trim());
-  const startsAtDate = datesValid ? new Date(`${date.trim()}T${startTime.trim()}:00`) : null;
-  const endsAtDate = datesValid ? new Date(`${date.trim()}T${endTime.trim()}:00`) : null;
+  const startsAtDate = parseLocalDateTime(date, startTime);
+  const endsAtDate = parseLocalDateTime(date, endTime);
   const rangeValid =
     startsAtDate !== null &&
     endsAtDate !== null &&
-    !Number.isNaN(startsAtDate.getTime()) &&
-    !Number.isNaN(endsAtDate.getTime()) &&
     endsAtDate.getTime() > startsAtDate.getTime();
 
   function submit() {
@@ -193,6 +224,7 @@ function BookResourceCard({
             key={r.id}
             compact
             primary={chosenId === r.id}
+            selected={chosenId === r.id}
             label={r.downReason ? `${r.name} (out of service)` : r.name}
             onPress={() => setResourceId(r.id)}
           />
@@ -217,6 +249,7 @@ function BookResourceCard({
                 key={k}
                 compact
                 primary={kind === k}
+                selected={kind === k}
                 label={bookingKindLabel(k)}
                 onPress={() => setKind(k)}
               />

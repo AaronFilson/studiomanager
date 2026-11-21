@@ -34,4 +34,8 @@ record GlazecalcProperties(
   boolean oauthConfigured() {
     return clientId != null && !clientId.isBlank();
   }
+
+  boolean tokenEncryptionKeyConfigured() {
+    return tokenEncryptionKey != null && !tokenEncryptionKey.isBlank();
+  }
 }

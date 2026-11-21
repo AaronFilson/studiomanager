@@ -104,7 +104,7 @@ class InvoiceReadingJob {
     if (change != null) {
       log.info("Invoice {}: the reading copy of the {}", invoiceId, change);
     }
-    long started = clock.millis();
+    long startedNanos = System.nanoTime();
     ReaderResult result = null;
     InvoiceRead.Outcome outcome;
     String note = null;
@@ -121,20 +121,8 @@ class InvoiceReadingJob {
       outcome = InvoiceRead.Outcome.UNAVAILABLE;
       note = InvoiceFailures.UNEXPECTED;
     }
-    long elapsed = clock.millis() - started;
-    ReaderResult answered = result;
-    String reason = note;
-    InvoiceRead.Outcome ended = outcome;
-    transactions.executeWithoutResult(tx -> {
-      reads.save(
-          new InvoiceRead(
-              invoiceId,
-              reader.kind(),
-              ended,
-              answered == null ? null : answered.usage(),
-              elapsed));
-      save(invoiceId, reader.kind(), answered, reason);
-    });
+    long elapsed = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
+    persistResult(invoiceId, reader.kind(), result, note, outcome, elapsed);
   }
 
   /** Saves the draft (read, or empty with the reason), if the invoice is still waiting for it. */
@@ -143,34 +131,52 @@ class InvoiceReadingJob {
       @Nullable InvoiceReaderKind reader,
       @Nullable ReaderResult result,
       @Nullable String note) {
+    persistResult(invoiceId, reader, result, note, null, 0L);
+  }
+
+  private void persistResult(
+      UUID invoiceId,
+      @Nullable InvoiceReaderKind reader,
+      @Nullable ReaderResult result,
+      @Nullable String note,
+      InvoiceRead.@Nullable Outcome outcome,
+      long elapsedMs) {
+    InvoiceDraft draft;
+    List<String> notes = new ArrayList<>();
+    if (note != null) {
+      notes.add(note);
+    }
+    if (result == null) {
+      draft = InvoiceDraft.empty();
+    } else {
+      InvoiceDrafts.Sanitized sanitized =
+          InvoiceDrafts.sanitize(result.draft(), LocalDate.now(clock.withZone(ZoneOffset.UTC)));
+      draft = sanitized.draft();
+      notes.addAll(sanitized.notes());
+    }
     transactions.executeWithoutResult(tx -> {
-      InvoiceDraft draft;
-      List<String> notes = new ArrayList<>();
-      if (note != null) {
-        notes.add(note);
+      Optional<Invoice> existing = invoices.findAndLock(invoiceId);
+      if (existing.isEmpty()) {
+        return;
       }
-      if (result == null) {
-        draft = InvoiceDraft.empty();
-      } else {
-        InvoiceDrafts.Sanitized sanitized =
-            InvoiceDrafts.sanitize(result.draft(), LocalDate.now(clock.withZone(ZoneOffset.UTC)));
-        draft = sanitized.draft();
-        notes.addAll(sanitized.notes());
-      }
+      Invoice invoice = existing.get();
       // SQL first: matching reads supplies and aliases before any entity changes (ADR 21, rule 5)
-      List<Invoice.LineMatch> matches = matching.matchAll(draft);
-      invoices
-          .findWithLines(invoiceId)
-          .filter(invoice -> invoice.status() == InvoiceStatus.READING)
-          .ifPresent(invoice -> {
-            invoice.filled(
-                draft,
-                matches,
-                result == null ? null : reader,
-                result == null ? null : result.raw(),
-                notes.isEmpty() ? null : shortened(String.join(" ", notes)));
-            invoices.flush();
-          });
+      List<Invoice.LineMatch> matches =
+          invoice.status() == InvoiceStatus.READING ? matching.matchAll(draft) : List.of();
+      if (reader != null && outcome != null) {
+        reads.save(
+            new InvoiceRead(
+                invoiceId, reader, outcome, result == null ? null : result.usage(), elapsedMs));
+      }
+      if (invoice.status() == InvoiceStatus.READING) {
+        invoice.filled(
+            draft,
+            matches,
+            result == null ? null : reader,
+            result == null ? null : result.raw(),
+            notes.isEmpty() ? null : shortened(String.join(" ", notes)));
+        invoices.flush();
+      }
     });
   }
 

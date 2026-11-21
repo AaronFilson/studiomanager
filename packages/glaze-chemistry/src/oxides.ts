@@ -107,10 +107,34 @@ const NORMALIZED_OXIDES: Record<string, OxideKey> = {
   f: 'F',
 };
 
+const STOICHIOMETRIC_FACTORS: Readonly<Record<string, number>> = {
+  feo: 1.1113,
+  mno2: 0.816,
+  cu2o: 1.1118,
+};
+
+export interface NormalizedOxideEntry {
+  key: OxideKey;
+  /** Weight conversion factor from the input oxide spelling to the canonical oxide (1 for direct matches). */
+  weightFactor: number;
+}
+
+/**
+ * Maps common oxide spellings (case-insensitive, e.g. `sio2`, `FeO`, `MnO2`, `Cu2O`) to a canonical
+ * `OxideKey` and its stoichiometric weight conversion factor.
+ */
+export function normalizeOxideWithFactor(raw: string): NormalizedOxideEntry | undefined {
+  const cleaned = raw.trim().replaceAll(/[^A-Za-z0-9]/g, '').toLowerCase();
+  const key = NORMALIZED_OXIDES[cleaned];
+  if (!key) {
+    return undefined;
+  }
+  return { key, weightFactor: STOICHIOMETRIC_FACTORS[cleaned] ?? 1 };
+}
+
 /** Maps common oxide spellings (case-insensitive, e.g. `sio2`, `FeO`) to a canonical `OxideKey`. */
 export function normalizeOxideKey(raw: string): OxideKey | undefined {
-  const cleaned = raw.trim().replaceAll(/[^A-Za-z0-9]/g, '').toLowerCase();
-  return NORMALIZED_OXIDES[cleaned];
+  return normalizeOxideWithFactor(raw)?.key;
 }
 
 export function isFluxGroup(group: OxideGroup): boolean {

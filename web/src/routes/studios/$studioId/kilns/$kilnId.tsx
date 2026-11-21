@@ -93,9 +93,17 @@ function KilnPage() {
         <dt>Status</dt>
         <dd>{kiln.available ? 'In service' : `Out of service: ${kiln.downReason ?? ''}`}</dd>
       </dl>
-      {open ? <OpenFiring studioId={studioId} firingId={open.id} /> : <LoadForm studioId={studioId} kiln={kiln} />}
-      <ImportKilnLog studioId={studioId} kilnId={kiln.id} firings={firings.data?.items ?? []} />
-      <Availability studioId={studioId} kiln={kiln} />
+      {firings.isPending ? (
+        <p>Loading firings…</p>
+      ) : firings.isError ? (
+        <ErrorMessage error={firings.error} />
+      ) : open ? (
+        <OpenFiring key={open.id} studioId={studioId} firingId={open.id} />
+      ) : (
+        <LoadForm key={kiln.id} studioId={studioId} kiln={kiln} />
+      )}
+      <ImportKilnLog key={kiln.id} studioId={studioId} kilnId={kiln.id} firings={firings.data?.items ?? []} />
+      <Availability key={kiln.id} studioId={studioId} kiln={kiln} />
       <p>
         <Link to="/studios/$studioId/maintenance" params={{ studioId }} hash={kiln.id}>
           Maintenance tasks and history for this kiln
@@ -239,6 +247,8 @@ function FiringCurveChart({
   );
 }
 
+const MAX_LOG_BYTES = 2 * 1024 * 1024;
+
 function ImportKilnLog({
   studioId,
   kilnId,
@@ -253,6 +263,7 @@ function ImportKilnLog({
   const [source, setSource] = useState<KilnLogSource>('GENESIS');
   const [tempUnit, setTempUnit] = useState<'' | TemperatureUnit>('');
   const [fileName, setFileName] = useState<string>();
+  const [fileError, setFileError] = useState<string>();
   const [csvText, setCsvText] = useState('');
   const [colTime, setColTime] = useState('');
   const [colTemp, setColTemp] = useState('');
@@ -267,11 +278,25 @@ function ImportKilnLog({
   const importLog = useMutation({ ...importKilnLogMutation() });
 
   async function onChooseFile(file: File) {
-    const text = await file.text();
-    setFileName(file.name);
-    setCsvText(text);
+    setFileError(undefined);
     setPreview(undefined);
     setCommittedMessage(undefined);
+    importLog.reset();
+    if (file.size > MAX_LOG_BYTES) {
+      setFileName(undefined);
+      setCsvText('');
+      setFileError('The file is larger than 2 MB.');
+      return;
+    }
+    try {
+      const text = await file.text();
+      setFileName(file.name);
+      setCsvText(text);
+    } catch {
+      setFileName(undefined);
+      setCsvText('');
+      setFileError("Couldn't read that file. Try choosing it again.");
+    }
   }
 
   function buildColumnMap(): KilnLogColumnMap | undefined {
@@ -287,30 +312,32 @@ function ImportKilnLog({
     setCommittedMessage(undefined);
     const columnMap = buildColumnMap();
     const attachId = !dryRun && targetFiringId !== 'NEW' ? targetFiringId : undefined;
-    const result = await importLog.mutateAsync({
-      path: { studioId, kilnId },
-      body: {
-        csvText,
-        source,
-        dryRun,
-        ...(tempUnit ? { tempUnit } : {}),
-        ...(columnMap ? { columnMap } : {}),
-        ...(attachId ? { firingId: attachId } : {}),
-        ...(!dryRun && !attachId ? { kind, ...(cone.trim() ? { cone: cone.trim() } : {}) } : {}),
-      },
-    });
-    if (dryRun) {
-      setPreview(result);
-      setTargetFiringId(result.suggestedMatch ? result.suggestedMatch.firingId : 'NEW');
-      if (result.detectedCone) {
-        setCone(result.detectedCone);
+    try {
+      const result = await importLog.mutateAsync({
+        path: { studioId, kilnId },
+        body: {
+          csvText,
+          source,
+          dryRun,
+          ...(tempUnit ? { tempUnit } : {}),
+          ...(columnMap ? { columnMap } : {}),
+          ...(attachId ? { firingId: attachId } : {}),
+          ...(!dryRun && !attachId ? { kind, ...(cone.trim() ? { cone: cone.trim() } : {}) } : {}),
+        },
+      });
+      if (dryRun) {
+        setPreview(result);
+        setTargetFiringId(result.suggestedMatch ? result.suggestedMatch.firingId : 'NEW');
+        setCone(result.detectedCone ?? '');
+      } else {
+        setPreview(undefined);
+        setCommittedMessage(
+          `Log imported (${formatTemp(result.peakTemp, result.tempUnit)}, ${formatDuration(result.durationMinutes)}).`,
+        );
+        await queryClient.invalidateQueries();
       }
-    } else {
-      setPreview(undefined);
-      setCommittedMessage(
-        `Log imported (${formatTemp(result.peakTemp, result.tempUnit)}, ${formatDuration(result.durationMinutes)}).`,
-      );
-      await queryClient.invalidateQueries();
+    } catch {
+      // Mutation error is displayed via importLog.isError
     }
   }
 
@@ -361,7 +388,10 @@ function ImportKilnLog({
             accept=".csv,.tsv,.txt,text/csv,text/plain"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) void onChooseFile(file);
+              e.target.value = '';
+              if (file) {
+                void onChooseFile(file);
+              }
             }}
           />
         </div>
@@ -429,6 +459,11 @@ function ImportKilnLog({
         </div>
       </details>
       {fileName && <p className="badge">Selected file: {fileName}</p>}
+      {fileError && (
+        <p role="alert" className="error">
+          {fileError}
+        </p>
+      )}
       {importLog.isError && <ErrorMessage error={importLog.error} />}
       {committedMessage && (
         <p className="badge" role="status">
@@ -672,8 +707,8 @@ function OpenFiring({ studioId, firingId }: { studioId: string; firingId: string
   const [notes, setNotes] = useState('');
   const transition = useMutation({
     ...transitionFiringMutation(),
-    onSuccess: async (updated: Firing) => {
-      queryClient.setQueryData(getFiringQueryKey({ path: { studioId, firingId } }), updated);
+    onSuccess: async (updated: Firing, variables) => {
+      queryClient.setQueryData(getFiringQueryKey({ path: variables.path }), updated);
       await queryClient.invalidateQueries();
     },
   });
@@ -709,16 +744,34 @@ function OpenFiring({ studioId, firingId }: { studioId: string; firingId: string
       {transition.isError && <ErrorMessage error={transition.error} />}
       <div className="row">
         {f.status === 'LOADING' && (
-          <button type="button" className="primary" onClick={() => move('FIRING')}>
+          <button
+            type="button"
+            className="primary"
+            disabled={transition.isPending}
+            onClick={() => move('FIRING')}
+          >
             Start firing
           </button>
         )}
         {f.status === 'FIRING' && (
-          <button type="button" className="primary" onClick={() => move('COMPLETE')}>
+          <button
+            type="button"
+            className="primary"
+            disabled={transition.isPending}
+            onClick={() => move('COMPLETE')}
+          >
             Unload and notify makers
           </button>
         )}
-        <button type="button" onClick={() => move('CANCELLED')}>
+        <button
+          type="button"
+          disabled={transition.isPending}
+          onClick={() => {
+            if (window.confirm('Cancel this kiln load and return pieces to the queue?')) {
+              move('CANCELLED');
+            }
+          }}
+        >
           Cancel this load
         </button>
       </div>
@@ -749,7 +802,7 @@ function Availability({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
           </div>
           <button
             type="button"
-            disabled={!reason.trim()}
+            disabled={!reason.trim() || save.isPending}
             onClick={() =>
               save.mutate({ path: { studioId, kilnId: kiln.id }, body: { downReason: reason.trim(), expectedVersion: kiln.version } })
             }
@@ -760,6 +813,7 @@ function Availability({ studioId, kiln }: { studioId: string; kiln: Kiln }) {
       ) : (
         <button
           type="button"
+          disabled={save.isPending}
           onClick={() => save.mutate({ path: { studioId, kilnId: kiln.id }, body: { expectedVersion: kiln.version } })}
         >
           Put back in service

@@ -86,8 +86,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
     if (studioId != null && !studioId.equals(token.studioId())) {
       throw new AccessDeniedException("This token works only in the studio it was made for.");
     }
-    TokenPolicy.refusal(
-            token.scopes(), request.getMethod(), studioId == null ? null : areaOf(request))
+    String area = studioId == null ? null : areaOf(request);
+    String subPath = studioId == null || area == null ? null : subPathOf(request, studioId, area);
+    TokenPolicy.refusal(token.scopes(), request.getMethod(), area, subPath)
         .ifPresent(why -> {
           throw new AccessDeniedException(why);
         });
@@ -153,6 +154,22 @@ public class TenantContextFilter extends OncePerRequestFilter {
     PathPattern.PathMatchInfo match = STUDIO_AREA.matchAndExtract(PathContainer.parsePath(path));
     // STUDIO_AREA always captures {area}, so a match always has it
     return match == null ? "" : match.getUriVariables().getOrDefault("area", "");
+  }
+
+  private static String subPathOf(HttpServletRequest request, UUID studioId, String area) {
+    if (area.isEmpty()) {
+      return "";
+    }
+    String path = request.getRequestURI().substring(request.getContextPath().length());
+    String prefix = "/api/v1/studios/" + studioId + "/" + area;
+    if (!path.regionMatches(true, 0, prefix, 0, prefix.length())) {
+      return "";
+    }
+    String rest = path.substring(prefix.length());
+    while (rest.endsWith("/")) {
+      rest = rest.substring(0, rest.length() - 1);
+    }
+    return rest;
   }
 
   private MemberRole roleIn(UUID studioId, TenantContext caller) {

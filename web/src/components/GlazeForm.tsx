@@ -51,7 +51,21 @@ export function GlazeForm({
   const [lines, setLines] = useState<GlazeLine[]>(initial?.lines ?? [blankLine()]);
 
   const setLine = (index: number, change: Partial<GlazeLine>) =>
-    setLines(lines.map((line, i) => (i === index ? { ...line, ...change } : line)));
+    setLines((current) =>
+      current.map((line, i) => {
+        if (i !== index) {
+          return line;
+        }
+        const next: GlazeLine = { ...line, ...change };
+        if (next.chemistry === undefined) {
+          delete next.chemistry;
+        }
+        if (next.amountText === undefined) {
+          delete next.amountText;
+        }
+        return next;
+      }),
+    );
 
   return (
     <form
@@ -135,7 +149,7 @@ export function GlazeForm({
                   required
                   maxLength={80}
                   value={line.material}
-                  onChange={(e) => setLine(index, { material: e.target.value })}
+                  onChange={(e) => setLine(index, { material: e.target.value, chemistry: undefined })}
                 />
               </td>
               <td>
@@ -145,7 +159,7 @@ export function GlazeForm({
                   inputMode="decimal"
                   pattern="\d{1,9}(\.\d{1,4})?"
                   value={line.amount}
-                  onChange={(e) => setLine(index, { amount: e.target.value })}
+                  onChange={(e) => setLine(index, { amount: e.target.value, amountText: undefined })}
                 />
               </td>
               <td>

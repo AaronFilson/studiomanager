@@ -23,6 +23,43 @@ const outcomeLabels: Record<GlazeImportOutcome, string> = {
   ERROR: 'Error',
 };
 
+const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+
+const OAUTH_QUERY_PARAMS = [
+  'code',
+  'state',
+  'glazecalc_code',
+  'glazecalc_state',
+  'error',
+  'error_description',
+] as const;
+
+function readInitialOAuthError(): string | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get('error');
+  if (!error) {
+    return undefined;
+  }
+  const description = params.get('error_description');
+  return description
+    ? `Glazecalc connection was not completed (${error}): ${description}`
+    : `Glazecalc connection was not completed (${error}).`;
+}
+
+function stripOAuthParamsFromUrl(): void {
+  const url = new URL(window.location.href);
+  let changed = false;
+  for (const key of OAUTH_QUERY_PARAMS) {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+}
+
 /**
  * Import recipes from a `glazecalc-export` v1 or `glaze-vault-export` v1 JSON file, paste a
  * Glazecalc share link, or connect and sync directly with a Glazecalc account via OAuth.
@@ -41,26 +78,21 @@ export function GlazeImportWizard({
   const [fileName, setFileName] = useState<string>();
   const [parsedPayload, setParsedPayload] = useState<Record<string, unknown>>();
   const [parseError, setParseError] = useState<string>();
+  const [fileError, setFileError] = useState<unknown>(null);
   const [fileResult, setFileResult] = useState<GlazeImportResult>();
+  const fileRequestId = useRef(0);
 
   // 2. Glazecalc share link state
   const [shareInput, setShareInput] = useState('');
   const [shareResult, setShareResult] = useState<GlazeImportResult>();
 
   // 3. Glazecalc OAuth sync state
+  const [oauthError, setOauthError] = useState<string | undefined>(readInitialOAuthError);
   const [syncResult, setSyncResult] = useState<GlazeImportResult>();
-  const statusKey = getGlazecalcStatusQueryKey({ path: { studioId } });
   const status = useQuery(getGlazecalcStatusOptions({ path: { studioId } }));
 
   const importFile = useMutation({
     ...importGlazesMutation(),
-    onSuccess: (res) => {
-      setFileResult(res);
-      if (res.committed) {
-        void queryClient.invalidateQueries();
-        onImported();
-      }
-    },
   });
 
   const importShare = useMutation({
@@ -84,8 +116,10 @@ export function GlazeImportWizard({
 
   const completeCallback = useMutation({
     ...completeGlazecalcCallbackMutation(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: statusKey });
+    onSuccess: (_res, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: getGlazecalcStatusQueryKey({ path: variables.path }),
+      });
     },
   });
 
@@ -102,13 +136,15 @@ export function GlazeImportWizard({
 
   const disconnect = useMutation({
     ...disconnectGlazecalcMutation(),
-    onSuccess: () => {
+    onSuccess: (_res, variables) => {
       setSyncResult(undefined);
-      void queryClient.invalidateQueries({ queryKey: statusKey });
+      void queryClient.invalidateQueries({
+        queryKey: getGlazecalcStatusQueryKey({ path: variables.path }),
+      });
     },
   });
 
-  // Handle OAuth redirect callback parameters (`?code=...&state=...`) once on mount
+  // Handle OAuth redirect callback parameters (`?code=...&state=...` or `?error=...`) once on mount
   const callbackHandled = useRef(false);
   const { mutate: runCallback } = completeCallback;
   useEffect(() => {
@@ -118,37 +154,97 @@ export function GlazeImportWizard({
     const params = new URLSearchParams(window.location.search);
     const code = params.get('glazecalc_code') ?? params.get('code');
     const state = params.get('glazecalc_state') ?? params.get('state');
-    if (code && state) {
+    const hasError = params.has('error') || params.has('error_description');
+    if (code || state || hasError) {
       callbackHandled.current = true;
-      const redirectUri = `${window.location.origin}${window.location.pathname}`;
-      runCallback({ path: { studioId }, body: { code, state, redirectUri } });
+      stripOAuthParamsFromUrl();
+    }
+    if (code && state && !params.has('error')) {
+      runCallback({ path: { studioId }, body: { code, state } });
     }
   }, [studioId, runCallback]);
 
   async function loadJsonFile(file: File): Promise<void> {
+    const requestId = ++fileRequestId.current;
     setFileName(file.name);
     setParseError(undefined);
+    setFileError(null);
     setFileResult(undefined);
     setParsedPayload(undefined);
+    importFile.reset();
+
+    if (file.size > MAX_IMPORT_BYTES) {
+      setParseError('The file is larger than 2 MB.');
+      return;
+    }
+
+    let text: string;
     try {
-      const text = await file.text();
-      const parsed: unknown = JSON.parse(text);
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        setParseError('The file must contain a JSON object.');
+      text = await file.text();
+    } catch {
+      if (requestId === fileRequestId.current) {
+        setParseError("Couldn't read that file. Try choosing it again.");
+      }
+      return;
+    }
+    if (requestId !== fileRequestId.current) {
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      setParseError("That file isn't valid JSON.");
+      return;
+    }
+
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      setParseError('The file must contain a JSON object.');
+      return;
+    }
+    const payload = parsed as Record<string, unknown>;
+    setParsedPayload(payload);
+
+    try {
+      const res = await importFile.mutateAsync({ path: { studioId }, query: { dryRun: true }, body: payload });
+      if (requestId !== fileRequestId.current) {
         return;
       }
-      const payload = parsed as Record<string, unknown>;
-      setParsedPayload(payload);
-      await importFile.mutateAsync({ path: { studioId }, query: { dryRun: true }, body: payload });
+      setFileResult(res);
     } catch (err: unknown) {
-      if (err instanceof SyntaxError) {
-        setParseError("That file isn't valid JSON.");
+      if (requestId === fileRequestId.current) {
+        setFileError(err);
+      }
+    }
+  }
+
+  async function commitJsonFile(): Promise<void> {
+    if (!parsedPayload) {
+      return;
+    }
+    const requestId = ++fileRequestId.current;
+    setFileError(null);
+    try {
+      const res = await importFile.mutateAsync({ path: { studioId }, query: { dryRun: false }, body: parsedPayload });
+      if (requestId !== fileRequestId.current) {
+        return;
+      }
+      setFileResult(res);
+      if (res.committed) {
+        void queryClient.invalidateQueries();
+        onImported();
+      }
+    } catch (err: unknown) {
+      if (requestId === fileRequestId.current) {
+        setFileError(err);
       }
     }
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = '';
     if (file) {
       void loadJsonFile(file);
     }
@@ -169,16 +265,18 @@ export function GlazeImportWizard({
           <input id={`${id}-json-file`} type="file" accept=".json,application/json" onChange={handleFileChange} />
         </div>
         {fileName && <p className="badge">Selected: {fileName}</p>}
-        {parseError && <p className="error">{parseError}</p>}
-        {importFile.isError && <ErrorMessage error={importFile.error} />}
+        {parseError && (
+          <p role="alert" className="error">
+            {parseError}
+          </p>
+        )}
+        {fileError !== null && <ErrorMessage error={fileError} />}
         {fileResult && (
           <ImportResultPreview
             result={fileResult}
             pending={importFile.isPending}
             onCommit={() => {
-              if (parsedPayload) {
-                importFile.mutate({ path: { studioId }, query: { dryRun: false }, body: parsedPayload });
-              }
+              void commitJsonFile();
             }}
           />
         )}
@@ -232,6 +330,13 @@ export function GlazeImportWizard({
 
       <section className="card stack" aria-labelledby={`${id}-oauth-title`}>
         <h2 id={`${id}-oauth-title`}>Connect &amp; sync with Glazecalc</h2>
+        {oauthError && (
+          <p role="alert" className="error">
+            {oauthError}
+          </p>
+        )}
+        {completeCallback.isPending && <p aria-live="polite">Finishing Glazecalc connection…</p>}
+        {completeCallback.isError && <ErrorMessage error={completeCallback.error} />}
         {status.isError && <ErrorMessage error={status.error} />}
         {status.data && !status.data.configured && (
           <p className="badge">
@@ -243,13 +348,15 @@ export function GlazeImportWizard({
           <div className="stack">
             <p>Connect your Glazecalc account to pull your recipes directly into My recipes.</p>
             {connect.isError && <ErrorMessage error={connect.error} />}
-            {completeCallback.isError && <ErrorMessage error={completeCallback.error} />}
             <div>
               <button
                 type="button"
                 className="primary"
-                disabled={connect.isPending}
-                onClick={() => connect.mutate({ path: { studioId }, body: { redirectUri: currentRedirectUri } })}
+                disabled={connect.isPending || completeCallback.isPending}
+                onClick={() => {
+                  setOauthError(undefined);
+                  connect.mutate({ path: { studioId }, body: { redirectUri: currentRedirectUri } });
+                }}
               >
                 {connect.isPending ? 'Connecting…' : 'Connect Glazecalc'}
               </button>
@@ -299,6 +406,7 @@ function ImportResultPreview({
   pending: boolean;
   onCommit?: () => void;
 }) {
+  const changeCount = result.createdCount + result.updatedCount;
   return (
     <div className="stack" aria-live="polite">
       <p>
@@ -340,10 +448,14 @@ function ImportResultPreview({
           <button
             type="button"
             className="primary"
-            disabled={pending || result.errorCount > 0 || result.rows.length === 0}
+            disabled={pending || result.errorCount > 0 || result.rows.length === 0 || changeCount === 0}
             onClick={onCommit}
           >
-            {pending ? 'Importing…' : `Import ${String(result.rows.length)} ${result.rows.length === 1 ? 'recipe' : 'recipes'}`}
+            {pending
+              ? 'Importing…'
+              : changeCount === 0
+                ? 'Nothing to import'
+                : `Import ${String(changeCount)} ${changeCount === 1 ? 'recipe' : 'recipes'}`}
           </button>
         </div>
       )}

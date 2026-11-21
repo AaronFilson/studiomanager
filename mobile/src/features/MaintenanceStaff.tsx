@@ -6,6 +6,7 @@ import {
   type ProblemReport,
   resolveProblemReportMutation,
   setAssetAvailabilityMutation,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -24,8 +25,11 @@ export function MaintenanceStaff({
 }) {
   const assets = useQuery(listAssetsOptions({ path: { studioId } }));
   const reports = useQuery(listProblemReportsOptions({ path: { studioId }, query: { open: true } }));
+  const permissions = useCan(studioId);
+  const canOpenKilns =
+    permissions.can('kilns.read') || permissions.can('kilns.manage') || permissions.can('firings.manage');
 
-  if (assets.isPending && reports.isPending) return <Loading />;
+  if ((assets.isPending && reports.isPending) || permissions.isPending) return <Loading />;
 
   const reportsCapNote = cappedNote(
     reports.data,
@@ -49,6 +53,7 @@ export function MaintenanceStaff({
     >
       <Title>Maintenance</Title>
 
+      {permissions.isError && <ErrorText error={permissions.error} />}
       {reports.isError && <ErrorText error={reports.error} />}
       {reports.data && reports.data.items.length > 0 && (
         <View style={styles.section}>
@@ -66,7 +71,12 @@ export function MaintenanceStaff({
         <View style={styles.section}>
           <SectionTitle>Equipment &amp; studio assets</SectionTitle>
           {assets.data.map((asset) => (
-            <AssetCard key={asset.id} studioId={studioId} asset={asset} onOpenKiln={onOpenKiln} />
+            <AssetCard
+              key={asset.id}
+              studioId={studioId}
+              asset={asset}
+              onOpenKiln={canOpenKilns ? onOpenKiln : undefined}
+            />
           ))}
         </View>
       )}

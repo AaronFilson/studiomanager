@@ -7,8 +7,10 @@
 export {
   isFluxGroup,
   normalizeOxideKey,
+  normalizeOxideWithFactor,
   OXIDE_KEYS,
   OXIDES,
+  type NormalizedOxideEntry,
   type OxideGroup,
   type OxideInfo,
   type OxideKey,
