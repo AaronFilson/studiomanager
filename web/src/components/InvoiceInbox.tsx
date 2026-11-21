@@ -21,9 +21,9 @@ import {
   type SupplyItem,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type SubmitEvent, useEffect, useId, useRef, useState } from 'react';
+import { type KeyboardEvent, type SubmitEvent, useEffect, useId, useRef, useState } from 'react';
 
-import { CompareReaders, readerLabels } from './CompareReaders';
+import { CompareReaders, documentTypeLabels, readerLabels } from './CompareReaders';
 import { ErrorMessage, errorText } from './ErrorMessage';
 
 const fileTypes: Record<string, InvoiceFileType> = {
@@ -50,17 +50,6 @@ const documentTypes: InvoiceDocumentType[] = [
   'QUOTE',
   'OTHER',
 ];
-
-const documentTypeLabels: Record<InvoiceDocumentType, string> = {
-  INVOICE: 'Invoice',
-  ORDER_FORM: 'Order form',
-  RECEIPT: 'Receipt',
-  PACKING_LIST: 'Packing list',
-  CREDIT_MEMO: 'Credit memo',
-  STATEMENT: 'Statement',
-  QUOTE: 'Quote',
-  OTHER: 'Other',
-};
 
 const lineKinds: InvoiceLineKind[] = ['ITEM', 'SHIPPING', 'FEE', 'DISCOUNT', 'DEPOSIT', 'OTHER'];
 
@@ -144,7 +133,9 @@ export function InvoiceInbox({ studioId, canCompare }: { studioId: string; canCo
     refetchInterval: (query) =>
       query.state.data?.items.some((invoice) => invoice.status === 'READING') ? 3000 : false,
   });
-  const [open, setOpen] = useState<string | null>(null);
+  const [openSelection, setOpenSelection] = useState<{ studioId: string; invoiceId: string } | null>(null);
+  const open = openSelection?.studioId === studioId ? openSelection.invoiceId : null;
+  const setOpen = (invoiceId: string | null) => setOpenSelection(invoiceId ? { studioId, invoiceId } : null);
 
   return (
     <section className="card stack" aria-labelledby={`${id}-title`}>
@@ -184,6 +175,7 @@ export function InvoiceInbox({ studioId, canCompare }: { studioId: string; canCo
 function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (invoiceId: string) => void }) {
   const id = useId();
   const queryClient = useQueryClient();
+  const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   // The whole sequence, the file's own upload included, so the button can't be pressed twice
@@ -198,6 +190,8 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setFailure(null);
+    start.reset();
+    complete.reset();
     const fileType = file ? fileTypes[file.type] : undefined;
     if (!file || !fileType) {
       setFailure('Choose a PDF, JPEG or PNG.');
@@ -229,6 +223,9 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
       }
       await complete.mutateAsync({ path: { studioId, invoiceId: upload.invoiceId } });
       setFile(null);
+      if (fileInput.current) {
+        fileInput.current.value = '';
+      }
       onUploaded(upload.invoiceId);
     } catch {
       // The mutations show their own errors below
@@ -243,10 +240,16 @@ function UploadForm({ studioId, onUploaded }: { studioId: string; onUploaded: (i
       <div className="field">
         <label htmlFor={`${id}-file`}>Invoice file</label>
         <input
+          ref={fileInput}
           id={`${id}-file`}
           type="file"
           accept="application/pdf,image/jpeg,image/png"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            setFailure(null);
+            start.reset();
+            complete.reset();
+            setFile(e.target.files?.[0] ?? null);
+          }}
         />
       </div>
       <div>
@@ -276,6 +279,7 @@ function InvoiceReview({
   const invoice = useQuery({
     ...getInvoiceOptions({ path: { studioId, invoiceId } }),
     refetchInterval: (query) => (waiting(query.state.data?.status) ? 2000 : false),
+    refetchOnWindowFocus: (query) => waiting(query.state.data?.status),
   });
   const supplies = useQuery(listSuppliesOptions({ path: { studioId } }));
   const discard = useMutation({
@@ -301,8 +305,13 @@ function InvoiceReview({
           {invoice.data.status === 'UPLOADING' ? 'Waiting for the file…' : 'Reading the invoice…'}
         </p>
         {invoice.data.status === 'UPLOADING' && (
-          <button type="button" className="danger" onClick={() => discard.mutate({ path: { studioId, invoiceId } })}>
-            Discard
+          <button
+            type="button"
+            className="danger"
+            disabled={discard.isPending}
+            onClick={() => discard.mutate({ path: { studioId, invoiceId } })}
+          >
+            {discard.isPending ? 'Discarding…' : 'Discard'}
           </button>
         )}
         {discard.isError && <ErrorMessage error={discard.error} />}
@@ -314,7 +323,7 @@ function InvoiceReview({
       <div className="invoice-review">
         <InvoiceFile key={`${invoice.data.id}-${String(invoice.data.rotation ?? 0)}`} invoice={invoice.data} />
         <DraftForm
-          key={invoice.data.version}
+          key={invoice.data.id}
           studioId={studioId}
           invoice={invoice.data}
           items={supplies.data ?? []}
@@ -359,28 +368,52 @@ function InvoiceFile({ invoice }: { invoice: Invoice }) {
 /** A photo turned by quarter turns: drawn onto a canvas, so the page around it makes room. */
 function TurnedImage({ url, turns }: { url: string; turns: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState<{ url: string; image: HTMLImageElement } | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const image = new Image();
     image.onload = () => {
-      const target = canvas.current;
-      const context = target?.getContext('2d');
-      if (!target || !context) {
-        return;
+      if (!cancelled) {
+        setFailedUrl((current) => (current === url ? null : current));
+        setLoaded({ url, image });
       }
-      const sideways = turns % 2 === 1;
-      target.width = sideways ? image.naturalHeight : image.naturalWidth;
-      target.height = sideways ? image.naturalWidth : image.naturalHeight;
-      context.translate(target.width / 2, target.height / 2);
-      context.rotate((turns * Math.PI) / 2);
-      context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
     };
-    image.onerror = () => setFailed(true);
+    image.onerror = () => {
+      if (!cancelled) {
+        setFailedUrl(url);
+      }
+    };
     image.src = url;
-  }, [url, turns]);
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [url]);
 
-  if (failed) {
+  useEffect(() => {
+    if (!loaded || loaded.url !== url) {
+      return;
+    }
+    const target = canvas.current;
+    const context = target?.getContext('2d');
+    if (!target || !context) {
+      return;
+    }
+    const { image } = loaded;
+    const sideways = turns % 2 === 1;
+    target.width = sideways ? image.naturalHeight : image.naturalWidth;
+    target.height = sideways ? image.naturalWidth : image.naturalHeight;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, target.width, target.height);
+    context.translate(target.width / 2, target.height / 2);
+    context.rotate((turns * Math.PI) / 2);
+    context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+  }, [loaded, url, turns]);
+
+  if (failedUrl === url) {
     return <p className="warning">The photo couldn&apos;t be shown here. Open the file instead.</p>;
   }
   return (
@@ -509,8 +542,23 @@ function InlineNewItemForm({
     }
   }
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!create.isPending) {
+        void handleCreate();
+      }
+    }
+  }
+
   return (
-    <div className="card stack" role="group" aria-label={`New supply item for line ${lineNumber}`}>
+    <div
+      className="card stack"
+      role="group"
+      aria-label={`New supply item for line ${lineNumber}`}
+      onKeyDown={handleKeyDown}
+    >
       <strong>New supply item</strong>
       <div className="field">
         <label htmlFor={`${id}-name`}>Item name</label>
@@ -588,11 +636,18 @@ function DraftForm({
   const [creatingForLine, setCreatingForLine] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string>();
-  // The version on the server. Confirm's own save raises it without remounting the form, so a
+  // The version on the server. Saving or confirming raises it without remounting the form, so a
   // confirm that then fails ("line 2 needs a quantity") can be fixed and retried without a 409
   const [version, setVersion] = useState(invoice.version);
+  const effectiveVersion = Math.max(version, invoice.version);
   const refresh = () => queryClient.invalidateQueries();
-  const save = useMutation({ ...saveInvoiceDraftMutation(), onSuccess: refresh });
+  const save = useMutation({
+    ...saveInvoiceDraftMutation(),
+    onSuccess: (saved) => {
+      setVersion(saved.version);
+      return refresh();
+    },
+  });
   // Confirming saves what's on screen first, without refreshing in between, then confirms that
   const saveFirst = useMutation(saveInvoiceDraftMutation());
   const confirm = useMutation({ ...confirmInvoiceMutation(), onSuccess: refresh });
@@ -604,7 +659,7 @@ function DraftForm({
     },
   });
   const confirmed = invoice.status === 'CONFIRMED';
-  const busy = save.isPending || saveFirst.isPending || confirm.isPending;
+  const busy = save.isPending || saveFirst.isPending || confirm.isPending || discard.isPending;
   const change = (index: number, patch: Partial<EditableLine>) =>
     setLines((current) => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   const optional = (value: string | undefined) => (value && value.trim() ? value.trim() : undefined);
@@ -642,7 +697,7 @@ function DraftForm({
       ...(line.unclear ? { unclear: true } : {}),
       supplyItemId: optional(line.supplyItemId),
     })),
-    expectedVersion: version,
+    expectedVersion: effectiveVersion,
   });
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
@@ -666,13 +721,20 @@ function DraftForm({
     try {
       const { data, response } = await exportInvoiceEval({ path, parseAs: 'blob', throwOnError: true });
       const url = URL.createObjectURL(data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download =
-        /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ??
-        `invoice-eval-${invoice.id}.zip`;
-      link.click();
-      URL.revokeObjectURL(url);
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download =
+          /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ??
+          `invoice-eval-${invoice.id}.zip`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+      } finally {
+        window.setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 1000);
+      }
     } catch (e) {
       setExportError(errorText(e));
     } finally {
@@ -700,15 +762,15 @@ function DraftForm({
       )}
       {invoice.explanations && invoice.explanations.length > 0 && (
         <ul aria-label="Payment notes">
-          {invoice.explanations.map((explanation) => (
-            <li key={explanation}>{explanation}</li>
+          {invoice.explanations.map((explanation, index) => (
+            <li key={`${String(index)}-${explanation}`}>{explanation}</li>
           ))}
         </ul>
       )}
       {invoice.problems.length > 0 && (
         <ul aria-label="Problems">
-          {invoice.problems.map((problem) => (
-            <li key={problem}>{problem}</li>
+          {invoice.problems.map((problem, index) => (
+            <li key={`${String(index)}-${problem}`}>{problem}</li>
           ))}
         </ul>
       )}
@@ -716,8 +778,8 @@ function DraftForm({
         <section aria-label="Reader notes">
           <strong>Reader notes</strong>
           <ul>
-            {invoice.notes.map((note) => (
-              <li key={note}>&ldquo;{note}&rdquo;</li>
+            {invoice.notes.map((note, index) => (
+              <li key={`${String(index)}-${note}`}>&ldquo;{note}&rdquo;</li>
             ))}
           </ul>
         </section>
@@ -726,8 +788,8 @@ function DraftForm({
         <section aria-label="Crossed-out rows">
           <strong>Crossed-out rows left out</strong>
           <ul>
-            {invoice.crossedOut.map((row) => (
-              <li key={row}>{row}</li>
+            {invoice.crossedOut.map((row, index) => (
+              <li key={`${String(index)}-${row}`}>{row}</li>
             ))}
           </ul>
         </section>
@@ -807,14 +869,14 @@ function DraftForm({
         <table className="table">
           <thead>
             <tr>
-              <th>Line</th>
-              <th>Kind</th>
-              <th>Quantity</th>
-              <th>Unit</th>
-              <th>Unit price</th>
-              <th>Total</th>
-              <th>Receive into</th>
-              {!confirmed && <th />}
+              <th scope="col">Line</th>
+              <th scope="col">Kind</th>
+              <th scope="col">Quantity</th>
+              <th scope="col">Unit</th>
+              <th scope="col">Unit price</th>
+              <th scope="col">Total</th>
+              <th scope="col">Receive into</th>
+              {!confirmed && <th scope="col" />}
             </tr>
           </thead>
           <tbody>
@@ -936,9 +998,7 @@ function DraftForm({
                         aria-label={`Remove line ${n}`}
                         onClick={() => {
                           setLines((current) => current.filter((_, i) => i !== index));
-                          if (creatingForLine === index) {
-                            setCreatingForLine(null);
-                          }
+                          setCreatingForLine((cur) => (cur === null || cur === index ? null : cur > index ? cur - 1 : cur));
                         }}
                       >
                         Remove
@@ -962,8 +1022,8 @@ function DraftForm({
           <button type="button" className="primary" disabled={busy} onClick={() => void saveAndConfirm()}>
             Confirm and receive stock
           </button>
-          <button type="button" className="danger" onClick={() => discard.mutate({ path })}>
-            Discard
+          <button type="button" className="danger" disabled={busy} onClick={() => discard.mutate({ path })}>
+            {discard.isPending ? 'Discarding…' : 'Discard'}
           </button>
         </div>
       )}

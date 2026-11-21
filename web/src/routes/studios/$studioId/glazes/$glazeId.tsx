@@ -26,6 +26,10 @@ export const Route = createFileRoute('/studios/$studioId/glazes/$glazeId')({
 
 function GlazePage() {
   const { studioId, glazeId } = Route.useParams();
+  return <GlazeDetail key={`${studioId}-${glazeId}`} studioId={studioId} glazeId={glazeId} />;
+}
+
+function GlazeDetail({ studioId, glazeId }: { studioId: string; glazeId: string }) {
   const path = { studioId, glazeId };
   const { can } = useCan(studioId);
   const staff = can('glazes.studio.edit');
@@ -36,8 +40,8 @@ function GlazePage() {
 
   const update = useMutation({
     ...updateGlazeMutation(),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(getGlazeQueryKey({ path }), saved);
+    onSuccess: (saved, variables) => {
+      queryClient.setQueryData(getGlazeQueryKey({ path: variables.path }), saved);
       // A changed recipe makes a different batch
       void queryClient.invalidateQueries();
       setEditing(false);
@@ -88,6 +92,7 @@ function GlazePage() {
         <>
           {update.isError && <ErrorMessage error={update.error} />}
           <GlazeForm
+            key={`${g.id}-${String(g.version)}`}
             initial={g}
             canShare={g.ownerKind === 'MEMBER'}
             submitLabel="Save changes"
@@ -105,15 +110,18 @@ function GlazePage() {
           <RecipeTable glaze={g} />
           <div className="row" style={{ alignItems: 'stretch' }}>
             <div style={{ flex: '1 1 18rem' }}>
-              <BatchPanel studioId={studioId} glazeId={glazeId} />
+              <BatchPanel key={g.id} studioId={studioId} glazeId={glazeId} />
             </div>
             <div style={{ flex: '1 1 18rem' }}>
-              <SlurrySgHelper targetSpecificGravity={g.targetSpecificGravity} />
+              <SlurrySgHelper
+                key={`${g.id}-${g.targetSpecificGravity ?? ''}`}
+                targetSpecificGravity={g.targetSpecificGravity}
+              />
             </div>
           </div>
-          <GlazeChemistryPanel studioId={studioId} glaze={g} />
-          <GlazePhotos studioId={studioId} glaze={g} />
-          {g.ownerKind === 'STUDIO' && <GlazeMixLog studioId={studioId} glaze={g} canEdit={staff} />}
+          <GlazeChemistryPanel key={`${g.id}-${g.cone ?? ''}`} studioId={studioId} glaze={g} />
+          <GlazePhotos key={g.id} studioId={studioId} glaze={g} />
+          {g.ownerKind === 'STUDIO' && <GlazeMixLog key={g.id} studioId={studioId} glaze={g} canEdit={staff} />}
           {g.notes && <p className="notes">{g.notes}</p>}
           {remove.isError && <ErrorMessage error={remove.error} />}
           {promote.isError && <ErrorMessage error={promote.error} />}
@@ -124,8 +132,17 @@ function GlazePage() {
                   <button type="button" onClick={() => setEditing(true)}>
                     Edit
                   </button>
-                  <button type="button" className="danger" onClick={() => remove.mutate({ path })}>
-                    Delete
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={remove.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Delete "${g.name}"? This cannot be undone.`)) {
+                        remove.mutate({ path });
+                      }
+                    }}
+                  >
+                    {remove.isPending ? 'Deleting…' : 'Delete'}
                   </button>
                 </>
               )}

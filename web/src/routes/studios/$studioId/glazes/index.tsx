@@ -25,7 +25,11 @@ const tabs: { filter: GlazeListFilter; label: string }[] = [
 
 function hasOAuthReturn(): boolean {
   const params = new URLSearchParams(window.location.search);
-  return Boolean((params.get('glazecalc_code') ?? params.get('code')) && (params.get('glazecalc_state') ?? params.get('state')));
+  const hasCode = Boolean(
+    (params.get('glazecalc_code') ?? params.get('code')) &&
+      (params.get('glazecalc_state') ?? params.get('state')),
+  );
+  return hasCode || Boolean(params.get('error'));
 }
 
 function GlazeBookPage() {
@@ -53,23 +57,25 @@ function GlazeBookPage() {
         The studio&apos;s bucket glazes, and your own recipes. Your recipes stay private unless you share them with the
         studio.
       </p>
-      <div className="row" role="tablist" aria-label="Which recipes">
-        {tabs.map((tab) => (
-          <button
-            key={tab.filter}
-            type="button"
-            role="tab"
-            aria-selected={!importing && filter === tab.filter}
-            className={!importing && filter === tab.filter ? 'primary' : undefined}
-            onClick={() => {
-              setFilter(tab.filter);
-              setAdding(false);
-              setImporting(false);
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="row">
+        <div className="row" role="tablist" aria-label="Which recipes">
+          {tabs.map((tab) => (
+            <button
+              key={tab.filter}
+              type="button"
+              role="tab"
+              aria-selected={!importing && filter === tab.filter}
+              className={!importing && filter === tab.filter ? 'primary' : undefined}
+              onClick={() => {
+                setFilter(tab.filter);
+                setAdding(false);
+                setImporting(false);
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           className={importing ? 'primary' : undefined}
@@ -85,6 +91,7 @@ function GlazeBookPage() {
 
       {importing ? (
         <GlazeImportWizard
+          key={studioId}
           studioId={studioId}
           onImported={() => {
             setFilter('MINE');

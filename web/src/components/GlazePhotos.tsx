@@ -16,20 +16,34 @@ const MAX_PHOTOS = 6;
 export function GlazePhotos({ studioId, glaze }: { studioId: string; glaze: GlazeRecipe }) {
   const id = useId();
   const queryClient = useQueryClient();
-  const glazeKey = getGlazeQueryKey({ path: { studioId, glazeId: glaze.id } });
   const photos = glaze.photos ?? [];
 
   const add = useMutation({
-    mutationFn: async (file: File) => uploadGlazePhoto(studioId, glaze.id, await preparePhoto(file)),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(glazeKey, updated);
+    mutationFn: async ({
+      studioId: targetStudioId,
+      glazeId: targetGlazeId,
+      file,
+    }: {
+      studioId: string;
+      glazeId: string;
+      file: File;
+    }) => uploadGlazePhoto(targetStudioId, targetGlazeId, await preparePhoto(file)),
+    onSuccess: (updated, variables) => {
+      queryClient.setQueryData(
+        getGlazeQueryKey({ path: { studioId: variables.studioId, glazeId: updated.id } }),
+        updated,
+      );
     },
   });
 
   const remove = useMutation({
     ...deleteGlazePhotoMutation(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: glazeKey });
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: getGlazeQueryKey({
+          path: { studioId: variables.path.studioId, glazeId: variables.path.glazeId },
+        }),
+      });
     },
   });
 
@@ -37,7 +51,7 @@ export function GlazePhotos({ studioId, glaze }: { studioId: string; glaze: Glaz
     const file = event.target.files?.[0];
     event.target.value = '';
     if (file) {
-      add.mutate(file);
+      add.mutate({ studioId, glazeId: glaze.id, file });
     }
   }
 

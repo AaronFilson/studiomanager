@@ -82,7 +82,7 @@ export function parseConeBand(cone?: string | null): ConeBand {
   if (!cone) {
     return 'CONE_6';
   }
-  const match = /\b(0\d{1,2}|\d{1,2})\b/.exec(cone.trim());
+  const match = /(?:^|[^0-9])(0\d{1,2}|\d{1,2})(?=$|[^0-9])/.exec(cone.trim());
   if (!match?.[1]) {
     return 'CONE_6';
   }

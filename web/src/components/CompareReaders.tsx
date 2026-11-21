@@ -1,4 +1,9 @@
-import { compareInvoiceReadersMutation, type ComparedRead, type InvoiceReader } from '@studiomanager/api-client';
+import {
+  compareInvoiceReadersMutation,
+  type ComparedRead,
+  type InvoiceDocumentType,
+  type InvoiceReader,
+} from '@studiomanager/api-client';
 import { useMutation } from '@tanstack/react-query';
 import { useId } from 'react';
 
@@ -10,6 +15,17 @@ export const readerLabels: Record<InvoiceReader, string> = {
   AZURE_DOCUMENT_INTELLIGENCE: 'Azure Document Intelligence',
 };
 
+export const documentTypeLabels: Record<InvoiceDocumentType, string> = {
+  INVOICE: 'Invoice',
+  ORDER_FORM: 'Order form',
+  RECEIPT: 'Receipt',
+  PACKING_LIST: 'Packing list',
+  CREDIT_MEMO: 'Credit memo',
+  STATEMENT: 'Statement',
+  QUOTE: 'Quote',
+  OTHER: 'Other',
+};
+
 const outcomeLabels: Record<ComparedRead['outcome'], string> = {
   READ: 'read',
   REFUSED_CREDENTIALS: 'sign-in refused',
@@ -19,7 +35,7 @@ const outcomeLabels: Record<ComparedRead['outcome'], string> = {
 };
 
 const rows: { label: string; value: (read: ComparedRead) => string | undefined }[] = [
-  { label: 'Document type', value: (read) => read.documentType },
+  { label: 'Document type', value: (read) => (read.documentType ? documentTypeLabels[read.documentType] : undefined) },
   { label: 'Supplier', value: (read) => read.vendorName },
   { label: 'Invoice number', value: (read) => read.invoiceNumber },
   { label: 'Date', value: (read) => read.invoiceDate },

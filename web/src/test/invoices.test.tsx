@@ -391,4 +391,146 @@ describe('Supplies inbox', () => {
     await waitFor(() => expect(saved?.lines[0]?.kind).toBe('FEE'));
     expect(saved?.documentType).toBe('ORDER_FORM');
   });
+
+  it('formats documentType labels cleanly in Compare readers', async () => {
+    const studio = aStudio();
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv1', status: 'NEEDS_LOOK', fileType: 'PDF', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () => HttpResponse.json(read)),
+      http.post(`${API}/api/v1/studios/:studioId/invoices/:invoiceId/compare-readers`, () =>
+        HttpResponse.json({
+          results: [
+            {
+              reader: 'CLAUDE',
+              outcome: 'READ',
+              documentType: 'ORDER_FORM',
+              elapsedMs: 1200,
+              total: '170.00',
+              lines: read.lines,
+              problems: [],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+    await user.click(await screen.findByRole('button', { name: 'Compare readers' }));
+
+    const compareSection = screen.getByRole('heading', { name: 'Compare readers' }).closest('section');
+    expect(compareSection).not.toBeNull();
+    if (compareSection) {
+      expect(await within(compareSection).findByText('Order form')).toBeInTheDocument();
+      expect(within(compareSection).queryByText('ORDER_FORM')).not.toBeInTheDocument();
+    }
+  });
+
+  it('submits inline new-item form on Enter without saving the invoice draft, and shifts index when an earlier line is removed', async () => {
+    const studio = aStudio();
+    let draftSaved = false;
+    const supplyList: SupplyItem[] = [clay];
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json(supplyList)),
+      http.post(`${API}/api/v1/studios/:studioId/supplies`, () => {
+        const created: SupplyItem = {
+          id: 'i-enter',
+          name: 'EPK Kaolin',
+          category: 'GLAZE_MATERIAL',
+          unit: 'lb',
+          onHand: '0',
+          onOrder: '0',
+          low: false,
+          needsOrdering: false,
+          version: 0,
+        };
+        supplyList.push(created);
+        return HttpResponse.json(created, { status: 201 });
+      }),
+      http.put(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () => {
+        draftSaved = true;
+        return HttpResponse.json(read);
+      }),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv1', status: 'READY', fileType: 'PDF', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () =>
+        HttpResponse.json({
+          ...read,
+          status: 'READY',
+          problems: [],
+          lines: [
+            { description: 'Scrap line', quantity: '1', unit: 'each', kind: 'OTHER' },
+            { description: 'EPK Kaolin', quantity: '50', unit: 'lb', kind: 'ITEM' },
+          ],
+        }),
+      ),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+
+    await user.click(await screen.findByRole('button', { name: '+ New item for line 2' }));
+    await user.click(screen.getByRole('button', { name: 'Remove line 1' }));
+
+    const shiftedForm = within(screen.getByRole('group', { name: 'New supply item for line 1' }));
+    await user.type(shiftedForm.getByLabelText('Item name'), '{Enter}');
+
+    await waitFor(() => expect(screen.getByLabelText('Line 1 item')).toHaveValue('i-enter'));
+    expect(draftSaved).toBe(false);
+  });
+
+  it('shows purchase request load errors and clears all Add item fields after creating a supply', async () => {
+    const studio = aStudio();
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () =>
+        HttpResponse.json(
+          { title: 'Forbidden', status: 403, detail: 'Purchase requests unavailable.' },
+          { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({ items: [], truncated: false, limit: 100 }),
+      ),
+      http.post(`${API}/api/v1/studios/:studioId/supplies`, () =>
+        HttpResponse.json({ ...clay, id: 'i-added', name: 'Porcelain' }, { status: 201 }),
+      ),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    expect(await screen.findByText('Purchase requests unavailable.')).toBeInTheDocument();
+
+    const addForm = within(screen.getByRole('form', { name: 'Add an item' }));
+    await user.type(addForm.getByLabelText('Name'), 'Porcelain');
+    await user.type(addForm.getByLabelText('Unit'), '25 lb bag');
+    await user.type(addForm.getByLabelText('Supplier'), 'Laguna');
+    await user.type(addForm.getByLabelText('Reorder at'), '4');
+    await user.type(addForm.getByLabelText('Order this many'), '10');
+    await user.type(addForm.getByLabelText('Price to members (USD)'), '28');
+    await user.click(addForm.getByRole('button', { name: 'Add item' }));
+
+    await waitFor(() => expect(addForm.getByLabelText('Name')).toHaveValue(''));
+    expect(addForm.getByLabelText('Unit')).toHaveValue('');
+    expect(addForm.getByLabelText('Supplier')).toHaveValue('');
+    expect(addForm.getByLabelText('Reorder at')).toHaveValue('');
+    expect(addForm.getByLabelText('Order this many')).toHaveValue('');
+    expect(addForm.getByLabelText('Price to members (USD)')).toHaveValue('');
+  });
 });

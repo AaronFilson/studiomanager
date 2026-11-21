@@ -7,9 +7,9 @@ import type {
   Notification,
   QueueEntry,
 } from '@studiomanager/api-client';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { aPiece, aStudio, renderApp } from './renderApp';
 import { API, capped, server } from './server';
@@ -311,5 +311,110 @@ describe('kilns', () => {
     expect(await within(firingLog).findByText('1222 °C')).toBeInTheDocument();
     expect(within(firingLog).getByText('8h 30m')).toBeInTheDocument();
     expect(within(firingLog).getByText('TAP')).toBeInTheDocument();
+  });
+
+  it('rejects controller CSV files over 2 MB and resets detected cone when a later preview has none', async () => {
+    const curve = [
+      { elapsedMinutes: 0, temp: 72 },
+      { elapsedMinutes: 180, temp: 2200 },
+    ];
+    let previewCalls = 0;
+
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/kilns`, () => HttpResponse.json([kiln])),
+      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, () => HttpResponse.json(capped([]))),
+      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/queue`, () => HttpResponse.json(capped([]))),
+      http.post(`${API}/api/v1/studios/:studioId/kilns/:kilnId/log-imports`, async ({ request }) => {
+        const body = (await request.json()) as ImportKilnLogRequest;
+        previewCalls += 1;
+        return HttpResponse.json({
+          committed: false,
+          source: body.source,
+          presetUnverified: true,
+          tempUnit: 'F',
+          tempUnitInferred: false,
+          durationMinutes: 180,
+          peakTemp: 2200,
+          ...(previewCalls === 1 ? { detectedCone: '6' } : {}),
+          rowCount: 10,
+          zoneCount: 1,
+          detectedColumns: ['Elapsed', 'Temp'],
+          warnings: [],
+          temperatureCurve: curve,
+        } satisfies KilnLogImportResult);
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/kilns/k1`);
+    await screen.findByRole('heading', { name: 'Import controller log' });
+
+    const hugeCsv = new File(['Elapsed,Temp\n0,72\n'], 'huge.csv', { type: 'text/csv' });
+    Object.defineProperty(hugeCsv, 'size', { value: 2 * 1024 * 1024 + 1 });
+    await user.upload(screen.getByLabelText('Controller CSV'), hugeCsv);
+    expect(await screen.findByRole('alert')).toHaveTextContent('The file is larger than 2 MB.');
+    expect(previewCalls).toBe(0);
+
+    await user.upload(
+      screen.getByLabelText('Controller CSV'),
+      new File(['Elapsed,Temp\n0,72\n180,2200\n'], 'first.csv', { type: 'text/csv' }),
+    );
+    expect(await screen.findByText('Selected file: first.csv')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Preview log' }));
+    const firstPreview = await screen.findByRole('region', { name: 'Log preview' });
+    expect(within(firstPreview).getByLabelText('New firing cone')).toHaveValue('6');
+
+    await user.upload(
+      screen.getByLabelText('Controller CSV'),
+      new File(['Elapsed,Temp\n0,72\n180,1500\n'], 'second.csv', { type: 'text/csv' }),
+    );
+    expect(await screen.findByText('Selected file: second.csv')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Preview log' }));
+    const secondPreview = await screen.findByRole('region', { name: 'Log preview' });
+    expect(within(secondPreview).getByLabelText('New firing cone')).toHaveValue('');
+  });
+
+  it('confirms before cancelling an open kiln load', async () => {
+    let activeFiring: Firing = {
+      id: 'f-open',
+      kilnId: 'k1',
+      kilnName: kiln.name,
+      kind: 'BISQUE',
+      cone: '04',
+      status: 'LOADING',
+      createdAt: '2026-11-10T10:00:00Z',
+      pieceCount: 1,
+      version: 1,
+      pieces: [aPiece({ id: 'p1', number: 1 })],
+    };
+    let transitionBody: unknown;
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/kilns`, () => HttpResponse.json([kiln])),
+      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/firings`, () => HttpResponse.json(capped([activeFiring]))),
+      http.get(`${API}/api/v1/studios/:studioId/kilns/:kilnId/queue`, () => HttpResponse.json(capped([]))),
+      http.get(`${API}/api/v1/studios/:studioId/firings/:firingId`, () => HttpResponse.json(activeFiring)),
+      http.post(`${API}/api/v1/studios/:studioId/firings/:firingId/transitions`, async ({ request }) => {
+        transitionBody = await request.json();
+        activeFiring = { ...activeFiring, status: 'CANCELLED', version: 2 };
+        return HttpResponse.json(activeFiring);
+      }),
+    );
+
+    try {
+      const { user } = renderApp(`/studios/${studio.id}/kilns/k1`);
+      const cancelBtn = await screen.findByRole('button', { name: 'Cancel this load' });
+      await user.click(cancelBtn);
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(transitionBody).toBeUndefined();
+
+      confirmSpy.mockReturnValue(true);
+      await user.click(cancelBtn);
+      await waitFor(() => expect(transitionBody).toEqual({ to: 'CANCELLED', expectedVersion: 1 }));
+    } finally {
+      confirmSpy.mockRestore();
+    }
   });
 });

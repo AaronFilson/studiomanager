@@ -82,6 +82,13 @@ export function SlurrySgHelper({ targetSpecificGravity }: { targetSpecificGravit
         </div>
       </div>
 
+      {measured.trim() !== '' && computed === null && (
+        <p className="warning" role="status">
+          Enter specific gravities between 1.01 and 2.59 (for example, 1.48 for 148 g per 100 mL) and a positive{' '}
+          {mode === 'volume' ? 'volume' : 'mass'}.
+        </p>
+      )}
+
       {computed && (
         <div className="stack" aria-live="polite">
           {computed.action === 'on_target' && <p>Right on target specific gravity.</p>}

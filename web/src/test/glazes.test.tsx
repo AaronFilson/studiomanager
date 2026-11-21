@@ -1,7 +1,7 @@
-import type { GlazeImportResult, GlazeMix, GlazeRecipe } from '@studiomanager/api-client';
-import { screen, within } from '@testing-library/react';
+import type { GlazeImportResult, GlazeMix, GlazeRecipe, SaveGlazeRequest } from '@studiomanager/api-client';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { aStudio, renderApp } from './renderApp';
 import { API, server } from './server';
@@ -343,5 +343,192 @@ describe('glaze book', () => {
     expect(screen.getByText(/Connected to Glazecalc as mo@glazecalc\.example/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Sync from Glazecalc' }));
     expect(synced).toBe(true);
+  });
+
+  it('auto-opens import wizard on OAuth error, strips query params, and keeps Import button outside tablist', async () => {
+    const studio = aStudio({ myRole: 'MEMBER' });
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes`, () => HttpResponse.json([])),
+    );
+
+    window.history.replaceState(null, '', '/?error=access_denied&error_description=User+cancelled');
+    try {
+      renderApp(`/studios/${studio.id}/glazes`);
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Glazecalc connection was not completed (access_denied): User cancelled',
+      );
+      expect(window.location.search).toBe('');
+      const tablist = screen.getByRole('tablist', { name: 'Which recipes' });
+      expect(within(tablist).queryByRole('button', { name: 'Import / Glazecalc' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Import / Glazecalc' })).toBeInTheDocument();
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
+  it('completes OAuth callback without sending redirectUri and strips callback params from URL', async () => {
+    const studio = aStudio({ myRole: 'MEMBER' });
+    let callbackBody: unknown;
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes`, () => HttpResponse.json([])),
+      http.post(`${API}/api/v1/studios/:studioId/glazes/glazecalc/callback`, async ({ request }) => {
+        callbackBody = await request.json();
+        return HttpResponse.json({
+          configured: true,
+          connected: true,
+          baseUrl: 'https://glazecalcapp.com',
+        });
+      }),
+    );
+
+    window.history.replaceState(null, '', '/?code=auth-code-1&state=state-1');
+    try {
+      renderApp(`/studios/${studio.id}/glazes`);
+      await waitFor(() => expect(callbackBody).toEqual({ code: 'auth-code-1', state: 'state-1' }));
+      expect(window.location.search).toBe('');
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
+  it('rejects oversized JSON exports client-side and disables Commit when nothing will change', async () => {
+    const studio = aStudio({ myRole: 'MEMBER' });
+    let importCalls = 0;
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes`, () => HttpResponse.json([])),
+      http.post(`${API}/api/v1/studios/:studioId/glazes/import`, () => {
+        importCalls += 1;
+        return HttpResponse.json({
+          format: 'glazecalc-export',
+          committed: false,
+          createdCount: 0,
+          updatedCount: 0,
+          unchangedCount: 1,
+          errorCount: 0,
+          rows: [
+            {
+              index: 1,
+              name: 'Floating Blue',
+              outcome: 'UNCHANGED',
+              message: 'Already up to date.',
+              warnings: [],
+            },
+          ],
+        } satisfies GlazeImportResult);
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/glazes`);
+    await user.click(await screen.findByRole('button', { name: 'Import / Glazecalc' }));
+
+    const hugeFile = new File(['{}'], 'huge.json', { type: 'application/json' });
+    Object.defineProperty(hugeFile, 'size', { value: 2 * 1024 * 1024 + 1 });
+    await user.upload(screen.getByLabelText('Export JSON file'), hugeFile);
+    expect(await screen.findByRole('alert')).toHaveTextContent('The file is larger than 2 MB.');
+    expect(importCalls).toBe(0);
+
+    const okFile = new File([JSON.stringify({ format: 'glazecalc-export', version: 1 })], 'same.json', {
+      type: 'application/json',
+    });
+    await user.upload(screen.getByLabelText('Export JSON file'), okFile);
+    const commitBtn = await screen.findByRole('button', { name: 'Nothing to import' });
+    expect(commitBtn).toBeDisabled();
+  });
+
+  it('shows SG validation hint for out-of-range input and omits role=alert from historical off-target readings', async () => {
+    const studio = aStudio({ myRole: 'STAFF' });
+    const historicalMix: GlazeMix = {
+      id: 'mix-old',
+      recipeId: leachClear.id,
+      mixedByAccountId: 'a1',
+      mixedByName: 'Olive',
+      mixedAt: '2026-11-01T10:00:00Z',
+      dryWeightG: '10000',
+      readings: [
+        {
+          id: 'r-old',
+          readAt: '2026-11-02T10:00:00Z',
+          specificGravity: '1.53',
+          offTarget: true,
+          warning: 'Historical drift warning.',
+        },
+      ],
+    };
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes/:glazeId`, () => HttpResponse.json(leachClear)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes/:glazeId/mixes`, () => HttpResponse.json([historicalMix])),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/glazes/${leachClear.id}`);
+    expect(await screen.findByText(/Historical drift warning\./)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Measured SG'), '148');
+    expect(await screen.findByText(/Enter specific gravities between 1\.01 and 2\.59/)).toBeInTheDocument();
+  });
+
+  it('clears imported chemistry and amountText on edit, and confirms before deleting a glaze', async () => {
+    const studio = aStudio({ myRole: 'STAFF' });
+    const importedRecipe: GlazeRecipe = {
+      ...leachClear,
+      id: 'g-imp',
+      lines: [
+        {
+          kind: 'BASE',
+          material: 'Imported Spar',
+          amount: '40',
+          amountText: '40.0',
+          unit: 'PARTS',
+          chemistry: { analysis: { SiO2: 65, Al2O3: 18, K2O: 12 }, loi: 0.5 },
+        },
+      ],
+    };
+    let savedBody: SaveGlazeRequest | undefined;
+    let deleted = false;
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/glazes`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/glazes/:glazeId`, () => HttpResponse.json(importedRecipe)),
+      http.put(`${API}/api/v1/studios/:studioId/glazes/:glazeId`, async ({ request }) => {
+        savedBody = (await request.json()) as SaveGlazeRequest;
+        return HttpResponse.json({ ...importedRecipe, lines: savedBody.lines, version: 2 });
+      }),
+      http.delete(`${API}/api/v1/studios/:studioId/glazes/:glazeId`, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    try {
+      const { user } = renderApp(`/studios/${studio.id}/glazes/g-imp`);
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      const matInput = screen.getByLabelText('Material 1');
+      await user.clear(matInput);
+      await user.type(matInput, 'Custer Feldspar');
+      const amtInput = screen.getByLabelText('Amount 1');
+      await user.clear(amtInput);
+      await user.type(amtInput, '45');
+      await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+      await waitFor(() => expect(savedBody).toBeDefined());
+      expect(savedBody?.lines[0]?.chemistry).toBeUndefined();
+      expect(savedBody?.lines[0]?.amountText).toBeUndefined();
+
+      await user.click(await screen.findByRole('button', { name: 'Delete' }));
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(deleted).toBe(false);
+
+      confirmSpy.mockReturnValue(true);
+      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(deleted).toBe(true));
+    } finally {
+      confirmSpy.mockRestore();
+    }
   });
 });

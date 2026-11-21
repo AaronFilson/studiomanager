@@ -310,4 +310,22 @@ describe('admin', () => {
       await screen.findByText('Claude matched 9 of 10 confirmed invoices (96% fields, 94% lines).'),
     ).toBeInTheDocument();
   });
+
+  it('shows Azure-specific setup instructions without pointing Azure at the Google runbook or using role=status on static paragraphs', async () => {
+    server.use(
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+    );
+
+    renderApp('/admin');
+    const azure = within(await screen.findByRole('group', { name: 'Azure Document Intelligence' }));
+    expect(azure.getByText(/STUDIOMANAGER_INVOICES_AZURE_ENDPOINT/)).toBeInTheDocument();
+    expect(azure.queryByText(/google-document-ai\.md/)).not.toBeInTheDocument();
+    expect(azure.queryByRole('status')).not.toBeInTheDocument();
+
+    const google = within(screen.getByRole('group', { name: 'Google Document AI' }));
+    expect(google.getByText(/google-document-ai\.md/)).toBeInTheDocument();
+    expect(google.queryByRole('status')).not.toBeInTheDocument();
+  });
 });
