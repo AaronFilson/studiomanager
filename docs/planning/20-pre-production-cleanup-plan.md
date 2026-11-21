@@ -32,6 +32,19 @@ sign-up through External ID, the admin page and email working.
 
 **In progress:** "via \<token name\>" attribution in histories (plan 17 step 2's remainder), migration V37.
 
+**Update (2026-11-21, on `combined-plans`):**
+- Section 7's admin API & MCP usage view is now shipped (V53): `app.admin_api_usage_by_studio`,
+  `app.admin_api_usage_by_token`, `GET /api/v1/admin/api-usage`, and the **API & MCP usage** card
+  on `/admin` (calls, rate-limit refusals, errors over the last hour / 24 hours, and distinct active
+  hours per token).
+- Remaining pre-production items from plans 16, 17, 19, 24, and 25 that require no paid accounts are
+  also shipped: MCP OAuth Terraform wiring, verified MCP identity linking (V50), per-caller MCP tool
+  filtering, `find_pieces` / `kiln_queue` / `member_lookup` / `propose_notice` (V51), MCP Resources,
+  invoice 10-page cap / cleanup sweep / optional supplier bill payable (V52), jqwik property-based
+  tests with shrinking, AsyncAPI 3.0 stream spec (`docs/asyncapi/studio-events.yaml`), pinned eval
+  source SHAs, Playwright webhook & README screenshot tooling (`e2e/`), and mobile maintenance
+  photos / repair logging / glaze create-edit / test-tile photos.
+
 **Next:**
 - Wave 2 (lanes 2a–2d) and the lanes alongside it (D, F1, F1g, F2, F3, R). All can start, since P is merged.
 - Before a real pilot: a custom email domain (the Azure-managed sender lands in junk and has low limits).

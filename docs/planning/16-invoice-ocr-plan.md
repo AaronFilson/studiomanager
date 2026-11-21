@@ -174,8 +174,11 @@ and the eval.**
   `synthetic-clay-order/expected.json`. Then run
   `STUDIOMANAGER_EVAL_ANTHROPIC_KEY=sk-ant-... bash scripts/api.sh test --tests '*LiveInvoiceEval'`,
   which records each `claude.json` and writes the report, and commit both.
-- **Not done:** the 90-day purge of the raw answer and a sweep for abandoned uploads, the optional
-  payable, and a page count before reading.
+- **Done (2026-11-21, on `combined-plans`, V52):**
+  - **10-page PDF cap** (`PdfPageCounter`), checked on `completeUpload` and before reading so oversized PDFs are refused before any OCR or LLM spend.
+  - **90-day raw answer purge & 24h abandoned upload sweep** (`InvoiceSweep` under `SystemActor.INVOICE_CLEANUP`, via `app.purge_invoice_raw_answers` and `app.take_abandoned_invoice_uploads`, cleaning up abandoned blobs as well).
+  - **Optional supplier bill payable in the ledger:** `ConfirmInvoiceRequest.recordPayable` posts an idempotent balanced journal entry (`SUPPLIES_EXPENSE` debit / `ACCOUNTS_PAYABLE` credit, `EntryKind.SUPPLIER_BILL`, requiring `MONEY_PAYABLES_MANAGE`), linked via `invoice.ledger_entry_id` and exposed in the web Supplies inbox confirmation flow.
+  - **Pinned eval sources:** all 6 public eval repositories in `api/src/test/resources/invoices/eval/sources.json` are pinned to commit SHAs.
 
 ## In an interview
 
