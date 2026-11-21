@@ -1,12 +1,16 @@
 import {
   addGlazeMixReadingMutation,
+  deleteGlazePhotoMutation,
   getGlazeBatchOptions,
   getGlazeOptions,
+  getGlazeQueryKey,
   type GlazeMix,
   type GlazeRecipe,
   listGlazeMixesOptions,
   listGlazeMixesQueryKey,
   logGlazeMixMutation,
+  updateGlazeMutation,
+  uploadGlazePhoto,
   useCan,
   type WeightUnit,
 } from '@studiomanager/api-client';
@@ -20,14 +24,17 @@ import {
 } from '@studiomanager/glaze-chemistry';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 
 import { atmosphereLabel, formatDateTime, glazeUnitLabel, weightUnitLabel } from '../labels';
+import { pickPhoto } from '../photos';
 import { Badge, Body, Button, Card, ErrorText, Field, Loading, SectionTitle, Title } from '../ui';
+import { GlazeForm } from './GlazeForm';
 
 const weightUnits: WeightUnit[] = ['GRAM', 'KILOGRAM', 'POUND', 'OUNCE'];
 const coneBands: ConeBand[] = ['CONE_04', 'CONE_6', 'CONE_10'];
 const decimal = /^\d{1,9}(\.\d{1,4})?$/;
+const MAX_GLAZE_PHOTOS = 6;
 
 function describe(g: GlazeRecipe): string {
   const parts = [
@@ -41,10 +48,22 @@ function describe(g: GlazeRecipe): string {
   return parts.filter(Boolean).join(' · ');
 }
 
-/** Shows a glaze recipe in full, with dry-batch scaling, UMF chemistry, slurry SG helper, and studio mix log. */
+/** Shows a glaze recipe in full, with editing, test-tile photos, dry-batch scaling, UMF chemistry, slurry SG helper, and studio mix log. */
 export function GlazeDetail({ studioId, glazeId }: { studioId: string; glazeId: string }) {
+  const queryClient = useQueryClient();
   const glaze = useQuery(getGlazeOptions({ path: { studioId, glazeId } }));
   const permissions = useCan(studioId);
+  const [editing, setEditing] = useState(false);
+
+  const update = useMutation({
+    ...updateGlazeMutation(),
+    onSuccess: async (saved) => {
+      queryClient.setQueryData(getGlazeQueryKey({ path: { studioId, glazeId } }), saved);
+      setEditing(false);
+      await queryClient.invalidateQueries({ queryKey: [{ _id: 'listGlazes', path: { studioId } }] });
+      await queryClient.invalidateQueries({ queryKey: [{ _id: 'getGlazeBatch', path: { studioId, glazeId } }] });
+    },
+  });
 
   if (glaze.isPending) return <Loading />;
   if (glaze.isError) return <ErrorText error={glaze.error} />;
@@ -60,36 +79,139 @@ export function GlazeDetail({ studioId, glazeId }: { studioId: string; glazeId: 
         <Badge>Meant for food surfaces. Follow the studio&apos;s own food-safety rules.</Badge>
       )}
 
-      <Card>
-        <SectionTitle>Recipe</SectionTitle>
-        {g.lines.map((line, index) => (
-          <View key={`${line.kind}-${line.material}-${String(index)}`} style={styles.lineRow}>
-            <Body>
-              {line.kind === 'ADDITION' ? '+ ' : ''}
-              {line.material}
-            </Body>
-            <Body muted>
-              {line.amount} {glazeUnitLabel(line.unit)}
-            </Body>
-          </View>
-        ))}
-      </Card>
+      {g.canEdit && !editing && (
+        <View style={styles.rowWrap}>
+          <Button
+            compact
+            label="Edit recipe"
+            onPress={() => {
+              update.reset();
+              setEditing(true);
+            }}
+          />
+        </View>
+      )}
 
-      <BatchCalculator studioId={studioId} glazeId={glazeId} />
+      {editing ? (
+        <GlazeForm
+          key={`${g.id}-${String(g.version)}`}
+          initial={g}
+          canShare={g.ownerKind === 'MEMBER'}
+          submitLabel="Save changes"
+          pending={update.isPending}
+          error={update.isError ? update.error : undefined}
+          onCancel={() => {
+            update.reset();
+            setEditing(false);
+          }}
+          onSubmit={(body) =>
+            update.mutate({
+              path: { studioId, glazeId },
+              body: { ...body, version: g.version },
+            })
+          }
+        />
+      ) : (
+        <>
+          <Card>
+            <SectionTitle>Recipe</SectionTitle>
+            {g.lines.map((line, index) => (
+              <View key={`${line.kind}-${line.material}-${String(index)}`} style={styles.lineRow}>
+                <Body>
+                  {line.kind === 'ADDITION' ? '+ ' : ''}
+                  {line.material}
+                </Body>
+                <Body muted>
+                  {line.amount} {glazeUnitLabel(line.unit)}
+                </Body>
+              </View>
+            ))}
+          </Card>
 
-      <SlurrySgCard targetSpecificGravity={g.targetSpecificGravity} />
+          <GlazePhotosCard studioId={studioId} glaze={g} />
 
-      <ChemistrySummaryCard glaze={g} />
+          <BatchCalculator studioId={studioId} glazeId={glazeId} />
 
-      {g.ownerKind === 'STUDIO' && <StudioMixLogCard studioId={studioId} glaze={g} canEdit={canLogMix} />}
+          <SlurrySgCard key={`${g.id}-${g.targetSpecificGravity ?? ''}`} targetSpecificGravity={g.targetSpecificGravity} />
 
-      {g.notes && (
-        <Card>
-          <SectionTitle>Notes</SectionTitle>
-          <Body>{g.notes}</Body>
-        </Card>
+          <ChemistrySummaryCard key={`${g.id}-${g.cone ?? ''}`} glaze={g} />
+
+          {g.ownerKind === 'STUDIO' && <StudioMixLogCard studioId={studioId} glaze={g} canEdit={canLogMix} />}
+
+          {g.notes && (
+            <Card>
+              <SectionTitle>Notes</SectionTitle>
+              <Body>{g.notes}</Body>
+            </Card>
+          )}
+        </>
       )}
     </ScrollView>
+  );
+}
+
+function GlazePhotosCard({ studioId, glaze }: { studioId: string; glaze: GlazeRecipe }) {
+  const queryClient = useQueryClient();
+  const photos = glaze.photos ?? [];
+
+  const add = useMutation({
+    mutationFn: async (source: 'camera' | 'library') => {
+      const photo = await pickPhoto(source);
+      return photo ? uploadGlazePhoto(studioId, glaze.id, photo) : null;
+    },
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.setQueryData(getGlazeQueryKey({ path: { studioId, glazeId: updated.id } }), updated);
+      }
+    },
+  });
+
+  const remove = useMutation({
+    ...deleteGlazePhotoMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: getGlazeQueryKey({ path: { studioId, glazeId: glaze.id } }),
+      });
+    },
+  });
+
+  return (
+    <Card>
+      <SectionTitle>Test-tile photos</SectionTitle>
+      {photos.length === 0 && (
+        <Body muted>No test-tile photos yet. Add photos on different clay bodies or thicknesses.</Body>
+      )}
+      {photos.length > 0 && (
+        <View style={styles.photoGrid}>
+          {photos.map((photo, index) => (
+            <View key={photo.id} style={styles.photoItem}>
+              <Image
+                source={{ uri: photo.thumbnailUrl }}
+                style={styles.photoImage}
+                accessibilityLabel={`Test tile ${String(index + 1)} of ${glaze.name}`}
+              />
+              {glaze.canEdit && (
+                <Button
+                  compact
+                  label={`Remove photo ${String(index + 1)}`}
+                  disabled={remove.isPending}
+                  onPress={() => remove.mutate({ path: { studioId, glazeId: glaze.id, photoId: photo.id } })}
+                />
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+      {glaze.canEdit && photos.length < MAX_GLAZE_PHOTOS && (
+        <View style={styles.rowWrap}>
+          <Button compact label="Take a photo" disabled={add.isPending} onPress={() => add.mutate('camera')} />
+          <Button compact label="Choose a photo" disabled={add.isPending} onPress={() => add.mutate('library')} />
+        </View>
+      )}
+      {add.isPending && <Body muted>Uploading the photo…</Body>}
+      {add.isError && <ErrorText error={add.error} />}
+      {remove.isError && <ErrorText error={remove.error} />}
+    </Card>
   );
 }
 
@@ -510,6 +632,9 @@ const styles = StyleSheet.create({
   },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   group: { gap: 8, marginTop: 4 },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoItem: { width: 150, gap: 6 },
+  photoImage: { width: 150, height: 150, borderRadius: 10 },
   mixEntry: { gap: 6, paddingTop: 10 },
   readingRow: { gap: 4 },
 });
