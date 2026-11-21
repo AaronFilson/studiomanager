@@ -75,6 +75,7 @@ class McpOAuthFlowTests {
     registry.add("studiomanager.bridge.mcp.enabled", () -> "true");
     registry.add("studiomanager.bridge.mcp.allowed-resources", () -> ALLOWED_API_RESOURCE);
     registry.add("studiomanager.bridge.mcp.scopes", () -> "read,propose");
+    registry.add("studiomanager.bridge.mcp.register-requests-per-minute-per-ip", () -> "20");
     registry.add("studiomanager.bridge.mcp.pre-registered-client-id", () -> PRE_REGISTERED_ID);
     registry.add(
         "studiomanager.bridge.mcp.pre-registered-redirect-uris", () -> PRE_REGISTERED_REDIRECT);
@@ -178,6 +179,15 @@ class McpOAuthFlowTests {
     assertThat(badAuth.statusCode()).isEqualTo(400);
     assertThat(JsonPath.<String>read(badAuth.body(), "$.error"))
         .isEqualTo("invalid_client_metadata");
+
+    HttpResponse<String> oversized =
+        registerClient(
+            "{\"redirect_uris\": [\""
+                + MCP_REDIRECT
+                + "\"], \"client_name\": \""
+                + "x".repeat(RegisterRateLimit.MAX_BODY_BYTES + 256)
+                + "\"}");
+    assertThat(oversized.statusCode()).isEqualTo(413);
   }
 
   @Test
@@ -196,6 +206,7 @@ class McpOAuthFlowTests {
     assertThat(consentPage.headers().firstValue("Content-Security-Policy").orElse(""))
         .contains("default-src 'none'")
         .contains("frame-ancestors 'none'")
+        .doesNotContain("form-action")
         .doesNotContain("unsafe-inline");
     assertThat(consentPage.body())
         .contains("Claude Desktop")

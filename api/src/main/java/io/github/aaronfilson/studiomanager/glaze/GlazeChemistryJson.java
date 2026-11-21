@@ -10,6 +10,10 @@ import tools.jackson.databind.json.JsonMapper;
 /** Serializes and parses per-line imported oxide chemistry snapshots as JSON. */
 final class GlazeChemistryJson {
 
+  static final int MAX_ANALYSIS_ENTRIES = 50;
+  static final int MAX_OXIDE_KEY_LENGTH = 32;
+  static final int MAX_MATERIAL_ID_LENGTH = 120;
+
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
   private GlazeChemistryJson() {}

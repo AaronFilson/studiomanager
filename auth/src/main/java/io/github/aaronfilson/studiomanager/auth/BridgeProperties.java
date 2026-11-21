@@ -39,7 +39,9 @@ public record BridgeProperties(
    * @param enabled whether MCP OAuth (dynamic client registration, consent, RFC 8707 tokens) is on
    * @param allowedResources allowed RFC 8707 resource URIs or API origins for MCP access tokens
    * @param scopes MCP scopes clients may request (default {@code read}, {@code propose})
-   * @param registerRequestsPerMinute rate limit on {@code POST /oauth2/register} per replica
+   * @param registerRequestsPerMinute global rate limit on {@code POST /oauth2/register} per replica
+   * @param registerRequestsPerMinutePerIp per-IP rate limit on {@code POST /oauth2/register} per
+   *     replica
    * @param accessTokenTimeToLive lifetime of minted MCP access tokens (default 1 hour)
    * @param preRegisteredClientId optional pre-registered public PKCE MCP client ID
    * @param preRegisteredRedirectUris redirect URIs for the optional pre-registered MCP client
@@ -49,13 +51,38 @@ public record BridgeProperties(
       @Nullable List<URI> allowedResources,
       @Nullable List<String> scopes,
       int registerRequestsPerMinute,
+      int registerRequestsPerMinutePerIp,
       @Nullable Duration accessTokenTimeToLive,
       @Nullable String preRegisteredClientId,
       @Nullable List<URI> preRegisteredRedirectUris) {
 
     static final List<String> DEFAULT_SCOPES = List.of("read", "propose");
     static final int DEFAULT_REGISTER_REQUESTS_PER_MINUTE = 20;
+    static final int DEFAULT_REGISTER_REQUESTS_PER_MINUTE_PER_IP = 5;
     static final Duration DEFAULT_ACCESS_TOKEN_TTL = Duration.ofHours(1);
+
+    public McpProperties {
+      if (enabled) {
+        if (allowedResources == null || allowedResources.isEmpty()) {
+          throw new IllegalStateException(
+              "studiomanager.bridge.mcp.allowed-resources must be configured when MCP OAuth is enabled.");
+        }
+        for (URI resource : allowedResources) {
+          if (resource == null
+              || !resource.isAbsolute()
+              || resource.getRawQuery() != null
+              || resource.getRawFragment() != null
+              || resource.getRawUserInfo() != null
+              || resource.getHost() == null
+              || resource.getHost().isBlank()
+              || (!"https".equalsIgnoreCase(resource.getScheme())
+                  && !"http".equalsIgnoreCase(resource.getScheme()))) {
+            throw new IllegalStateException(
+                "studiomanager.bridge.mcp.allowed-resources entries must be clean absolute http(s) URIs.");
+          }
+        }
+      }
+    }
 
     public List<URI> effectiveAllowedResources() {
       return allowedResources == null ? List.of() : List.copyOf(allowedResources);
@@ -76,6 +103,14 @@ public record BridgeProperties(
           : DEFAULT_REGISTER_REQUESTS_PER_MINUTE;
     }
 
+    public int effectiveRegisterRequestsPerMinutePerIp() {
+      int perIp =
+          registerRequestsPerMinutePerIp > 0
+              ? registerRequestsPerMinutePerIp
+              : DEFAULT_REGISTER_REQUESTS_PER_MINUTE_PER_IP;
+      return Math.min(perIp, effectiveRegisterRequestsPerMinute());
+    }
+
     public Duration effectiveAccessTokenTimeToLive() {
       return accessTokenTimeToLive == null ? DEFAULT_ACCESS_TOKEN_TTL : accessTokenTimeToLive;
     }
@@ -90,6 +125,7 @@ public record BridgeProperties(
           List.of(),
           DEFAULT_SCOPES,
           DEFAULT_REGISTER_REQUESTS_PER_MINUTE,
+          DEFAULT_REGISTER_REQUESTS_PER_MINUTE_PER_IP,
           DEFAULT_ACCESS_TOKEN_TTL,
           null,
           List.of());

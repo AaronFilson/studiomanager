@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -181,5 +183,116 @@ class GlazeImportParserTests {
                         List.of(
                             Map.of("_id", "huge", "title", "Huge", "materials", tooManyLines))))));
     assertThat(parsed.recipes().getFirst().error()).contains("60");
+  }
+
+  @Test
+  void rejectsExtremeScientificNotationOverflowNumbersAndHugeVersionCleanly() {
+    String scientificStrings =
+        """
+        {
+          "format": "glazecalc-export",
+          "version": 1,
+          "records": {
+            "recipes": [
+              {
+                "_id": "sci-1",
+                "title": "Tiny Exponent",
+                "sgTarget": "1e-10000000",
+                "materials": [{"name": "Silica", "amount": "1e-10000000"}]
+              },
+              {
+                "_id": "sci-2",
+                "title": "Huge Exponent",
+                "sgTarget": "1e100000000",
+                "materials": [{"name": "Silica", "amount": "1e100000000"}]
+              },
+              {
+                "_id": "sci-3",
+                "title": "Overflow JSON Number",
+                "sgTarget": 1e500,
+                "materials": [{"name": "Silica", "amount": 1e500}]
+              },
+              {
+                "_id": "sci-4",
+                "title": "Overflow SG Only",
+                "sgTarget": 1e500,
+                "materials": [{"name": "Silica", "amount": "100"}]
+              }
+            ]
+          }
+        }
+        """;
+
+    var parsed = GlazeImportParser.parse(json.readTree(scientificStrings));
+    assertThat(parsed.recipes()).hasSize(4);
+    assertThat(parsed.recipes().get(0).error()).contains("not a valid number");
+    assertThat(parsed.recipes().get(0).warnings()).anyMatch(w -> w.contains("specific gravity"));
+    assertThat(parsed.recipes().get(1).error()).contains("not a valid number");
+    assertThat(parsed.recipes().get(1).warnings()).anyMatch(w -> w.contains("specific gravity"));
+    assertThat(parsed.recipes().get(2).error()).contains("not a valid number");
+    assertThat(parsed.recipes().get(2).warnings()).anyMatch(w -> w.contains("specific gravity"));
+    assertThat(parsed.recipes().get(3).error()).isNull();
+    assertThat(parsed.recipes().get(3).draft().targetSg()).isNull();
+    assertThat(parsed.recipes().get(3).warnings()).anyMatch(w -> w.contains("specific gravity"));
+
+    // Integral version outside int range must not overflow or crash
+    assertThatThrownBy(() ->
+            GlazeImportParser.parse(
+                json.readTree("{\"format\": \"glazecalc-export\", \"version\": 99999999999999999}")))
+        .isInstanceOf(InvalidInputException.class);
+  }
+
+  @Test
+  void stripHtmlHandlesPathologicalRepeatedAngleBracketsInLinearTime() {
+    String pathological = "<".repeat(100_000);
+    long started = System.nanoTime();
+    String stripped = GlazeImportParser.stripHtml(pathological);
+    Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
+    assertThat(elapsed).isLessThan(Duration.ofSeconds(2));
+    assertThat(stripped).isNotNull();
+
+    assertThat(GlazeImportParser.stripHtml("<STYLE>body{color:red}</STYLE><p>Line 1</p><br/>Line 2"))
+        .isEqualTo("Line 1\n\nLine 2");
+    assertThat(GlazeImportParser.stripHtml("<script type=\"text/javascript\">evil()"))
+        .isNull();
+  }
+
+  @Test
+  void capsChemistryAnalysisEntriesAndOxideKeyLengths() {
+    Map<String, Object> hugeAnalysis = new LinkedHashMap<>();
+    hugeAnalysis.put("x".repeat(40), 10.0);
+    for (int i = 0; i < 80; i++) {
+      hugeAnalysis.put("Ox" + i, 1.0);
+    }
+    var parsed =
+        GlazeImportParser.parse(
+            json.valueToTree(
+                Map.of(
+                    "format",
+                    "glazecalc-export",
+                    "version",
+                    1,
+                    "records",
+                    Map.of(
+                        "recipes",
+                        List.of(
+                            Map.of(
+                                "_id",
+                                "chem-cap",
+                                "title",
+                                "Chem Cap",
+                                "materials",
+                                List.of(
+                                    Map.of(
+                                        "name",
+                                        "Silica",
+                                        "amount",
+                                        "100",
+                                        "analysis",
+                                        hugeAnalysis))))))));
+    var chem = parsed.recipes().getFirst().draft().lines().getFirst().chemistry();
+    assertThat(chem).isNotNull();
+    assertThat(chem.analysis()).hasSize(GlazeChemistryJson.MAX_ANALYSIS_ENTRIES);
+    assertThat(chem.analysis()).doesNotContainKey("x".repeat(40));
   }
 }

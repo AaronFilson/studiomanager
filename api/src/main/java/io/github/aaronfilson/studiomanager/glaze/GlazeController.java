@@ -296,12 +296,34 @@ class GlazeController implements GlazesApi {
     if (dto == null) {
       return null;
     }
+    String materialId = dto.getMaterialId();
+    if (materialId != null) {
+      materialId = materialId.strip();
+      if (materialId.isEmpty()) {
+        materialId = null;
+      } else if (materialId.length() > GlazeChemistryJson.MAX_MATERIAL_ID_LENGTH) {
+        throw new InvalidInputException(
+            "Material id can be at most %d characters."
+                .formatted(GlazeChemistryJson.MAX_MATERIAL_ID_LENGTH));
+      }
+    }
     Map<String, Double> analysis = new LinkedHashMap<>();
     if (dto.getAnalysis() != null) {
+      if (dto.getAnalysis().size() > GlazeChemistryJson.MAX_ANALYSIS_ENTRIES) {
+        throw new InvalidInputException(
+            "Chemistry analysis can have at most %d oxides."
+                .formatted(GlazeChemistryJson.MAX_ANALYSIS_ENTRIES));
+      }
       for (var entry : dto.getAnalysis().entrySet()) {
+        String key = entry.getKey() == null ? "" : entry.getKey().strip();
+        if (key.isEmpty() || key.length() > GlazeChemistryJson.MAX_OXIDE_KEY_LENGTH) {
+          throw new InvalidInputException(
+              "Oxide names must be between 1 and %d characters."
+                  .formatted(GlazeChemistryJson.MAX_OXIDE_KEY_LENGTH));
+        }
         Double num = entry.getValue();
         if (num != null && Double.isFinite(num) && num >= 0) {
-          analysis.put(entry.getKey(), num);
+          analysis.put(key, num);
         }
       }
     }
@@ -309,10 +331,10 @@ class GlazeController implements GlazesApi {
     if (loi != null && (!Double.isFinite(loi) || loi < 0)) {
       loi = null;
     }
-    if (dto.getMaterialId() == null && analysis.isEmpty() && loi == null) {
+    if (materialId == null && analysis.isEmpty() && loi == null) {
       return null;
     }
-    return new GlazeBook.Chemistry(dto.getMaterialId(), analysis, loi);
+    return new GlazeBook.Chemistry(materialId, analysis, loi);
   }
 
   private static @Nullable GlazeLineChemistryDto toChemistryDto(

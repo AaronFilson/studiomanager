@@ -30,19 +30,18 @@ class McpOAuthMetadataConfiguration {
   @Bean
   RouterFunction<ServerResponse> mcpOAuthMetadataRoutes(McpOAuthProperties mcpOAuth) {
     return RouterFunctions.route()
-        .GET(WELL_KNOWN_ROOT, request -> rootMetadata(request, mcpOAuth))
+        .GET(WELL_KNOWN_ROOT, request -> rootMetadata(mcpOAuth))
         .GET(WELL_KNOWN_STUDIO_MCP, request -> studioMetadata(request, mcpOAuth))
         .build();
   }
 
-  private static ServerResponse rootMetadata(ServerRequest request, McpOAuthProperties mcpOAuth) {
+  private static ServerResponse rootMetadata(McpOAuthProperties mcpOAuth) {
     if (!mcpOAuth.enabled()) {
       return ServerResponse.notFound().build();
     }
-    String origin = McpOAuthProperties.requestOrigin(request.servletRequest());
     return ServerResponse.ok()
         .contentType(MediaType.APPLICATION_JSON)
-        .body(metadata(mcpOAuth.rootResource(origin), mcpOAuth));
+        .body(metadata(mcpOAuth.rootResource(), mcpOAuth));
   }
 
   private static ServerResponse studioMetadata(ServerRequest request, McpOAuthProperties mcpOAuth) {
@@ -55,10 +54,9 @@ class McpOAuthMetadataConfiguration {
     } catch (IllegalArgumentException notAUuid) {
       return ServerResponse.badRequest().build();
     }
-    String origin = McpOAuthProperties.requestOrigin(request.servletRequest());
     return ServerResponse.ok()
         .contentType(MediaType.APPLICATION_JSON)
-        .body(metadata(mcpOAuth.resourceForStudio(studioId, origin), mcpOAuth));
+        .body(metadata(mcpOAuth.resourceForStudio(studioId), mcpOAuth));
   }
 
   private static Map<String, Object> metadata(String resource, McpOAuthProperties mcpOAuth) {

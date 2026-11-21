@@ -12,6 +12,9 @@ interface GlazePhotoRepository extends JpaRepository<GlazePhoto, UUID> {
 
   Optional<GlazePhoto> findByIdAndRecipeId(UUID id, UUID recipeId);
 
+  @Query("select p.id from GlazePhoto p where p.recipeId = :recipeId")
+  List<UUID> findIdsByRecipeId(UUID recipeId);
+
   @Query(
       """
       select p from GlazePhoto p

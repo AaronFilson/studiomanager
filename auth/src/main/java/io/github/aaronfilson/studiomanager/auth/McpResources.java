@@ -39,7 +39,10 @@ final class McpResources {
       throw invalidTarget("The resource parameter is required for MCP authorization.");
     }
     URI resource = parseResourceUri(rawResource.strip());
-    if (!allowedResources.isEmpty() && !isAllowedResource(resource, allowedResources)) {
+    if (allowedResources.isEmpty()) {
+      throw invalidTarget("No allowed MCP resources are configured on this authorization server.");
+    }
+    if (!isAllowedResource(resource, allowedResources)) {
       throw invalidTarget("The requested resource is not allowed by this authorization server.");
     }
     Optional<UUID> fromPath = extractStudioId(resource);

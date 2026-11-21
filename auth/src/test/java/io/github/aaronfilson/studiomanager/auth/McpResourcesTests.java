@@ -86,5 +86,36 @@ class McpResourcesTests {
         .isInstanceOf(OAuth2AuthenticationException.class)
         .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
         .isEqualTo(McpResources.INVALID_TARGET);
+
+    // Empty allowed-resources list fails closed
+    assertThatThrownBy(() ->
+            McpResources.validateAndResolve(
+                "https://api.studiomanager.test/api/v1/studios/" + STUDIO_ID + "/mcp",
+                null,
+                List.of()))
+        .isInstanceOf(OAuth2AuthenticationException.class)
+        .extracting(e -> ((OAuth2AuthenticationException) e).getError().getErrorCode())
+        .isEqualTo(McpResources.INVALID_TARGET);
+  }
+
+  @Test
+  void mcpPropertiesFailsFastWhenEnabledWithoutAllowedResources() {
+    assertThatThrownBy(
+            () -> new BridgeProperties.McpProperties(true, List.of(), null, 20, 5, null, null, null))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("allowed-resources");
+    assertThatThrownBy(
+            () -> new BridgeProperties.McpProperties(true, null, null, 20, 5, null, null, null))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("allowed-resources");
+    assertThatThrownBy(
+            () ->
+                new BridgeProperties.McpProperties(
+                    true, List.of(URI.create("/relative")), null, 20, 5, null, null, null))
+        .isInstanceOf(IllegalStateException.class);
+
+    BridgeProperties.McpProperties disabled =
+        new BridgeProperties.McpProperties(false, List.of(), null, 20, 5, null, null, null);
+    assertThat(disabled.enabled()).isFalse();
   }
 }

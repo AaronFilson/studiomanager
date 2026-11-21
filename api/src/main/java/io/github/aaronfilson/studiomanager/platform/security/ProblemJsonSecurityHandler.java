@@ -70,8 +70,7 @@ final class ProblemJsonSecurityHandler implements AuthenticationEntryPoint, Acce
     }
     McpOAuthAuthenticationFilter.mcpStudioId(request)
         .ifPresent(studioId -> {
-          String metadataUrl =
-              mcpOAuth.metadataUrlForStudio(studioId, McpOAuthProperties.requestOrigin(request));
+          String metadataUrl = mcpOAuth.metadataUrlForStudio(studioId);
           String existing = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
           String header;
           if (existing == null || existing.isBlank() || "Bearer".equals(existing.strip())) {

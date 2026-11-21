@@ -83,7 +83,9 @@ public class BridgeSecurity {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .csrf(AbstractHttpConfigurer::disable)
         .addFilterBefore(
-            new RegisterRateLimit(properties.mcpSettings().effectiveRegisterRequestsPerMinute()),
+            new RegisterRateLimit(
+                properties.mcpSettings().effectiveRegisterRequestsPerMinute(),
+                properties.mcpSettings().effectiveRegisterRequestsPerMinutePerIp()),
             SecurityContextHolderFilter.class)
         .headers(BridgeSecurity::securityHeaders);
     return http.build();
@@ -271,12 +273,16 @@ public class BridgeSecurity {
             referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER));
   }
 
-  /** Strict CSP for the MCP consent screen: own stylesheet and form posts only, no scripts. */
+  /**
+   * Strict CSP for the MCP consent screen: own stylesheet only, no scripts, no framing. Omits
+   * {@code form-action 'self'} so browsers allow the 302 redirect back to the OAuth client's
+   * registered {@code redirect_uri}; CSRF protection still guards the form post.
+   */
   private static void consentSecurityHeaders(HeadersConfigurer<HttpSecurity> headers) {
     headers
         .contentSecurityPolicy(policy ->
             policy.policyDirectives(
-                "default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'"))
+                "default-src 'none'; style-src 'self'; frame-ancestors 'none'"))
         .referrerPolicy(
             referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER));
   }

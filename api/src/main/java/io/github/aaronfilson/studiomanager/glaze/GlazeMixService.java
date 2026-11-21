@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Limit;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GlazeMixService {
 
   static final BigDecimal SG_TOLERANCE = new BigDecimal("0.03");
+  static final int MAX_LIST_MIXES = 200;
   private static final BigDecimal MAX_WEIGHT_G = new BigDecimal("2000000");
 
   private final GlazeMixRepository mixes;
@@ -79,10 +81,11 @@ public class GlazeMixService {
     if (recipe.ownerKind() != GlazeBook.OwnerKind.STUDIO) {
       return List.of();
     }
-    List<GlazeMix> found = mixes.findByRecipeIdWithReadings(glazeId);
-    if (found.isEmpty()) {
+    List<UUID> mixIds = mixes.findNewestIdsByRecipeId(glazeId, Limit.of(MAX_LIST_MIXES));
+    if (mixIds.isEmpty()) {
       return List.of();
     }
+    List<GlazeMix> found = mixes.findByIdsWithReadings(mixIds);
     Set<UUID> accountIds = new HashSet<>();
     for (GlazeMix mix : found) {
       accountIds.add(mix.mixedBy());
@@ -192,10 +195,11 @@ public class GlazeMixService {
     if (value.signum() <= 0 || value.compareTo(MAX_WEIGHT_G) > 0) {
       throw new InvalidInputException("Dry weight must be between 0 and 2,000,000 g.");
     }
-    if (value.scale() > 2) {
+    BigDecimal normalized = value.stripTrailingZeros();
+    if (normalized.scale() > 2) {
       throw new InvalidInputException("Dry weight can have up to 2 decimal places.");
     }
-    return value.stripTrailingZeros();
+    return normalized;
   }
 
   private static @Nullable BigDecimal checkWater(@Nullable BigDecimal value) {
@@ -205,10 +209,11 @@ public class GlazeMixService {
     if (value.signum() < 0 || value.compareTo(MAX_WEIGHT_G) > 0) {
       throw new InvalidInputException("Water weight must be between 0 and 2,000,000 g.");
     }
-    if (value.scale() > 2) {
+    BigDecimal normalized = value.stripTrailingZeros();
+    if (normalized.scale() > 2) {
       throw new InvalidInputException("Water weight can have up to 2 decimal places.");
     }
-    return value.stripTrailingZeros();
+    return normalized;
   }
 
   private static BigDecimal checkSg(BigDecimal value) {
@@ -216,10 +221,11 @@ public class GlazeMixService {
         || value.compareTo(GlazeEdits.MAX_SPECIFIC_GRAVITY) > 0) {
       throw new InvalidInputException("A specific gravity is between 1 and 2.5.");
     }
-    if (value.scale() > 3) {
+    BigDecimal normalized = value.stripTrailingZeros();
+    if (normalized.scale() > 3) {
       throw new InvalidInputException("Specific gravity can have up to 3 decimal places.");
     }
-    return value.stripTrailingZeros();
+    return normalized;
   }
 
   private static @Nullable String cleanText(@Nullable String text, int max, String field) {

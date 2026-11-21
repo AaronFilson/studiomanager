@@ -29,13 +29,15 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * RFC 7591 Dynamic Client Registration for MCP OAuth 2.1 public PKCE clients ({@code POST
  * /oauth2/register}). Only active when {@code studiomanager.bridge.mcp.enabled} is true; returns
- * 404 when disabled. Rate-limited by {@link RegisterRateLimit}.
+ * 404 when disabled. Rate-limited per IP and globally, and body-size capped at 16 KB, by {@link
+ * RegisterRateLimit}.
  */
 @RestController
 class McpClientRegistrationController {
 
   private static final int MAX_REDIRECT_URIS = 5;
   private static final int MAX_CLIENT_NAME_LENGTH = 120;
+  private static final int MAX_SCOPE_LENGTH = 512;
   private static final SecureRandom RANDOM = new SecureRandom();
 
   private final BridgeProperties properties;
@@ -153,6 +155,9 @@ class McpClientRegistrationController {
       @Nullable String rawScope, Set<String> allowedScopes) {
     if (rawScope == null || rawScope.isBlank()) {
       return new LinkedHashSet<>(allowedScopes);
+    }
+    if (rawScope.length() > MAX_SCOPE_LENGTH) {
+      return null;
     }
     Set<String> requested = new LinkedHashSet<>();
     for (String part : Arrays.asList(rawScope.strip().split("\\s+", -1))) {

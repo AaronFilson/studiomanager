@@ -1,7 +1,9 @@
 package io.github.aaronfilson.studiomanager.glaze;
 
+import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
+import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
 import io.github.aaronfilson.studiomanager.platform.Uuids;
 import io.github.aaronfilson.studiomanager.platform.crypto.SecretCipher;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
@@ -20,14 +22,22 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -37,24 +47,32 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * Live Glazecalc integration: share-link imports ({@code GET /api/shared/recipe}) and per-member
  * PKCE OAuth connection + sync ({@code /oauth/authorize}, {@code /oauth/token}, {@code GET
- * /api/export}).
+ * /api/export}). Outbound HTTP calls always run outside database transactions.
  */
 @Service
 public class GlazecalcService {
 
+  private static final Logger log = LoggerFactory.getLogger(GlazecalcService.class);
   private static final Duration STATE_TTL = Duration.ofMinutes(15);
   private static final Duration REFRESH_BUFFER = Duration.ofSeconds(60);
+  private static final int MAX_CONSUMED_STATES = 10_000;
   private static final Pattern SAFE_SECRET = Pattern.compile("^[A-Za-z0-9._~+/=-]{4,256}$");
   private static final SecureRandom RANDOM = new SecureRandom();
 
   private final GlazecalcProperties properties;
   private final GlazecalcHttpClient http;
   private final SecretCipher cipher;
+  private final boolean tokenKeyConfigured;
+  private final Set<String> allowedRedirectOrigins;
   private final GlazecalcConnectionRepository connections;
   private final GlazeImportService importer;
   private final EntityManager entityManager;
+  private final TransactionOperations transactions;
   private final JsonMapper json;
   private final Clock clock;
+
+  private final Object consumedStatesLock = new Object();
+  private final Map<String, Instant> consumedStates = new LinkedHashMap<>();
 
   GlazecalcService(
       GlazecalcProperties properties,
@@ -63,14 +81,21 @@ public class GlazecalcService {
       GlazecalcConnectionRepository connections,
       GlazeImportService importer,
       EntityManager entityManager,
+      TransactionOperations transactions,
       JsonMapper json,
-      Clock clock) {
+      Clock clock,
+      @Value("${studiomanager.mail.web-origin:}") String webOrigin,
+      @Value("${studiomanager.cors.allowed-origins:}") List<String> corsAllowedOrigins) {
     this.properties = properties;
     this.http = http;
     this.cipher = tokenCipher.cipher();
+    this.tokenKeyConfigured = tokenCipher.keyConfigured();
+    this.allowedRedirectOrigins =
+        collectAllowedOrigins(properties.redirectUri(), webOrigin, corsAllowedOrigins);
     this.connections = connections;
     this.importer = importer;
     this.entityManager = entityManager;
+    this.transactions = transactions;
     this.json = json;
     this.clock = clock;
   }
@@ -89,11 +114,18 @@ public class GlazecalcService {
   record OAuthState(
       UUID studioId, UUID accountId, String codeVerifier, String redirectUri, Instant expiresAt) {}
 
+  private record ParsedState(OAuthState state, String digest) {}
+
+  private record ConnectionSnapshot(
+      UUID connectionId,
+      byte[] accessTokenEnc,
+      byte @Nullable [] refreshTokenEnc,
+      @Nullable Instant expiresAt) {}
+
   /**
    * Fetches a recipe from Glazecalc using a share URL ({@code https://glazecalcapp.com/shared#...})
    * or raw share secret, then previews or imports it as a member recipe.
    */
-  @Transactional
   public GlazeImportService.Result importShare(String shareUrlOrSecret, boolean dryRun) {
     String secret = extractShareSecret(shareUrlOrSecret);
     URI endpoint = URI.create(properties.resolvedBaseUrl() + "/api/shared/recipe");
@@ -101,11 +133,12 @@ public class GlazecalcService {
     try {
       response = http.get(endpoint, Map.of("Accept", "application/json", "X-Share-Secret", secret));
     } catch (GlazecalcHttpClient.UnsafeTargetException e) {
-      throw new InvalidInputException(
-          e.getMessage() == null ? "Refused Glazecalc address." : e.getMessage());
+      log.warn("Refused Glazecalc share target: {}", e.getMessage());
+      throw new InvalidInputException("Couldn't reach Glazecalc at the configured address.");
     } catch (IOException e) {
+      log.warn("Couldn't reach Glazecalc to load share link", e);
       throw new InvalidInputException(
-          "Couldn't reach Glazecalc to load that share link: " + e.getMessage());
+          "Couldn't reach Glazecalc to load that share link. Try again shortly.");
     }
     if (response.statusCode() == 404
         || response.statusCode() == 401
@@ -159,7 +192,7 @@ public class GlazecalcService {
         .map(this::toStatus)
         .orElseGet(() ->
             new Status(
-                properties.oauthConfigured(),
+                oauthReady(),
                 false,
                 properties.resolvedBaseUrl(),
                 null,
@@ -170,16 +203,15 @@ public class GlazecalcService {
 
   public ConnectStart startConnect(@Nullable String requestedRedirectUri) {
     TenantContext caller = TenantContext.require();
-    if (!properties.oauthConfigured()) {
-      throw new InvalidInputException(
-          "Glazecalc OAuth is not configured on this server. Upload an export JSON or paste a share link instead.");
-    }
-    String redirectUri = resolveRedirectUri(requestedRedirectUri);
+    requireOAuthConfigured(
+        "Glazecalc OAuth is not configured on this server. Upload an export JSON or paste a share link instead.");
+    UUID studioId = caller.requireStudioId();
+    String redirectUri = resolveRedirectUri(studioId, requestedRedirectUri);
     String codeVerifier = randomUrlSafe(32);
     String codeChallenge = pkceS256(codeVerifier);
     OAuthState payload =
         new OAuthState(
-            caller.requireStudioId(),
+            studioId,
             caller.accountId(),
             codeVerifier,
             redirectUri,
@@ -207,25 +239,25 @@ public class GlazecalcService {
         URI.create(properties.resolvedBaseUrl() + "/oauth/authorize?" + query), state);
   }
 
-  @Transactional
   public Status completeCallback(String code, String state, @Nullable String requestedRedirectUri) {
     TenantContext caller = TenantContext.require();
-    if (!properties.oauthConfigured()) {
-      throw new InvalidInputException("Glazecalc OAuth is not configured on this server.");
-    }
+    requireOAuthConfigured("Glazecalc OAuth is not configured on this server.");
     if (code == null || code.isBlank()) {
       throw new InvalidInputException("Authorization code is required.");
     }
-    OAuthState parsedState = decryptAndCheckState(caller, state);
-    String redirectUri =
-        requestedRedirectUri != null && !requestedRedirectUri.isBlank()
-            ? requestedRedirectUri.strip()
-            : parsedState.redirectUri();
+    ParsedState parsed = decryptAndCheckState(caller, state);
+    OAuthState parsedState = parsed.state();
+    if (requestedRedirectUri != null
+        && !requestedRedirectUri.isBlank()
+        && !requestedRedirectUri.strip().equals(parsedState.redirectUri())) {
+      throw new InvalidInputException("OAuth redirect URI doesn't match the sign-in request.");
+    }
+    consumeState(parsed.digest(), parsedState.expiresAt());
 
     Map<String, String> form = new LinkedHashMap<>();
     form.put("grant_type", "authorization_code");
     form.put("code", code.strip());
-    form.put("redirect_uri", redirectUri);
+    form.put("redirect_uri", parsedState.redirectUri());
     form.put("client_id", properties.clientId() == null ? "" : properties.clientId().strip());
     form.put("code_verifier", parsedState.codeVerifier());
     if (properties.clientSecret() != null && !properties.clientSecret().isBlank()) {
@@ -236,44 +268,24 @@ public class GlazecalcService {
     Instant now = clock.instant();
     Instant expiresAt =
         tokens.expiresInSeconds() == null ? null : now.plusSeconds(tokens.expiresInSeconds());
-
-    GlazecalcConnection connection = connections.findByAccountId(caller.accountId()).orElse(null);
-    if (connection == null) {
-      UUID id = Uuids.v7();
-      connection =
-          new GlazecalcConnection(
-              id,
-              caller.accountId(),
-              cipher.encrypt(id, tokens.accessToken()),
-              tokens.refreshToken() == null ? null : cipher.encrypt(id, tokens.refreshToken()),
-              expiresAt,
-              now,
-              tokens.accountLabel());
-      entityManager.persist(connection);
-    } else {
-      connection.updateTokens(
-          cipher.encrypt(connection.id(), tokens.accessToken()),
-          tokens.refreshToken() == null
-              ? null
-              : cipher.encrypt(connection.id(), tokens.refreshToken()),
-          expiresAt,
-          now,
-          tokens.accountLabel());
-    }
-    entityManager.flush();
-    return toStatus(connection);
+    return persistReconnectedConnection(caller.accountId(), tokens, expiresAt, now);
   }
 
-  @Transactional
   public GlazeImportService.Result sync(boolean dryRun) {
     TenantContext caller = TenantContext.require();
-    GlazecalcConnection connection =
-        connections
-            .findByAccountId(caller.accountId())
-            .orElseThrow(
-                () -> new NotFoundException("Connect your Glazecalc account before syncing."));
+    ConnectionSnapshot snapshot =
+        transactions.execute(tx ->
+            connections
+                .findByAccountId(caller.accountId())
+                .map(c ->
+                    new ConnectionSnapshot(
+                        c.id(), c.accessTokenEnc(), c.refreshTokenEnc(), c.expiresAt()))
+                .orElse(null));
+    if (snapshot == null) {
+      throw new NotFoundException("Connect your Glazecalc account before syncing.");
+    }
 
-    String accessToken = resolveFreshAccessToken(connection);
+    String accessToken = resolveFreshAccessToken(caller.accountId(), snapshot);
     URI endpoint = URI.create(properties.resolvedBaseUrl() + "/api/export");
     GlazecalcHttpClient.Response response;
     try {
@@ -282,11 +294,12 @@ public class GlazecalcService {
               endpoint,
               Map.of("Accept", "application/json", "Authorization", "Bearer " + accessToken));
     } catch (GlazecalcHttpClient.UnsafeTargetException e) {
-      throw new InvalidInputException(
-          e.getMessage() == null ? "Refused Glazecalc address." : e.getMessage());
+      log.warn("Refused Glazecalc export target: {}", e.getMessage());
+      throw new InvalidInputException("Couldn't reach Glazecalc at the configured address.");
     } catch (IOException e) {
+      log.warn("Couldn't reach Glazecalc to sync recipes", e);
       throw new InvalidInputException(
-          "Couldn't reach Glazecalc to sync recipes: " + e.getMessage());
+          "Couldn't reach Glazecalc to sync recipes. Try again shortly.");
     }
 
     if (response.statusCode() == 401) {
@@ -301,8 +314,14 @@ public class GlazecalcService {
 
     GlazeImportService.Result result = importer.importJson(response.body(), dryRun);
     if (!dryRun && result.committed()) {
-      connection.markSynced(clock.instant(), result.remoteAccountLabel());
-      connections.flush();
+      Instant syncedAt = clock.instant();
+      transactions.executeWithoutResult(tx ->
+          connections
+              .findByAccountId(caller.accountId())
+              .ifPresent(conn -> {
+                conn.markSynced(syncedAt, result.remoteAccountLabel());
+                connections.flush();
+              }));
     }
     return result;
   }
@@ -313,15 +332,79 @@ public class GlazecalcService {
     connections.findByAccountId(caller.accountId()).ifPresent(connections::delete);
   }
 
-  private String resolveFreshAccessToken(GlazecalcConnection connection) {
+  private boolean oauthReady() {
+    return properties.oauthConfigured() && tokenKeyConfigured;
+  }
+
+  private void requireOAuthConfigured(String message) {
+    if (!oauthReady()) {
+      throw new InvalidInputException(message);
+    }
+  }
+
+  private Status persistReconnectedConnection(
+      UUID accountId, TokenResponse tokens, @Nullable Instant expiresAt, Instant now) {
+    try {
+      return saveReconnectedConnection(accountId, tokens, expiresAt, now);
+    } catch (DataIntegrityViolationException ex) {
+      if (!UniqueViolations.isUniqueViolation(ex)) {
+        throw ex;
+      }
+      // Concurrent first-time connect won the insert; reload and update in a fresh transaction
+      try {
+        return saveReconnectedConnection(accountId, tokens, expiresAt, now);
+      } catch (DataIntegrityViolationException retryEx) {
+        if (UniqueViolations.isUniqueViolation(retryEx)) {
+          throw ConflictException.duplicate(
+              "Your Glazecalc connection was updated at the same time. Try again.");
+        }
+        throw retryEx;
+      }
+    }
+  }
+
+  private Status saveReconnectedConnection(
+      UUID accountId, TokenResponse tokens, @Nullable Instant expiresAt, Instant now) {
+    Status saved =
+        transactions.execute(tx -> {
+          GlazecalcConnection connection = connections.findByAccountId(accountId).orElse(null);
+          if (connection == null) {
+            UUID id = Uuids.v7();
+            connection =
+                new GlazecalcConnection(
+                    id,
+                    accountId,
+                    cipher.encrypt(id, tokens.accessToken()),
+                    tokens.refreshToken() == null ? null : cipher.encrypt(id, tokens.refreshToken()),
+                    expiresAt,
+                    now,
+                    tokens.accountLabel());
+            entityManager.persist(connection);
+          } else {
+            connection.reconnect(
+                cipher.encrypt(connection.id(), tokens.accessToken()),
+                tokens.refreshToken() == null
+                    ? null
+                    : cipher.encrypt(connection.id(), tokens.refreshToken()),
+                expiresAt,
+                now,
+                tokens.accountLabel());
+          }
+          entityManager.flush();
+          return toStatus(connection);
+        });
+    return Objects.requireNonNull(saved, "Glazecalc connection transaction returned null");
+  }
+
+  private String resolveFreshAccessToken(UUID accountId, ConnectionSnapshot snapshot) {
     Instant now = clock.instant();
-    Instant expiresAt = connection.expiresAt();
-    byte @Nullable [] refreshEnc = connection.refreshTokenEnc();
+    Instant expiresAt = snapshot.expiresAt();
+    byte @Nullable [] refreshEnc = snapshot.refreshTokenEnc();
     if (expiresAt != null
         && refreshEnc != null
         && !expiresAt.isAfter(now.plus(REFRESH_BUFFER))
-        && properties.oauthConfigured()) {
-      String refreshToken = cipher.decrypt(connection.id(), refreshEnc);
+        && oauthReady()) {
+      String refreshToken = cipher.decrypt(snapshot.connectionId(), refreshEnc);
       Map<String, String> form = new LinkedHashMap<>();
       form.put("grant_type", "refresh_token");
       form.put("refresh_token", refreshToken);
@@ -330,22 +413,28 @@ public class GlazecalcService {
         form.put("client_secret", properties.clientSecret().strip());
       }
       TokenResponse refreshed = exchangeToken(form);
+      Instant refreshedAt = clock.instant();
       Instant nextExpires =
           refreshed.expiresInSeconds() == null
               ? null
-              : now.plusSeconds(refreshed.expiresInSeconds());
-      connection.updateTokens(
-          cipher.encrypt(connection.id(), refreshed.accessToken()),
-          refreshed.refreshToken() == null
-              ? null
-              : cipher.encrypt(connection.id(), refreshed.refreshToken()),
-          nextExpires,
-          now,
-          refreshed.accountLabel());
-      connections.flush();
+              : refreshedAt.plusSeconds(refreshed.expiresInSeconds());
+      // Commit rotated tokens immediately so a later /api/export failure never rolls them back
+      transactions.executeWithoutResult(tx ->
+          connections
+              .findByAccountId(accountId)
+              .ifPresent(conn -> {
+                conn.refreshTokens(
+                    cipher.encrypt(conn.id(), refreshed.accessToken()),
+                    refreshed.refreshToken() == null
+                        ? null
+                        : cipher.encrypt(conn.id(), refreshed.refreshToken()),
+                    nextExpires,
+                    refreshed.accountLabel());
+                connections.flush();
+              }));
       return refreshed.accessToken();
     }
-    return cipher.decrypt(connection.id(), connection.accessTokenEnc());
+    return cipher.decrypt(snapshot.connectionId(), snapshot.accessTokenEnc());
   }
 
   private record TokenResponse(
@@ -360,11 +449,12 @@ public class GlazecalcService {
     try {
       response = http.postForm(tokenEndpoint, form);
     } catch (GlazecalcHttpClient.UnsafeTargetException e) {
-      throw new InvalidInputException(
-          e.getMessage() == null ? "Refused Glazecalc address." : e.getMessage());
+      log.warn("Refused Glazecalc token target: {}", e.getMessage());
+      throw new InvalidInputException("Couldn't reach Glazecalc at the configured address.");
     } catch (IOException e) {
+      log.warn("Couldn't contact Glazecalc to complete sign-in", e);
       throw new InvalidInputException(
-          "Couldn't contact Glazecalc to complete sign-in: " + e.getMessage());
+          "Couldn't contact Glazecalc to complete sign-in. Try again shortly.");
     }
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw new InvalidInputException(
@@ -408,7 +498,7 @@ public class GlazecalcService {
     return null;
   }
 
-  private OAuthState decryptAndCheckState(TenantContext caller, String encodedState) {
+  private ParsedState decryptAndCheckState(TenantContext caller, String encodedState) {
     if (encodedState == null || encodedState.isBlank()) {
       throw new InvalidInputException("OAuth state is missing.");
     }
@@ -423,9 +513,30 @@ public class GlazecalcService {
       if (state.expiresAt().isBefore(clock.instant())) {
         throw new InvalidInputException("That Glazecalc sign-in expired. Start again.");
       }
-      return state;
+      return new ParsedState(state, sha256Hex(sealed));
     } catch (IllegalArgumentException | IllegalStateException | JacksonException e) {
       throw new InvalidInputException("OAuth state is invalid or expired. Start again.");
+    }
+  }
+
+  private void consumeState(String stateDigest, Instant expiresAt) {
+    Instant now = clock.instant();
+    synchronized (consumedStatesLock) {
+      consumedStates.values().removeIf(exp -> exp.isBefore(now));
+      if (consumedStates.containsKey(stateDigest)) {
+        throw new InvalidInputException(
+            "That Glazecalc sign-in has already been used. Start again.");
+      }
+      while (consumedStates.size() >= MAX_CONSUMED_STATES) {
+        var iterator = consumedStates.entrySet().iterator();
+        if (iterator.hasNext()) {
+          iterator.next();
+          iterator.remove();
+        } else {
+          break;
+        }
+      }
+      consumedStates.put(stateDigest, expiresAt);
     }
   }
 
@@ -479,20 +590,108 @@ public class GlazecalcService {
     return trimmed;
   }
 
-  private String resolveRedirectUri(@Nullable String requested) {
-    if (requested != null && !requested.isBlank()) {
-      return requested.strip();
+  private String resolveRedirectUri(UUID studioId, @Nullable String requested) {
+    String configured =
+        properties.redirectUri() == null || properties.redirectUri().isBlank()
+            ? null
+            : properties.redirectUri().strip();
+    if (requested == null || requested.isBlank()) {
+      if (configured != null) {
+        return configured;
+      }
+      throw new InvalidInputException(
+          "No OAuth redirect URI configured for Glazecalc (set studiomanager.glazecalc.redirect-uri).");
     }
-    if (properties.redirectUri() != null && !properties.redirectUri().isBlank()) {
-      return properties.redirectUri().strip();
+    String candidate = requested.strip();
+    if (configured != null && candidate.equals(configured)) {
+      return configured;
     }
-    throw new InvalidInputException(
-        "No OAuth redirect URI configured for Glazecalc (set studiomanager.glazecalc.redirect-uri).");
+    URI uri;
+    try {
+      uri = new URI(candidate);
+    } catch (URISyntaxException e) {
+      throw new InvalidInputException("Invalid Glazecalc OAuth redirect URI.");
+    }
+    if (!uri.isAbsolute()
+        || uri.getRawUserInfo() != null
+        || uri.getRawQuery() != null
+        || uri.getRawFragment() != null) {
+      throw new InvalidInputException("Invalid Glazecalc OAuth redirect URI.");
+    }
+    String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+    String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+    if (host.isBlank()) {
+      throw new InvalidInputException("Invalid Glazecalc OAuth redirect URI.");
+    }
+    boolean schemeAllowed =
+        "https".equals(scheme)
+            || (properties.allowPrivateNetworks()
+                && "http".equals(scheme)
+                && ("localhost".equals(host) || "127.0.0.1".equals(host)));
+    if (!schemeAllowed) {
+      throw new InvalidInputException("Glazecalc OAuth redirect URI must use https://.");
+    }
+    String candidateOrigin = normalizeOrigin(uri);
+    if (candidateOrigin == null || !allowedRedirectOrigins.contains(candidateOrigin)) {
+      throw new InvalidInputException("Glazecalc OAuth redirect URI origin is not allowed.");
+    }
+    String expectedPath = "/studios/" + studioId + "/glazes";
+    if (!expectedPath.equals(uri.getRawPath())) {
+      throw new InvalidInputException(
+          "Glazecalc OAuth redirect URI must point to this studio's glazes page.");
+    }
+    return candidate;
+  }
+
+  private static Set<String> collectAllowedOrigins(
+      @Nullable String configuredRedirectUri, String webOrigin, List<String> corsAllowedOrigins) {
+    Set<String> origins = new LinkedHashSet<>();
+    addNormalizedOrigin(origins, configuredRedirectUri);
+    addNormalizedOrigin(origins, webOrigin);
+    for (String origin : corsAllowedOrigins) {
+      addNormalizedOrigin(origins, origin);
+    }
+    return Set.copyOf(origins);
+  }
+
+  private static void addNormalizedOrigin(Set<String> target, @Nullable String raw) {
+    if (raw == null || raw.isBlank()) {
+      return;
+    }
+    try {
+      String normalized = normalizeOrigin(URI.create(raw.strip()));
+      if (normalized != null) {
+        target.add(normalized);
+      }
+    } catch (IllegalArgumentException ignored) {
+      // Ignore malformed origin entries
+    }
+  }
+
+  private static @Nullable String normalizeOrigin(URI uri) {
+    String scheme = uri.getScheme();
+    String host = uri.getHost();
+    if (scheme == null || host == null || host.isBlank()) {
+      return null;
+    }
+    String lowerScheme = scheme.toLowerCase(Locale.ROOT);
+    if (!"https".equals(lowerScheme) && !"http".equals(lowerScheme)) {
+      return null;
+    }
+    String lowerHost = host.toLowerCase(Locale.ROOT);
+    int port = uri.getPort();
+    boolean defaultPort =
+        port < 0
+            || ("https".equals(lowerScheme) && port == 443)
+            || ("http".equals(lowerScheme) && port == 80);
+    return defaultPort
+        ? lowerScheme + "://" + lowerHost
+        : lowerScheme + "://" + lowerHost + ":" + port;
   }
 
   private Status toStatus(GlazecalcConnection connection) {
     return new Status(
-        properties.oauthConfigured(),
+        oauthReady(),
         true,
         properties.resolvedBaseUrl(),
         connection.connectedAt(),
@@ -525,6 +724,15 @@ public class GlazecalcService {
       byte[] digest =
           MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.UTF_8));
       return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+    } catch (GeneralSecurityException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static String sha256Hex(byte[] data) {
+    try {
+      byte[] digest = MessageDigest.getInstance("SHA-256").digest(data);
+      return HexFormat.of().formatHex(digest);
     } catch (GeneralSecurityException e) {
       throw new IllegalStateException(e);
     }

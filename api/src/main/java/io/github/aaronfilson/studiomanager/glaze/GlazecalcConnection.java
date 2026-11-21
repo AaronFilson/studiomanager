@@ -87,18 +87,38 @@ class GlazecalcConnection {
     return remoteAccountLabel;
   }
 
-  void updateTokens(
+  /**
+   * Replaces tokens on a new OAuth authorization: updates {@code connectedAt} and overwrites {@code
+   * refreshTokenEnc} even when null so stale refresh tokens from an earlier connection are never
+   * retained.
+   */
+  void reconnect(
       byte[] newAccessTokenEnc,
       byte @Nullable [] newRefreshTokenEnc,
       @Nullable Instant newExpiresAt,
       Instant now,
       @Nullable String label) {
     this.accessTokenEnc = newAccessTokenEnc.clone();
+    this.refreshTokenEnc = newRefreshTokenEnc == null ? null : newRefreshTokenEnc.clone();
+    this.expiresAt = newExpiresAt;
+    this.connectedAt = now;
+    this.remoteAccountLabel = label == null || label.isBlank() ? null : label;
+  }
+
+  /**
+   * Applies tokens from a {@code refresh_token} grant: preserves the original {@code connectedAt}
+   * timestamp and keeps the prior refresh token if the server did not rotate it.
+   */
+  void refreshTokens(
+      byte[] newAccessTokenEnc,
+      byte @Nullable [] newRefreshTokenEnc,
+      @Nullable Instant newExpiresAt,
+      @Nullable String label) {
+    this.accessTokenEnc = newAccessTokenEnc.clone();
     if (newRefreshTokenEnc != null) {
       this.refreshTokenEnc = newRefreshTokenEnc.clone();
     }
     this.expiresAt = newExpiresAt;
-    this.connectedAt = now;
     if (label != null && !label.isBlank()) {
       this.remoteAccountLabel = label;
     }

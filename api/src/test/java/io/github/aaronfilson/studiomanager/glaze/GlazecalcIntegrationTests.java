@@ -1,6 +1,7 @@
 package io.github.aaronfilson.studiomanager.glaze;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
@@ -14,6 +15,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -171,6 +174,12 @@ class GlazecalcIntegrationTests {
     registry.add("studiomanager.glazecalc.client-secret", () -> "test-secret");
     registry.add(
         "studiomanager.glazecalc.redirect-uri", () -> "http://localhost:5173/studios/callback");
+    registry.add(
+        "studiomanager.glazecalc.token-encryption-key",
+        () ->
+            Base64.getEncoder()
+                .encodeToString(
+                    "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8)));
     registry.add("studiomanager.glazecalc.allow-private-networks", () -> "true");
   }
 
@@ -323,6 +332,157 @@ class GlazecalcIntegrationTests {
         .bodyJson()
         .extractingPath("$.connected")
         .isEqualTo(false);
+  }
+
+  @Test
+  void configurationRefusesBlankEncryptionKeyWhenOAuthIsConfigured() {
+    GlazecalcConfiguration config = new GlazecalcConfiguration();
+    GlazecalcProperties missingKey =
+        new GlazecalcProperties(
+            "https://glazecalcapp.com", "client-id", "secret", null, "   ", false);
+    assertThatThrownBy(() -> config.glazecalcTokenCipher(missingKey))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("token-encryption-key");
+
+    GlazecalcProperties oauthDisabled =
+        new GlazecalcProperties("https://glazecalcapp.com", "", "", null, "", false);
+    assertThat(config.glazecalcTokenCipher(oauthDisabled).keyConfigured()).isFalse();
+  }
+
+  @Test
+  void oauthValidatesRedirectUriRejectsCallbackMismatchAndBlocksStateReplay() {
+    // Rejects arbitrary external origins, other studios, unexpected paths, and query strings
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/connect"),
+                "{\"redirectUri\": \"https://evil.example/studios/%s/glazes\"}"
+                    .formatted(studioId)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/connect"),
+                "{\"redirectUri\": \"http://localhost:5173/studios/%s/glazes\"}"
+                    .formatted(UUID.randomUUID())))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/connect"),
+                "{\"redirectUri\": \"http://localhost:5173/other\"}"))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/connect"),
+                "{\"redirectUri\": \"http://localhost:5173/studios/%s/glazes?x=1\"}"
+                    .formatted(studioId)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Accepts the studio's own glazes page on an allowed origin
+    String validRedirect = "http://localhost:5173/studios/" + studioId + "/glazes";
+    MvcTestResult connect =
+        post(
+            mo,
+            path("/glazes/glazecalc/connect"),
+            "{\"redirectUri\": \"%s\"}".formatted(validRedirect));
+    assertThat(connect).hasStatusOk();
+    String authUrl = read(connect, "$.authorizationUrl");
+    String state = read(connect, "$.state");
+    Map<String, String> query = parseForm(URI.create(authUrl).getRawQuery());
+    assertThat(query.get("redirect_uri")).isEqualTo(validRedirect);
+    EXPECTED_CHALLENGE.set(query.get("code_challenge"));
+
+    // Callback with a mismatched redirectUri is rejected
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/callback"),
+                "{\"code\": \"auth-code-123\", \"state\": \"%s\", \"redirectUri\": \"https://evil.example/cb\"}"
+                    .formatted(state)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // First callback succeeds
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/callback"),
+                "{\"code\": \"auth-code-123\", \"state\": \"%s\"}".formatted(state)))
+        .hasStatusOk();
+
+    // Replaying the same state is rejected
+    assertThat(
+            post(
+                mo,
+                path("/glazes/glazecalc/callback"),
+                "{\"code\": \"auth-code-123\", \"state\": \"%s\"}".formatted(state)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void apiTokensCannotDriveInteractiveGlazecalcOAuthLifecycle() {
+    String apiToken =
+        read(
+            post(
+                owner,
+                path("/api-tokens"),
+                "{\"name\": \"Glaze script\", \"scopes\": [\"read\", \"write:glazes\"]}"),
+            "$.secret");
+
+    // Status remains readable with read scope
+    assertThat(
+            mvc.get()
+                .uri(path("/glazes/glazecalc/status"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken))
+        .hasStatusOk();
+
+    // Connect, callback, and disconnect are interactive-only and always refused for API tokens
+    assertThat(
+            mvc.post()
+                .uri(path("/glazes/glazecalc/connect"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
+    assertThat(
+            mvc.post()
+                .uri(path("/glazes/glazecalc/callback"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\": \"c\", \"state\": \"s\"}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
+    assertThat(
+            mvc.delete()
+                .uri(path("/glazes/glazecalc/connection"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken))
+        .hasStatus(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void connectionRefreshPreservesConnectedAtWhileReconnectClearsStaleRefreshToken() {
+    Instant originalConnect = Instant.parse("2026-11-01T10:00:00Z");
+    Instant refreshedAt = Instant.parse("2026-11-02T10:00:00Z");
+    Instant reconnectedAt = Instant.parse("2026-11-03T10:00:00Z");
+    GlazecalcConnection conn =
+        new GlazecalcConnection(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            new byte[] {1, 2},
+            new byte[] {3, 4},
+            originalConnect.plusSeconds(3600),
+            originalConnect,
+            "old@example.com");
+
+    conn.refreshTokens(new byte[] {5, 6}, null, refreshedAt.plusSeconds(3600), null);
+    assertThat(conn.connectedAt()).isEqualTo(originalConnect);
+    assertThat(conn.refreshTokenEnc()).containsExactly(3, 4);
+    assertThat(conn.remoteAccountLabel()).isEqualTo("old@example.com");
+
+    conn.reconnect(new byte[] {7, 8}, null, reconnectedAt.plusSeconds(3600), reconnectedAt, null);
+    assertThat(conn.connectedAt()).isEqualTo(reconnectedAt);
+    assertThat(conn.refreshTokenEnc()).isNull();
+    assertThat(conn.remoteAccountLabel()).isNull();
   }
 
   private void join(TestUser who) {

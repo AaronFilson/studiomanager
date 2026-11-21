@@ -1,6 +1,8 @@
 package io.github.aaronfilson.studiomanager.glaze;
 
+import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.platform.UniqueViolations;
 import io.github.aaronfilson.studiomanager.platform.tenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.nio.charset.StandardCharsets;
@@ -16,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
@@ -76,11 +79,7 @@ public class GlazeImportService {
 
   @Transactional
   public Result importMap(Map<String, Object> body, boolean dryRun) {
-    byte[] encoded = json.writeValueAsBytes(body);
-    if (encoded.length > GlazeImportParser.MAX_IMPORT_BYTES) {
-      throw new InvalidInputException("The import file exceeds the 2 MB limit.");
-    }
-    return importNode(json.readTree(encoded), dryRun);
+    return importNode(json.valueToTree(body), dryRun);
   }
 
   @Transactional
@@ -241,7 +240,15 @@ public class GlazeImportService {
     }
 
     if (willCommit) {
-      entityManager.flush();
+      try {
+        entityManager.flush();
+      } catch (DataIntegrityViolationException ex) {
+        if (UniqueViolations.isUniqueViolation(ex)) {
+          throw ConflictException.duplicate(
+              "One of these recipes was imported at the same time. Try again.");
+        }
+        throw ex;
+      }
     }
 
     return new Result(
@@ -348,11 +355,12 @@ public class GlazeImportService {
 
   private static boolean isNewerSource(
       GlazeRecipe existing, @Nullable Integer incomingRev, @Nullable Instant incomingUpdatedAt) {
-    if (existing.sourceRev() != null && incomingRev != null && incomingRev > existing.sourceRev()) {
-      return true;
+    if (existing.sourceRev() != null && incomingRev != null) {
+      return incomingRev > existing.sourceRev();
     }
-    return existing.sourceUpdatedAt() != null
-        && incomingUpdatedAt != null
-        && incomingUpdatedAt.isAfter(existing.sourceUpdatedAt());
+    if (existing.sourceUpdatedAt() != null && incomingUpdatedAt != null) {
+      return incomingUpdatedAt.isAfter(existing.sourceUpdatedAt());
+    }
+    return false;
   }
 }
