@@ -17,3 +17,8 @@ output "migration_job_name" {
 output "sweep_job_name" {
   value = azurerm_container_app_job.sweep.name
 }
+
+output "settings" {
+  description = "The API's plain (non-secret) environment variables."
+  value       = local.common_env
+}

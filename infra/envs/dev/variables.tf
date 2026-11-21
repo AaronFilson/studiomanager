@@ -119,6 +119,24 @@ variable "bridge_image" {
   default     = "ghcr.io/aaronfilson/studiomanager-auth:main"
 }
 
+variable "mcp_oauth" {
+  description = "Phase 2 OAuth 2.1 authorization server for MCP on the GitHub sign-in bridge (ADR 26, docs/runbooks/github-sign-in.md). Off by default; requires github_sign_in.enabled = true."
+  type = object({
+    enabled                      = bool
+    scopes                       = optional(string, "read,propose")
+    pre_registered_client_id     = optional(string, "")
+    pre_registered_redirect_uris = optional(list(string), [])
+  })
+  default = {
+    enabled = false
+  }
+
+  validation {
+    condition     = !var.mcp_oauth.enabled || var.github_sign_in.enabled
+    error_message = "MCP OAuth runs on the GitHub sign-in bridge: set github_sign_in.enabled = true before turning mcp_oauth.enabled on."
+  }
+}
+
 variable "invoice_demo_studio_id" {
   description = "The demo studio, for which the platform-paid invoice readers are on until the admin page says otherwise. Empty: no studio."
   type        = string

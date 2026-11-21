@@ -6,7 +6,7 @@ locals {
 
   # Settings the app and the job share. The job overrides who it connects as. The invoice readers'
   # settings are only needed where invoices are read, but sharing them keeps one environment.
-  common_env = merge(var.invoice_reader_env, {
+  common_env = merge(var.invoice_reader_env, var.mcp_oauth_env, {
     SPRING_PROFILES_ACTIVE              = "azure"
     STUDIOMANAGER_DB_HOST               = var.db_host
     STUDIOMANAGER_DB_NAME               = var.db_name

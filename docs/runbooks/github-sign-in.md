@@ -131,6 +131,34 @@ Then update ADR 20's "Unverified" list with what the real sign-in showed: whethe
 PKCE challenge (if it did, set `requireProofKey(true)` in `BridgeSecurity`), and whether the
 user was linked to an existing email account.
 
+## Turning on MCP OAuth
+
+Phase 2 MCP OAuth 2.1 (ADR 26) runs on the same bridge, so turn on `github_sign_in` first and
+verify step 4 above. Then add `mcp_oauth` in `infra/envs/<env>/<env>.tfvars`:
+
+```hcl
+mcp_oauth = {
+  enabled = true
+}
+```
+
+Optional fields in `mcp_oauth`:
+
+- `scopes`: comma-separated MCP scopes (defaults to `"read,propose"`).
+- `pre_registered_client_id` and `pre_registered_redirect_uris`: optional static public PKCE
+  client in addition to RFC 7591 dynamic client registration.
+
+Merge to `main`. Terraform enables `STUDIOMANAGER_BRIDGE_MCP_*` on the bridge with the API's
+Container App origin as the allowed RFC 8707 resource, and wires `STUDIOMANAGER_MCP_OAUTH_ISSUER`
+and `STUDIOMANAGER_MCP_OAUTH_AUDIENCE` into the API.
+
+Check both discovery endpoints after the deploy:
+
+- `curl https://<api host>/.well-known/oauth-protected-resource` lists the API resource and the
+  bridge's issuer under `authorization_servers`.
+- `curl https://<bridge host>/.well-known/oauth-authorization-server` advertises
+  `registration_endpoint` and `code_challenge_methods_supported`.
+
 ## Rotating secrets
 
 - **Signing key:** generate a new key and set the secret to the new PEM followed by the old one
@@ -143,5 +171,6 @@ user was linked to an existing email account.
 
 ## Turning it off
 
-Remove the user flow's GitHub tick first, then set `enabled = false`. The vault secrets stay
-until you delete them.
+Set `mcp_oauth = { enabled = false }` (or remove it) before or together with turning off
+`github_sign_in`. Remove the user flow's GitHub tick first, then set `github_sign_in.enabled = false`.
+The vault secrets stay until you delete them.
