@@ -145,6 +145,7 @@ tasks.bootJar {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    maxHeapSize = "2048m"
     // StartupTimeTests runs only when asked: -PstartupRuns=6 (ADR 21)
     val startupRuns = providers.gradleProperty("startupRuns").orElse("0").get()
     systemProperty("studiomanager.startup-runs", startupRuns)
