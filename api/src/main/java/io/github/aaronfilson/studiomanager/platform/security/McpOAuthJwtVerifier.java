@@ -5,6 +5,7 @@ import io.github.aaronfilson.studiomanager.platform.tenancy.McpOAuthTokenVerifie
 import io.github.aaronfilson.studiomanager.platform.tenancy.SystemActor;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -19,8 +20,13 @@ import org.springframework.stereotype.Component;
  * Shared RS256 JWKS verifier for MCP OAuth 2.1 tokens (ADR 26). Used both by {@link
  * McpOAuthAuthenticationFilter} on the MCP endpoint and by the account module when linking an
  * external MCP identity to an existing Studio Manager account.
+ *
+ * <p>Enables {@link McpOAuthProperties} here rather than only on {@link SecurityConfiguration}
+ * (which is {@code @ConditionalOnWebApplication}) so the {@code migrate} and {@code sweep}
+ * Container App jobs ({@code web-application-type: none}) can wire {@code AccountService}.
  */
 @Component
+@EnableConfigurationProperties(McpOAuthProperties.class)
 class McpOAuthJwtVerifier implements McpOAuthTokenVerifier {
 
   private final McpOAuthProperties properties;
