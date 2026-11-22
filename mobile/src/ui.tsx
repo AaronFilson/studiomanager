@@ -131,6 +131,7 @@ export function Badge({ children, warning = false }: { children: ReactNode; warn
 
 export function Button({
   label,
+  accessibilityLabel,
   onPress,
   primary = false,
   disabled = false,
@@ -138,6 +139,7 @@ export function Button({
   selected,
 }: {
   label: string;
+  accessibilityLabel?: string;
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
@@ -148,6 +150,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, ...(selected !== undefined ? { selected } : {}) }}
       disabled={disabled}
       onPress={onPress}

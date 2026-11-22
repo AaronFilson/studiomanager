@@ -2,6 +2,8 @@ package io.github.aaronfilson.studiomanager.admin;
 
 import io.github.aaronfilson.studiomanager.contract.AdminApi;
 import io.github.aaronfilson.studiomanager.contract.AdminStudioDto;
+import io.github.aaronfilson.studiomanager.contract.ApiCallChannelDto;
+import io.github.aaronfilson.studiomanager.contract.ApiUsageOverviewDto;
 import io.github.aaronfilson.studiomanager.contract.BoostStepDto;
 import io.github.aaronfilson.studiomanager.contract.ChannelRateLimitsDto;
 import io.github.aaronfilson.studiomanager.contract.InvoiceReaderDto;
@@ -16,12 +18,15 @@ import io.github.aaronfilson.studiomanager.contract.RateLimitValuesDto;
 import io.github.aaronfilson.studiomanager.contract.ReaderAccuracyDto;
 import io.github.aaronfilson.studiomanager.contract.ScheduleBoostRequestDto;
 import io.github.aaronfilson.studiomanager.contract.SettingChangeDto;
+import io.github.aaronfilson.studiomanager.contract.StudioApiUsageDto;
 import io.github.aaronfilson.studiomanager.contract.StudioReaderOrderDto;
 import io.github.aaronfilson.studiomanager.contract.StudioReaderUseDto;
+import io.github.aaronfilson.studiomanager.contract.TokenApiUsageDto;
 import io.github.aaronfilson.studiomanager.invoice.InvoiceReaderKind;
 import io.github.aaronfilson.studiomanager.invoice.PlatformReaderRules;
 import io.github.aaronfilson.studiomanager.invoice.PlatformReaderUsage;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
+import io.github.aaronfilson.studiomanager.ratelimit.ApiCallUsage;
 import io.github.aaronfilson.studiomanager.ratelimit.RateLimitSettings.Limits;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -54,11 +59,17 @@ class AdminController implements AdminApi {
 
   private final RateLimitAdmin rateLimits;
   private final InvoiceReaderAdmin invoiceReaders;
+  private final ApiCallUsage apiUsage;
   private final JsonMapper json;
 
-  AdminController(RateLimitAdmin rateLimits, InvoiceReaderAdmin invoiceReaders, JsonMapper json) {
+  AdminController(
+      RateLimitAdmin rateLimits,
+      InvoiceReaderAdmin invoiceReaders,
+      ApiCallUsage apiUsage,
+      JsonMapper json) {
     this.rateLimits = rateLimits;
     this.invoiceReaders = invoiceReaders;
+    this.apiUsage = apiUsage;
     this.json = json;
   }
 
@@ -173,6 +184,43 @@ class AdminController implements AdminApi {
   @PreAuthorize("hasAuthority('APPROLE_Platform.Admin')")
   public ResponseEntity<InvoiceReaderOverviewDto> resetInvoiceReaders() {
     return ResponseEntity.ok(dto(invoiceReaders.reset()));
+  }
+
+  @Override
+  @PreAuthorize("hasAuthority('APPROLE_Platform.Admin')")
+  public ResponseEntity<ApiUsageOverviewDto> getAdminApiUsage() {
+    ApiCallUsage.Overview overview = apiUsage.overview();
+    return ResponseEntity.ok(
+        new ApiUsageOverviewDto(
+            utc(overview.asOf()),
+            overview.studios().stream()
+                .map(s ->
+                    new StudioApiUsageDto(
+                        s.studioId(),
+                        s.studioName(),
+                        ApiCallChannelDto.fromValue(s.channel().name()),
+                        s.callsLastHour(),
+                        s.refusalsLastHour(),
+                        s.errorsLastHour(),
+                        s.callsLastDay(),
+                        s.refusalsLastDay(),
+                        s.errorsLastDay()))
+                .toList(),
+            overview.tokens().stream()
+                .map(t ->
+                    new TokenApiUsageDto(
+                        t.tokenId(),
+                        t.tokenName(),
+                        t.studioId(),
+                        t.studioName(),
+                        t.callsLastHour(),
+                        t.refusalsLastHour(),
+                        t.errorsLastHour(),
+                        t.callsLastDay(),
+                        t.refusalsLastDay(),
+                        t.errorsLastDay(),
+                        t.activeHoursLastDay()))
+                .toList()));
   }
 
   private static InvoiceReaderOverviewDto dto(InvoiceReaderAdmin.Overview overview) {

@@ -163,6 +163,7 @@ module "api" {
   webhook_secret_key                     = random_bytes.webhook_secret_key.base64
   ai_key_encryption_key                  = random_bytes.ai_key_encryption_key.base64
   invoice_reader_env                     = local.invoice_reader_env
+  mcp_oauth_env                          = local.mcp_oauth_env
   tags                                   = local.tags
 }
 
@@ -179,6 +180,16 @@ locals {
     STUDIOMANAGER_INVOICES_GOOGLE_SERVICE_ACCOUNT   = var.google_invoice_reader.service_account_email
     STUDIOMANAGER_INVOICES_GOOGLE_AZURE_TOKEN_SCOPE = var.google_invoice_reader.azure_token_scope
   }
+
+  # Derived from the Container Apps environment domain (rather than module.api.url) so
+  # module.github_bridge and module.api stay acyclic when MCP OAuth connects them.
+  api_origin        = "https://ca-${local.name}-api.${module.platform.container_app_environment_default_domain}"
+  mcp_oauth_enabled = var.github_sign_in.enabled && var.mcp_oauth.enabled
+
+  mcp_oauth_env = local.mcp_oauth_enabled ? {
+    STUDIOMANAGER_MCP_OAUTH_ISSUER   = module.github_bridge[0].issuer
+    STUDIOMANAGER_MCP_OAUTH_AUDIENCE = local.api_origin
+  } : {}
 }
 
 # --- GitHub sign-in bridge (ADR 20) -------------------------------------------------------
@@ -203,7 +214,12 @@ module "github_bridge" {
     "https://${var.entra_external_tenant_subdomain}.ciamlogin.com/${var.entra_external_tenant_id}/federation/oauth2",
     "https://${var.entra_external_tenant_subdomain}.ciamlogin.com/${var.entra_external_tenant_subdomain}.onmicrosoft.com/federation/oauth2",
   ]
-  tags = local.tags
+  mcp_enabled                      = local.mcp_oauth_enabled
+  mcp_allowed_resources            = local.mcp_oauth_enabled ? [local.api_origin] : []
+  mcp_scopes                       = var.mcp_oauth.scopes
+  mcp_pre_registered_client_id     = local.mcp_oauth_enabled ? var.mcp_oauth.pre_registered_client_id : ""
+  mcp_pre_registered_redirect_uris = local.mcp_oauth_enabled ? var.mcp_oauth.pre_registered_redirect_uris : []
+  tags                             = local.tags
 }
 
 # --- Data-plane access for the API identity -----------------------------------------------

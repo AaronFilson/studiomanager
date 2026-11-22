@@ -1,5 +1,5 @@
 import type { ApiToken } from '@studiomanager/api-client';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -116,5 +116,39 @@ describe('API access', () => {
 
     expect(await screen.findByText('Revoked')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument();
+  });
+
+  it('links and unlinks an MCP OAuth identity', async () => {
+    const studio = aStudio();
+    let linked: { id: string; issuer: string; subject: string; createdAt: string }[] = [];
+    server.use(
+      ...settings(studio),
+      http.get(`${API}/api/v1/studios/:studioId/api-tokens`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/me/identities`, () => HttpResponse.json(linked)),
+      http.post(`${API}/api/v1/me/identities`, async ({ request }) => {
+        const body = (await request.json()) as { token: string };
+        expect(body.token).toBe('eyJhbGciOiJSUzI1NiJ9.payload.sig');
+        const created = {
+          id: 'id1',
+          issuer: 'https://auth.example',
+          subject: 'github:42',
+          createdAt: '2026-11-21T10:00:00Z',
+        };
+        linked = [created];
+        return HttpResponse.json(created, { status: 201 });
+      }),
+      http.delete(`${API}/api/v1/me/identities/:identityId`, () => {
+        linked = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/settings`);
+    await user.type(await screen.findByLabelText('MCP OAuth access token'), 'eyJhbGciOiJSUzI1NiJ9.payload.sig');
+    await user.click(screen.getByRole('button', { name: 'Link MCP identity' }));
+
+    expect(await screen.findByText('github:42')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Unlink' }));
+    await waitFor(() => expect(screen.queryByText('github:42')).not.toBeInTheDocument());
   });
 });

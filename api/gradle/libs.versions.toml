@@ -22,6 +22,7 @@ spring-ai = "2.0.2"
 bucket4j = "8.21.0"
 google-auth = "1.55.0"
 metadata-extractor = "2.19.0"
+jqwik = "1.9.3"
 
 [libraries]
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
@@ -39,6 +40,7 @@ bucket4j = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4
 google-auth-oauth2-http = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
 metadata-extractor = { module = "com.drewnoakes:metadata-extractor", version.ref = "metadata-extractor" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

@@ -54,6 +54,7 @@ public final class JournalExport {
           case STORED_VALUE_LIABILITY -> "Gift cards and prepaid balances";
           case SALES_TAX_PAYABLE -> "Sales tax payable";
           case PAYEES_PAYABLE -> "Owed to artists and instructors";
+          case ACCOUNTS_PAYABLE -> "Accounts payable";
           case REVENUE_FIRING -> "Revenue: firing";
           case REVENUE_CLASSES -> "Revenue: classes";
           case REVENUE_MEMBERSHIPS -> "Revenue: memberships";
@@ -65,6 +66,7 @@ public final class JournalExport {
           case REFUNDS -> "Refunds";
           case PROCESSOR_FEES -> "Payment processing fees";
           case CONTRACT_SERVICES -> "Contract instructors and services";
+          case SUPPLIES_EXPENSE -> "Clay and supplies expense";
           case OPENING_BALANCE_EQUITY -> "Opening balance equity";
         };
     return line.taxCategory() == null ? name : name + " (" + line.taxCategory() + ")";

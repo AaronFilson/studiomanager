@@ -320,6 +320,7 @@ class StoredValues {
         case PAYEE_EARNING -> takenOff(amount);
         case PAYEE_PAYMENT -> takenOff(amount);
         case OPENING_BALANCE -> takenOff(amount);
+        case SUPPLIER_BILL -> takenOff(amount);
       }
     }
 

@@ -58,6 +58,8 @@ class PendingAction {
 
   @Embedded private @Nullable MaintenanceTaskDraft maintenanceTask;
 
+  @Embedded private @Nullable NoticeDraft studioNotice;
+
   @CreatedBy
   @Column(name = "proposed_by")
   private @Nullable UUID proposedBy;
@@ -86,6 +88,7 @@ class PendingAction {
       String subjectName,
       @Nullable PurchaseRequestDraft purchaseRequest,
       @Nullable MaintenanceTaskDraft maintenanceTask,
+      @Nullable NoticeDraft studioNotice,
       @Nullable UUID proposedViaToken) {
     this.id = Uuids.v7();
     this.kind = kind;
@@ -94,6 +97,7 @@ class PendingAction {
     this.subjectName = subjectName;
     this.purchaseRequest = purchaseRequest;
     this.maintenanceTask = maintenanceTask;
+    this.studioNotice = studioNotice;
     this.proposedViaToken = proposedViaToken;
   }
 
@@ -103,7 +107,7 @@ class PendingAction {
       @Nullable String reason,
       @Nullable UUID proposedViaToken) {
     return new PendingAction(
-        Kind.PURCHASE_REQUEST, reason, itemName, draft, null, proposedViaToken);
+        Kind.PURCHASE_REQUEST, reason, itemName, draft, null, null, proposedViaToken);
   }
 
   static PendingAction maintenanceTask(
@@ -112,7 +116,13 @@ class PendingAction {
       @Nullable String reason,
       @Nullable UUID proposedViaToken) {
     return new PendingAction(
-        Kind.MAINTENANCE_TASK, reason, assetName, null, draft, proposedViaToken);
+        Kind.MAINTENANCE_TASK, reason, assetName, null, draft, null, proposedViaToken);
+  }
+
+  static PendingAction studioNotice(
+      NoticeDraft draft, @Nullable String reason, @Nullable UUID proposedViaToken) {
+    return new PendingAction(
+        Kind.STUDIO_NOTICE, reason, draft.title(), null, null, draft, proposedViaToken);
   }
 
   UUID id() {
@@ -149,8 +159,13 @@ class PendingAction {
     return Objects.requireNonNull(maintenanceTask, "A maintenance-task proposal has its draft");
   }
 
-  /** Records that {@code approver} approved it, and what that made. */
-  void approve(UUID approver, Instant at, UUID madeId) {
+  /** The draft of a studio-notice proposal. */
+  NoticeDraft requireStudioNotice() {
+    return Objects.requireNonNull(studioNotice, "A studio-notice proposal has its draft");
+  }
+
+  /** Records that {@code approver} approved it, and what that made (if any single record id). */
+  void approve(UUID approver, Instant at, @Nullable UUID madeId) {
     requirePending();
     this.status = Status.APPROVED;
     this.decidedBy = approver;
@@ -179,6 +194,7 @@ class PendingAction {
         subjectName,
         purchaseRequest,
         maintenanceTask,
+        studioNotice,
         proposer,
         accountNames.get(proposer),
         token,

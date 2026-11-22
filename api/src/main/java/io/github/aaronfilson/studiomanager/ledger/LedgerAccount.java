@@ -17,6 +17,8 @@ public enum LedgerAccount {
   SALES_TAX_PAYABLE(Type.LIABILITY),
   /** What the studio owes the people it pays (consignors, instructors), per payee. */
   PAYEES_PAYABLE(Type.LIABILITY),
+  /** Unpaid bills owed to suppliers, recorded from confirmed invoices. */
+  ACCOUNTS_PAYABLE(Type.LIABILITY),
   REVENUE_FIRING(Type.REVENUE),
   REVENUE_CLASSES(Type.REVENUE),
   REVENUE_MEMBERSHIPS(Type.REVENUE),
@@ -32,6 +34,8 @@ public enum LedgerAccount {
   PROCESSOR_FEES(Type.EXPENSE),
   /** Instructors' and other contractors' shares and fees. */
   CONTRACT_SERVICES(Type.EXPENSE),
+  /** Clay, glaze materials, tools and kiln parts bought from suppliers. */
+  SUPPLIES_EXPENSE(Type.EXPENSE),
   /**
    * The other side of balances carried in from before the studio used this app, such as what
    * members owed in the old spreadsheet. The bookkeeper clears it into retained earnings.

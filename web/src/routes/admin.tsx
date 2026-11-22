@@ -1,6 +1,7 @@
 import {
   createDemoTokenMutation,
   endRateLimitBoostMutation,
+  getAdminApiUsageOptions,
   getRateLimitsOptions,
   getRateLimitsQueryKey,
   listAdminStudiosOptions,
@@ -10,6 +11,7 @@ import {
   resetNormalRateLimitsMutation,
   scheduleRateLimitBoostMutation,
   setNormalRateLimitsMutation,
+  type ApiCallChannel,
   type ChannelRateLimits,
   type DemoToken,
   type RateLimitBoost,
@@ -38,10 +40,91 @@ function AdminPage() {
     <div className="stack">
       <h1>Admin</h1>
       <Limits />
+      <ApiUsage />
       <DemoStudio />
       <InvoiceReadersAdmin />
       <History />
     </div>
+  );
+}
+
+function channelLabel(channel: ApiCallChannel): string {
+  return channel === 'MCP' ? 'MCP' : 'API token';
+}
+
+function ApiUsage() {
+  const id = useId();
+  const usage = useQuery(getAdminApiUsageOptions());
+  return (
+    <section className="card stack" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>API &amp; MCP usage</h2>
+      <p>Calls and rate-limit refusals over the last hour and last 24 hours, by studio and by personal token.</p>
+      {usage.isPending && <p>Loading usage…</p>}
+      {usage.isError && <ErrorMessage error={usage.error} />}
+      {usage.data && usage.data.studios.length === 0 && usage.data.tokens.length === 0 && (
+        <p>No MCP or API token calls in the last 24 hours.</p>
+      )}
+      {usage.data && usage.data.studios.length > 0 && (
+        <table>
+          <caption>By studio and channel</caption>
+          <thead>
+            <tr>
+              <th scope="col">Studio</th>
+              <th scope="col">Channel</th>
+              <th scope="col">Calls (1h / 24h)</th>
+              <th scope="col">Refusals (1h / 24h)</th>
+              <th scope="col">Errors (1h / 24h)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usage.data.studios.map((row) => (
+              <tr key={`${row.studioId}-${row.channel}`}>
+                <td>{row.studioName}</td>
+                <td>{channelLabel(row.channel)}</td>
+                <td>
+                  {row.callsLastHour} / {row.callsLastDay}
+                </td>
+                <td>
+                  {row.refusalsLastHour} / {row.refusalsLastDay}
+                </td>
+                <td>
+                  {row.errorsLastHour} / {row.errorsLastDay}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {usage.data && usage.data.tokens.length > 0 && (
+        <table>
+          <caption>By personal API token</caption>
+          <thead>
+            <tr>
+              <th scope="col">Token</th>
+              <th scope="col">Studio</th>
+              <th scope="col">Calls (1h / 24h)</th>
+              <th scope="col">Refusals (1h / 24h)</th>
+              <th scope="col">Active hours (24h)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usage.data.tokens.map((row) => (
+              <tr key={row.tokenId}>
+                <td>{row.tokenName}</td>
+                <td>{row.studioName}</td>
+                <td>
+                  {row.callsLastHour} / {row.callsLastDay}
+                </td>
+                <td>
+                  {row.refusalsLastHour} / {row.refusalsLastDay}
+                </td>
+                <td>{row.activeHoursLastDay}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
 

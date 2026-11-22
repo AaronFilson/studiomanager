@@ -117,6 +117,80 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/me/identities:
+    get:
+      tags: [account]
+      operationId: listMyIdentities
+      summary: External OAuth identities linked to the signed-in account
+      description: |
+        Lists external identities (such as the MCP OAuth 2.1 authorization server) linked to the
+        caller's account so MCP OAuth clients can act as this person. Sign-in tokens only; never
+        reachable with an API token or MCP token.
+      responses:
+        "200":
+          description: Linked identities.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkedIdentity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [account]
+      operationId: linkMcpIdentity
+      summary: Link an MCP OAuth identity to the signed-in account
+      description: |
+        Verifies a live RS256-signed JWT issued by the configured MCP authorization server and links
+        its `(iss, sub)` to the caller's Studio Manager account. Requires both a primary Entra token
+        and a valid MCP OAuth token so unverified claims can never be attached.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkMcpIdentityRequest"
+      responses:
+        "201":
+          description: The linked identity.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkedIdentity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/me/identities/{identityId}:
+    parameters:
+      - name: identityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [account]
+      operationId: unlinkMyIdentity
+      summary: Remove a linked external identity from the signed-in account
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/rate-limits:
     get:
       tags: [admin]
@@ -396,6 +470,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InvoiceReaderOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/api-usage:
+    get:
+      tags: [admin]
+      operationId: getAdminApiUsage
+      summary: MCP and API token calls, refusals and active hours across studios (platform admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Calls, rate-limit refusals and errors over the last hour and last 24 hours.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiUsageOverview"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -5746,6 +5839,118 @@ components:
           type: string
           description: From the token's `email` claim, when the identity provider sends one.
 
+    LinkedIdentity:
+      type: object
+      required: [id, issuer, subject, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        issuer:
+          type: string
+        subject:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    LinkMcpIdentityRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 8192
+          description: A valid RS256-signed MCP OAuth access token issued by this server's MCP authorization server.
+
+    ApiCallChannel:
+      type: string
+      enum: [MCP, TOKEN]
+
+    StudioApiUsage:
+      type: object
+      required: [studioId, studioName, channel, callsLastHour, refusalsLastHour, errorsLastHour, callsLastDay, refusalsLastDay, errorsLastDay]
+      properties:
+        studioId:
+          type: string
+          format: uuid
+        studioName:
+          type: string
+        channel:
+          $ref: "#/components/schemas/ApiCallChannel"
+        callsLastHour:
+          type: integer
+          format: int64
+        refusalsLastHour:
+          type: integer
+          format: int64
+        errorsLastHour:
+          type: integer
+          format: int64
+        callsLastDay:
+          type: integer
+          format: int64
+        refusalsLastDay:
+          type: integer
+          format: int64
+        errorsLastDay:
+          type: integer
+          format: int64
+
+    TokenApiUsage:
+      type: object
+      required: [tokenId, tokenName, studioId, studioName, callsLastHour, refusalsLastHour, errorsLastHour, callsLastDay, refusalsLastDay, errorsLastDay, activeHoursLastDay]
+      properties:
+        tokenId:
+          type: string
+          format: uuid
+        tokenName:
+          type: string
+        studioId:
+          type: string
+          format: uuid
+        studioName:
+          type: string
+        callsLastHour:
+          type: integer
+          format: int64
+        refusalsLastHour:
+          type: integer
+          format: int64
+        errorsLastHour:
+          type: integer
+          format: int64
+        callsLastDay:
+          type: integer
+          format: int64
+        refusalsLastDay:
+          type: integer
+          format: int64
+        errorsLastDay:
+          type: integer
+          format: int64
+        activeHoursLastDay:
+          type: integer
+          format: int64
+          description: Number of distinct clock hours in the last 24 hours with at least one call from this token.
+
+    ApiUsageOverview:
+      type: object
+      required: [asOf, studios, tokens]
+      properties:
+        asOf:
+          type: string
+          format: date-time
+        studios:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudioApiUsage"
+        tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenApiUsage"
+
     Membership:
       type: object
       required: [studio, role]
@@ -8035,8 +8240,9 @@ components:
     LedgerAccount:
       type: string
       enum: [BANK, PROCESSOR_CLEARING, MEMBER_RECEIVABLE, STORED_VALUE_LIABILITY, SALES_TAX_PAYABLE, PAYEES_PAYABLE,
-             REVENUE_FIRING, REVENUE_CLASSES, REVENUE_MEMBERSHIPS, REVENUE_RETAIL, REVENUE_EVENTS, REVENUE_BREAKAGE,
-             REVENUE_COMMISSIONS, REVENUE_OTHER, REFUNDS, PROCESSOR_FEES, CONTRACT_SERVICES, OPENING_BALANCE_EQUITY]
+             ACCOUNTS_PAYABLE, REVENUE_FIRING, REVENUE_CLASSES, REVENUE_MEMBERSHIPS, REVENUE_RETAIL, REVENUE_EVENTS,
+             REVENUE_BREAKAGE, REVENUE_COMMISSIONS, REVENUE_OTHER, REFUNDS, PROCESSOR_FEES, CONTRACT_SERVICES,
+             SUPPLIES_EXPENSE, OPENING_BALANCE_EQUITY]
 
     MemberBalance:
       type: object
@@ -9669,6 +9875,10 @@ components:
         confirmedAt:
           type: string
           format: date-time
+        ledgerEntryId:
+          type: string
+          format: uuid
+          description: Journal entry created if the bill was also recorded as a payable on confirmation.
         version:
           type: integer
           format: int64
@@ -10060,6 +10270,12 @@ components:
         expectedVersion:
           type: integer
           format: int64
+        recordPayable:
+          type: boolean
+          description: |
+            When true, also records the invoice payable amount (or total) as a balanced supplier
+            bill in the studio ledger (Debit SUPPLIES_EXPENSE, Credit ACCOUNTS_PAYABLE). Requires
+            `money.payables.manage`.
 
     TokenScope:
       type: string
@@ -10141,7 +10357,7 @@ components:
     PendingActionKind:
       type: string
       description: What an assistant proposed.
-      enum: [PURCHASE_REQUEST, MAINTENANCE_TASK]
+      enum: [PURCHASE_REQUEST, MAINTENANCE_TASK, STUDIO_NOTICE]
 
     PendingActionStatus:
       type: string
@@ -10151,7 +10367,7 @@ components:
       type: object
       description: |
         A change an assistant proposed. `reason` is the assistant's own words, and `subjectName`
-        the item's or asset's name when it was proposed: show both as plain text.
+        the item's, asset's or notice's title when it was proposed: show both as plain text.
       required: [id, kind, status, subjectName, proposedBy, proposedAt, version]
       properties:
         id:
@@ -10169,6 +10385,8 @@ components:
           $ref: "#/components/schemas/ProposedPurchaseRequest"
         maintenanceTask:
           $ref: "#/components/schemas/ProposedMaintenanceTask"
+        studioNotice:
+          $ref: "#/components/schemas/ProposedStudioNotice"
         proposedBy:
           type: string
           format: uuid
@@ -10228,6 +10446,16 @@ components:
         everyFirings:
           type: integer
           format: int32
+
+    ProposedStudioNotice:
+      type: object
+      description: Present when the kind is STUDIO_NOTICE.
+      required: [title, body]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
 
     PendingActionList:
       type: object

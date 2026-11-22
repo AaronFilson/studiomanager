@@ -17,10 +17,15 @@ locals {
   }
 
   env = {
-    STUDIOMANAGER_BRIDGE_ISSUER              = local.issuer
-    STUDIOMANAGER_BRIDGE_GITHUB_CLIENT_ID    = var.github_client_id
-    STUDIOMANAGER_BRIDGE_ENTRA_CLIENT_ID     = var.entra_client_id
-    STUDIOMANAGER_BRIDGE_ENTRA_REDIRECT_URIS = join(",", var.entra_redirect_uris)
+    STUDIOMANAGER_BRIDGE_ISSUER                           = local.issuer
+    STUDIOMANAGER_BRIDGE_GITHUB_CLIENT_ID                 = var.github_client_id
+    STUDIOMANAGER_BRIDGE_ENTRA_CLIENT_ID                  = var.entra_client_id
+    STUDIOMANAGER_BRIDGE_ENTRA_REDIRECT_URIS              = join(",", var.entra_redirect_uris)
+    STUDIOMANAGER_BRIDGE_MCP_ENABLED                      = tostring(var.mcp_enabled)
+    STUDIOMANAGER_BRIDGE_MCP_ALLOWED_RESOURCES            = join(",", var.mcp_allowed_resources)
+    STUDIOMANAGER_BRIDGE_MCP_SCOPES                       = var.mcp_scopes
+    STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_CLIENT_ID     = var.mcp_pre_registered_client_id
+    STUDIOMANAGER_BRIDGE_MCP_PRE_REGISTERED_REDIRECT_URIS = join(",", var.mcp_pre_registered_redirect_uris)
   }
 }
 

@@ -32,6 +32,9 @@ function describe(action: PendingAction): string {
       const when = task ? interval(task.everyDays, task.everyFirings) : '';
       return `Add “${task?.title ?? 'a task'}” on ${action.subjectName}${when ? `, ${when}` : ''}`;
     }
+    case 'STUDIO_NOTICE': {
+      return `Send studio notice: “${action.studioNotice?.title ?? action.subjectName}”`;
+    }
   }
 }
 
@@ -92,6 +95,7 @@ function SuggestionCard({ studioId, action }: { studioId: string; action: Pendin
         {action.proposedViaTokenName ? `, through ‘${action.proposedViaTokenName}’` : ''} ·{' '}
         {formatDateTime(action.proposedAt)}
       </Body>
+      {action.studioNotice && <Body>{action.studioNotice.body}</Body>}
       {action.reason && <Body>{action.reason}</Body>}
       <Field label="Why not (optional)" value={note} onChangeText={setNote} maxLength={500} />
       {decide.isError && <ErrorText error={decide.error} />}

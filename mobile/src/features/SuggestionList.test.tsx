@@ -41,6 +41,20 @@ describe('SuggestionList', () => {
             proposedAt: '2026-11-20T10:05:00Z',
             version: 1,
           },
+          {
+            id: 'pa3',
+            kind: 'STUDIO_NOTICE',
+            status: 'PENDING',
+            subjectName: 'Kiln unload Friday',
+            studioNotice: {
+              title: 'Kiln unload Friday',
+              body: 'Cone 6 glaze load comes out at noon.',
+            },
+            proposedBy: 'u1',
+            proposedByName: 'Olive Owner',
+            proposedAt: '2026-11-20T10:10:00Z',
+            version: 1,
+          },
         ],
         true,
         50,
@@ -62,6 +76,8 @@ describe('SuggestionList', () => {
       await screen.findByText('Add “Check relays” on Skutt 1027, every 30 days or every 20 firings'),
     ).toBeOnTheScreen();
     expect(screen.getByText('Request 10 × B-Mix 5 (Running low before workshop)')).toBeOnTheScreen();
+    expect(screen.getByText('Send studio notice: “Kiln unload Friday”')).toBeOnTheScreen();
+    expect(screen.getByText('Cone 6 glaze load comes out at noon.')).toBeOnTheScreen();
     expect(screen.getByText('Showing the oldest 50 suggestions. Decide these to see the rest.')).toBeOnTheScreen();
     expect(screen.getByText('Elements are nearing 100 firings.')).toBeOnTheScreen();
 

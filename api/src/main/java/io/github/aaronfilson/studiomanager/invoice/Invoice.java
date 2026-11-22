@@ -109,6 +109,8 @@ class Invoice {
 
   private @Nullable Instant confirmedAt;
 
+  private @Nullable UUID ledgerEntryId;
+
   @Version private @Nullable Long version;
 
   @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -201,21 +203,22 @@ class Invoice {
     }
   }
 
-  /** Staff checked it: its stock is received. */
-  void confirmed(UUID accountId, Instant at) {
+  /** Staff checked it: its stock is received (and optionally its bill posted to the ledger). */
+  void confirmed(UUID accountId, Instant at, @Nullable UUID ledgerEntryId) {
     switch (status) {
-      case READY -> markConfirmed(accountId, at);
-      case NEEDS_LOOK -> markConfirmed(accountId, at);
+      case READY -> markConfirmed(accountId, at, ledgerEntryId);
+      case NEEDS_LOOK -> markConfirmed(accountId, at, ledgerEntryId);
       case UPLOADING -> throw stillBeingRead();
       case READING -> throw stillBeingRead();
       case CONFIRMED -> throw alreadyConfirmed();
     }
   }
 
-  private void markConfirmed(UUID accountId, Instant at) {
+  private void markConfirmed(UUID accountId, Instant at, @Nullable UUID ledgerEntryId) {
     this.status = InvoiceStatus.CONFIRMED;
     this.confirmedBy = accountId;
     this.confirmedAt = at;
+    this.ledgerEntryId = ledgerEntryId;
   }
 
   private static ConflictException stillBeingRead() {
@@ -267,6 +270,7 @@ class Invoice {
         Objects.requireNonNull(createdAt, "An invoice has a creation time once it's saved"),
         confirmedBy,
         confirmedAt,
+        ledgerEntryId,
         version());
   }
 

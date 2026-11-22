@@ -32,9 +32,9 @@ focused and preparing pre-store polish prior to Apple Developer / Google Play en
 | **M1** | Members, co-owners, billing contact, custom roles, duties, certs, invites | `MemberList.tsx` | `members.tsx` | Shipped |
 | **M2** | Today handover & kiln operations (load, cap, transitions, availability, log) | `TodayDashboard.tsx`, `KilnList.tsx`, `KilnDetail.tsx` | `today.tsx`, `kilns/index.tsx`, `kilns/[kilnId].tsx` | Shipped |
 | **M3** | Supplies on-the-go (search, categories, stock moves, sales, purchase requests, last purchase price badge) | `SupplyList.tsx` | `supplies.tsx` | Shipped |
-| **M4** | Glaze book, dry-batch calculator, offline UMF chemistry, slurry SG helper, studio mix log | `GlazeList.tsx`, `GlazeDetail.tsx` | `glazes/index.tsx`, `glazes/[glazeId].tsx` | Shipped |
+| **M4** | Glaze book, recipe create/edit, test-tile photos, dry-batch calculator, offline UMF chemistry, slurry SG helper, studio mix log | `GlazeList.tsx`, `GlazeDetail.tsx`, `GlazeForm.tsx` | `glazes/index.tsx`, `glazes/[glazeId].tsx` | Shipped |
 | **M5** | Roster, My hours & Calendar bookings | `RosterSchedule.tsx`, `CalendarView.tsx` | `roster.tsx`, `calendar.tsx` | Shipped |
-| **M6** | Assistant suggestions, Staff maintenance & Studio notice broadcast | `SuggestionList.tsx`, `MaintenanceStaff.tsx`, `NoticeList.tsx` | `suggestions.tsx`, `maintenance.tsx`, `notices.tsx` | Shipped |
+| **M6** | Assistant suggestions (incl. studio notices), Staff maintenance (history, record photos, repair logging) & Studio notice broadcast | `SuggestionList.tsx`, `MaintenanceStaff.tsx`, `NoticeList.tsx` | `suggestions.tsx`, `maintenance.tsx`, `notices.tsx` | Shipped |
 | **M7** | Financials (balances, prepaid cards, payables) & My statement / consignment | `Financials.tsx`, `MyStatement.tsx` | `money.tsx`, `statement.tsx` | Shipped |
 
 ## Cross-Branch Integrations (Completed)

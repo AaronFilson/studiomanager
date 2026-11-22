@@ -30,6 +30,9 @@ public class Proposals {
   /** A purchase request's note, as the Supplies page allows. */
   public static final int MAX_PURCHASE_NOTE = 200;
 
+  /** A studio notice's body, matching {@code NotificationService.broadcast}. */
+  public static final int MAX_NOTICE_BODY = 2000;
+
   private final PendingActionRepository pendingActions;
   private final SupplyService supplies;
   private final MaintenanceService maintenance;
@@ -103,6 +106,23 @@ public class Proposals {
     MaintenanceTaskDraft draft =
         new MaintenanceTaskDraft(assetId, cleanTitle, everyDays, everyFirings);
     return save(PendingAction.maintenanceTask(draft, asset.name(), reason, proposingToken()));
+  }
+
+  /**
+   * Proposes sending a broadcast notice to every member of the studio. Approving runs {@code
+   * NotificationService.broadcast} as the staff member who approved.
+   */
+  @Transactional
+  public PendingActionView proposeStudioNotice(String title, String body, @Nullable String reason) {
+    requireCanPropose();
+    String cleanTitle = title.strip();
+    String cleanBody = body.strip();
+    if (cleanTitle.isEmpty() || cleanTitle.length() > 120 || cleanBody.length() > MAX_NOTICE_BODY) {
+      throw new InvalidInputException(
+          "A notice needs a title of 1 to 120 characters and at most 2,000 characters of text.");
+    }
+    NoticeDraft draft = new NoticeDraft(cleanTitle, cleanBody);
+    return save(PendingAction.studioNotice(draft, reason, proposingToken()));
   }
 
   private PendingActionView save(PendingAction action) {

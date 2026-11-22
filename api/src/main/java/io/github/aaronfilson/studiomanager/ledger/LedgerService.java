@@ -78,6 +78,36 @@ public class LedgerService {
     return balanceOf(memberId, caller);
   }
 
+  /**
+   * Records a confirmed supplier invoice as a balanced bill in the studio's books (Debit {@link
+   * LedgerAccount#SUPPLIES_EXPENSE}, Credit {@link LedgerAccount#ACCOUNTS_PAYABLE}). Keyed by the
+   * invoice id so confirming or retrying never posts the same bill twice.
+   */
+  @Transactional
+  public UUID recordSupplierBill(
+      UUID invoiceId,
+      @Nullable String vendorName,
+      @Nullable String invoiceNumber,
+      @Nullable LocalDate occurredOn,
+      BigDecimal amount) {
+    permissions.require(Permission.MONEY_PAYABLES_MANAGE, ONLY_STAFF);
+    requirePositive(amount);
+    String vendor = vendorName == null || vendorName.isBlank() ? "Supplier" : vendorName.strip();
+    String number =
+        invoiceNumber == null || invoiceNumber.isBlank() ? "" : " #" + invoiceNumber.strip();
+    String memo = truncate("Supplier bill: " + vendor + number);
+    LocalDate day = occurredOn != null ? occurredOn : books.today();
+    return journal.post(
+        EntryKind.SUPPLIER_BILL,
+        day,
+        memo,
+        invoiceId,
+        "invoice-bill:" + invoiceId,
+        List.of(
+            Line.debit(LedgerAccount.SUPPLIES_EXPENSE, amount),
+            Line.credit(LedgerAccount.ACCOUNTS_PAYABLE, amount)));
+  }
+
   /** Everyone who owes something (or is in credit), largest first. Staff only. */
   @Transactional(readOnly = true)
   public List<MemberBalance> balances() {

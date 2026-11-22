@@ -11,8 +11,9 @@ import org.jspecify.annotations.Nullable;
  * @param subjectName the item's or asset's name when it was proposed
  * @param purchaseRequest present exactly when the kind is {@link Kind#PURCHASE_REQUEST}
  * @param maintenanceTask present exactly when the kind is {@link Kind#MAINTENANCE_TASK}
+ * @param studioNotice present exactly when the kind is {@link Kind#STUDIO_NOTICE}
  * @param proposedViaToken the personal API token the assistant used, if it used one
- * @param resultId what approving made: the purchase request's or the task's id
+ * @param resultId what approving made: the purchase request's or the task's id (null for notices)
  */
 public record PendingActionView(
     UUID id,
@@ -22,6 +23,7 @@ public record PendingActionView(
     String subjectName,
     @Nullable PurchaseRequestDraft purchaseRequest,
     @Nullable MaintenanceTaskDraft maintenanceTask,
+    @Nullable NoticeDraft studioNotice,
     UUID proposedBy,
     @Nullable String proposedByName,
     @Nullable UUID proposedViaToken,
@@ -37,7 +39,8 @@ public record PendingActionView(
   /** What an assistant can propose. */
   public enum Kind {
     PURCHASE_REQUEST,
-    MAINTENANCE_TASK
+    MAINTENANCE_TASK,
+    STUDIO_NOTICE
   }
 
   /** Waiting for staff, or decided. */

@@ -151,6 +151,39 @@ run "only_invoice_settings_go_through_the_invoice_variable" {
   expect_failures = [var.invoice_reader_env]
 }
 
+run "mcp_oauth_settings_reach_the_app" {
+  command = plan
+
+  variables {
+    mcp_oauth_env = {
+      STUDIOMANAGER_MCP_OAUTH_ISSUER   = "https://ca-studiomanager-test-auth.happy-sea-123.westus.azurecontainerapps.io"
+      STUDIOMANAGER_MCP_OAUTH_AUDIENCE = "https://ca-studiomanager-test-api.happy-sea-123.westus.azurecontainerapps.io"
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for name, expected in {
+        STUDIOMANAGER_MCP_OAUTH_ISSUER   = "https://ca-studiomanager-test-auth.happy-sea-123.westus.azurecontainerapps.io"
+        STUDIOMANAGER_MCP_OAUTH_AUDIENCE = "https://ca-studiomanager-test-api.happy-sea-123.westus.azurecontainerapps.io"
+      } : { for e in azurerm_container_app.api.template[0].container[0].env : e.name => e.value }[name] == expected
+    ])
+    error_message = "The app gets the MCP OAuth settings."
+  }
+}
+
+run "only_mcp_oauth_settings_go_through_the_mcp_oauth_variable" {
+  command = plan
+
+  variables {
+    mcp_oauth_env = {
+      SPRING_PROFILES_ACTIVE = "local"
+    }
+  }
+
+  expect_failures = [var.mcp_oauth_env]
+}
+
 run "migration_job_runs_as_the_migrator" {
   command = plan
 

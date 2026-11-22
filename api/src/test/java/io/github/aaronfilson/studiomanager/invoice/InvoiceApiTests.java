@@ -73,6 +73,9 @@ class InvoiceApiTests {
   @Autowired MockMvcTester mvc;
   @Autowired StatementCounts statements;
   @Autowired InvoiceInbox inbox;
+  @Autowired InvoiceSweep invoiceSweep;
+  @Autowired org.springframework.jdbc.core.simple.JdbcClient jdbc;
+  @Autowired org.springframework.transaction.support.TransactionTemplate transactions;
 
   private final HttpClient http = HttpClient.newHttpClient();
   private final TestUser owner = TestUser.named("Olive");
@@ -749,6 +752,95 @@ class InvoiceApiTests {
     post(owner, path("/invoices"), "{\"fileType\": \"PNG\"}");
 
     assertThat(countListing()).isEqualTo(forOne);
+  }
+
+  @Test
+  void pdfOverTenPagesIsRefusedAtComplete() throws Exception {
+    byte[] twelvePagePdf =
+        "%PDF-1.7\n1 0 obj << /Type /Pages /Count 12 >> endobj\n"
+            .getBytes(StandardCharsets.ISO_8859_1);
+    MvcTestResult started = post(owner, path("/invoices"), "{\"fileType\": \"PDF\"}");
+    String invoice = read(started, "$.invoiceId");
+    assertThat(put(read(started, "$.uploadUrl"), twelvePagePdf)).isEqualTo(201);
+    assertThat(post(owner, path("/invoices/" + invoice + "/complete"), ""))
+        .hasStatus(HttpStatus.BAD_REQUEST)
+        .bodyJson()
+        .extractingPath("$.detail")
+        .asString()
+        .contains("12 pages", "10 pages");
+  }
+
+  @Test
+  void confirmingWithRecordPayablePostsBalancedSupplierBillInLedger() throws Exception {
+    setKey(KEY);
+    String invoice = upload("PDF", PDF);
+    MvcTestResult draft = awaitRead(invoice);
+    long version = version(draft);
+
+    MvcTestResult confirmed =
+        post(
+            owner,
+            path("/invoices/" + invoice + "/confirm"),
+            "{\"expectedVersion\": %d, \"recordPayable\": true}".formatted(version));
+    assertThat(confirmed).hasStatusOk();
+    assertThat(confirmed).bodyJson().extractingPath("$.status").isEqualTo("CONFIRMED");
+    assertThat(confirmed).bodyJson().extractingPath("$.ledgerEntryId").isNotNull();
+
+    // Daily summary includes balanced SUPPLIES_EXPENSE debit and ACCOUNTS_PAYABLE credit for 265.03
+    String billDate = read(confirmed, "$.invoiceDate");
+    MvcTestResult summary =
+        get(owner, path("/ledger/summary?from=%s&to=%s".formatted(billDate, billDate)));
+    assertThat(summary).hasStatusOk();
+    String summaryBody = summary.getResponse().getContentAsString();
+    assertThat(
+            JsonPath.<List<String>>read(
+                summaryBody, "$[?(@.account == 'SUPPLIES_EXPENSE')].debits"))
+        .contains("265.03");
+    assertThat(
+            JsonPath.<List<String>>read(
+                summaryBody, "$[?(@.account == 'ACCOUNTS_PAYABLE')].credits"))
+        .contains("265.03");
+  }
+
+  @Test
+  void sweepPurgesOldRawAnswersAndRemovesAbandonedUploads() throws Exception {
+    setKey(KEY);
+    String readInvoice = upload("PDF", PDF);
+    awaitRead(readInvoice);
+    // Start an abandoned upload that is never completed
+    MvcTestResult abandonedStart = post(owner, path("/invoices"), "{\"fileType\": \"PNG\"}");
+    String abandonedId = read(abandonedStart, "$.invoiceId");
+    assertThat(put(read(abandonedStart, "$.uploadUrl"), PNG)).isEqualTo(201);
+
+    // Running now leaves fresh rows alone
+    InvoiceSweep.Result fresh = invoiceSweep.runAt(java.time.Instant.now());
+    assertThat(fresh.rawAnswersPurged()).isZero();
+    assertThat(fresh.abandonedUploadsRemoved()).isZero();
+
+    // Running 91 days in the future purges raw JSON and deletes the abandoned upload
+    InvoiceSweep.Result after91Days =
+        invoiceSweep.runAt(java.time.Instant.now().plus(Duration.ofDays(91)));
+    assertThat(after91Days.rawAnswersPurged()).isGreaterThanOrEqualTo(1);
+    assertThat(after91Days.abandonedUploadsRemoved()).isGreaterThanOrEqualTo(1);
+
+    // The read invoice itself stays readable, while the abandoned upload is gone
+    assertThat(get(owner, path("/invoices/" + readInvoice))).hasStatusOk();
+    assertThat(get(owner, path("/invoices/" + abandonedId))).hasStatus(HttpStatus.NOT_FOUND);
+
+    UUID ownerId =
+        UUID.fromString(
+            read(mvc.get().uri("/api/v1/me").with(owner.token()).exchange(), "$.account.id"));
+    boolean rawCleared =
+        TenantContext.callAs(
+            new TenantContext(ownerId, studioId, StudioRole.OWNER),
+            () ->
+                transactions.execute(tx ->
+                    Boolean.TRUE.equals(
+                        jdbc.sql("select raw is null from invoice where id = :id")
+                            .param("id", UUID.fromString(readInvoice))
+                            .query(Boolean.class)
+                            .single())));
+    assertThat(rawCleared).isTrue();
   }
 
   private long countListing() throws Exception {

@@ -75,6 +75,9 @@ function asAdmin(platformAdmin = true) {
     http.get(`${API}/api/v1/me`, () => HttpResponse.json({ account: { id: 'a1' }, memberships: [], platformAdmin })),
     http.get(`${API}/api/v1/admin/studios`, () => HttpResponse.json([demoStudio])),
     http.get(`${API}/api/v1/admin/invoice-readers`, () => HttpResponse.json(readers())),
+    http.get(`${API}/api/v1/admin/api-usage`, () =>
+      HttpResponse.json({ asOf: '2026-11-06T15:07:00Z', studios: [], tokens: [] }),
+    ),
   ];
 }
 
@@ -327,5 +330,53 @@ describe('admin', () => {
     const google = within(screen.getByRole('group', { name: 'Google Document AI' }));
     expect(google.getByText(/google-document-ai\.md/)).toBeInTheDocument();
     expect(google.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('shows MCP and API token usage by studio and by token with active hours', async () => {
+    server.use(
+      http.get(`${API}/api/v1/admin/api-usage`, () =>
+        HttpResponse.json({
+          asOf: '2026-11-06T15:07:00Z',
+          studios: [
+            {
+              studioId: demoStudio.id,
+              studioName: demoStudio.name,
+              channel: 'MCP',
+              callsLastHour: 12,
+              refusalsLastHour: 1,
+              errorsLastHour: 0,
+              callsLastDay: 45,
+              refusalsLastDay: 2,
+              errorsLastDay: 1,
+            },
+          ],
+          tokens: [
+            {
+              tokenId: 't1',
+              tokenName: 'Claude desktop',
+              studioId: demoStudio.id,
+              studioName: demoStudio.name,
+              callsLastHour: 12,
+              refusalsLastHour: 1,
+              errorsLastHour: 0,
+              callsLastDay: 45,
+              refusalsLastDay: 2,
+              errorsLastDay: 1,
+              activeHoursLastDay: 6,
+            },
+          ],
+        }),
+      ),
+      ...asAdmin(),
+      http.get(`${API}/api/v1/admin/rate-limits`, () => HttpResponse.json(overview())),
+      http.get(`${API}/api/v1/admin/setting-changes`, () => HttpResponse.json([])),
+    );
+
+    renderApp('/admin');
+    const usage = await screen.findByRole('region', { name: 'API & MCP usage' });
+    expect(await within(usage).findByText('Claude desktop')).toBeInTheDocument();
+    expect(within(usage).getAllByText('12 / 45')).toHaveLength(2);
+    expect(within(usage).getAllByText('1 / 2')).toHaveLength(2);
+    expect(within(usage).getByText('6')).toBeInTheDocument();
   });
 });

@@ -261,6 +261,21 @@ tools.**
   `/oauth2/consent` with strict CSP, and RFC 8707 resource-bound RS256 JWT access tokens (`aud`,
   `sub`, `studio_id`, `scope`), keeping GitHub-to-Entra federation intact.
 
+**Step 5 completion & remaining MCP surface, 2026-11-21, on `combined-plans` (V50, V51):**
+- **Terraform wiring (`infra/`):** `infra/modules/github_bridge`, `infra/modules/api`, and
+  `infra/envs/dev` wire the MCP OAuth 2.1 issuer, JWKS URI, audience, and client-registration toggle
+  (plus `docs/runbooks/github-sign-in.md` instructions), covered by Terraform module/env tests.
+- **Verified account identity linking (V50):** `account_identity` table plus
+  `GET/POST/DELETE /api/v1/me/identities` (and Settings UI in `ApiTokensCard.tsx`) let an Entra user
+  link a verified MCP OAuth JWT subject with live cryptographic proof of possession.
+- **Per-caller `tools/list` filtering:** `McpToolCalls.visibilityFilter()` uses MCP Java SDK 2.1.0's
+  `addToolFilter` so each caller only sees the tools their live studio permissions and token scopes allow.
+- **Remaining MCP tools & proposals (V51):** added `find_pieces`, `kiln_queue`, `member_lookup`, and
+  `propose_notice` (`STUDIO_NOTICE` pending action; approving broadcasts via
+  `NotificationService.broadcast` as the approver; rendered on web and mobile Suggestions screens).
+- **MCP Resources:** added `studio://policies` and `studio://glazes/{id}` (`McpResources`) exposed
+  through the stateless MCP server.
+
 ## In an interview
 
 "Owners can plug their own AI into the studio through MCP. The assistant is never more than

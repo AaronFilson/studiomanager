@@ -141,6 +141,57 @@ export type Account = {
     email?: string;
 };
 
+export type LinkedIdentity = {
+    id: string;
+    issuer: string;
+    subject: string;
+    createdAt: string;
+};
+
+export type LinkMcpIdentityRequest = {
+    /**
+     * A valid RS256-signed MCP OAuth access token issued by this server's MCP authorization server.
+     */
+    token: string;
+};
+
+export type ApiCallChannel = 'MCP' | 'TOKEN';
+
+export type StudioApiUsage = {
+    studioId: string;
+    studioName: string;
+    channel: ApiCallChannel;
+    callsLastHour: number;
+    refusalsLastHour: number;
+    errorsLastHour: number;
+    callsLastDay: number;
+    refusalsLastDay: number;
+    errorsLastDay: number;
+};
+
+export type TokenApiUsage = {
+    tokenId: string;
+    tokenName: string;
+    studioId: string;
+    studioName: string;
+    callsLastHour: number;
+    refusalsLastHour: number;
+    errorsLastHour: number;
+    callsLastDay: number;
+    refusalsLastDay: number;
+    errorsLastDay: number;
+    /**
+     * Number of distinct clock hours in the last 24 hours with at least one call from this token.
+     */
+    activeHoursLastDay: number;
+};
+
+export type ApiUsageOverview = {
+    asOf: string;
+    studios: Array<StudioApiUsage>;
+    tokens: Array<TokenApiUsage>;
+};
+
 export type Membership = {
     studio: StudioSummary;
     role: StudioRole;
@@ -1534,7 +1585,7 @@ export type PayoutProvider = 'STRIPE' | 'SQUARE' | 'SHOPIFY' | 'PAYPAL' | 'OTHER
 
 export type StoredValueKind = 'GIFT_CARD' | 'FIRING_CARD' | 'CLASS_PACK' | 'DEPOSIT' | 'CREDIT';
 
-export type LedgerAccount = 'BANK' | 'PROCESSOR_CLEARING' | 'MEMBER_RECEIVABLE' | 'STORED_VALUE_LIABILITY' | 'SALES_TAX_PAYABLE' | 'PAYEES_PAYABLE' | 'REVENUE_FIRING' | 'REVENUE_CLASSES' | 'REVENUE_MEMBERSHIPS' | 'REVENUE_RETAIL' | 'REVENUE_EVENTS' | 'REVENUE_BREAKAGE' | 'REVENUE_COMMISSIONS' | 'REVENUE_OTHER' | 'REFUNDS' | 'PROCESSOR_FEES' | 'CONTRACT_SERVICES' | 'OPENING_BALANCE_EQUITY';
+export type LedgerAccount = 'BANK' | 'PROCESSOR_CLEARING' | 'MEMBER_RECEIVABLE' | 'STORED_VALUE_LIABILITY' | 'SALES_TAX_PAYABLE' | 'PAYEES_PAYABLE' | 'ACCOUNTS_PAYABLE' | 'REVENUE_FIRING' | 'REVENUE_CLASSES' | 'REVENUE_MEMBERSHIPS' | 'REVENUE_RETAIL' | 'REVENUE_EVENTS' | 'REVENUE_BREAKAGE' | 'REVENUE_COMMISSIONS' | 'REVENUE_OTHER' | 'REFUNDS' | 'PROCESSOR_FEES' | 'CONTRACT_SERVICES' | 'SUPPLIES_EXPENSE' | 'OPENING_BALANCE_EQUITY';
 
 export type MemberBalance = {
     memberId: string;
@@ -2427,6 +2478,10 @@ export type Invoice = {
     uploadedAt: string;
     confirmedBy?: string;
     confirmedAt?: string;
+    /**
+     * Journal entry created if the bill was also recorded as a payable on confirmation.
+     */
+    ledgerEntryId?: string;
     version: number;
 };
 
@@ -2619,6 +2674,13 @@ export type SaveInvoiceDraftRequest = {
 
 export type ConfirmInvoiceRequest = {
     expectedVersion: number;
+    /**
+     * When true, also records the invoice payable amount (or total) as a balanced supplier
+     * bill in the studio ledger (Debit SUPPLIES_EXPENSE, Credit ACCOUNTS_PAYABLE). Requires
+     * `money.payables.manage`.
+     *
+     */
+    recordPayable?: boolean;
 };
 
 /**
@@ -2672,13 +2734,13 @@ export type CreatedApiToken = {
 /**
  * What an assistant proposed.
  */
-export type PendingActionKind = 'PURCHASE_REQUEST' | 'MAINTENANCE_TASK';
+export type PendingActionKind = 'PURCHASE_REQUEST' | 'MAINTENANCE_TASK' | 'STUDIO_NOTICE';
 
 export type PendingActionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 /**
  * A change an assistant proposed. `reason` is the assistant's own words, and `subjectName`
- * the item's or asset's name when it was proposed: show both as plain text.
+ * the item's, asset's or notice's title when it was proposed: show both as plain text.
  *
  */
 export type PendingAction = {
@@ -2689,6 +2751,7 @@ export type PendingAction = {
     subjectName: string;
     purchaseRequest?: ProposedPurchaseRequest;
     maintenanceTask?: ProposedMaintenanceTask;
+    studioNotice?: ProposedStudioNotice;
     /**
      * The person whose token the assistant used.
      */
@@ -2727,6 +2790,14 @@ export type ProposedMaintenanceTask = {
     title: string;
     everyDays?: number;
     everyFirings?: number;
+};
+
+/**
+ * Present when the kind is STUDIO_NOTICE.
+ */
+export type ProposedStudioNotice = {
+    title: string;
+    body: string;
 };
 
 export type PendingActionList = {
@@ -3003,6 +3074,10 @@ export type InvoiceWritable = {
     uploadedAt: string;
     confirmedBy?: string;
     confirmedAt?: string;
+    /**
+     * Journal entry created if the bill was also recorded as a payable on confirmation.
+     */
+    ledgerEntryId?: string;
     version: number;
 };
 
@@ -3149,6 +3224,107 @@ export type GetMeResponses = {
 };
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type ListMyIdentitiesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/identities';
+};
+
+export type ListMyIdentitiesErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type ListMyIdentitiesError = ListMyIdentitiesErrors[keyof ListMyIdentitiesErrors];
+
+export type ListMyIdentitiesResponses = {
+    /**
+     * Linked identities.
+     */
+    200: Array<LinkedIdentity>;
+};
+
+export type ListMyIdentitiesResponse = ListMyIdentitiesResponses[keyof ListMyIdentitiesResponses];
+
+export type LinkMcpIdentityData = {
+    body: LinkMcpIdentityRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/identities';
+};
+
+export type LinkMcpIdentityErrors = {
+    /**
+     * The request was invalid.
+     */
+    400: Problem;
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * Someone else changed it at the same time. Reload and try again.
+     */
+    409: Problem;
+};
+
+export type LinkMcpIdentityError = LinkMcpIdentityErrors[keyof LinkMcpIdentityErrors];
+
+export type LinkMcpIdentityResponses = {
+    /**
+     * The linked identity.
+     */
+    201: LinkedIdentity;
+};
+
+export type LinkMcpIdentityResponse = LinkMcpIdentityResponses[keyof LinkMcpIdentityResponses];
+
+export type UnlinkMyIdentityData = {
+    body?: never;
+    path: {
+        identityId: string;
+    };
+    query?: never;
+    url: '/api/v1/me/identities/{identityId}';
+};
+
+export type UnlinkMyIdentityErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+    /**
+     * No such thing, or not one the caller may see.
+     */
+    404: Problem;
+};
+
+export type UnlinkMyIdentityError = UnlinkMyIdentityErrors[keyof UnlinkMyIdentityErrors];
+
+export type UnlinkMyIdentityResponses = {
+    /**
+     * Removed.
+     */
+    204: void;
+};
+
+export type UnlinkMyIdentityResponse = UnlinkMyIdentityResponses[keyof UnlinkMyIdentityResponses];
 
 export type GetRateLimitsData = {
     body?: never;
@@ -3522,6 +3698,35 @@ export type SetInvoiceReadersResponses = {
 };
 
 export type SetInvoiceReadersResponse = SetInvoiceReadersResponses[keyof SetInvoiceReadersResponses];
+
+export type GetAdminApiUsageData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/api-usage';
+};
+
+export type GetAdminApiUsageErrors = {
+    /**
+     * No valid access token.
+     */
+    401: Problem;
+    /**
+     * The caller is not a member of the studio, or lacks the role required.
+     */
+    403: Problem;
+};
+
+export type GetAdminApiUsageError = GetAdminApiUsageErrors[keyof GetAdminApiUsageErrors];
+
+export type GetAdminApiUsageResponses = {
+    /**
+     * Calls, rate-limit refusals and errors over the last hour and last 24 hours.
+     */
+    200: ApiUsageOverview;
+};
+
+export type GetAdminApiUsageResponse = GetAdminApiUsageResponses[keyof GetAdminApiUsageResponses];
 
 export type CreateStudioData = {
     body: CreateStudioRequest;

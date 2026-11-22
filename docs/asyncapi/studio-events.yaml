@@ -1,0 +1,702 @@
+asyncapi: 3.0.0
+id: urn:io:github:aaronfilson:studiomanager:studio-events
+defaultContentType: application/json
+
+info:
+  title: Studio Manager Event Stream
+  version: 1.0.0
+  description: |
+    Kafka event stream published by the Studio Manager API (`io.github.aaronfilson.studiomanager.stream`).
+
+    ## Architecture and delivery semantics
+    - **Transactional outbox:** Domain listeners in `StreamPublisher` map internal domain events into
+      `StudioStreamEvent` records inside the originating database transaction. Spring Modulith persists
+      each event in PostgreSQL (`event_publication`) in the same commit and externalizes it to Kafka
+      after commit (`spring-modulith-events-kafka`). Rolled-back work queues nothing; broker outages
+      delay delivery and `OutboxRetry` retries up to 8 attempts.
+    - **Off by default:** Streaming is gated behind `studiomanager.stream.enabled=true`
+      (`STUDIOMANAGER_STREAM_ENABLED=true`) so the API can scale to zero without a paid broker.
+    - **At-least-once, unordered delivery:** Producer sends with `acks=all` and idempotence enabled
+      (`enable.idempotence=true`), keyed by `studioId` so one studio's events share a partition.
+      Because each event is externalized asynchronously after its own commit and retries arrive late,
+      per-studio arrival order is **not** guaranteed. Consumers must order by `occurredAt` and
+      deduplicate on the deterministic UUID `id` (`UUID.nameUUIDFromBytes(dedupeKey)`).
+    - **Wire format & headers:** Payloads are UTF-8 JSON bytes (`ByteArraySerializer`). Every message
+      carries an `event-type` UTF-8 header so consumers can skip types they do not process without
+      parsing JSON. Producer interceptor `DropTypeIdHeader` strips Spring's `__TypeId__` Java class
+      name header so consumers never couple to internal Java packages.
+
+    ## Privacy guarantee (ID-only / zero PII)
+    Unlike outbound webhooks (which a studio explicitly routes to its own tools), Kafka topics are
+    retained for days and readable by any authorized downstream service. Therefore:
+    - **Zero PII on the stream:** Payloads carry UUIDs only — **never** member names, email addresses,
+      or personal contact details. Any consumer that needs a person's display name or email must query
+      the REST API with its own authorization.
+    - Non-personal studio asset labels (`kiln` on `firing.completed`, `recipe` on `glaze.mixed`) are
+      included alongside their stable UUIDs (`kilnId`, `recipeId`) so read projections remain human-readable
+      without extra lookups.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  local:
+    host: localhost:9092
+    protocol: kafka
+    description: |
+      Local single-node KRaft Kafka broker started via `docker compose --profile stream up -d`
+      (`apache/kafka-native:4.1.0`). Run the API with `STUDIOMANAGER_STREAM_ENABLED=true`.
+  broker:
+    host: '{bootstrapServers}'
+    protocol: kafka-secure
+    description: |
+      Configurable Kafka broker template matching `STUDIOMANAGER_KAFKA_BOOTSTRAP_SERVERS`
+      (for example, Azure Event Hubs Standard tier Kafka endpoint authenticated with Managed Identity
+      over SASL OAUTHBEARER).
+    variables:
+      bootstrapServers:
+        default: localhost:9092
+        description: Comma-separated `host:port` list configured in `STUDIOMANAGER_KAFKA_BOOTSTRAP_SERVERS`.
+    security:
+      - $ref: '#/components/securitySchemes/oauthBearer'
+
+channels:
+  studioEvents:
+    address: studiomanager.studio-events
+    title: Studio domain events
+    summary: Primary topic carrying all versioned, ID-only StudioStreamEvent records.
+    description: |
+      Single topic partitioned into 3 partitions with 7-day retention (`retention.ms=604800000`).
+      Records are keyed by the studio's UUID (`studioId`) so all events for a given studio land on
+      the same partition. Consumers must verify that the Kafka record key matches the payload's
+      `studioId` before binding tenant context under PostgreSQL Row-Level Security (RLS).
+    messages:
+      firingCompleted:
+        $ref: '#/components/messages/FiringCompleted'
+      feeCharged:
+        $ref: '#/components/messages/FeeCharged'
+      memberJoined:
+        $ref: '#/components/messages/MemberJoined'
+      accessChanged:
+        $ref: '#/components/messages/AccessChanged'
+      glazeMixed:
+        $ref: '#/components/messages/GlazeMixed'
+    bindings:
+      kafka:
+        topic: studiomanager.studio-events
+        partitions: 3
+        topicConfiguration:
+          retention.ms: 604800000
+        bindingVersion: '0.5.0'
+
+  studioEventsDeadLetters:
+    address: studiomanager.studio-events.dlt
+    title: Studio events dead-letter topic
+    summary: Dead-letter topic for records that failed consumer processing.
+    description: |
+      Receives records from `studiomanager.studio-events` that either exhausted 6 exponential-backoff
+      retries (1 s initial interval, 2x multiplier, 30 s max interval) in `StreamConfiguration.streamErrorHandler`
+      or triggered a non-retryable exception (`JacksonException`, `DeserializationException`,
+      `IllegalArgumentException`, or `ActivityConsumer.MislabelledEventException` when record key and
+      payload `studioId` disagree). 1 partition, 30-day retention (`retention.ms=2592000000`).
+    messages:
+      deadLetterEvent:
+        $ref: '#/components/messages/DeadLetterEvent'
+    bindings:
+      kafka:
+        topic: studiomanager.studio-events.dlt
+        partitions: 1
+        topicConfiguration:
+          retention.ms: 2592000000
+        bindingVersion: '0.5.0'
+
+operations:
+  publishStudioEvents:
+    action: send
+    channel:
+      $ref: '#/channels/studioEvents'
+    title: Publish studio stream events
+    summary: Externalize StudioStreamEvent records from the Spring Modulith outbox to Kafka.
+    description: |
+      Triggered after commit by `spring-modulith-events-kafka` for events emitted by `StreamPublisher`.
+      Uses `StringSerializer` for the `studioId` key, `ByteArraySerializer` for pre-serialized JSON
+      bytes, `acks=all`, `enable.idempotence=true`, and `DropTypeIdHeader` to strip `__TypeId__`.
+    messages:
+      - $ref: '#/channels/studioEvents/messages/firingCompleted'
+      - $ref: '#/channels/studioEvents/messages/feeCharged'
+      - $ref: '#/channels/studioEvents/messages/memberJoined'
+      - $ref: '#/channels/studioEvents/messages/accessChanged'
+      - $ref: '#/channels/studioEvents/messages/glazeMixed'
+
+  consumeWeeklyActivity:
+    action: receive
+    channel:
+      $ref: '#/channels/studioEvents'
+    title: Consume weekly activity projection
+    summary: Project firing, fee, and membership events into weekly studio activity totals.
+    description: |
+      Implemented by `ActivityConsumer` and `ActivityProjection` in consumer group
+      `studiomanager-activity` (`auto.offset.reset=earliest`). Reads the `event-type` header to skip
+      untracked types without recording them in `stream_event_seen`, verifies record key equals
+      `studioId`, binds RLS tenant context as `SystemActor.ACTIVITY_CONSUMER`, and upserts
+      `weekly_activity` and `stream_event_seen` in a single transaction. Seen IDs are purged after
+      30 days (`SeenEventPurge`), safely exceeding the topic's 7-day retention window.
+    messages:
+      - $ref: '#/channels/studioEvents/messages/firingCompleted'
+      - $ref: '#/channels/studioEvents/messages/feeCharged'
+      - $ref: '#/channels/studioEvents/messages/memberJoined'
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          const: studiomanager-activity
+        bindingVersion: '0.5.0'
+
+  parkDeadLetterEvent:
+    action: send
+    channel:
+      $ref: '#/channels/studioEventsDeadLetters'
+    title: Park failed event in dead-letter topic
+    summary: Publish unprocessable or retry-exhausted records to studiomanager.studio-events.dlt.
+    description: |
+      Invoked by Spring Kafka's `DeadLetterPublishingRecoverer` configured in `StreamConfiguration`.
+      Preserves original payload bytes and key, adding standard Spring Kafka `kafka_dlt-*` diagnostic headers.
+    messages:
+      - $ref: '#/channels/studioEventsDeadLetters/messages/deadLetterEvent'
+
+components:
+  securitySchemes:
+    oauthBearer:
+      type: oauth2
+      description: |
+        SASL/OAUTHBEARER over TLS (e.g., Azure Event Hubs Kafka endpoint using the Container App's
+        Managed Identity rather than a shared connection string).
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token
+          availableScopes:
+            'https://{namespace}.servicebus.windows.net/.default': Produce and consume Kafka topics via Azure Managed Identity.
+
+  messageTraits:
+    StudioEventCommon:
+      contentType: application/json
+      headers:
+        type: object
+        required:
+          - event-type
+        properties:
+          event-type:
+            type: string
+            description: |
+              UTF-8 event type discriminator matching the payload's `type` field. Allows consumers to
+              skip events they do not handle without deserializing JSON. Spring's `__TypeId__` header
+              is explicitly removed by `DropTypeIdHeader`.
+            enum:
+              - firing.completed
+              - fee.charged
+              - member.joined
+              - access.changed
+              - glaze.mixed
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: Studio UUID string (`studioId`). Must match `payload.studioId`.
+          bindingVersion: '0.5.0'
+
+  messages:
+    FiringCompleted:
+      name: FiringCompleted
+      title: Firing completed
+      summary: A kiln firing was unloaded and completed.
+      description: |
+        Published from domain event `kiln.FiringCompleted`. Carries aggregate piece and maker counts
+        and equipment identifiers only — never member names, emails, or individual piece details.
+        Deterministic `id` is `UUID.nameUUIDFromBytes("firing.completed:" + firingId)`.
+      traits:
+        - $ref: '#/components/messageTraits/StudioEventCommon'
+      payload:
+        $ref: '#/components/schemas/FiringCompletedPayload'
+      examples:
+        - name: bisqueFiringCompleted
+          summary: Completed bisque firing with 24 pieces across 5 makers
+          headers:
+            event-type: firing.completed
+          payload:
+            id: 2a9c4b11-62b1-3d7a-9b7a-7e31f4e5c821
+            type: firing.completed
+            version: 1
+            studioId: 019a5d3b-6c1e-7a40-b2e1-8f2c1a04d901
+            occurredAt: '2026-11-05T18:42:10Z'
+            firingId: 019a5d3b-9910-7b11-a234-567890abcdef
+            kind: bisque
+            kilnId: 019a5d3a-1122-7c33-8444-555566667777
+            kiln: Skutt 1027
+            pieces: 24
+            makers: 5
+
+    FeeCharged:
+      name: FeeCharged
+      title: Fee charged
+      summary: A non-zero charge was posted to a member's studio balance.
+      description: |
+        Published from domain events `piece.PieceReceived` (`source="piece"`) and
+        `supplies.SupplySold` (`source="supply_sale"`). Zero-amount charges are not emitted.
+        Carries `memberId` only (no member name or email).
+        Deterministic `id` is `UUID.nameUUIDFromBytes("fee.charged:" + source + ":" + sourceId)`.
+      traits:
+        - $ref: '#/components/messageTraits/StudioEventCommon'
+      payload:
+        $ref: '#/components/schemas/FeeChargedPayload'
+      examples:
+        - name: supplySaleFeeCharged
+          summary: Supply sale charge posted to a member's balance
+          headers:
+            event-type: fee.charged
+          payload:
+            id: 5e1d8c22-4a91-3e20-8c11-1a2b3c4d5e6f
+            type: fee.charged
+            version: 1
+            studioId: 019a5d3b-6c1e-7a40-b2e1-8f2c1a04d901
+            occurredAt: '2026-11-05T19:10:00Z'
+            memberId: 019a5d39-4455-7d66-9777-888899990000
+            source: supply_sale
+            sourceId: 019a5d3c-0011-7e22-8333-444455556666
+            amount: '60.00'
+            currency: USD
+            taxCategory: RETAIL
+
+    MemberJoined:
+      name: MemberJoined
+      title: Member joined
+      summary: An account accepted an invite and joined a studio.
+      description: |
+        Published from domain event `studio.MemberJoined`. Carries `memberId` only (no member name,
+        email, or role). If the same account accepts a second invite to the same studio, the event
+        has the same deterministic `id` so consumers deduplicate it.
+        Deterministic `id` is `UUID.nameUUIDFromBytes("member.joined:" + studioId + ":" + memberId)`.
+      traits:
+        - $ref: '#/components/messageTraits/StudioEventCommon'
+      payload:
+        $ref: '#/components/schemas/MemberJoinedPayload'
+      examples:
+        - name: memberJoinedStudio
+          summary: Member account joined studio
+          headers:
+            event-type: member.joined
+          payload:
+            id: 7c3e9a44-1f82-3b5c-a9d0-1234567890ab
+            type: member.joined
+            version: 1
+            studioId: 019a5d3b-6c1e-7a40-b2e1-8f2c1a04d901
+            occurredAt: '2026-11-05T17:05:30Z'
+            memberId: 019a5d39-4455-7d66-9777-888899990000
+
+    AccessChanged:
+      name: AccessChanged
+      title: Access changed
+      summary: Studio access, roles, duties, billing contact, or data export audit event occurred.
+      description: |
+        Published from domain event `studio.AccessChanged`. Carries actor/token UUIDs and symbolic
+        permission/role/duty keys only — never person names or email addresses.
+        Deterministic `id` is
+        `UUID.nameUUIDFromBytes("access.changed:" + studioId + ":" + kind + ":" + target + ":" + occurredAt + ":" + actorId)`.
+      traits:
+        - $ref: '#/components/messageTraits/StudioEventCommon'
+      payload:
+        $ref: '#/components/schemas/AccessChangedPayload'
+      examples:
+        - name: staffRolePermissionsUpdated
+          summary: Permission removed from the staff role
+          headers:
+            event-type: access.changed
+          payload:
+            id: 9b4f2d18-7e61-3a45-9c12-fedcba987654
+            type: access.changed
+            version: 1
+            studioId: 019a5d3b-6c1e-7a40-b2e1-8f2c1a04d901
+            occurredAt: '2026-11-05T20:15:00Z'
+            actorId: 019a5d38-aaaa-7bbb-8ccc-ddddeeeeffff
+            viaTokenId: null
+            kind: role_permissions
+            target: staff
+            added: []
+            removed:
+              - notices.send
+
+    GlazeMixed:
+      name: GlazeMixed
+      title: Glaze mixed
+      summary: A studio glaze bucket batch was mixed.
+      description: |
+        Published from domain event `glaze.GlazeMixed`. Carries IDs, batch measurements, and the
+        non-personal studio recipe label only — never person names or email addresses.
+        Deterministic `id` is `UUID.nameUUIDFromBytes("glaze.mixed:" + mixId)`.
+      traits:
+        - $ref: '#/components/messageTraits/StudioEventCommon'
+      payload:
+        $ref: '#/components/schemas/GlazeMixedPayload'
+      examples:
+        - name: studioBucketMixed
+          summary: Tenmoku glaze bucket mixed with measured specific gravity
+          headers:
+            event-type: glaze.mixed
+          payload:
+            id: 4d8a1c63-9b24-3f7e-b610-aabbccddeeff
+            type: glaze.mixed
+            version: 1
+            studioId: 019a5d3b-6c1e-7a40-b2e1-8f2c1a04d901
+            occurredAt: '2026-11-05T21:00:00Z'
+            mixId: 019a5d3d-1234-7567-889a-bcdef0123456
+            recipeId: 019a5d37-2222-7333-8444-555566667777
+            recipe: Tenmoku
+            mixedByAccountId: 019a5d38-aaaa-7bbb-8ccc-ddddeeeeffff
+            dryWeightG: '10000'
+            waterG: '7500'
+            specificGravity: '1.46'
+
+    DeadLetterEvent:
+      name: DeadLetterEvent
+      title: Dead-lettered studio event
+      summary: Raw failed record parked by Spring Kafka DeadLetterPublishingRecoverer.
+      description: |
+        Contains the original message bytes (which may be a valid `StudioStreamEvent` whose consumer
+        exhausted retries, a mislabelled record whose key and `studioId` disagreed, or unreadable
+        malformed JSON) along with Spring Kafka `kafka_dlt-*` diagnostic headers.
+      headers:
+        type: object
+        properties:
+          event-type:
+            type: string
+            description: Original `event-type` header if present on the source record.
+          kafka_dlt-original-topic:
+            type: string
+          kafka_dlt-original-partition:
+            type: integer
+          kafka_dlt-original-offset:
+            type: integer
+          kafka_dlt-exception-fqcn:
+            type: string
+          kafka_dlt-exception-message:
+            type: string
+      payload:
+        description: Original unprocessed record payload (JSON object or raw malformed bytes).
+
+  schemas:
+    StudioStreamEventEnvelope:
+      type: object
+      description: |
+        Envelope fields present on every `StudioStreamEvent` record. `type` and `version` are fixed
+        accessors serialized to JSON on write and ignored on deserialization so an event cannot claim
+        to be a different type or schema version.
+      required:
+        - id
+        - type
+        - version
+        - studioId
+        - occurredAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Deterministic UUIDv3 (`UUID.nameUUIDFromBytes(dedupeKey)`) used for idempotent consumer deduplication.
+        type:
+          type: string
+          description: Fixed wire event type name (matches the `event-type` Kafka header).
+        version:
+          type: integer
+          const: 1
+          description: Fixed schema version for this event contract.
+        studioId:
+          type: string
+          format: uuid
+          description: Owning studio UUID (must match the Kafka record key).
+        occurredAt:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 timestamp truncated to whole seconds. Consumers order events by this field.
+
+    FiringCompletedPayload:
+      allOf:
+        - $ref: '#/components/schemas/StudioStreamEventEnvelope'
+        - type: object
+          additionalProperties: false
+          required:
+            - id
+            - type
+            - version
+            - studioId
+            - occurredAt
+            - firingId
+            - kind
+            - kilnId
+            - kiln
+            - pieces
+            - makers
+          properties:
+            id:
+              type: string
+              format: uuid
+            type:
+              type: string
+              const: firing.completed
+            version:
+              type: integer
+              const: 1
+            studioId:
+              type: string
+              format: uuid
+            occurredAt:
+              type: string
+              format: date-time
+            firingId:
+              type: string
+              format: uuid
+              description: Completed firing UUID.
+            kind:
+              type: string
+              enum:
+                - bisque
+                - glaze
+              description: Lowercased `FiringKind` value.
+            kilnId:
+              type: string
+              format: uuid
+              description: Stable kiln UUID used to aggregate totals even if the kiln is renamed.
+            kiln:
+              type: string
+              description: Kiln display label at the time of unloading (non-personal equipment name).
+            pieces:
+              type: integer
+              minimum: 0
+              description: Total count of pieces unloaded from this firing.
+            makers:
+              type: integer
+              minimum: 0
+              description: Count of distinct maker accounts represented in this firing.
+
+    FeeChargedPayload:
+      allOf:
+        - $ref: '#/components/schemas/StudioStreamEventEnvelope'
+        - type: object
+          additionalProperties: false
+          required:
+            - id
+            - type
+            - version
+            - studioId
+            - occurredAt
+            - memberId
+            - source
+            - sourceId
+            - amount
+            - currency
+          properties:
+            id:
+              type: string
+              format: uuid
+            type:
+              type: string
+              const: fee.charged
+            version:
+              type: integer
+              const: 1
+            studioId:
+              type: string
+              format: uuid
+            occurredAt:
+              type: string
+              format: date-time
+            memberId:
+              type: string
+              format: uuid
+              description: Charged member's account UUID (ID only; no name or email).
+            source:
+              type: string
+              enum:
+                - piece
+                - supply_sale
+              description: Origin of the balance charge (`piece` for firing fee at intake, `supply_sale` for studio supply purchase).
+            sourceId:
+              type: string
+              format: uuid
+              description: Originating entity UUID (`pieceId` for `piece`, `movementId` for `supply_sale`).
+            amount:
+              type: string
+              pattern: '^-?\d+(\.\d+)?$'
+              description: Plain decimal string amount (e.g. `"60.00"`). Zero-amount charges are omitted from the stream.
+            currency:
+              type: string
+              pattern: '^[A-Z]{3}$'
+              description: ISO 4217 3-letter currency code (e.g. `"USD"`).
+            taxCategory:
+              type:
+                - string
+                - 'null'
+              description: Optional studio tax category key if taxable, or `null`.
+
+    MemberJoinedPayload:
+      allOf:
+        - $ref: '#/components/schemas/StudioStreamEventEnvelope'
+        - type: object
+          additionalProperties: false
+          required:
+            - id
+            - type
+            - version
+            - studioId
+            - occurredAt
+            - memberId
+          properties:
+            id:
+              type: string
+              format: uuid
+            type:
+              type: string
+              const: member.joined
+            version:
+              type: integer
+              const: 1
+            studioId:
+              type: string
+              format: uuid
+            occurredAt:
+              type: string
+              format: date-time
+            memberId:
+              type: string
+              format: uuid
+              description: Joining member's account UUID (ID only; no name or email).
+
+    AccessChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/StudioStreamEventEnvelope'
+        - type: object
+          additionalProperties: false
+          required:
+            - id
+            - type
+            - version
+            - studioId
+            - occurredAt
+            - actorId
+            - kind
+            - target
+            - added
+            - removed
+          properties:
+            id:
+              type: string
+              format: uuid
+            type:
+              type: string
+              const: access.changed
+            version:
+              type: integer
+              const: 1
+            studioId:
+              type: string
+              format: uuid
+            occurredAt:
+              type: string
+              format: date-time
+            actorId:
+              type: string
+              format: uuid
+              description: Account UUID of the actor who made the change (ID only; no name or email).
+            viaTokenId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+              description: Personal API token UUID if performed through a token, or `null` for an interactive session.
+            kind:
+              type: string
+              enum:
+                - role_permissions
+                - member_duties
+                - member_role
+                - billing_contact
+                - role_created
+                - role_renamed
+                - role_deleted
+                - studio_exported
+              description: Lowercased `AccessChangeLog.Kind` discriminator.
+            target:
+              type: string
+              description: Role key, member account UUID, or `"studio"`.
+            added:
+              type: array
+              items:
+                type: string
+              description: Permission keys, duty names, role names, account IDs, or export filename added by the change.
+            removed:
+              type: array
+              items:
+                type: string
+              description: Permission keys, duty names, role names, or account IDs removed by the change.
+
+    GlazeMixedPayload:
+      allOf:
+        - $ref: '#/components/schemas/StudioStreamEventEnvelope'
+        - type: object
+          additionalProperties: false
+          required:
+            - id
+            - type
+            - version
+            - studioId
+            - occurredAt
+            - mixId
+            - recipeId
+            - recipe
+            - mixedByAccountId
+            - dryWeightG
+          properties:
+            id:
+              type: string
+              format: uuid
+            type:
+              type: string
+              const: glaze.mixed
+            version:
+              type: integer
+              const: 1
+            studioId:
+              type: string
+              format: uuid
+            occurredAt:
+              type: string
+              format: date-time
+            mixId:
+              type: string
+              format: uuid
+              description: Glaze bucket mix log UUID.
+            recipeId:
+              type: string
+              format: uuid
+              description: Studio glaze recipe UUID.
+            recipe:
+              type: string
+              description: Studio glaze recipe display name (non-personal asset label).
+            mixedByAccountId:
+              type: string
+              format: uuid
+              description: Account UUID of the person who mixed the bucket (ID only; no name or email).
+            dryWeightG:
+              type: string
+              pattern: '^\d+(\.\d+)?$'
+              description: Plain decimal string dry batch weight in grams (e.g. `"10000"`).
+            waterG:
+              type:
+                - string
+                - 'null'
+              pattern: '^\d+(\.\d+)?$'
+              description: Optional plain decimal string water weight in grams, or `null`.
+            specificGravity:
+              type:
+                - string
+                - 'null'
+              pattern: '^\d+(\.\d+)?$'
+              description: Optional plain decimal string measured specific gravity (e.g. `"1.46"`), or `null`.

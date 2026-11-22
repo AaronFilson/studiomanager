@@ -3,6 +3,7 @@ package io.github.aaronfilson.studiomanager.invoice;
 import io.github.aaronfilson.studiomanager.invoice.SupplyMatcher.AliasKey;
 import io.github.aaronfilson.studiomanager.invoice.SupplyMatcher.AliasKind;
 import io.github.aaronfilson.studiomanager.invoice.SupplyMatcher.MatchSource;
+import io.github.aaronfilson.studiomanager.ledger.LedgerService;
 import io.github.aaronfilson.studiomanager.platform.ConflictException;
 import io.github.aaronfilson.studiomanager.platform.InvalidInputException;
 import io.github.aaronfilson.studiomanager.platform.NotFoundException;
@@ -40,6 +41,7 @@ class InvoiceReview {
   private final InvoiceQueries queries;
   private final SupplyService supplies;
   private final PurchaseRequests requests;
+  private final LedgerService ledger;
   private final InvoiceDuplicates duplicates;
   private final EntityManager entityManager;
   private final Clock clock;
@@ -50,6 +52,7 @@ class InvoiceReview {
       InvoiceQueries queries,
       SupplyService supplies,
       PurchaseRequests requests,
+      LedgerService ledger,
       InvoiceDuplicates duplicates,
       EntityManager entityManager,
       Clock clock) {
@@ -58,6 +61,7 @@ class InvoiceReview {
     this.queries = queries;
     this.supplies = supplies;
     this.requests = requests;
+    this.ledger = ledger;
     this.duplicates = duplicates;
     this.entityManager = entityManager;
     this.clock = clock;
@@ -156,7 +160,7 @@ class InvoiceReview {
    * refused.
    */
   @Transactional
-  InvoiceView confirm(UUID studioId, UUID invoiceId, long expectedVersion) {
+  InvoiceView confirm(UUID studioId, UUID invoiceId, long expectedVersion, boolean recordPayable) {
     InvoiceInbox.requireBound(studioId);
     TenantContext caller = TenantContext.require();
     Invoice invoice = findAtVersion(invoiceId, expectedVersion);
@@ -174,11 +178,26 @@ class InvoiceReview {
             "Line %d needs a quantity above zero to receive.".formatted(index + 1));
       }
     }
+    UUID ledgerEntryId = null;
+    if (recordPayable) {
+      BigDecimal billAmount = invoice.draft().payableAmount();
+      if (billAmount == null || billAmount.signum() <= 0) {
+        throw new InvalidInputException(
+            "Enter a positive total before recording this invoice as a bill in the books.");
+      }
+      ledgerEntryId =
+          ledger.recordSupplierBill(
+              invoiceId,
+              invoice.vendorName(),
+              invoice.invoiceNumber(),
+              invoice.invoiceDate(),
+              billAmount);
+    }
     Instant now = clock.instant();
     LocalDate invoiceDate = invoice.invoiceDate();
     Instant purchasedAt =
         invoiceDate != null ? invoiceDate.atStartOfDay(ZoneOffset.UTC).toInstant() : now;
-    invoice.confirmed(caller.accountId(), now);
+    invoice.confirmed(caller.accountId(), now, ledgerEntryId);
     // Supplies records the stock with SQL in this transaction, so write the invoice first
     invoices.flush();
     String note = receivedNote(invoice);

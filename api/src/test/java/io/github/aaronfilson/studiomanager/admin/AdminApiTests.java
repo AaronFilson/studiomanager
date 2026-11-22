@@ -266,6 +266,76 @@ class AdminApiTests {
         .hasMessageContaining("Only a platform admin");
   }
 
+  @Test
+  void adminSeesApiAndMcpCallUsageByStudioAndToken() {
+    UUID studioId = createStudio(owner);
+    String secret =
+        read(
+            send(
+                owner,
+                "POST",
+                "/api/v1/studios/" + studioId + "/api-tokens",
+                "{\"name\": \"Usage Bot\", \"scopes\": [\"read\"]}"),
+            "$.secret");
+
+    // Make one token REST call and one MCP tool call
+    assertThat(
+            mvc.get()
+                .uri("/api/v1/studios/{id}/kilns", studioId)
+                .header("Authorization", "Bearer " + secret))
+        .hasStatusOk();
+    assertThat(
+            mvc.post()
+                .uri("/api/v1/studios/{id}/mcp", studioId)
+                .header("Authorization", "Bearer " + secret)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
+                .content(
+                    "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/call\", \"params\": {\"name\": \"kilns\", \"arguments\": {}}}"))
+        .hasStatusOk();
+
+    // Non-admins and tokens are refused
+    assertThat(mvc.get().uri("/api/v1/admin/api-usage").with(owner.token()))
+        .hasStatus(HttpStatus.FORBIDDEN);
+    assertThat(mvc.get().uri("/api/v1/admin/api-usage").header("Authorization", "Bearer " + secret))
+        .hasStatus(HttpStatus.FORBIDDEN);
+
+    MvcTestResult usage =
+        mvc.get().uri("/api/v1/admin/api-usage").with(admin.adminToken()).exchange();
+    assertThat(usage).hasStatusOk();
+    assertThat(
+            read(
+                usage,
+                "$.studios[?(@.studioId == '%s' && @.channel == 'MCP')].callsLastHour"
+                    .formatted(studioId)))
+        .contains("1");
+    assertThat(
+            read(
+                usage,
+                "$.studios[?(@.studioId == '%s' && @.channel == 'TOKEN')].callsLastHour"
+                    .formatted(studioId)))
+        .contains("1");
+    assertThat(read(usage, "$.tokens[?(@.tokenName == 'Usage Bot')].callsLastDay")).contains("2");
+    assertThat(read(usage, "$.tokens[?(@.tokenName == 'Usage Bot')].activeHoursLastDay"))
+        .contains("1");
+
+    // Database function enforces platform admin binding directly
+    UUID ownerId =
+        UUID.fromString(
+            read(mvc.get().uri("/api/v1/me").with(owner.token()).exchange(), "$.account.id"));
+    assertThatThrownBy(() ->
+            TenantContext.callAs(
+                TenantContext.forAccount(ownerId),
+                () ->
+                    transactions.execute(tx ->
+                        jdbc.sql(
+                                "select studio_id from app.admin_api_usage_by_studio(now() - interval '1 hour', now() - interval '1 day')")
+                            .query(UUID.class)
+                            .list())))
+        .rootCause()
+        .hasMessageContaining("Only a platform admin");
+  }
+
   private Integer writeSetting(UUID changedBy) {
     return transactions.execute(tx ->
         jdbc.sql(

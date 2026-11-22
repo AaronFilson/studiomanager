@@ -424,6 +424,82 @@ class McpOAuthTests {
         .hasStatus(HttpStatus.FORBIDDEN);
   }
 
+  @Test
+  void entraUserCanLinkAndUnlinkVerifiedMcpOAuthIdentity() throws Exception {
+    String githubSub = "github:77742";
+    String mcpJwt = mintJwt(TRUSTED_KEY, githubSub, studioA, "read", MCP_AUDIENCE);
+
+    // Before linking, the Entra user's studio doesn't know github:77742
+    assertThat(rpc(studioA, mcpJwt, "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"ping\"}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
+
+    // Linking with an untrusted signature fails with 400
+    String rogueJwt = mintJwt(UNTRUSTED_KEY, githubSub, studioA, "read", MCP_AUDIENCE);
+    assertThat(
+            mvc.post()
+                .uri("/api/v1/me/identities")
+                .with(entraStaff.token())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"%s\"}".formatted(rogueJwt)))
+        .hasStatus(HttpStatus.BAD_REQUEST);
+
+    // Linking with a valid RS256 MCP OAuth JWT succeeds
+    MvcTestResult linked =
+        mvc.post()
+            .uri("/api/v1/me/identities")
+            .with(entraStaff.token())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"token\": \"%s\"}".formatted(mcpJwt))
+            .exchange();
+    assertThat(linked).hasStatus(HttpStatus.CREATED);
+    String identityId = read(linked, "$.id");
+    assertThat(linked).bodyJson().extractingPath("$.issuer").isEqualTo(MCP_ISSUER);
+    assertThat(linked).bodyJson().extractingPath("$.subject").isEqualTo(githubSub);
+
+    // Appears in GET /api/v1/me/identities
+    MvcTestResult listed =
+        mvc.get().uri("/api/v1/me/identities").with(entraStaff.token()).exchange();
+    assertThat(listed).hasStatusOk();
+    assertThat(listed).bodyJson().extractingPath("$[0].subject").isEqualTo(githubSub);
+
+    // Another account cannot hijack the same linked MCP identity (409)
+    assertThat(
+            mvc.post()
+                .uri("/api/v1/me/identities")
+                .with(tokenWithIssuer(owner, MCP_ISSUER))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"%s\"}".formatted(mcpJwt)))
+        .hasStatus(HttpStatus.CONFLICT);
+
+    // API tokens cannot manage linked identities (403)
+    String smpat =
+        read(
+            post(
+                owner,
+                MCP_ISSUER,
+                "/api/v1/studios/" + studioA + "/api-tokens",
+                "{\"name\": \"Personal\", \"scopes\": [\"read\"]}"),
+            "$.secret");
+    assertThat(
+            mvc.get()
+                .uri("/api/v1/me/identities")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + smpat))
+        .hasStatus(HttpStatus.FORBIDDEN);
+
+    // Now the exact same MCP OAuth JWT works on MCP as entraStaff!
+    assertThat(callTool(studioA, mcpJwt, "kilns", "{}"))
+        .hasStatusOk()
+        .bodyJson()
+        .extractingPath("$.result.isError")
+        .isEqualTo(false);
+
+    // Unlinking immediately cuts off access again
+    assertThat(mvc.delete().uri("/api/v1/me/identities/{id}", identityId).with(entraStaff.token()))
+        .hasStatus(HttpStatus.NO_CONTENT);
+    assertThat(rpc(studioA, mcpJwt, "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"ping\"}"))
+        .hasStatus(HttpStatus.FORBIDDEN);
+  }
+
   private MvcTestResult callTool(UUID studioId, String bearer, String tool, String arguments) {
     return rpc(
         studioId,

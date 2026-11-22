@@ -533,4 +533,42 @@ describe('Supplies inbox', () => {
     expect(addForm.getByLabelText('Order this many')).toHaveValue('');
     expect(addForm.getByLabelText('Price to members (USD)')).toHaveValue('');
   });
+
+  it('optionally records the invoice as a supplier bill in the ledger on confirmation', async () => {
+    const studio = aStudio();
+    let confirmed: unknown;
+    let current: Invoice = { ...read, status: 'READY', problems: [] };
+    server.use(
+      http.get(`${API}/api/v1/studios/:studioId`, () => HttpResponse.json(studio)),
+      http.get(`${API}/api/v1/studios/:studioId/supplies`, () => HttpResponse.json([clay])),
+      http.get(`${API}/api/v1/studios/:studioId/purchase-requests`, () => HttpResponse.json([])),
+      http.get(`${API}/api/v1/studios/:studioId/invoices`, () =>
+        HttpResponse.json({
+          items: [{ id: 'inv1', status: current.status, fileType: 'PDF', vendorName: 'Riverbend Clay Supply', uploadedAt: '2026-11-06T08:00:00Z' }],
+          truncated: false,
+          limit: 100,
+        }),
+      ),
+      http.get(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () => HttpResponse.json(current)),
+      http.put(`${API}/api/v1/studios/:studioId/invoices/:invoiceId`, () => {
+        current = { ...current, version: 3 };
+        return HttpResponse.json(current);
+      }),
+      http.post(`${API}/api/v1/studios/:studioId/invoices/:invoiceId/confirm`, async ({ request }) => {
+        confirmed = await request.json();
+        current = { ...current, status: 'CONFIRMED', ledgerEntryId: 'le-1', version: 4 };
+        return HttpResponse.json(current);
+      }),
+    );
+
+    const { user } = renderApp(`/studios/${studio.id}/supplies`);
+    await user.click(await screen.findByRole('button', { name: 'Open' }));
+    await user.click(
+      await screen.findByLabelText(/Also record this invoice as a supplier bill in the ledger/),
+    );
+    await user.click(screen.getByRole('button', { name: 'Confirm and receive stock' }));
+
+    await waitFor(() => expect(confirmed).toEqual({ expectedVersion: 3, recordPayable: true }));
+    expect(await screen.findByText('Recorded as a supplier bill in the ledger')).toBeInTheDocument();
+  });
 });

@@ -19,6 +19,7 @@ import {
   startInvoiceUploadMutation,
   type SupplyCategory,
   type SupplyItem,
+  useCan,
 } from '@studiomanager/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type KeyboardEvent, type SubmitEvent, useEffect, useId, useRef, useState } from 'react';
@@ -634,8 +635,11 @@ function DraftForm({
   });
   const [lines, setLines] = useState<EditableLine[]>(invoice.lines.map(editable));
   const [creatingForLine, setCreatingForLine] = useState<number | null>(null);
+  const [recordPayable, setRecordPayable] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string>();
+  const { can } = useCan(studioId);
+  const canRecordPayable = can('money.payables.manage');
   // The version on the server. Saving or confirming raises it without remounting the form, so a
   // confirm that then fails ("line 2 needs a quantity") can be fixed and retried without a 409
   const [version, setVersion] = useState(invoice.version);
@@ -709,7 +713,13 @@ function DraftForm({
     try {
       const saved = await saveFirst.mutateAsync({ path, body: draft() });
       setVersion(saved.version);
-      confirm.mutate({ path, body: { expectedVersion: saved.version } });
+      confirm.mutate({
+        path,
+        body: {
+          expectedVersion: saved.version,
+          ...(canRecordPayable && recordPayable ? { recordPayable: true } : {}),
+        },
+      });
     } catch {
       await refresh();
     }
@@ -1011,6 +1021,17 @@ function DraftForm({
           </tbody>
         </table>
       </div>
+      {!confirmed && canRecordPayable && (
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={recordPayable}
+            disabled={busy}
+            onChange={(e) => setRecordPayable(e.target.checked)}
+          />
+          Also record this invoice as a supplier bill in the ledger (accounts payable)
+        </label>
+      )}
       {!confirmed && (
         <div className="row">
           <button type="button" onClick={() => setLines((current) => [...current, { description: '', kind: 'ITEM' }])}>
@@ -1029,6 +1050,7 @@ function DraftForm({
       )}
       {confirmed && (
         <div className="row">
+          {invoice.ledgerEntryId && <span className="badge">Recorded as a supplier bill in the ledger</span>}
           <button type="button" disabled={exporting} onClick={() => void downloadEvalCase()}>
             {exporting ? 'Preparing…' : 'Download eval case'}
           </button>

@@ -59,6 +59,7 @@ function SuggestionRow({ studioId, action }: { studioId: string; action: Pending
             {new Date(action.proposedAt).toLocaleString()}
           </div>
           {/* The assistant's own words: plain text, never markup */}
+          {action.studioNotice && <p>{action.studioNotice.body}</p>}
           {action.reason && <p>{action.reason}</p>}
         </div>
         <div className="row">
@@ -90,6 +91,9 @@ function describe(action: PendingAction): string {
     case 'MAINTENANCE_TASK': {
       const task = action.maintenanceTask;
       return `Add “${task?.title ?? 'a task'}” on ${action.subjectName}${task ? `, ${interval(task.everyDays, task.everyFirings)}` : ''}`;
+    }
+    case 'STUDIO_NOTICE': {
+      return `Send studio notice: “${action.studioNotice?.title ?? action.subjectName}”`;
     }
   }
 }
